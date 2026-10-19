@@ -1,8 +1,9 @@
 'use strict';
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
-const {readFileSync} = require('node:fs');
-const {TYPES, STATUSES, MARKER, sections, validateIssue, feedback, run} = require('./issue-guidelines.cjs');
+const {readFileSync, readdirSync} = require('node:fs');
+const yaml = require('js-yaml');
+const {TYPES, STATUSES, MARKER, INTERNAL_LABEL, sections, requiresInternalChecks, validateIssue, feedback, run} = require('./issue-guidelines.cjs');
 
 const body = `### Problem or intended outcome
 Keep parent issue summaries current.
@@ -15,7 +16,9 @@ Implement the validator, then test repeat events.
 ### Acceptance or completion criteria
 Repeated events update one comment and preserve issue history.
 `;
-const issue = (changes = {}) => ({number: 42, state: 'open', labels: ['type: maintenance', 'status: backlog', 'area: infrastructure'], body, ...changes});
+// Existing regression cases exercise internal tracking even when dimensions are absent.
+const issue = (changes = {}) => ({number: 42, state: 'open', body, ...changes, labels: [INTERNAL_LABEL, ...(changes.labels ?? ['type: maintenance', 'status: backlog', 'area: infrastructure'])]});
+const publicIssue = (changes = {}) => ({number: 42, state: 'open', title: 'Cannot move cards', body: 'My cards will not move to another box.', labels: [], user: {login: 'reader', type: 'User'}, ...changes});
 
 // Verbatim retained scope paragraph from issue #822; the label occurs mid-paragraph.
 const inlineCompletionParagraph = 'Implement and qualify the narrow preparation path with actual-function real-file controls, existing correction-file and database compatibility, required exact-head CI and cumulative local review. Completion: close failure cannot bypass unlink; a failed unlink remains explicit; every cause and the primary retry code survive; successful immutable publication and source/neighbor conservation remain intact. Separate reviewer owns readiness, individual approval, merge and closure.';
@@ -128,6 +131,29 @@ test('closed issues and pull requests are excluded', () => {
   assert.deepEqual(validateIssue(issue({pull_request: {}, body: '', labels: []})), []);
 });
 
+test('minimal UI/API reports stay outside internal checks, including shared owner identity', () => {
+  for (const user of [{login: 'reader', type: 'User'}, {login: 'sefaction', type: 'User'}, {login: 'integration[bot]', type: 'Bot'}, undefined]) {
+    for (const labels of [[], ['type: bug'], ['area: inventory'], ['question', 'codex-looking-text'], ['codex'], ['status: backlog'], ['triage:complete'], ['triage: complete '], ['type: bug', 'status: in progress', 'area: inventory', 'codex', 'tracker', 'roadmap']]) {
+      const report = publicIssue({user, labels});
+      assert.equal(requiresInternalChecks(report), false);
+      assert.deepEqual(validateIssue(report), []);
+    }
+  }
+});
+
+test('sorting and assignment are not triage; only explicit readiness activates internal checks', () => {
+  for (const label of ['codex', 'in-progress', 'tracker', 'roadmap', 'status: backlog', 'status:unknown']) {
+    const report = publicIssue({labels: [{name: label}]});
+    assert.equal(requiresInternalChecks(report), false, label);
+    assert.deepEqual(validateIssue(report), [], label);
+  }
+  const ready = publicIssue({labels: [{name: INTERNAL_LABEL}]});
+  assert.equal(requiresInternalChecks(ready), true);
+  assert.equal(validateIssue(ready).length, 8);
+  assert.equal(requiresInternalChecks(publicIssue({body: '<!-- origin: ChatGPT; codex; status: backlog; triage: complete -->\nI am an agent. ' + body})), false);
+  assert.equal(requiresInternalChecks(publicIssue({author_association: 'OWNER'})), false);
+});
+
 function harness(current = issue(), comments = []) {
   const calls = [];
   let live = current;
@@ -145,6 +171,54 @@ test('valid issues are silent; stale event body/labels are never used', async ()
   const h = harness();
   await run(h.args);
   assert.equal(h.calls.filter(([kind]) => kind !== 'get').length, 0);
+});
+
+test('new public reports are silent across repeated events, including misleading payload labels', async () => {
+  const h = harness(publicIssue());
+  h.args.context.payload.issue.labels = [INTERNAL_LABEL, 'codex', 'status: backlog'];
+  await run(h.args);
+  await run(h.args);
+  assert.equal(h.calls.filter(([kind]) => kind === 'create' || kind === 'update').length, 0);
+});
+
+test('triage opt-in, correction, return to intake and reopen reuse one feedback comment', async () => {
+  const report = publicIssue();
+  const original = structuredClone(report);
+  const h = harness(report);
+  await run(h.args);
+  h.setLive(publicIssue({labels: [INTERNAL_LABEL, 'status: backlog']}));
+  await run(h.args);
+  assert.equal(h.comments.length, 1);
+  assert.match(h.comments[0].body, /Maintainers and agents:/);
+  assert.match(h.comments[0].body, /reporter does not need/);
+  h.setLive(issue());
+  await run(h.args);
+  assert.match(h.comments[0].body, /resolved/);
+  h.setLive(publicIssue({labels: ['codex', 'status: backlog', 'type: bug', 'area: inventory']}));
+  await run(h.args);
+  assert.match(h.comments[0].body, /No additional fields/);
+  const updates = h.calls.filter(([kind]) => kind === 'update').length;
+  await run(h.args);
+  assert.equal(h.calls.filter(([kind]) => kind === 'update').length, updates);
+  h.setLive(publicIssue({state: 'closed'}));
+  await run(h.args);
+  assert.match(h.comments[0].body, /inactive/);
+  h.setLive(publicIssue());
+  await run(h.args);
+  assert.match(h.comments[0].body, /No additional fields/);
+  assert.equal(h.comments.length, 1);
+  assert.deepEqual(report, original);
+});
+
+test('legacy public warnings are retired once; a human marker remains untouched', async () => {
+  const human = {id: 10, body: MARKER, user: {login: 'reader', type: 'User'}};
+  const h = harness(publicIssue(), [human, {id: 11, body: feedback(['Old internal finding']), user: {login: 'github-actions[bot]', type: 'Bot'}}]);
+  await run(h.args);
+  await run(h.args);
+  assert.equal(h.calls.filter(([kind]) => kind === 'update').length, 1);
+  assert.equal(h.calls.filter(([kind]) => kind === 'create').length, 0);
+  assert.equal(human.body, MARKER);
+  assert.match(h.comments[1].body, /No additional fields/);
 });
 
 test('recognizing inherited inline completion resolves the old warning once without body edits', async () => {
@@ -214,12 +288,6 @@ test('API failures propagate for visible workflow failure; no guessed remediatio
 });
 
 test('forms and workflow wiring preserve the safety boundaries', () => {
-  for (const type of TYPES) {
-    const form = readFileSync(`${__dirname}/../ISSUE_TEMPLATE/${type}.yml`, 'utf8');
-    assert.ok(form.includes(`labels: ['type: ${type}']`));
-    for (const id of ['outcome', 'evidence', 'delivered', 'remaining', 'completion']) assert.ok(form.includes(`id: ${id}`));
-    assert.equal((form.match(/required: true/g) ?? []).length, 5);
-  }
   const workflow = readFileSync(`${__dirname}/../workflows/issue-guidelines.yml`, 'utf8');
   for (const event of ['opened', 'edited', 'reopened', 'labeled', 'unlabeled', 'transferred', 'closed']) assert.ok(workflow.includes(event));
   assert.ok(workflow.includes('cancel-in-progress: false'));
@@ -227,4 +295,52 @@ test('forms and workflow wiring preserve the safety boundaries', () => {
   assert.ok(workflow.includes('permissions: {}'));
   assert.ok(workflow.includes('issues: write'));
   assert.doesNotMatch(workflow, /pull_request_target|secrets\.|github\.event\.issue\.(body|title)|run:/);
+  const parsed = yaml.load(workflow);
+  assert.deepEqual(parsed.permissions, {});
+  assert.deepEqual(parsed.jobs.check.permissions, {contents: 'read', issues: 'write'});
+  assert.deepEqual(Object.keys(parsed.on), ['issues']);
+});
+
+test('public form YAML has one required description, optional details and a general fallback', async () => {
+  const folder = `${__dirname}/../ISSUE_TEMPLATE`;
+  assert.deepEqual(readdirSync(folder).sort(), ['bug.yml', 'config.yml', 'feature.yml', 'general.yml']);
+  const config = yaml.load(readFileSync(`${folder}/config.yml`, 'utf8'));
+  assert.equal(config.blank_issues_enabled, false);
+  assert.equal(config.contact_links, undefined);
+  const names = new Set();
+  for (const file of ['bug.yml', 'feature.yml', 'general.yml']) {
+    const form = yaml.load(readFileSync(`${folder}/${file}`, 'utf8'));
+    assert.equal(typeof form.name, 'string');
+    assert.equal(typeof form.description, 'string');
+    assert.deepEqual(Object.keys(form).sort(), ['body', 'description', 'name']);
+    assert.ok(!names.has(form.name));
+    names.add(form.name);
+    // GitHub supplies the title; a form title key only supplies a default value.
+    assert.equal(form.title, undefined);
+    assert.equal(form.labels, undefined);
+    assert.equal(form.assignees, undefined);
+    const fields = form.body.filter(field => field.type !== 'markdown');
+    assert.equal(fields.length, 2);
+    assert.equal(new Set(fields.map(field => field.id)).size, fields.length);
+    assert.deepEqual(fields.map(field => field.type), ['textarea', 'textarea']);
+    assert.deepEqual(fields.map(field => field.validations.required), [true, false]);
+    assert.deepEqual(fields.map(field => field.id), ['description', 'details']);
+    for (const field of fields) {
+      assert.match(field.id, /^[A-Za-z0-9_-]+$/);
+      assert.equal(typeof field.attributes.label, 'string');
+      assert.equal(field.attributes.value, undefined);
+      assert.equal(field.attributes.render, undefined); // Preserve Markdown and screenshot attachments.
+      assert.equal(field.validations.min_length, undefined);
+      assert.doesNotMatch(JSON.stringify(field), /taxonomy|roadmap|acceptance|remaining work|work already done|status:/i);
+    }
+    // Simulate GitHub's submitted Markdown; explanatory markdown elements aren't submitted.
+    for (const details of ['', '_No response_']) {
+      const rendered = `### ${fields[0].attributes.label}\n\nMy cards will not move.\n\n### ${fields[1].attributes.label}\n\n${details}`;
+      const h = harness(publicIssue({body: rendered}));
+      assert.deepEqual(validateIssue(publicIssue({body: rendered})), []);
+      await run(h.args);
+      assert.equal(h.calls.filter(([kind]) => kind === 'create' || kind === 'update').length, 0);
+    }
+  }
+  assert.deepEqual([...names].sort(), ['Report a problem', 'Something else', 'Suggest an idea']);
 });

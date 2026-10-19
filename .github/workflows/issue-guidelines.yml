@@ -22,7 +22,9 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.event.repository.default_branch }}
-      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+      # Scope uses the freshly fetched issue, never stale event labels or form text.
+      - name: Check internal tracking without prompting public reporters
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const { run } = require('./.github/scripts/issue-guidelines.cjs');
