@@ -43,7 +43,10 @@ import {
 } from "@/lib/deck-inventory";
 import { DECK_FOLDER_ROOT_VALUE, canMoveFolder } from "@/lib/deck-folders";
 import { parseDeckTags, replaceDeckTags } from "@/lib/deck-tags";
-import { requireLeaguePrinting } from "@/lib/commander-league-inventory";
+import {
+  isPrintingInLeague,
+  requireLeaguePrinting,
+} from "@/lib/commander-league-inventory";
 
 function formString(fd: FormData, name: string) {
   return String(fd.get(name) || "").trim();
@@ -1338,11 +1341,17 @@ export async function commitDeckImport(fd: FormData) {
   if (lines.length === 0)
     throw new Error("No resolved decklist lines to commit.");
   if (deck.commanderLeagueDeck) {
-    await Promise.all(
+    const available = await Promise.all(
       lines.map((line) =>
-        requireLeaguePrinting(deck.commanderLeagueDeck!.leagueId, line.cardId),
+        isPrintingInLeague(deck.commanderLeagueDeck!.leagueId, line.cardId),
       ),
     );
+    if (available.some((printingAvailable) => !printingAvailable)) {
+      return {
+        error:
+          "The list was not imported. One or more selected printings are not in this League's linked inventory. Resolve the list again or choose an available League printing.",
+      };
+    }
   }
   const physicalCopyCount = lines.reduce(
     (total, line) => total + line.physicalQuantity,

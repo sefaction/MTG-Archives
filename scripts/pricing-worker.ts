@@ -1,3 +1,4 @@
+import { waitForPricingDatabase } from "../lib/pricing-database-readiness";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { inPricingMaintenanceWindow } from "./pricing-archive-maintenance-window";
@@ -991,6 +992,7 @@ async function main() {
   console.log(
     `[pricing-worker] starting ${opts.workerId} with ${redactDatabaseUrl(opts.databaseUrl)}`,
   );
+  await waitForPricingDatabase(opts.databaseUrl);
   initializeSchema(opts.databaseUrl);
   heartbeat(
     opts.databaseUrl,
@@ -1000,6 +1002,7 @@ async function main() {
   );
 
   do {
+    await waitForPricingDatabase(opts.databaseUrl);
     if (pricingArchiveCanPauseImports() &&
         inPricingMaintenanceWindow(new Date()))
       heartbeat(opts.databaseUrl, opts.workerId, "IDLE",
