@@ -10,7 +10,34 @@ assert.equal(
   "Local/CI database opt-in required",
 );
 assert.ok(process.env.PRICING_DATABASE_URL, "Test pricing connection required");
-const source = new URL(process.env.PRICING_DATABASE_URL);
+let source: URL;
+try {
+  source = new URL(process.env.PRICING_DATABASE_URL);
+} catch {
+  throw new Error("Invalid test pricing connection");
+}
+assert.ok(
+  ["postgresql:", "postgres:"].includes(source.protocol),
+  "PostgreSQL test connection required",
+);
+for (const key of source.searchParams.keys())
+  assert.ok(
+    !["host", "hostaddr", "port", "dbname", "service", "servicefile"].includes(
+      key.toLowerCase(),
+    ),
+    "Test connection query must not override the local endpoint",
+  );
+// libpq may otherwise combine an explicit URI host with inherited PGHOSTADDR.
+const databaseEnvironment = { ...process.env };
+for (const key of [
+  "PGHOST",
+  "PGHOSTADDR",
+  "PGPORT",
+  "PGDATABASE",
+  "PGSERVICE",
+  "PGSERVICEFILE",
+])
+  delete databaseEnvironment[key];
 assert.ok(
   ["localhost", "127.0.0.1", "pricing-postgres"].includes(source.hostname),
   "Interrupted import verification requires a local/CI PostgreSQL host",
@@ -28,6 +55,7 @@ function sql(connection: URL, statement: string) {
     "psql",
     [connection.toString(), "-X", "-v", "ON_ERROR_STOP=1", "-qAt", "-f", "-"],
     {
+      env: databaseEnvironment,
       input:
         "SET statement_timeout='10s'; SET lock_timeout='2s'; SET timezone='UTC';\n" +
         statement,
@@ -48,7 +76,10 @@ function rebuild(expectFailure = false) {
     process.execPath,
     ["--import", "tsx", "scripts/pricing-summary-rebuild.ts"],
     {
-      env: { ...process.env, PRICING_DATABASE_URL: database.toString() },
+      env: {
+        ...databaseEnvironment,
+        PRICING_DATABASE_URL: database.toString(),
+      },
       encoding: "utf8",
       timeout: 60_000,
       maxBuffer: 1024 * 1024,
