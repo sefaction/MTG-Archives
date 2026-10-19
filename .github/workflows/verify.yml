@@ -136,3 +136,6 @@ jobs:
         run: npx tsx scripts/verify-pricing-db-query.ts
       - name: Archive-aware Pricing refresh and full rebuild
         run: npx tsx scripts/verify-pricing-archive-aware-refresh.ts
+
+      - name: MTGJSON provider currency and MTGO pipeline
+        run: npx tsx scripts/verify-pricing-provider-currency.ts

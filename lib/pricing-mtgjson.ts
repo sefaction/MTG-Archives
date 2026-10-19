@@ -38,7 +38,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function providerFromPath(path: string[]) {
   const marketIndex = path.findIndex(
-    (part) => part === "paper" || part === "online",
+    (part) => part === "paper" || part === "mtgo" || part === "online",
   );
   if (marketIndex >= 0 && path[marketIndex + 1]) return path[marketIndex + 1];
   return (
@@ -65,8 +65,16 @@ function walkPrices(
   path: string[],
   options: Required<MtgjsonPriceExtractOptions>,
   output: MtgjsonPriceSnapshotInput[],
+  inheritedCurrency?: string,
 ) {
   if (!isRecord(node)) return;
+
+  // MTGJSON declares currency beside buylist/retail, rather than in the path.
+  // Keep it local to this branch so another provider cannot inherit it.
+  const declared = typeof node.currency === "string" ? node.currency.trim() : "";
+  const currency = /^[a-z]{3}$/i.test(declared)
+    ? declared.toUpperCase()
+    : inheritedCurrency;
 
   for (const [key, value] of Object.entries(node)) {
     const nextPath = [...path, key];
@@ -81,14 +89,14 @@ function walkPrices(
         provider: providerFromPath(pricePath),
         finish: finishFromPath(pricePath),
         priceType: priceTypeFromPath(pricePath),
-        currency: currencyFromPath(path, options.defaultCurrency),
+        currency: currencyFromPath(path, currency || options.defaultCurrency),
         observedDate: key,
         price: value,
         rawJson: { path, value },
       });
       continue;
     }
-    walkPrices(mtgjsonUuid, value, nextPath, options, output);
+    walkPrices(mtgjsonUuid, value, nextPath, options, output, currency);
   }
 }
 
