@@ -136,3 +136,5 @@ jobs:
         run: npx tsx scripts/verify-pricing-db-query.ts
       - name: Archive-aware Pricing refresh and full rebuild
         run: npx tsx scripts/verify-pricing-archive-aware-refresh.ts
+      - name: Interrupted pricing source recovery preserves jobs and all summary tiers
+        run: npx tsx scripts/verify-pricing-interrupted-import.ts
