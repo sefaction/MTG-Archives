@@ -1,5 +1,48 @@
 # Work checkpoint
 
+## Build provenance input coverage #842 - October 20, 2026
+
+- Isolated branch `codex/review-build-provenance-842`, worktree
+  `.local-data/worktrees/review-build-provenance-842-20261020`, base main
+  `8ad7cd949b034226a10a2b21f2a3cdbd9abdd155`. Primary dirty checkpoint/manual
+  files and other workers' branches are untouched. Initial live GitHub read has
+  #842 open/backlog with no assignee/comments or open PR; complete open PR list
+  is empty. No dependent change covers the defect.
+- Scope: bind middleware, root declarations, Prisma/ESLint/Playwright settings,
+  `.dockerignore`, and TypeScript test/tool/support inputs in the existing
+  manifest. Ignore Docker-excluded native output and Python caches. No schema,
+  service/resource setting, Inventory, credentials or runtime mutation.
+- Host author checks pass: 14 focused tests, focused TypeScript no-emit, compiled
+  CommonJS writer/source equality and whitespace review. Current host capture:
+  1,194 manifest entries; 882 TypeScript inputs; digest
+  `602dab38f761c5151575a65ea218c2eb7aad3ff1074e591e85715f220d4dbeb2`;
+  Windows Node 24.16.0/TypeScript 5.9.3. Raw CRLF/LF bytes are intentionally
+  distinct from Git-normalized or Linux inputs. A saved old-main negative run
+  has 12 failures/2 passes; fixed source has 14 passes/zero failures.
+- Independent review caught and reproduced a false mismatch from newly covered
+  native/Python generated output, fixed before delivery with nested exclusion
+  controls. Final independent review is recorded in private delivery evidence.
+- Linux tests (including actual file symlinks), isolated Linux compiled identity,
+  full Docker build and exact-head CI remain pending. Shared issue-worker lock
+  `8254e476-0ce7-4832-971f-dbd5f54611b7` belongs to recognition qualification;
+  it was read, never acquired/stolen/released by this worker. No Docker services
+  were changed or shared fixture tests run. A sandbox Docker read was denied;
+  no mutation was attempted. Full runtime/source equivalence is not claimed.
+- Publication is pending: `gh auth status` reports invalid normal CLI
+  authentication; no credentials were changed and no push/remote mutation was
+  attempted. Isolated worktree creation succeeded via approved escalation after
+  sandbox Git metadata access failed. No PR, merge, deployment or issue closure
+  occurred. Parent owns individual publication/merge coordination.
+- Delivery evidence: repository-private
+  `.local-data/deliverables/review-build-provenance-842/` contains old/fixed test
+  logs, exact host source manifest, compiled writer and validation/patch files.
+  The patch and local commit preserve reviewable work without publication.
+  Next safe step: coordinate a bounded isolated Linux runner through the owner
+  lock, reconcile exact input counts/line endings, then authenticate using the
+  approved normal CLI flow and publish one draft PR. Keep #842 and parent #310
+  open until their respective acceptance criteria and individual merge gates
+  are met. No product question blocks this source repair.
+
 ## Public issue intake draft publication - October 19, 2026
 
 - Brian explicitly approved publishing the prepared simplified-forms patch as a draft PR, including necessary readiness-label setup. This supersedes the earlier local-only publication restriction for this batch; no merge/deployment approval or bulk issue mutation is included. Earlier local-only checkpoint and source artifacts remain preserved below.
