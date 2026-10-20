@@ -71,3 +71,20 @@ test("HTTP reader never calls whole-body json and cancels unsuccessful bodies", 
     assert(cancelled);
   } finally { globalThis.fetch = original; }
 });
+
+test("escaped unpaired surrogate identities survive detached UTF-16 storage", async () => {
+  const document = JSON.stringify({ data: { [String.fromCharCode(0xd800)]: { uuid: String.fromCharCode(0xdc00), identifiers: { scryfallId: "s" + String.fromCharCode(0xd801) } } } });
+  assert.deepEqual(await readMtgjsonIdentifierMappings(chunks(document, 1)), extractMtgjsonIdentifierMappings(JSON.parse(document)));
+});
+
+test("deterministic mixed-shape documents retain legacy selection semantics", async () => {
+  let seed = 176867;
+  const next = (n: number) => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed % n; };
+  const variants: unknown[] = [null, 0, true, [], "not-a-card", {}, { uuid: " u ", scryfallId: " s " }, { uuid: "", identifiers: { scryfallId: "s" }, scryfallId: "fallback" }, { identifiers: [], scryfallId: "array-fallback" }, { uuid: {}, identifiers: { scryfallId: 1 }, scryfallId: "fallback" }];
+  for (let i = 0; i < 128; i++) {
+    const cards = Object.fromEntries(["2", "1", "a", "b", "__proto__", "uuid", "identifiers"].map(key => [key, variants[next(variants.length)]]));
+    const payload = next(2) ? { data: cards, extra: variants[next(variants.length)] } : { ...cards, data: variants[next(variants.length)] };
+    const document = JSON.stringify(payload);
+    assert.deepEqual(await readMtgjsonIdentifierMappings(chunks(document, 1 + next(31))), extractMtgjsonIdentifierMappings(JSON.parse(document)));
+  }
+});
