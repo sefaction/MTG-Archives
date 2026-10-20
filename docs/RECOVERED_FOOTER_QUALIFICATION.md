@@ -25,7 +25,13 @@ Interpretations advance to footer v7, text v20 and catalog v19. Raw admission st
 - An initial harness attempt omitted TypeScript default-import interoperability and stopped before any photo evaluation. It remains recorded separately; the corrected same-bound attempt completed five cases.
 - The first regression fixture omitted the required opposite portrait direction; the corrected fixture and original failing output remain evidence.
 
-Local cumulative image loading, browser/manual-save qualification and required exact-head CI are pending. Keep the PR draft until these are completed and the separate reviewer establishes readiness.
+All six cumulative local review roles are loaded on the qualified role-specific bases. All 337 raw runtime files per role and all 335 compiled JavaScript files match; 82 focused controls pass in built Node22.23.1. No primary application/Pricing or production component was reloaded. Models, settings and mounts are preserved; the canonical local review configuration changes only its six image fields. This is a component overlay, not a uniform full-main deployment.
+
+Two actual catalog/PostgreSQL/compiled browser controls cover the split positioned row and the contained-title/body-hint case. Both pass desktop1366 and phone320, explicit alternate selection, save/reload, unchanged raw evidence, zero Inventory additions and owned cleanup. The five idle review workers were intentionally stopped and restored with identical container/configuration/mount identities and fresh native readiness.
+
+Paired 25-table/existence projections, current catalog identity and all review uploads match the original pre-load baseline. Two initial full-catalog aggregate reads failed with P2010/57014 at the eight-second statement bound. Those failures remain recorded. A separate read-only repeatable-read reconstruction uses 232 ordered pages of 512 PostgreSQL row digests, accumulating the identical global MD5 without changing the projection, PostgreSQL order, baseline, eight-second statement bound or30-second transaction bound. Its result matches the original fingerprint exactly for118,505 rows. This is not a full price-ledger/sequence audit and does not explain historical WAL/account failures.
+
+Four final continuity samples span68.621 seconds, with explicit inactive-gap rejection. All18 non-target peer identities/settings/lifetimes and all six native event counters remain exact; both local login endpoints return200. This brief interval is not sustained resource acceptance. Source application commit ea6394abf541e0eaf375573752ee72c11ceb87fb is cumulatively included as5306f0310e02859b64b33280a2d4322aa993cf2d. Required application-head CI passes all three checks in run39515480153. The final report-only head requires refreshed CI; no image rebuild follows documentation alone. Independent readiness/individual approval remain the separate reviewer's responsibility.
 
 ## Remaining broad issue
 
