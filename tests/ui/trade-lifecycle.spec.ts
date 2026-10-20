@@ -293,6 +293,7 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
       ),
       "Trade confirmation overflow at 320px",
     ).toBe(true);
+    await expect(aliceConfirm.getByRole("combobox")).toHaveValue("");
     await aliceConfirm
       .getByRole("button", { name: "Confirm Physical Trade" })
       .scrollIntoViewIfNeeded();
@@ -316,6 +317,7 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
       ),
     ).toBe(0);
     const bobConfirm = await openTrade(bob, counter);
+    await expect(bobConfirm.getByRole("combobox")).toHaveValue("");
     await bobConfirm
       .getByRole("combobox")
       .selectOption(f.people[1].destinationId);
