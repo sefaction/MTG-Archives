@@ -63,7 +63,25 @@ export function observedScannerIdentifiers(source?: ScannerSourceText) {
     top: Math.min(...line.polygon.map(p => p[1])),
     bottom: Math.max(...line.polygon.map(p => p[1])),
   }));
-  const collectors = boxes.flatMap(box => {
+  // Some OCR engines emit the rarity glyph separately from its number. Join
+  // only one unique literal pair on the same positioned row; never concatenate
+  // numeric fragments or borrow from another reading or direction.
+  const rarityBoxes = boxes.filter(box => /^[CUMRLT]$/i.test(box.text.trim()));
+  const numberBoxes = boxes.filter(box => /^\d{1,5}[a-z★†]?$/i.test(box.text.trim()) &&
+    !/^(19|20)\d{2}$/.test(box.text.trim()));
+  const joined = rarityBoxes.length === 1 && numberBoxes.length === 1
+    ? (() => {
+      const rarity = rarityBoxes[0], number = numberBoxes[0];
+      const right = Math.max(...rarity.polygon.map(p => p[0]));
+      const rarityCenter = (rarity.top + rarity.bottom) / 2;
+      const numberCenter = (number.top + number.bottom) / 2;
+      if (right > number.left || number.left - right > source.width * .035 ||
+          rarityCenter < number.top || rarityCenter > number.bottom ||
+          numberCenter < rarity.top || numberCenter > rarity.bottom) return [];
+      return [{...number, text: rarity.text.trim() + ' ' + number.text.trim(),
+        left: rarity.left, top: Math.min(rarity.top, number.top), bottom: Math.max(rarity.bottom, number.bottom)}];
+    })() : [];
+  const collectors = [...boxes, ...joined].flatMap(box => {
     const fraction = /^\s*(\d{1,5}[a-z★†]?)\s*\/\s*\d{2,5}(?:\s+[CUMRLT])?\s*$/i.exec(box.text);
     const rarity = /^\s*([CUMRLT])\s+(\d{1,5}[a-z★†]?)\s*$/i.exec(box.text);
     const number = fraction?.[1] ?? rarity?.[2];
