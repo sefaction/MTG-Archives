@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const worker = readFileSync("scripts/pricing-worker.ts", "utf8");
+const identifierReader = readFileSync("lib/pricing-identifier-stream.ts", "utf8");
 const packageJson = readFileSync("package.json", "utf8");
 const inventoryPage = readFileSync("app/inventory/page.tsx", "utf8");
 const inventoryApi = readFileSync("app/api/inventory/list/route.ts", "utf8");
@@ -38,7 +39,7 @@ test("pricing worker initializes a separate pricing database schema", () => {
   assert.match(worker, /MTGJSON_REFRESH_ALL: 1/);
   assert.match(worker, /extractMtgjsonIdentifierMappings/);
   assert.match(worker, /extractMtgjsonPriceSnapshots/);
-  assert.match(worker, /fetchMtgjsonAllIdentifiers/);
+  assert.match(worker, /fetchMtgjsonIdentifierMappings/);
   assert.match(worker, /publishMtgjsonIdentifierMappings/);
   assert.match(worker, /MTGJSON_MAP_IDENTIFIERS/);
   assert.match(worker, /loadAppMtgjsonUuids/);
@@ -48,7 +49,7 @@ test("pricing worker initializes a separate pricing database schema", () => {
   assert.match(worker, /const batchSize = 25/);
   assert.match(worker, /result\.error\?\.message/);
   assert.match(worker, /APP_DATABASE_URL/);
-  assert.match(worker, /MTGJSON identifier fetch failed/);
+  assert.match(identifierReader, /MTGJSON identifier fetch failed/);
   assert.match(worker, /MTGJSON price fetch failed/);
 });
 
