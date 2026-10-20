@@ -109,6 +109,7 @@ export function AcquisitionCapture({
   const [scannerCapacity, setScannerCapacity] = useState<{ locationId: string; section: string; remaining: number | null; pendingSection: number; pendingTotal: number; destination?: StorageLocation } | null>(null);
   const [capacityRevision, setCapacityRevision] = useState(0);
   const [capacityError, setCapacityError] = useState("");
+  const [capacityFilter, setCapacityFilter] = useState(false);
   const [scannerDetecting, setScannerDetecting] = useState(false);
   const pendingStart = useRef<PendingScannerStart | null>(null);
   const [pendingScanner, setPendingScanner] = useState<PendingScannerStart | null>(null);
@@ -311,7 +312,7 @@ export function AcquisitionCapture({
     })();
     return () => { active = false; };
   }, [userId, initialBatch, initialScanner, photoInput, recoverScanner]);
-  const displayLocations = countedScanner && scannerCapacity?.locationId === locationId && scannerCapacity.destination && !capacityError
+  const displayLocations = (countedScanner || capacityFilter) && scannerCapacity?.locationId === locationId && scannerCapacity.destination && !capacityError
     ? locations.map(location => location.id === locationId ? scannerCapacity.destination! : location) : locations;
   const destination = displayLocations.find((l) => l.id === locationId);
   const selectedSection = destination?.sections.find((s) => s.name === section);
@@ -327,7 +328,7 @@ export function AcquisitionCapture({
   const remaining = countedScanner && capacityReady ? scannerCapacity!.remaining : limits.length ? Math.min(...limits) : null;
   const needsNextSection = !!initialSetup?.nextSectionRequired && !section.trim();
   useEffect(() => {
-    if (!countedScanner || batchId || !locationId) return;
+    if ((!countedScanner && !capacityFilter) || batchId || !locationId) return;
     let active = true;
     const load = async () => { try {
       const value = await request<NonNullable<typeof scannerCapacity>>("/api/scanners/capacity?location="+encodeURIComponent(locationId)+"&section="+encodeURIComponent(section));
@@ -335,7 +336,7 @@ export function AcquisitionCapture({
     } catch (e) { if (active) setCapacityError((e as Error).message); } };
     void load(); const timer = setInterval(()=>void load(),5000);
     return ()=>{active=false;clearInterval(timer);};
-  }, [countedScanner, batchId, locationId, section, capacityRevision]);
+  }, [countedScanner, capacityFilter, batchId, locationId, section, capacityRevision]);
   useEffect(() => {
     if (!customLimit) setQuantity(remaining ?? 1);
   }, [locationId, section, remaining, customLimit]);
@@ -714,6 +715,8 @@ export function AcquisitionCapture({
             section={section}
             capacityHint="Capacity is checked when the batch starts."
             showCapacitySummary={!countedScanner}
+            scanCapacityFilter={!photoInput}
+            onCapacityFilterChange={setCapacityFilter}
             onSectionChange={(value) => {
               setSection(value);
               createKey.current = "";

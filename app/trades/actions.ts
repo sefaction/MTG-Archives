@@ -875,6 +875,9 @@ async function assertTradeDestinationLocation(
   locationId: string,
   ownerPlayerId: string,
 ) {
+  if (!locationId) {
+    throw new Error("Choose a destination location for the incoming cards.");
+  }
   const location = await prisma.inventoryLocation.findFirst({
     where: {
       id: locationId,
@@ -922,13 +925,11 @@ export async function confirmPhysicalTrade(fd: FormData) {
   if (actor.playerId === trade.proposerPlayerId) {
     if (trade.proposerCommittedAt)
       throw new Error("You have already confirmed this physical exchange.");
-    if (destinationLocationId) {
-      await assertTradeDestinationLocation(
-        destinationLocationId,
-        actor.playerId,
-      );
-      data.proposerDestinationLocationId = destinationLocationId;
-    }
+    await assertTradeDestinationLocation(
+      destinationLocationId,
+      actor.playerId,
+    );
+    data.proposerDestinationLocationId = destinationLocationId;
     data.proposerCommittedAt = new Date();
     eventType = "proposer_confirmed_physical_exchange";
     otherParticipantId = trade.receiverPlayerId;
@@ -936,13 +937,11 @@ export async function confirmPhysicalTrade(fd: FormData) {
   } else if (actor.playerId === trade.receiverPlayerId) {
     if (trade.receiverCommittedAt)
       throw new Error("You have already confirmed this physical exchange.");
-    if (destinationLocationId) {
-      await assertTradeDestinationLocation(
-        destinationLocationId,
-        actor.playerId,
-      );
-      data.receiverDestinationLocationId = destinationLocationId;
-    }
+    await assertTradeDestinationLocation(
+      destinationLocationId,
+      actor.playerId,
+    );
+    data.receiverDestinationLocationId = destinationLocationId;
     data.receiverCommittedAt = new Date();
     eventType = "receiver_confirmed_physical_exchange";
     otherParticipantId = trade.proposerPlayerId;

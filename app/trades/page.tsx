@@ -41,6 +41,7 @@ import {
 import { selectTradeCardPrice } from "@/lib/trade-value";
 import { TradeValueSummary } from "@/components/TradeValueSummary";
 import { TradePairingCard } from "@/components/TradePairingCard";
+import { TradeDestinationSelect } from "@/components/TradeDestinationSelect";
 import type { TradePairingSide } from "@/lib/trade-pairing";
 
 const activeStatuses: TradeStatus[] = [
@@ -1253,9 +1254,6 @@ export default async function TradesPage({
                 offeredCards.length === 1 &&
                 requestedCards.length === 1 &&
                 Boolean(templateOfferedId && templateRequestedId);
-              const savedDestinationLocationId = userIsProposer
-                ? trade.proposerDestinationLocationId
-                : trade.receiverDestinationLocationId;
               return (
                 <details
                   key={trade.id}
@@ -1490,26 +1488,10 @@ export default async function TradesPage({
                             name="tradeId"
                             value={trade.id}
                           />
-                          <label className="min-w-64 text-sm text-zinc-300">
-                            Move {incomingCards.length} incoming card{" "}
-                            {incomingCards.length === 1 ? "line" : "lines"} to
-                            <select
-                              name="destinationLocationId"
-                              required
-                              defaultValue={
-                                savedDestinationLocationId ??
-                                myDestinationLocations[0]?.id ??
-                                ""
-                              }
-                              className={cn(filterSelectClass, "mt-1 w-full")}
-                            >
-                              {myDestinationLocations.map((location) => (
-                                <option key={location.id} value={location.id}>
-                                  {location.path}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
+                          <TradeDestinationSelect
+                            incomingLineCount={incomingCards.length}
+                            locations={myDestinationLocations}
+                          />
                           <SubmitButton
                             pendingLabel="Confirming exchange..."
                             className={filterPrimaryButtonClass}

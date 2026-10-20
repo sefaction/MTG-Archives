@@ -210,11 +210,16 @@ test("counter proposals explicitly replace their source trade", () => {
 
 test("physical trade confirmation captures incoming destination locations", () => {
   const schema = readFileSync("prisma/schema.prisma", "utf8");
+  const destinationSelect = readFileSync("components/TradeDestinationSelect.tsx", "utf8");
   assert.match(schema, /proposerDestinationLocationId/);
   assert.match(schema, /receiverDestinationLocationId/);
   assert.match(tradesPage, /myDestinationLocations/);
-  assert.match(tradesPage, /name="destinationLocationId"/);
-  assert.match(tradesPage, /Move \{incomingCards\.length\} incoming card/);
+  assert.match(tradesPage, /<TradeDestinationSelect/);
+  assert.match(tradesPage, /incomingLineCount=\{incomingCards\.length\}/);
+  assert.match(tradesPage, /locations=\{myDestinationLocations\}/);
+  assert.doesNotMatch(tradesPage, /savedDestinationLocationId/);
+  assert.match(destinationSelect, /name="destinationLocationId"/);
+  assert.match(destinationSelect, /defaultValue=""/);
   assert.match(tradeActions, /assertTradeDestinationLocation/);
   assert.match(tradeActions, /data\.proposerDestinationLocationId/);
   assert.match(tradeActions, /data\.receiverDestinationLocationId/);

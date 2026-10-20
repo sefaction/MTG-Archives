@@ -1,10 +1,13 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { loadIsolatedQualificationTarget } from "./isolated-qualification-target";
+
+let isolatedTarget: ReturnType<typeof loadIsolatedQualificationTarget>;
 
 function database<T>(body: string): T {
   return JSON.parse(
-    execFileSync("docker", ["exec", "-i", "mtg-archives-web-1", "node"], {
+    execFileSync("docker", ["exec", "-i", isolatedTarget?.web.id ?? "mtg-archives-web-1", "node"], {
       input: `const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().then(x=>console.log(JSON.stringify(x))).catch(e=>{console.error(e);process.exitCode=1}).finally(()=>p.$disconnect());`,
       encoding: "utf8",
       timeout: 60_000,
@@ -80,7 +83,8 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
     type: "scope",
     description: "Local synthetic accounts only; no real outbound endpoints",
   });
-  expect(baseURL).toBe("http://127.0.0.1:13001");
+  isolatedTarget = loadIsolatedQualificationTarget();
+  expect(baseURL).toBe(isolatedTarget?.baseURL ?? "http://127.0.0.1:13001");
   // Completed trades can notify global endpoints. Never run this fixture with any enabled.
   expect(
     database<number>(
@@ -104,7 +108,8 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
         for(const suffix of ['Alice','Bob','Observer']) {
           const player=await tx.player.create({data:{name:tag+'-'+suffix,displayName:tag+'-'+suffix}});
           const user=await tx.user.create({data:{username:tag+'-'+suffix,displayName:suffix,passwordHash:hash,playerId:player.id,inventoryDefaultVisibility:'PUBLIC'}});
-          const location=await tx.inventoryLocation.create({data:{ownerPlayerId:player.id,name:'Incoming',normalizedName:'incoming'}});
+          let location=await tx.inventoryLocation.create({data:{ownerPlayerId:player.id,name:'Unassigned',normalizedName:'unassigned'}});
+          if(suffix==='Bob') location=await tx.inventoryLocation.create({data:{ownerPlayerId:player.id,name:'Incoming',normalizedName:'incoming'}});
           people.push({id:user.id,playerId:player.id,username:user.username,displayName:player.displayName,destinationId:location.id});
         }
         const cards=[];
@@ -285,14 +290,54 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
       .poll(() => state(counter).status)
       .toBe("ACCEPTED_PENDING_EXCHANGE");
     expect(total()).toBe(16);
+
+    async function rejectPhysicalSubmission(page: Page, detail: Locator, invalid: string) {
+      const snapshot = () => database<unknown>(`return p.$transaction(async tx=>({
+        trade:await tx.trade.findUniqueOrThrow({where:{id:${quote(counter)}}}),
+        events:await tx.tradeEvent.findMany({where:{tradeId:${quote(counter)}},orderBy:{id:'asc'}}),
+        audits:await tx.inventoryAuditLog.findMany({where:{tradeId:${quote(counter)}},orderBy:{id:'asc'}}),
+        inventory:await tx.inventoryItem.findMany({where:{cardId:{in:${quote(f.cards.map(c=>c.id))}}},orderBy:{id:'asc'}})
+      }));`);
+      const before = snapshot();
+      await detail.getByRole("combobox").evaluate((node: HTMLSelectElement, value) => {
+        node.form!.noValidate = true;
+        if (value) node.add(new Option("Invalid fixture choice", value));
+        node.value = value;
+      }, invalid);
+      const responsePromise = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/trades" && Boolean(response.request().headers()["next-action"]));
+      await detail.getByRole("button", { name: "Confirm Physical Trade" }).click();
+      await (await responsePromise).finished();
+      expect(snapshot()).toEqual(before);
+      const refreshed = await openTrade(page, counter);
+      await expect(refreshed.getByRole("combobox")).toHaveValue("");
+      return refreshed;
+    }
+
     await alice.setViewportSize({ width: 320, height: 844 });
-    const aliceConfirm = await openTrade(alice, counter);
+    let aliceConfirm = await openTrade(alice, counter);
     expect(
       await alice.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth + 1,
       ),
       "Trade confirmation overflow at 320px",
     ).toBe(true);
+    await expect(aliceConfirm.getByRole("combobox")).toHaveValue("");
+    await expect(aliceConfirm.getByRole("combobox").locator("option")).toHaveCount(2);
+    const beforeBlank = state(counter);
+    await aliceConfirm.getByRole("button", { name: "Confirm Physical Trade" }).click();
+    expect(await aliceConfirm.getByRole("combobox").evaluate((node: HTMLSelectElement) => node.validity.valueMissing)).toBe(true);
+    expect(state(counter)).toEqual(beforeBlank);
+    await alice.screenshot({ path: test.info().outputPath("trade-confirmation-phone.png"), fullPage: true });
+
+    // Exercise the real action with browser validation deliberately bypassed.
+    // Each response must finish before checking that confirmation/audits stayed
+    // unchanged. Only fixture-owned IDs and the guarded disposable app are used.
+    if (isolatedTarget) {
+      const inactive = database<string>(`return (await p.inventoryLocation.create({data:{ownerPlayerId:${quote(f.people[0].playerId)},name:'Inactive test',normalizedName:'inactive-test',active:false}})).id;`);
+      for (const invalid of ["", randomUUID(), inactive, f.people[2].destinationId]) {
+        aliceConfirm = await rejectPhysicalSubmission(alice, aliceConfirm, invalid);
+      }
+    }
     await aliceConfirm
       .getByRole("button", { name: "Confirm Physical Trade" })
       .scrollIntoViewIfNeeded();
@@ -315,7 +360,20 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
         `return p.inventoryItem.count({where:{cardId:${quote(f.cards[1].id)},currentOwnerId:${quote(f.people[0].playerId)}}});`,
       ),
     ).toBe(0);
-    const bobConfirm = await openTrade(bob, counter);
+    let bobConfirm = await openTrade(bob, counter);
+    await expect(bobConfirm.getByRole("combobox")).toHaveValue("");
+    await expect(bobConfirm.getByRole("combobox").locator("option")).toHaveCount(3);
+    const beforeSecondBlank = state(counter);
+    await bobConfirm.getByRole("button", { name: "Confirm Physical Trade" }).click();
+    expect(await bobConfirm.getByRole("combobox").evaluate((node: HTMLSelectElement) => node.validity.valueMissing)).toBe(true);
+    expect(state(counter)).toEqual(beforeSecondBlank);
+    await bob.screenshot({ path: test.info().outputPath("trade-confirmation-desktop.png"), fullPage: true });
+    if (isolatedTarget) {
+      const inactive = database<string>(`return (await p.inventoryLocation.create({data:{ownerPlayerId:${quote(f.people[1].playerId)},name:'Inactive test',normalizedName:'inactive-test',active:false}})).id;`);
+      for (const invalid of ["", randomUUID(), inactive, f.people[0].destinationId]) {
+        bobConfirm = await rejectPhysicalSubmission(bob, bobConfirm, invalid);
+      }
+    }
     await bobConfirm
       .getByRole("combobox")
       .selectOption(f.people[1].destinationId);
@@ -337,6 +395,7 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
     expect(rows.find((r) => r.id === f.items[0].id)?.quantity).toBe(2);
     expect(rows.find((r) => r.id === f.items[1].id)?.quantity).toBe(2);
     expect(rows.find((r) => r.id === f.items[2].id)).toBeUndefined();
+    expect(rows.find((r) => r.currentOwnerId === f.people[0].playerId && r.cardId === f.cards[1].id)?.locationId).toBe(f.people[0].destinationId);
     const wishes = database<any[]>(
       `return p.tradeWishlistItem.findMany({where:{ownerUserId:{in:${quote(f.people.map((p) => p.id))}}}});`,
     );
@@ -406,5 +465,7 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
       await p.user.deleteMany({where:{id:{in:ids}}});await p.player.deleteMany({where:{id:{in:owners}}});
       await p.card.deleteMany({where:{scryfallId:{startsWith:${quote(tag)}}}});
     return true;`);
+    expect(database<number>(`return p.user.count({where:{username:{startsWith:${quote(tag)}}}});`)).toBe(0);
+    expect(database<number>(`return p.card.count({where:{scryfallId:{startsWith:${quote(tag)}}}});`)).toBe(0);
   }
 });

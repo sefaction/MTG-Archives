@@ -1,5 +1,15 @@
 # Work checkpoint
 
+## Issue 855 isolated implementation - October 20, 2026
+
+- Active branch `codex/issue-855-capacity-filter`, worktree `.local-data/worktrees/issue-855-capacity-filter`, base main `8ad7cd949b034226a10a2b21f2a3cdbd9abdd155`.
+- Latest agreed #855 scope read from live GitHub: default off; configured destinations with any positive free space; pending quantity need not fit; retain selected destinations and existing admission safeguards. Related #597 delivered foundation, #308/#302/#309 broader scope.
+- Implemented scan-only optional filter for location and section choices, bounded parent/section/held-space predicates, retained hidden selections, clear empty state and grouped receipt-count list snapshots. Ordinary picker callers preserve their mode. Shared picker is a potential integration overlap with active #834; trade/import files are untouched.
+- Completed: 12 focused tests plus 13 existing Start/continuation/admission safeguards, isolated real-component keyboard/desktop1366/phone390/phone320 browser checks (3/3), full typecheck, whitespace check, independent source review and follow-up oracle. See `docs/SCAN_DESTINATION_FILTER.md` for initial failures, interpretation and exact limits.
+- Shared issue-worker lock belongs to another active worker. No shared runtime/database/Inventory/settings changes, merge or deploy were attempted. Root checkout and its unrelated WIP remain untouched.
+- Published draft [PR #873](https://github.com/sefaction/MTG-Archives/pull/873), tested implementation `8bdf5dd99ae60bef5ae71f66b7638ca4f7a8b39d`. Push and PR creation succeeded under standing repository authorization. Patch retained at this worktree's ignored `.local-data/issue-855.patch` (SHA256 `5ED052E1166B83723AA3722DEBF16B6DE624B21813A38D7E48736E2E97361EE1`).
+- Next safe step: coordinator reconciles shared-picker overlap with #834; separate application/database qualification when the shared owner permits it, plus exact-final-head CI. Keep draft until qualification is complete; individual Brian approval remains required for any merge. No publication approval blocker occurred.
+
 ## Public issue intake draft publication - October 19, 2026
 
 - Brian explicitly approved publishing the prepared simplified-forms patch as a draft PR, including necessary readiness-label setup. This supersedes the earlier local-only publication restriction for this batch; no merge/deployment approval or bulk issue mutation is included. Earlier local-only checkpoint and source artifacts remain preserved below.
@@ -9287,3 +9297,82 @@ Cumulative5b29253 loaded615inputs/source06d2d1fd... webf6d543be... andOCRc061d8b
 OCRpeak1853030400 /2147483648,eventsmax/OOM0/restart0,swappeak25116672. Prior759 reached2GiB/max854; newboundedbatchhasheadroom butisnotswapfree/orgeneralresourceproof. Printingpeak1041690624 /1073741824,eventsmax/OOM0/restart0. NativeOCR5719..15392ms;wholeworkflow18.3minvsprior16.0, observationalsharedcache/host timing, no speedclaim/deadlinechange. UIonecase60069terminalPASS/63739msassertions1366+320/originaldownload/noInventory/cleanup.16primarypoststallidentity/config/lifetimesconserve0changes; applicationmanifestverifiedafterrun; installer0.4.3preserved. Originalprior67outputs preserved source-footer-67-qualified; latestcurrent-67-report+67perphoto/privateparity/resource logs retained.
 
 Reportdocs nowqualified withscope/timing/memory/independence limitations. Pending report-onlypublication/refreshed exact-headCI, canonicalcomposepointer, Foundry milestone/sharedcheckpoint andexact-ownerlockrelease. Rootlock catalog-memory-20261012-01a12e0d helduntilpublicationterminal; allnative/browser/probehandles terminal, fixtureclean. Parent759 stilldraft/open; no merge/primaryactivation/hardwarefeed. Separate reviewer controlsreadiness/individual approval/closure. Goalactive; nextfunctionalworkreusable scannerplacementcalibration andindependent labelled boundary/exact-printing evaluation. Other-worker/rootmanualWIP preserved; desktopprojectassignmentnotUIverified. No userquestions.
+
+## Issue #834 isolated worker checkpoint - October 20, 2026
+
+Branch `codex/issue-834-trade-destination`, base `8ad7cd949b034226a10a2b21f2a3cdbd9abdd155`, worktree `.local-data/worktrees/issue-834-trade-destination`. Physical confirmation starts blank even for one eligible location; both participant actions require explicit eligible destinations before writes. Scope is confined to the trade selector/action and focused regression tests; admin override and downstream transaction code remain unchanged. Seventy-five trade tests and six isolated Chromium form tests pass; independent read-only source review has no blocking finding. Final current-schema typecheck passed with isolated locked dependencies and cached matching Prisma binaries. Existing shared-app lifecycle test has blank-state assertions added but was not run. See `docs/TRADE_DESTINATION_CONFIRMATION.md` for failures, limits and commands. Shared issue-worker lock `8254e476-0ce7-4832-971f-dbd5f54611b7` and root/manual changes were left untouched. No shared runtime/data, production, inventory, credential or resource-limit changes; no merge/deployment. Next: publish a draft with this bounded evidence, complete exact-head CI/independent readiness, and coordinate any later cumulative runtime/full-page lifecycle review under its owner's lock. No unsettled product decision remains.
+
+## Issue #834 isolated full-application preparation - October 20, 2026
+
+Draft #874 implementation head `6e8ffe4d8d1720a4472411279a34441a5671ed65` has all three required CI checks successful. Combined #87329c9397a+#8746e8ffe4d source-only proof passes 100 Node/9 browser/current-schema typechecks with no product-file overlap. Parent explicitly authorizes a properly coordinated isolated app/empty-database route while shared services stay untouched. #855 worker owns ONE combined build/disposable fixture and cleanup; runtime-owner route/resource-window/lock response is pending, no resource started here and no lock taken. This test-only follow-up adds the UUID/exact-ID/label/network/loopback/mount/database target guard and prepares real phone/desktop two-party missing/stale/inactive/foreign submission checks plus provenance/conservation/cleanup assertions. One hundred eight Node tests (75 trade +33 guard) and typecheck pass; the actual new lifecycle assertions remain unexecuted until the fixture exists. Product source remains the implementation head's exact source. Next: freeze/publish the test-only follow-up, provide exact blobs/API to the resource owner, then execute only against its validated owned manifest once the runtime owner coordinates the window. Keep #874 draft; no merge/deployment/shared-data change.
+
+## Build provenance input coverage #842 - October 20, 2026
+
+- Published draft [PR #875](https://github.com/sefaction/MTG-Archives/pull/875),
+  source commit `b8f9940f` preserved, authentication/coordination follow-up
+  `81bda04e`. No additional human approval is required for draft publication
+  under AGENTS/CODEX; normal host authentication already works. The earlier
+  uncommitted/local-only/publication-blocked descriptions below are retained
+  as dated preparation evidence and are superseded for this batch.
+- Owner coordination record `coordination-before-build.json` now acknowledges
+  #842 and explicitly records it deferred while the recognition worker's
+  fixed-bound Next build is active; no owner handoff or separate local runner
+  route has been granted. Do not launch a competing local Docker build/test.
+  The lock and all shared services remain untouched by this worker.
+- Safe separate route: existing PR CI uses Ubuntu/Node 22 workers, independent
+  of the laptop engine. A new test compiles the actual library/writer, copies
+  all captured source input bytes into an owned temporary fixture, runs the
+  compiled writer and checks complete equality/count/digest with source.
+  Host suite now passes 15/15, including this equality proof with 1,194 entries.
+  Linux execution and full Next build are pending exact-head CI; full Dockerfile
+  image qualification remains a separate local resource gate, not implied by CI.
+- Follow-up reconciliation: the restricted-sandbox `gh auth status` failure below
+  is not a broken host login. An approved read-only host invocation succeeds for
+  the existing `sefaction` keyring account and HTTPS protocol. No credential,
+  login or security-setting change occurred. Repository policy already permits
+  draft publication; individual merge approval remains separate. A successful
+  coordination request was sent to the exact local shared-lock owner thread,
+  `01a10d58-d8a9-7432-8882-8aecd418b615`, requesting a bounded isolated Linux
+  route/window. Its current full Next build remains active; owner response is
+  pending and no conflicting runner/build has started. The reviewed source
+  commit `b8f9940f03cf20be0248c97a299621db41c337fd` is preserved.
+- Isolated branch `codex/review-build-provenance-842`, worktree
+  `.local-data/worktrees/review-build-provenance-842-20261020`, base main
+  `8ad7cd949b034226a10a2b21f2a3cdbd9abdd155`. Primary dirty checkpoint/manual
+  files and other workers' branches are untouched. Initial live GitHub read has
+  #842 open/backlog with no assignee/comments or open PR; complete open PR list
+  is empty. No dependent change covers the defect.
+- Scope: bind middleware, root declarations, Prisma/ESLint/Playwright settings,
+  `.dockerignore`, and TypeScript test/tool/support inputs in the existing
+  manifest. Ignore Docker-excluded native output and Python caches. No schema,
+  service/resource setting, Inventory, credentials or runtime mutation.
+- Host author checks pass: 14 focused tests, focused TypeScript no-emit, compiled
+  CommonJS writer/source equality and whitespace review. Current host capture:
+  1,194 manifest entries; 882 TypeScript inputs; digest
+  `602dab38f761c5151575a65ea218c2eb7aad3ff1074e591e85715f220d4dbeb2`;
+  Windows Node 24.16.0/TypeScript 5.9.3. Raw CRLF/LF bytes are intentionally
+  distinct from Git-normalized or Linux inputs. A saved old-main negative run
+  has 12 failures/2 passes; fixed source has 14 passes/zero failures.
+- Independent review caught and reproduced a false mismatch from newly covered
+  native/Python generated output, fixed before delivery with nested exclusion
+  controls. Final independent review is recorded in private delivery evidence.
+- Linux tests (including actual file symlinks), isolated Linux compiled identity,
+  full Docker build and exact-head CI remain pending. Shared issue-worker lock
+  `8254e476-0ce7-4832-971f-dbd5f54611b7` belongs to recognition qualification;
+  it was read, never acquired/stolen/released by this worker. No Docker services
+  were changed or shared fixture tests run. A sandbox Docker read was denied;
+  no mutation was attempted. Full runtime/source equivalence is not claimed.
+- Publication is pending: `gh auth status` reports invalid normal CLI
+  authentication; no credentials were changed and no push/remote mutation was
+  attempted. Isolated worktree creation succeeded via approved escalation after
+  sandbox Git metadata access failed. No PR, merge, deployment or issue closure
+  occurred. Parent owns individual publication/merge coordination.
+- Delivery evidence: repository-private
+  `.local-data/deliverables/review-build-provenance-842/` contains old/fixed test
+  logs, exact host source manifest, compiled writer and validation/patch files.
+  The patch and local commit preserve reviewable work without publication.
+  Next safe step: coordinate a bounded isolated Linux runner through the owner
+  lock, reconcile exact input counts/line endings, then authenticate using the
+  approved normal CLI flow and publish one draft PR. Keep #842 and parent #310
+  open until their respective acceptance criteria and individual merge gates
+  are met. No product question blocks this source repair.
