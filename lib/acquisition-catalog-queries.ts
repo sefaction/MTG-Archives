@@ -1,4 +1,4 @@
-import { observedScannerIdentifiers } from "./acquisition-scanner-source-text";
+import { observedScannerIdentifiers, observedScannerCollectorAlternatives } from "./acquisition-scanner-source-text";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
@@ -59,6 +59,7 @@ export function acquisitionCatalogQueries(
   photoText?: AcquisitionPhotoText,
 ) {
   const printing = new Map<string, CatalogQuery>();
+  const alternatives = new Map<string, CatalogQuery>();
   const names = new Map<string, CatalogQuery>();
   for (const orientation of orientations) {
     const {text}=orientation;
@@ -68,7 +69,11 @@ export function acquisitionCatalogQueries(
       [...text.title, ...text.footer].some((s) => s.length > 2000)
     )
       throw new Error("OCR lookup evidence exceeds bounds");
-    const {identifiers, collectors} = acquisitionFooterObservations(text.footer, text.footerSupplemental, text.footerSourceIdentifiers, orientation);
+    const {identifiers, collectors, collectorAlternatives} = acquisitionFooterObservations(text.footer, text.footerSupplemental, text.footerSourceIdentifiers, orientation);
+    for (const value of collectorAlternatives ?? []) {
+      const query: CatalogQuery = {kind: "printing", ...value};
+      alternatives.set(catalogQueryKey(query), query);
+    }
     // Conflicting footer readings remain evidence, not an API request explosion.
     if (identifiers.length <= 2 && collectors.length <= 2)
       for (const identifier of identifiers)
@@ -101,6 +106,10 @@ export function acquisitionCatalogQueries(
       const query: CatalogQuery = {kind: "printing", ...identifiers};
       printing.set(catalogQueryKey(query), query);
     }
+    for (const value of observedScannerCollectorAlternatives(reading.scannerSource)) {
+      const query: CatalogQuery = {kind: "printing", ...value};
+      alternatives.set(catalogQueryKey(query), query);
+    }
     // Whole-photo words remain name hints; positioned source rows supply identifiers.
     for (const line of reading.text.slice(0, 2)) {
       const name = line.trim().replace(/\s+/g, " ");
@@ -111,7 +120,8 @@ export function acquisitionCatalogQueries(
   }
   return {
     ...(photoText ? { photoTextNames: [...hintNames.values()].slice(0, 4) } : {}),
-    printings: [...printing.values()].slice(0, 4),
+    // Preserve literal queries first under the existing four-request budget.
+    printings: [...new Map([...printing, ...[...alternatives].filter(([key]) => !printing.has(key))]).values()].slice(0, 4),
     names: [...names.values()]
       .sort(
         (a, b) =>

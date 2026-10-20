@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { acquisitionLocatedTitleNames } from "./acquisition-recognition";
-import { scannerSourceTextSchema, observedScannerIdentifiers } from "./acquisition-scanner-source-text";
+import { scannerSourceTextSchema, observedScannerIdentifiers, observedScannerCollectorAlternatives } from "./acquisition-scanner-source-text";
 import { acquisitionNameKey, acquisitionExactNameKeyEligible } from "./acquisition-name";
 import { acquisitionNativePhotoInput, type AcquisitionImageInputKind } from "./acquisition-image-input";
 import type { createAcquisitionRecognitionIndex, proposeOrientedAcquisitionPrintings, RecognitionProposal } from "./acquisition-recognition";
@@ -122,6 +122,7 @@ export function combineAcquisitionPhotoText(index: Index, base: Proposals, raw?:
   const photoText = acquisitionPhotoTextSchema.parse(raw);
   const hints = new Map<string, RecognitionProposal>();
   const supported = new Set<string>();
+  const alternatives = new Set<string>();
   for (const reading of photoText.readings) for (const text of reading.text) {
     const key = acquisitionPhotoNameKey(text);
     if (!acquisitionExactNameKeyEligible(key)) continue;
@@ -129,10 +130,15 @@ export function combineAcquisitionPhotoText(index: Index, base: Proposals, raw?:
       ? observedScannerIdentifiers(reading.scannerSource) : null;
     const matching = new Set(identifiers ? (index.byPrintedSetNumber.get(`${identifiers.set}:${identifiers.number}`) ?? [])
       .filter(c => (c.lang ?? "en").toLowerCase() === identifiers.language).map(c => c.id) : []);
+    const recovered = new Set(reading.text.slice(0, 2).includes(text)
+      ? observedScannerCollectorAlternatives(reading.scannerSource).flatMap(value =>
+        (index.byPrintedSetNumber.get(`${value.set}:${value.number}`) ?? [])
+          .filter(c => c.lang?.toLowerCase() === value.language).map(c => c.id)) : []);
     // Exact whole-line name retrieval only. Body substrings/fuzzy matches never
     // become a located title. A positioned footer only promotes a same-direction name.
     for (const card of index.byName.get(key) ?? []) {
       if (matching.has(card.id)) supported.add(card.id);
+      if (recovered.has(card.id)) alternatives.add(card.id);
       hints.set(card.id, {
       card, nameDistance: 0,
       reasons: [UNLOCALIZED_NAME_HINT, "PRINTING_UNCONFIRMED", "REVIEW_REQUIRED",
@@ -141,6 +147,7 @@ export function combineAcquisitionPhotoText(index: Index, base: Proposals, raw?:
     }
   }
   if (!hints.size) return base;
+  for (const id of alternatives) hints.get(id)!.reasons.push("COLLECTOR_OCR_ALTERNATIVE");
   const all = new Map<string, RecognitionProposal>();
   for (const proposal of base.proposals) all.set(proposal.card.id, { ...proposal,
     reasons: proposal.reasons.filter(reason => reason !== "STRONG_EXACT_PRINTING") });
@@ -160,7 +167,8 @@ export function combineAcquisitionPhotoText(index: Index, base: Proposals, raw?:
     !p.reasons.some(r => r.endsWith("_CONTRADICTION"))).sort((a,b) =>
       (rank.get(a.card.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.card.id) ?? Number.MAX_SAFE_INTEGER));
   const order = [...base.proposals.filter(p => p.reasons.includes("SET_AND_COLLECTOR_TEXT")).map(p => p.card.id),
-    ...hinted.filter(id => supported.has(id)), ...located.map(p => p.card.id), ...hinted, ...base.proposals.map(p => p.card.id)];
+    ...hinted.filter(id => supported.has(id)), ...hinted.filter(id => alternatives.has(id)),
+    ...located.map(p => p.card.id), ...hinted, ...base.proposals.map(p => p.card.id)];
   const proposals = [...new Set(order)].map(id => all.get(id)!);
   return { ...base, status: base.status === "CONFLICT" ? "CONFLICT" : "REVIEW_REQUIRED",
     automaticAcceptance: false, totalProposals: Math.max(base.totalProposals, proposals.length),

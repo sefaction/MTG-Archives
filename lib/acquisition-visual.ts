@@ -147,6 +147,10 @@ export function combineAcquisitionCandidates(
   for (const p of partialIdentifiers) append(p.card.id);
   for (const p of text.proposals)
     if (p.reasons.includes("SCANNER_SOURCE_IDENTIFIERS") && !contradicted(p)) append(p.card.id);
+  // OCR alternatives remain review-only, but must not disappear behind the
+  // same-name image group merely because that group fills the display cap.
+  for (const p of text.proposals)
+    if (p.reasons.includes("COLLECTOR_OCR_ALTERNATIVE") && !contradicted(p)) append(p.card.id);
   const locatedNames = acquisitionLocatedTitleNames(text.proposals);
   const located = text.proposals.filter(p => !contradicted(p) && locatedNames.has(acquisitionNameKey(p.card.name)));
   located.sort((a,b)=>(imageRank.get(a.card.id) ?? Number.MAX_SAFE_INTEGER) -
