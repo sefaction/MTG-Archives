@@ -1,0 +1,11 @@
+# Raw currency evidence
+
+Related to #865 and broader #854. New MTGJSON snapshots retain currencyProvenance inside raw_json, alongside the unchanged source path/value. It records the resolved currency and whether an explicit path, nearest valid declaration or configured default selected it. Declaration evidence includes its original string and source path, even when an explicit currency path takes precedence. Missing or invalid declarations cannot leak another provider's currency; nested declarations remain branch-local. No conversion or selection behavior changes.
+
+The actual local October 19 audit found 49,053 path/value observations, including 10,096 EUR prices, with zero retained declarations despite the independently pinned full feed containing them. Persisted resolved currency cannot establish its own missing input evidence. This change prevents that future loss; it cannot reconstruct old missing declarations.
+
+The existing upsert policy is unchanged. An identical-price replay preserves an old raw row exactly, including missing provenance. A legitimate price correction stores evidence from that correction's input and advances its existing revision; it does not establish the original declaration. No historical backfill, rekey/relabel, job reset, source/summary/app replay or production action is included. Current October 19 qualification remains valid and is not repeated.
+
+Parser tests cover original strings/paths, precedence, fallback, nested inheritance/invalid metadata, sibling isolation and input immutability. The required PostgreSQL provider/currency verifier now exercises a legacy same-price row, new evidence persistence, a real price correction and an identical replay with all raw fields conserved, while retaining provider/summary/app/sibling/outside-feed checks.
+
+Only the Pricing parser consumes this metadata at runtime. Local delivery overlays it on the existing qualified #853/#858/#864 Pricing image, preserving settings and datasets. Application/native images require no rebuild. Exact source/image/CI and local qualification belong to the PR/checkpoint; independent review, merge and installation acceptance remain separate. Historical provenance, original interrupted-feed completeness, old jobs and WAL ENOMEM cause stay under #854.

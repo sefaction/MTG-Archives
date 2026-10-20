@@ -1,3 +1,4 @@
+import { fetchMtgjsonIdentifierMappings } from "../lib/pricing-identifier-stream";
 import { waitForPricingDatabase } from "../lib/pricing-database-readiness";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -481,17 +482,6 @@ async function fetchMtgjsonAllPrices(opts: WorkerOptions) {
   return response.json();
 }
 
-async function fetchMtgjsonAllIdentifiers(opts: WorkerOptions) {
-  const response = await fetch(opts.mtgjsonAllIdentifiersUrl, {
-    headers: { "user-agent": "MTG-Archives pricing-worker" },
-  });
-  if (!response.ok) {
-    throw new Error(
-      `MTGJSON identifier fetch failed with HTTP ${response.status} ${response.statusText}`,
-    );
-  }
-  return response.json();
-}
 
 function loadAppMtgjsonUuids(appDatabaseUrl: string | null) {
   if (!appDatabaseUrl) return [];
@@ -834,8 +824,7 @@ async function processMapIdentifiersJob(
       url: opts.mtgjsonAllIdentifiersUrl,
     },
   );
-  const payload = await fetchMtgjsonAllIdentifiers(opts);
-  const mappings = extractMtgjsonIdentifierMappings(payload);
+  const mappings = await fetchMtgjsonIdentifierMappings(opts.mtgjsonAllIdentifiersUrl);
   const updated = publishMtgjsonIdentifierMappings(
     opts.appDatabaseUrl,
     mappings,

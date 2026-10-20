@@ -145,3 +145,5 @@ jobs:
 
       - name: MTGJSON provider currency and MTGO pipeline
         run: npx tsx scripts/verify-pricing-provider-currency.ts
+      - name: Streamed identifier mapping and malformed-tail conservation
+        run: npx tsx scripts/verify-pricing-identifier-worker.ts
