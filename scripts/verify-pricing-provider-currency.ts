@@ -54,12 +54,27 @@ async function main() {
     assert.ok(address && typeof address !== "string");
     feed = `http://127.0.0.1:${address.port}/owned-prices`;
     await worker();
-    for (const id of ["first", "correction"]) {
-      revised = id === "correction";
+    query(`INSERT INTO price_snapshots(mtgjson_uuid,provider,finish,price_type,currency,observed_date,price,raw_json,created_at)
+      VALUES('one','cardmarket','normal','retail','EUR','2026-10-18',4.25,
+      '{"path":["paper","cardmarket","retail","normal"],"value":4.25}', '2000-01-01');`);
+    const legacy = query("SELECT to_jsonb(s) FROM price_snapshots s WHERE provider='cardmarket'");
+    let beforeReplay = "";
+    for (const id of ["first", "correction", "same-price-replay"]) {
+      revised = id !== "first";
+      if (id === "same-price-replay") beforeReplay = query("SELECT json_agg(to_jsonb(s) ORDER BY id) FROM price_snapshots s");
       query(`INSERT INTO price_import_jobs(id,type,status)VALUES('${id}','MTGJSON_REFRESH_ALL','QUEUED');`);
       await worker();
       const job = JSON.parse(query(`SELECT to_jsonb(j) FROM price_import_jobs j WHERE id='${id}'`));
       assert.equal(job.status, "SUCCEEDED");
+      assert.equal(job.inserted_count, id === "first" ? 4 : 0);
+      assert.equal(job.corrected_count, id === "correction" ? 1 : 0);
+      if (id === "first") assert.equal(query("SELECT to_jsonb(s) FROM price_snapshots s WHERE provider='cardmarket'"), legacy);
+      if (id === "same-price-replay") assert.equal(query("SELECT json_agg(to_jsonb(s) ORDER BY id) FROM price_snapshots s"), beforeReplay);
+      const evidence = JSON.parse(query("SELECT json_object_agg(provider,raw_json->'currencyProvenance') FROM price_snapshots"));
+      assert.deepEqual(evidence.cardmarket, id === "first" ? null : { resolved: "EUR", resolution: "declaration", declaration: { path: ["paper", "cardmarket", "currency"], value: "EUR" } });
+      assert.deepEqual(evidence.cardhoarder, { resolved: "USD", resolution: "declaration", declaration: { path: ["mtgo", "cardhoarder", "currency"], value: "USD" } });
+      assert.deepEqual(evidence.explicit, { resolved: "USD", resolution: "path", currencyPath: ["paper", "explicit", "retail", "USD"], declaration: { path: ["paper", "explicit", "currency"], value: "EUR" } });
+      assert.deepEqual(evidence.fallback, { resolved: "GBP", resolution: "default", defaultCurrency: "GBP" });
       const rows = JSON.parse(query(`SELECT json_agg(json_build_object('provider',provider,'currency',currency,'price',price) ORDER BY provider) FROM price_snapshots`));
       assert.deepEqual(rows, [{ provider: "cardhoarder", currency: "USD", price: 0.06 }, { provider: "cardmarket", currency: "EUR", price: revised ? 4.75 : 4.25 }, { provider: "explicit", currency: "USD", price: 3 }, { provider: "fallback", currency: "GBP", price: 2.12 }, { provider: "tcgplayer", currency: "USD", price: 5 }]);
       for (const table of ["price_daily_summary", "price_scope_summary"]) {
@@ -83,7 +98,7 @@ async function main() {
       assert.deepEqual(cards.find((c: any) => c.id === "one").prices.mtgjson, { cardmarket: { normal: { retail: { EUR: { amount: revised ? 4.75 : 4.25, observedDate: "2026-10-18" } } } }, tcgplayer: { foil: { retail: { USD: { amount: 5, observedDate: "2026-10-18" } } } }, cardhoarder: { normal: { retail: { USD: { amount: 0.06, observedDate: "2026-10-18" } } } } });
       assert.deepEqual(cards.find((c: any) => c.id === "two").prices.mtgjson, { fallback: { normal: { retail: { GBP: { amount: 2.12, observedDate: "2026-10-18" } } } }, explicit: { foil: { retail: { USD: { amount: 3, observedDate: "2026-10-18" } } } } });
     }
-    assert.equal(requests, 2);
+    assert.equal(requests, 3);
   }
   catch (e) {
     failure = e;
@@ -100,6 +115,6 @@ async function main() {
   }
   if (failure)
     throw failure;
-  console.log(JSON.stringify({ status: "PASS", feedRequests: requests, rawRows: 5, providerCurrencyPreserved: true, dailyAndScopePreserved: true, appProjectionPreserved: true, sameDayCorrection: true, otherSourcesAndOutsideCardPreserved: true, ownedDatabasesRemoved: true }));
+  console.log(JSON.stringify({ status: "PASS", feedRequests: requests, rawRows: 5, providerCurrencyPreserved: true, dailyAndScopePreserved: true, appProjectionPreserved: true, sameDayCorrection: true, currencyEvidencePersisted: true, legacySamePriceRowExact: true, identicalReplayAllRawFieldsExact: true, otherSourcesAndOutsideCardPreserved: true, ownedDatabasesRemoved: true }));
 }
 main().catch(e => { console.error(e instanceof Error ? e.message : "Currency fixture failed"); process.exitCode = 1; });

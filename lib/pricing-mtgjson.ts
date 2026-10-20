@@ -66,6 +66,7 @@ function walkPrices(
   options: Required<MtgjsonPriceExtractOptions>,
   output: MtgjsonPriceSnapshotInput[],
   inheritedCurrency?: string,
+  inheritedDeclaration?: { path: string[]; value: string },
 ) {
   if (!isRecord(node)) return;
 
@@ -75,6 +76,9 @@ function walkPrices(
   const currency = /^[a-z]{3}$/i.test(declared)
     ? declared.toUpperCase()
     : inheritedCurrency;
+  const declaration = /^[a-z]{3}$/i.test(declared)
+    ? { path: [...path, "currency"], value: node.currency as string }
+    : inheritedDeclaration;
 
   for (const [key, value] of Object.entries(node)) {
     const nextPath = [...path, key];
@@ -84,19 +88,29 @@ function walkPrices(
       Number.isFinite(value)
     ) {
       const pricePath = path.map((part) => part.toLowerCase());
+      const resolvedCurrency = currencyFromPath(path, currency || options.defaultCurrency);
+      const explicitIndex = path.findIndex((part) => /^[A-Z]{3}$/.test(part));
+      // Retain the input evidence, not just the currency computed from it.
+      const currencyProvenance = {
+        resolved: resolvedCurrency,
+        resolution: explicitIndex >= 0 ? "path" : declaration ? "declaration" : "default",
+        ...(declaration ? { declaration } : {}),
+        ...(explicitIndex >= 0 ? { currencyPath: path.slice(0, explicitIndex + 1) } : {}),
+        ...(explicitIndex < 0 && !declaration ? { defaultCurrency: options.defaultCurrency } : {}),
+      };
       output.push({
         mtgjsonUuid,
         provider: providerFromPath(pricePath),
         finish: finishFromPath(pricePath),
         priceType: priceTypeFromPath(pricePath),
-        currency: currencyFromPath(path, currency || options.defaultCurrency),
+        currency: resolvedCurrency,
         observedDate: key,
         price: value,
-        rawJson: { path, value },
+        rawJson: { path, value, currencyProvenance },
       });
       continue;
     }
-    walkPrices(mtgjsonUuid, value, nextPath, options, output, currency);
+    walkPrices(mtgjsonUuid, value, nextPath, options, output, currency, declaration);
   }
 }
 

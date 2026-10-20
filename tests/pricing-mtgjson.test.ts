@@ -215,7 +215,18 @@ test("currency metadata stays within its branch and explicit currency paths reta
   const snapshots = extractMtgjsonPriceSnapshots(payload, { defaultCurrency: "GBP" });
   assert.deepEqual(snapshots.map(v => v.currency), ["EUR", "USD", "GBP", "GBP"]);
   assert.deepEqual(payload, before);
-  assert.deepEqual(snapshots[0].rawJson, { path: ["paper", "declared", "retail", "normal"], value: 1 });
+  assert.deepEqual(snapshots[0].rawJson, {
+    path: ["paper", "declared", "retail", "normal"], value: 1,
+    currencyProvenance: { resolved: "EUR", resolution: "declaration",
+      declaration: { path: ["paper", "declared", "currency"], value: " eur " } },
+  });
+  assert.deepEqual(snapshots[1].rawJson.currencyProvenance, {
+    resolved: "USD", resolution: "path",
+    declaration: { path: ["paper", "declared", "currency"], value: " eur " },
+    currencyPath: ["paper", "declared", "retail", "USD"],
+  });
+  for (const row of snapshots.slice(2)) assert.deepEqual(row.rawJson.currencyProvenance,
+    { resolved: "GBP", resolution: "default", defaultCurrency: "GBP" });
 });
 test("invalid currency declarations fall back without changing filtering or finite-price rules", () => {
   const payload = { data: { skip: { paper: { cardmarket: { currency: "EUR", retail: { normal: { "2026-10-18": 1 } } } } }, owned: { online: { cardhoarder: { currency: "EURO", retail: { normal: { "2026-10-18": 0, "2026-10-17": Infinity, "2026-10-16": "3" } } } } } } };
@@ -224,4 +235,30 @@ test("invalid currency declarations fall back without changing filtering or fini
   assert.equal(rows[0].currency, "CAD");
   assert.equal(rows[0].provider, "cardhoarder");
   assert.equal(rows[0].price, 0);
+});
+
+
+test("raw currency evidence follows nested declarations without leaking to sibling providers", () => {
+  const payload = { data: { one: { paper: {
+    declared: { currency: "EUR", retail: {
+      currency: "CAD", normal: { "2026-10-18": 1 },
+      foil: { currency: "invalid", "2026-10-18": 2 },
+    }, buylist: { normal: { "2026-10-18": 3 } } },
+    explicit: { retail: { USD: { normal: { "2026-10-18": 4 } } } },
+    fallback: { retail: { normal: { "2026-10-18": 5 } } },
+  } } } };
+  const before = structuredClone(payload);
+  const rows = extractMtgjsonPriceSnapshots(payload, { defaultCurrency: "gbp" });
+  assert.deepEqual(rows.map(r => r.currency), ["CAD", "CAD", "EUR", "USD", "GBP"]);
+  assert.deepEqual(rows.slice(0, 2).map(r => r.rawJson.currencyProvenance), [0, 1].map(() => ({
+    resolved: "CAD", resolution: "declaration", declaration: {
+      path: ["paper", "declared", "retail", "currency"], value: "CAD",
+    },
+  })));
+  assert.deepEqual(rows[2].rawJson.currencyProvenance, { resolved: "EUR", resolution: "declaration",
+    declaration: { path: ["paper", "declared", "currency"], value: "EUR" } });
+  assert.deepEqual(rows[3].rawJson.currencyProvenance, { resolved: "USD", resolution: "path",
+    currencyPath: ["paper", "explicit", "retail", "USD"] });
+  assert.deepEqual(rows[4].rawJson.currencyProvenance, { resolved: "GBP", resolution: "default", defaultCurrency: "gbp" });
+  assert.deepEqual(payload, before);
 });
