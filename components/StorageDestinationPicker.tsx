@@ -9,6 +9,7 @@ import {
   type StorageLocation,
 } from "@/lib/storage-sections";
 import { cn, filterButtonClass, filterInputClass } from "./filterStyles";
+import { scanLocationHasRoom, scanParentRoom, scanSectionHasRoom } from "@/lib/scan-destination-filter";
 
 export function StorageDestinationPicker({
   locations,
@@ -24,6 +25,8 @@ export function StorageDestinationPicker({
   disabled = false,
   capacityHint = "Capacity is a guide, not a limit.",
   showCapacitySummary = true,
+  scanCapacityFilter = false,
+  onCapacityFilterChange,
 }: {
   locations: StorageLocation[];
   locationId: string;
@@ -38,6 +41,8 @@ export function StorageDestinationPicker({
   disabled?: boolean;
   capacityHint?: string;
   showCapacitySummary?: boolean;
+  scanCapacityFilter?: boolean;
+  onCapacityFilterChange?: (enabled: boolean) => void;
 }) {
   const [search, setSearch] = useState("");
   const [choosing, setChoosing] = useState(!locationId);
@@ -48,10 +53,10 @@ export function StorageDestinationPicker({
   const sectionHeadingRef = useRef<HTMLHeadingElement>(null);
   const listId = useId();
   const destination = locations.find((l) => l.id === locationId);
-  const parentRoom = destination?.pendingQuantity === undefined || destination.capacity == null ? undefined :
+  const parentRoom = scanCapacityFilter && destination ? scanParentRoom(destination) : destination?.pendingQuantity === undefined || destination.capacity == null ? undefined :
     Math.max(0, destination.capacity - (destination.quantity ?? 0) - destination.pendingQuantity);
   const matches = locations.filter((l) =>
-    (l.name + " " + (l.type ?? ""))
+    (!scanCapacityFilter || !onlyWithRoom || scanLocationHasRoom(l)) && (l.name + " " + (l.type ?? ""))
       .toLowerCase()
       .includes(search.trim().toLowerCase()),
   );
@@ -72,14 +77,15 @@ export function StorageDestinationPicker({
     destination?.sections.filter(
       (s) =>
         s.name &&
-        (!onlyWithRoom || (sectionRoom(s, parentRoom) !== null && sectionRoom(s, parentRoom)! > 0)),
+        (!onlyWithRoom || (scanCapacityFilter ? scanSectionHasRoom(destination!, s) :
+          (sectionRoom(s, parentRoom) !== null && sectionRoom(s, parentRoom)! > 0))),
     ) ?? [];
   function choose(location: StorageLocation) {
     onLocationChange(location.id);
     onSectionChange("");
     setChoosing(false);
     setCustomSection(false);
-    setOnlyWithRoom(false);
+    if (!scanCapacityFilter) setOnlyWithRoom(false);
     setSearch("");
     requestAnimationFrame(() => sectionHeadingRef.current?.focus());
   }
@@ -87,6 +93,14 @@ export function StorageDestinationPicker({
     <div className="min-w-0 space-y-4" data-testid="storage-destination">
       <input type="hidden" name={locationField} value={locationId} />
       <input type="hidden" name={sectionField} value={section} />
+      {scanCapacityFilter && <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" checked={onlyWithRoom} disabled={disabled}
+          onChange={event => { setOnlyWithRoom(event.target.checked); setActive(0); onCapacityFilterChange?.(event.target.checked); }} />
+        Only destinations with free space
+      </label>}
+      {scanCapacityFilter && onlyWithRoom && destination &&
+        (!scanLocationHasRoom(destination) || (section ? !selectedSection || !scanSectionHasRoom(destination, selectedSection) : (scanParentRoom(destination) ?? 0) <= 0)) &&
+        <p role="status" className="text-sm">Current selection: {destination.name}{section ? " / " + section : " / No section"}. It does not match the free-space filter. Your selection is kept; choose another destination or turn off the filter.</p>}
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold">1. Destination</h3>
@@ -190,7 +204,7 @@ export function StorageDestinationPicker({
             </div>
             <p role="status" className="text-xs text-[var(--app-muted)]">
               {matches.length === 0
-                ? "No destinations found. Try a different name or storage path."
+                ? scanCapacityFilter && onlyWithRoom ? "No configured destinations with free space found. Turn off the filter or refresh capacity." : "No destinations found. Try a different name or storage path."
                 : matches.length > 30
                   ? "Showing 30 of " +
                     matches.length +
@@ -238,7 +252,7 @@ export function StorageDestinationPicker({
             >
               2. Section
             </h3>
-            {destination.sections.some((s) => s.capacity !== null) && (
+            {!scanCapacityFilter && destination.sections.some((s) => s.capacity !== null) && (
               <label className="flex items-center gap-2 text-xs">
                 <input
                   type="checkbox"
@@ -299,11 +313,11 @@ export function StorageDestinationPicker({
           </div>
           {onlyWithRoom && !sections.length && (
             <p role="status" className="text-sm text-[var(--app-muted)]">
-              All sections are full. Turn off the filter to choose one anyway,
-              or add a section.
+              {scanCapacityFilter ? "No configured sections with free space. Turn off the filter to see all sections." : "All sections are full. Turn off the filter to choose one anyway, or add a section."}
             </p>
           )}
           <div className="flex flex-wrap gap-2">
+            {(!scanCapacityFilter || !onlyWithRoom || (scanParentRoom(destination) ?? 0) > 0) &&
             <button
               type="button"
               disabled={disabled}
@@ -318,7 +332,8 @@ export function StorageDestinationPicker({
               }}
             >
               No section
-            </button>
+            </button>}
+            {(!scanCapacityFilter || !onlyWithRoom) &&
             <button
               type="button"
               disabled={disabled}
@@ -327,9 +342,9 @@ export function StorageDestinationPicker({
               onClick={() => setCustomSection(true)}
             >
               + Custom section
-            </button>
+            </button>}
           </div>
-          {customSection && (
+          {customSection && (!scanCapacityFilter || !onlyWithRoom) && (
             <label className="block text-sm">
               Section name
               <input
