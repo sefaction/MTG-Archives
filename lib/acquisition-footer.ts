@@ -1,5 +1,6 @@
 // This interprets saved OCR text; it neither changes pixels nor proves printing.
-export const ACQUISITION_FOOTER_PARSER_VERSION = "footer-observations-v5";
+import { collectorOcrAlternatives } from "./acquisition-collector-alternatives";
+export const ACQUISITION_FOOTER_PARSER_VERSION = "footer-observations-v6";
 
 // Zero padding is typography. Identity suffixes/prefixes must remain intact.
 export function acquisitionCollectorKey(value: string) {
@@ -154,11 +155,27 @@ function supplementalOutsideCollector(supplemental:string[], spatial?:FooterSpat
 // Additional metadata can help review/lookup but cannot create a strong match.
 export function acquisitionFooterObservations(primary: string[], supplemental: string[] = [], sourceIdentifiers: string[] = [], spatial?:FooterSpatialReading) {
   const initial = acquisitionFooterIdentifiers(primary);
-  if (!supplemental.length && !sourceIdentifiers.length) return initial;
+  // A set marker and a candidate row must occur in the same reading channel.
+  // Do not join lines, channels or rotations to manufacture an identifier.
+  const alternatives = new Map<string, {set: string; language: string; number: string}>();
+  let uncertainRow = false;
+  for (const lines of [primary, supplemental, sourceIdentifiers]) {
+    const numbers = lines.flatMap(collectorOcrAlternatives);
+    uncertainRow ||= numbers.length > 0;
+    const markers = acquisitionFooterIdentifiers(lines).identifiers;
+    if (markers.length !== 1) continue;
+    for (const number of numbers) {
+      const value = {...markers[0], number};
+      alternatives.set(`${value.set}:${value.language}:${number}`, value);
+    }
+  }
+  const withAlternatives = <T extends typeof initial>(value: T): T & {collectorAlternatives?: {set: string; language: string; number: string}[]} =>
+    uncertainRow ? {...value, ...(alternatives.size ? {collectorAlternatives: alternatives.size <= 4 ? [...alternatives.values()] : []} : {}), recoveredLayout: true} : value;
+  if (!supplemental.length && !sourceIdentifiers.length) return withAlternatives(initial);
   const excluded=supplementalOutsideCollector(supplemental,spatial);
   const combined = acquisitionFooterIdentifiers([...primary, ...supplemental.filter(line=>!excluded.has(line)), ...sourceIdentifiers]);
   const addedIdentifier = combined.identifiers.some(value => !initial.identifiers.some(
     old => old.set === value.set && old.language === value.language));
   const addedCollector = combined.collectors.some(value => !initial.collectors.includes(value));
-  return {...combined, recoveredLayout: combined.recoveredLayout || excluded.size>0 || addedIdentifier || addedCollector};
+  return withAlternatives({...combined, recoveredLayout: combined.recoveredLayout || excluded.size>0 || addedIdentifier || addedCollector});
 }

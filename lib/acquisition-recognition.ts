@@ -1,7 +1,7 @@
 import { acquisitionCollectorKey, acquisitionFooterObservations, type FooterSpatialReading } from "./acquisition-footer";
 import { acquisitionNameKey, acquisitionExactNameKeyEligible } from "./acquisition-name";
 export { acquisitionCollectorKey } from "./acquisition-footer";
-export const ACQUISITION_TEXT_RESOLVER_VERSION = "scanner-fragmented-collector-v17";
+export const ACQUISITION_TEXT_RESOLVER_VERSION = "scanner-collector-alternatives-v19";
 
 // OCR similarity is not calibrated confidence. Strong exact metadata can confirm
 // a printing; it never establishes physical count, finish, condition or receipt.
@@ -216,6 +216,22 @@ function resolveAcquisitionPrintings(
         nameDistance: 0,
       });
   }
+  // Recovered digits prioritize an exact title or one unambiguous existing
+  // contained-title family. Fragment reasons remain unconfirmed; this does not
+  // broaden fuzzy matching or gain literal collector support/strong status.
+  for (const {set, language, number} of footer.collectorAlternatives ?? []) {
+    if (!setCodes.has(set)) continue;
+    for (const card of index.byPrintedSetNumber.get(`${set}:${number}`) ?? []) {
+      if (!exactCards.has(card.id) || (!strictCards.has(card.id) && exactNames.size !== 1) ||
+          !card.lang || card.lang.toLowerCase() !== language) continue;
+      const prior = proposals.get(card.id);
+      if (prior?.reasons.includes("SET_AND_COLLECTOR_TEXT")) continue;
+      proposals.set(card.id, {card, nameDistance: 0, reasons: [...new Set([
+        ...(prior?.reasons ?? (strictCards.has(card.id) ? ["TITLE_EXACT"] : ["TITLE_FRAGMENT", "TITLE_UNCONFIRMED"])),
+        "COLLECTOR_OCR_ALTERNATIVE", "PRINTING_UNCONFIRMED", "REVIEW_REQUIRED",
+      ])]});
+    }
+  }
   if (allowFuzzy && !proposals.size && fuzzyTitleKeys.length) {
     const ranked = [...index.byName.keys()]
       .map((name) => ({
@@ -243,6 +259,8 @@ function resolveAcquisitionPrintings(
         Number(a.reasons.includes("SET_AND_COLLECTOR_TEXT")) ||
       Number(b.reasons.includes("TITLE_AND_COLLECTOR_TEXT")) -
         Number(a.reasons.includes("TITLE_AND_COLLECTOR_TEXT")) ||
+      Number(b.reasons.includes("COLLECTOR_OCR_ALTERNATIVE")) -
+        Number(a.reasons.includes("COLLECTOR_OCR_ALTERNATIVE")) ||
       // Within an identifier tier, prefer title corroboration to a known
       // contradiction. Keep the contradictory alternative and conflict veto.
       Number(a.reasons.includes("TITLE_CONTRADICTION")) -

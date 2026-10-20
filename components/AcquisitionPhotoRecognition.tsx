@@ -126,6 +126,12 @@ export function AcquisitionPhotoRecognition({
                 ? "Check the lower-left Planeswalker stamp: the original and stamped reprint can have the same set and collector text."
                 : "Check the set and collector number before accepting."}
       </p>
+      {result.proposals.some(p => p.reasons.includes("COLLECTOR_OCR_ALTERNATIVE")) && (
+        <p className="mt-2">
+          Some collector digits are unclear. These are possible printings, not an
+          exact match. Check the number on the card before choosing one.
+        </p>
+      )}
       <ol className="mt-2 space-y-2 list-decimal pl-4">
         {result.proposals.map(({ card }) => (
           <li key={card.id} className="break-words">

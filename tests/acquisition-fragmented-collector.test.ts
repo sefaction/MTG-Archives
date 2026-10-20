@@ -11,7 +11,11 @@ test('fragmented rarity and fraction numbers never support a partial collector',
     assert.deepEqual(parsed.collectors, [], line);
     assert.equal(parsed.recoveredLayout, true, 'a discarded fragment preserves uncertainty: '+line);
     const text = {title: ['Fragment test'], footer: [line, 'ABC EN']};
-    assert.deepEqual(acquisitionCatalogQueries([{rotationDegrees: 0, text}]).printings, [], line);
+    const alternatives: Record<string, string[]> = {'C 3 0 2':['302'], 'R 33 6':['336'],
+      'C0 0 1 7a':['17a'], '1 7 / 302':['17'], 'C 3 0/302':['30'],
+      'U 1 7 8 / 3 0 2':['178'], 'C 17 / 3 0 2':['17'], '17 / 3 0 2':['17']};
+    assert.deepEqual(acquisitionCatalogQueries([{rotationDegrees: 0, text}]).printings.map(query => query.kind === 'printing' ? query.number : null),
+      alternatives[line] ?? [], 'no prefix query; bounded complete-row hypotheses are separate: '+line);
   }
 });
 

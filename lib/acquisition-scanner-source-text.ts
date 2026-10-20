@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { acquisitionCollectorKey, acquisitionSetLanguageMarker } from "./acquisition-footer";
+import { collectorOcrAlternatives } from "./acquisition-collector-alternatives";
 
 export const scannerSourceTextSchema = z.object({
   scope: z.literal("SCANNER_SOURCE_PIXELS"),
@@ -21,6 +22,35 @@ export const scannerSourceTextSchema = z.object({
       })) ctx.addIssue({code: z.ZodIssueCode.custom, message: "Invalid scanner source positions"});
 });
 export type ScannerSourceText = z.infer<typeof scannerSourceTextSchema>;
+
+// Separate uncertain lookup hypotheses from observedScannerIdentifiers. The
+// latter remains literal support; callers must never promote these to it.
+export function observedScannerCollectorAlternatives(source?: ScannerSourceText) {
+  if (!source || !scannerSourceTextSchema.safeParse(source).success) return [];
+  const boxes = source.lines.map(line => ({...line,
+    left: Math.min(...line.polygon.map(p => p[0])),
+    top: Math.min(...line.polygon.map(p => p[1])),
+    bottom: Math.max(...line.polygon.map(p => p[1])),
+  }));
+  const markers = boxes.flatMap(box => {
+    const marker = acquisitionSetLanguageMarker(box.text);
+    return marker ? [{...box, ...marker}] : [];
+  });
+  if (new Set(markers.map(m => `${m.set}:${m.language}`)).size !== 1) return [];
+  const readings = boxes.flatMap(box => {
+    const numbers = collectorOcrAlternatives(box.text);
+    return box.left <= source.width * .35 && numbers.length ? [{...box, numbers}] : [];
+  });
+  // Multiple differing rows have no supported interpretation to select.
+  if (new Set(readings.map(r => JSON.stringify(r.numbers))).size !== 1) return [];
+  const pairs = readings.flatMap(c => markers.filter(m =>
+    (m.top >= c.bottom - source.height * .005 ||
+      (m.top > (c.top + c.bottom) / 2 && (m.top + m.bottom) / 2 > c.bottom)) &&
+    m.top - c.bottom <= source.height * .045 &&
+    Math.abs(m.left - c.left) <= source.width * .06
+  ).flatMap(m => c.numbers.map(number => ({set: m.set, language: m.language, number}))));
+  return [...new Map(pairs.map(value => [`${value.set}:${value.language}:${value.number}`, value])).values()];
+}
 
 // A narrow review channel for explicit modern collector/rarity rows immediately
 // above their set/language row. These are source positions, never a card outline.
