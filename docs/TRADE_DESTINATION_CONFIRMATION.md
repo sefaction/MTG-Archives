@@ -59,9 +59,51 @@ The shared issue-worker lock was held during this work and was not acquired,
 modified or released. No shared service, inventory, database, credential, resource
 limit or production state was changed. No merge or deployment was performed.
 
-Next: complete the normal exact-head CI and independent readiness review. A later
-coordinated local review may load the cumulative source and run the existing
-two-party lifecycle test and full-page desktop/phone review under the shared test
-lock. That requires the runtime owner's coordination and is outside this worker's
-instruction to leave shared services unchanged. Each PR still requires Brian's
-individual approval before merge.
+All three required CI checks subsequently passed on implementation head
+`6e8ffe4d8d1720a4472411279a34441a5671ed65`, draft PR #874. Combined source-only
+qualification with #873 at `29c9397a4be3eb7f97f07fa9cd98ab17e1418d4b` passed 100 Node
+tests, nine isolated browser cases and typechecking. There is no product-file
+overlap; both checkpoint entries are preserved.
+
+## Isolated full-application follow-up
+
+The parent clarified that the restriction against disturbing shared services
+permits properly coordinated isolated test resources. The #855 worker owns the
+single combined build, disposable web/PostgreSQL fixture and exact-owned cleanup;
+the runtime owner's resource window and lock protocol are still required before
+starting it. No duplicate fixture or shared loading is needed for this route.
+
+The trade lifecycle test accepts `MTG_ISOLATED_FIXTURE_MANIFEST` alongside its
+existing `MTG_LOCAL_PILOT_TEST=1` opt-in. `PLAYWRIGHT_BASE_URL` must equal the
+manifest's distinct loopback web URL. The manifest contains `runId`, `project`,
+`baseURL`, `networkName`, `web: {id, name}` and
+`database: {id, name, host, databaseName}`. No credentials belong in the manifest.
+Both containers and the private network carry
+`mtg-isolated-qualification=<runId>`; both containers also carry the exact
+`com.docker.compose.project` label. The common fixture database uses the
+`acquisition_filter_*` namespace for #855's verifier.
+
+Before any fixture query, the shared test helper verifies a local Docker engine,
+exact running container IDs/names, ownership/project labels, the loopback port,
+an exclusively owned two-container network, no host bind mounts or unowned
+volumes, and the web connection's owned database host/name. Later database calls
+use the immutable web ID rather than a reusable container name. Thirty-three
+target-guard tests and the 75 trade tests pass; current-schema typechecking passes.
+Independent review found that the initial pipe-prefix guard accepted remote UNC
+hosts; only local dot/localhost pipes and local Unix socket paths are now accepted.
+The guard also verifies an internal local bridge network. Those review findings
+and their initial failing scope are retained rather than described as runtime
+qualification.
+
+The prepared lifecycle test covers one eligible destination for the phone user,
+two for the desktop user, both blank states and native missing-value validation.
+In isolated mode it additionally submits missing, stale, inactive and other-owner
+destinations through the real browser action for both participants and compares
+complete trade/event/audit/inventory snapshots before and after each rejection.
+Explicit valid choices must still complete the existing provenance/conservation
+checks. Phone/desktop screenshots are retained for visual review. These new
+full-application assertions remain unexecuted until the coordinated fixture is
+available; preparation is not passing runtime evidence.
+
+Keep #874 draft pending actual full-application qualification and independent
+readiness. Each PR still requires Brian's individual approval before merge.
