@@ -53,6 +53,9 @@ test('missing markers, conflicting markers and separate channels/directions neve
     {rotationDegrees:180,text:{title:[],footer:['M 0 3 2 3']}}]);
   assert(!result.proposals.some(p=>p.reasons.includes('COLLECTOR_OCR_ALTERNATIVE')));
   assert.equal(acquisitionFooterObservations(['ABC EN','M 0 3 2 3']).recoveredLayout,true);
+  const unpaired=proposeAcquisitionPrintings(index,{title:[right.name],footer:['ABC EN','R 17'],footerSupplemental:['R 03S6']});
+  assert.equal(unpaired.automaticAcceptance,false,'discarded unpaired ambiguity cannot newly confirm a different clear reading');
+  assert(!unpaired.proposals.some(p=>p.reasons.includes('COLLECTOR_OCR_ALTERNATIVE')));
 });
 
 const box=(text:string,x=60,y=1300):ScannerSourceText['lines'][number]=>({text,polygon:[[x,y],[x+180,y],[x+180,y+16],[x,y+16]]});

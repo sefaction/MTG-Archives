@@ -158,16 +158,19 @@ export function acquisitionFooterObservations(primary: string[], supplemental: s
   // A set marker and a candidate row must occur in the same reading channel.
   // Do not join lines, channels or rotations to manufacture an identifier.
   const alternatives = new Map<string, {set: string; language: string; number: string}>();
+  let uncertainRow = false;
   for (const lines of [primary, supplemental, sourceIdentifiers]) {
+    const numbers = lines.flatMap(collectorOcrAlternatives);
+    uncertainRow ||= numbers.length > 0;
     const markers = acquisitionFooterIdentifiers(lines).identifiers;
     if (markers.length !== 1) continue;
-    for (const number of lines.flatMap(collectorOcrAlternatives)) {
+    for (const number of numbers) {
       const value = {...markers[0], number};
       alternatives.set(`${value.set}:${value.language}:${number}`, value);
     }
   }
   const withAlternatives = <T extends typeof initial>(value: T): T & {collectorAlternatives?: {set: string; language: string; number: string}[]} =>
-    alternatives.size ? {...value, collectorAlternatives: alternatives.size <= 4 ? [...alternatives.values()] : [], recoveredLayout: true} : value;
+    uncertainRow ? {...value, ...(alternatives.size ? {collectorAlternatives: alternatives.size <= 4 ? [...alternatives.values()] : []} : {}), recoveredLayout: true} : value;
   if (!supplemental.length && !sourceIdentifiers.length) return withAlternatives(initial);
   const excluded=supplementalOutsideCollector(supplemental,spatial);
   const combined = acquisitionFooterIdentifiers([...primary, ...supplemental.filter(line=>!excluded.has(line)), ...sourceIdentifiers]);
