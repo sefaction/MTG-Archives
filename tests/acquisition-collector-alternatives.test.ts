@@ -106,3 +106,16 @@ test('ambiguity overflow, unsupported title, language and List counterparts stay
   wrongDirection.readings.push({rotationDegrees:180,text:[right.name],truncated:false});
   assert(!combineAcquisitionPhotoText(index,proposeOrientedAcquisitionPrintings(index,[]),wrongDirection).proposals.some(p=>p.reasons.includes('COLLECTOR_OCR_ALTERNATIVE')));
 });
+
+test('one contained-title family can retain the collector alternative without gaining exact-title reasons',()=>{
+  const target={...right,collectorNumber:'302'},catalog=createAcquisitionRecognitionIndex([...cards,target]);
+  const result=proposeAcquisitionPrintings(catalog,{title:[right.name+' γæac'],footer:['ABC EN','0 3 0 Z']});
+  assert.equal(result.proposals[0].card.id,target.id);
+  assert(result.proposals[0].reasons.includes('COLLECTOR_OCR_ALTERNATIVE'));
+  assert(result.proposals[0].reasons.includes('TITLE_FRAGMENT'));
+  assert(!result.proposals[0].reasons.some(r=>['TITLE_EXACT','SET_AND_COLLECTOR_TEXT','STRONG_EXACT_PRINTING'].includes(r)));
+  assert.equal(result.automaticAcceptance,false);
+  const ambiguous=proposeAcquisitionPrintings(createAcquisitionRecognitionIndex([...cards,target,{...target,id:'other',name:'Other identity'}]),
+    {title:[right.name+' γæac','Other identity'],footer:['ABC EN','0 3 0 Z']});
+  assert(!ambiguous.proposals.some(p=>p.card.id===target.id&&p.reasons.includes('COLLECTOR_OCR_ALTERNATIVE')));
+});
