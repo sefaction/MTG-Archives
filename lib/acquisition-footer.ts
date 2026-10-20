@@ -1,5 +1,5 @@
 // This interprets saved OCR text; it neither changes pixels nor proves printing.
-export const ACQUISITION_FOOTER_PARSER_VERSION = "footer-observations-v4";
+export const ACQUISITION_FOOTER_PARSER_VERSION = "footer-observations-v5";
 
 // Zero padding is typography. Identity suffixes/prefixes must remain intact.
 export function acquisitionCollectorKey(value: string) {
@@ -13,6 +13,18 @@ const marker=/^\s*([A-Z0-9]{2,8})(?:\s*[·•*]\s*(ZHS|ZHT|EN|FR|DE|IT|ES|PT|JA|
 export function acquisitionSetLanguageMarker(line:string){
   const match=marker.exec(line);
   return match?{set:match[1].toLowerCase(),language:(match[2]??match[3]).toLowerCase()}:null;
+}
+
+// Whitespace-separated digit runs belong to an unresolved numeric reading.
+// Reject only the adjacent candidate span, never guess a joined collector or
+// let an otherwise clear identifier erase this observation's uncertainty.
+function adjacentNumericFragment(line: string, start: number, end: number, completeFraction = false) {
+  const before = line.slice(0, start), after = line.slice(end);
+  // Adjacent complete fractions are separate observations, not digit fragments.
+  const previousFraction = completeFraction && /\/[^\S\r\n]*\d{2,5}[^\S\r\n]+$/.test(before);
+  const nextFraction = completeFraction && /^[^\S\r\n]+\d{1,5}[a-z★†]?[^\S\r\n]*\/[^\S\r\n]*\d{2,5}\b/i.test(after);
+  return (/\d[^\S\r\n]+$/.test(before) && !previousFraction) ||
+    (/^[^\S\r\n]+\d/.test(after) && !nextFraction);
 }
 
 export function acquisitionFooterIdentifiers(lines: string[]) {
@@ -48,12 +60,27 @@ export function acquisitionFooterIdentifiers(lines: string[]) {
       addIdentifier(joinedArtist[1], joinedArtist[2]);
       recoveredLayout = true;
     }
-    for (const match of line.matchAll(new RegExp(`\\b(${collector})\\s*\\/\\s*\\d{2,5}\\b`, "gi"))) {
+    for (const match of line.matchAll(new RegExp(`\\b(${collector})\\s*\\/\\s*(\\d{1,5})\\b`, "gi"))) {
+      const start = match.index!;
+      if (adjacentNumericFragment(line, start, start + match[0].length, true)) {
+        recoveredLayout = true;
+        continue;
+      }
+      // Single-digit denominators alone are not supported printed totals.
+      if (match[2].length < 2) continue;
       collectors.add(acquisitionCollectorKey(match[1]));
       if (/[★†]/.test(match[1])) recoveredLayout = true;
     }
     for (const match of line.matchAll(new RegExp(`(?:^|\\n)\\s*([CUMRLT])\\s*(${collector})(?![\\p{L}\\p{N}★†])`, "gimu"))) {
       if(markerTokens.has(match[0].trim().toUpperCase())){recoveredLayout=true;continue;}
+      const start = match.index! + match[0].lastIndexOf(match[2]);
+      const end = start + match[2].length;
+      // Include a printed fraction denominator when checking its outer boundary.
+      const denominator = /^[^\S\r\n]*\/[^\S\r\n]*\d+/.exec(line.slice(end));
+      if (adjacentNumericFragment(line, start, end + (denominator?.[0].length ?? 0), Boolean(denominator && /\d{2,5}$/.test(denominator[0])))) {
+        recoveredLayout = true;
+        continue;
+      }
       // C1993-2008 Wizards... is a copyright line, not rarity C + number1993.
       const copyrightYear = match[1].toUpperCase() === "C" && /^(19|20)\d{2}$/.test(match[2]) &&
         (/wizards|copyright|©/i.test(line) || /^\s*C\s*(19|20)\d{2}\s*[-–]\s*(19|20)\d{2}/i.test(line));
