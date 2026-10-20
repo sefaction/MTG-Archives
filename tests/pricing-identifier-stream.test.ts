@@ -88,3 +88,13 @@ test("deterministic mixed-shape documents retain legacy selection semantics", as
     assert.deepEqual(await readMtgjsonIdentifierMappings(chunks(document, 1 + next(31))), extractMtgjsonIdentifierMappings(JSON.parse(document)));
   }
 });
+
+test("HTTP-compatible UTF-8 BOM handling is independent of chunk and decoder timing", async () => {
+  const bytes = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('{"data":{"a":{"scryfallId":"s"}}}')]);
+  const expected = extractMtgjsonIdentifierMappings(await new Response(bytes).json());
+  await new Promise<void>(resolve => setImmediate(resolve));
+  for (const size of [1, 2, 3, 7, 8192]) {
+    const source = Readable.from((function* () { for (let i = 0; i < bytes.length; i += size) yield bytes.subarray(i, i + size); })());
+    assert.deepEqual(await readMtgjsonIdentifierMappings(source), expected);
+  }
+});

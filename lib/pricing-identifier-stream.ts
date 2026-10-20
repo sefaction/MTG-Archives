@@ -1,4 +1,4 @@
-import { Readable, Writable } from "node:stream";
+import { Readable, Writable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { parserStream } from "stream-json";
 import type { Token } from "stream-json/parser.js";
@@ -16,6 +16,27 @@ const MAX_DEPTH = 128;
 // Token slices can otherwise retain an entire decoded input chunk. UTF-16 copy
 // also preserves unpaired surrogates, unlike an encode/decode through UTF-8.
 const detached = (value: string) => Buffer.from(value, "utf16le").toString("utf16le");
+
+// Match Response.json's UTF-8 BOM handling before the parser's decoder choice.
+// Retain at most three prefix bytes, including across one-byte input chunks.
+function utf8BodyPrefix() {
+  let prefix = Buffer.alloc(0), start = true;
+  const bom = Buffer.from([0xef, 0xbb, 0xbf]);
+  return new Transform({
+    transform(chunk: Buffer, _encoding, done) {
+      if (!start) { done(null, chunk); return; }
+      const take = Math.min(3 - prefix.length, chunk.length);
+      prefix = Buffer.concat([prefix, chunk.subarray(0, take)]);
+      if (prefix.length < 3) { done(); return; }
+      start = false;
+      if (!prefix.equals(bom)) this.push(prefix);
+      this.push(chunk.subarray(take));
+      prefix = Buffer.alloc(0);
+      done();
+    },
+    flush(done) { done(null, prefix); },
+  });
+}
 
 /** Validate the entire JSON entity before returning any publishable mappings. */
 export async function readMtgjsonIdentifierMappings(
@@ -107,7 +128,7 @@ export async function readMtgjsonIdentifierMappings(
     }
   };
   // No packed strings/keys/numbers: even an ignored giant scalar is never joined.
-  await pipeline(source, parserStream({ packValues: false, streamValues: true }), new Writable({
+  await pipeline(source, utf8BodyPrefix(), parserStream({ packValues: false, streamValues: true }), new Writable({
     objectMode: true,
     write(token: Token, _encoding, done) {
       try { consume(token); done(); } catch (error) { done(error as Error); }
