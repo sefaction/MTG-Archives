@@ -2,6 +2,16 @@
 
 ## Build provenance input coverage #842 - October 20, 2026
 
+- Follow-up reconciliation: the restricted-sandbox `gh auth status` failure below
+  is not a broken host login. An approved read-only host invocation succeeds for
+  the existing `sefaction` keyring account and HTTPS protocol. No credential,
+  login or security-setting change occurred. Repository policy already permits
+  draft publication; individual merge approval remains separate. A successful
+  coordination request was sent to the exact local shared-lock owner thread,
+  `01a10d58-d8a9-7432-8882-8aecd418b615`, requesting a bounded isolated Linux
+  route/window. Its current full Next build remains active; owner response is
+  pending and no conflicting runner/build has started. The reviewed source
+  commit `b8f9940f03cf20be0248c97a299621db41c337fd` is preserved.
 - Isolated branch `codex/review-build-provenance-842`, worktree
   `.local-data/worktrees/review-build-provenance-842-20261020`, base main
   `8ad7cd949b034226a10a2b21f2a3cdbd9abdd155`. Primary dirty checkpoint/manual
