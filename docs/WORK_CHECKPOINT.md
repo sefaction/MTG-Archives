@@ -2,6 +2,24 @@
 
 ## Build provenance input coverage #842 - October 20, 2026
 
+- Published draft [PR #875](https://github.com/sefaction/MTG-Archives/pull/875),
+  source commit `b8f9940f` preserved, authentication/coordination follow-up
+  `81bda04e`. No additional human approval is required for draft publication
+  under AGENTS/CODEX; normal host authentication already works. The earlier
+  uncommitted/local-only/publication-blocked descriptions below are retained
+  as dated preparation evidence and are superseded for this batch.
+- Owner coordination record `coordination-before-build.json` now acknowledges
+  #842 and explicitly records it deferred while the recognition worker's
+  fixed-bound Next build is active; no owner handoff or separate local runner
+  route has been granted. Do not launch a competing local Docker build/test.
+  The lock and all shared services remain untouched by this worker.
+- Safe separate route: existing PR CI uses Ubuntu/Node 22 workers, independent
+  of the laptop engine. A new test compiles the actual library/writer, copies
+  all captured source input bytes into an owned temporary fixture, runs the
+  compiled writer and checks complete equality/count/digest with source.
+  Host suite now passes 15/15, including this equality proof with 1,194 entries.
+  Linux execution and full Next build are pending exact-head CI; full Dockerfile
+  image qualification remains a separate local resource gate, not implied by CI.
 - Follow-up reconciliation: the restricted-sandbox `gh auth status` failure below
   is not a broken host login. An approved read-only host invocation succeeds for
   the existing `sefaction` keyring account and HTTPS protocol. No credential,

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   mkdtempSync,
@@ -22,7 +23,7 @@ function fixture(run: (root: string) => void) {
     rmSync(root, { recursive: true, force: true });
   }
 }
-function put(root: string, file: string, content = "initial") {
+function put(root: string, file: string, content: string | Buffer = "initial") {
   const target = path.join(root, file);
   mkdirSync(path.dirname(target), { recursive: true });
   writeFileSync(target, content);
@@ -97,6 +98,65 @@ test("manifest covers current TypeScript build inputs and Docker build configura
     );
   }
 });
+
+test("compiled Docker manifest writer binds the same exact source inputs", (context) =>
+  fixture((root) => {
+    const repository = process.cwd();
+    const expected = reviewBuildManifest(repository);
+    const compiled = path.join(root, "compiled");
+    const program = ts.createProgram(
+      [
+        path.join(repository, "lib/review-build-provenance.ts"),
+        path.join(repository, "scripts/write-review-build-manifest.ts"),
+      ],
+      {
+        target: ts.ScriptTarget.ES2022,
+        module: ts.ModuleKind.CommonJS,
+        moduleResolution: ts.ModuleResolutionKind.Node10,
+        esModuleInterop: true,
+        skipLibCheck: true,
+        rootDir: repository,
+        outDir: compiled,
+      },
+    );
+    assert.deepEqual(
+      ts
+        .getPreEmitDiagnostics(program)
+        .map((diagnostic) =>
+          ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"),
+        ),
+      [],
+    );
+    assert.equal(program.emit().emitSkipped, false);
+    const inputs = path.join(root, "inputs");
+    for (const file of Object.keys(expected.files)) {
+      put(inputs, file, readFileSync(path.join(repository, file)));
+    }
+    execFileSync(
+      process.execPath,
+      [path.join(compiled, "scripts/write-review-build-manifest.js")],
+      {
+        cwd: inputs,
+        timeout: 30_000,
+        windowsHide: true,
+      },
+    );
+    assert.deepEqual(
+      JSON.parse(
+        readFileSync(path.join(inputs, "build-source-manifest.json"), "utf8"),
+      ),
+      expected,
+    );
+    context.diagnostic(
+      JSON.stringify({
+        platform: process.platform,
+        node: process.version,
+        files: Object.keys(expected.files).length,
+        digest: expected.digest,
+        compiledWriterEquality: true,
+      }),
+    );
+  }));
 
 test("manifest is deterministic across creation order and retains exact source bytes", () =>
   fixture((left) =>
