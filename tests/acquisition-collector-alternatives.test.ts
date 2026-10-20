@@ -90,3 +90,19 @@ test('literal printing requests retain priority and the existing four-request bo
   const prior=acquisitionCatalogQueries(orientations).printings;
   assert.deepEqual(acquisitionCatalogQueries(orientations,photo()).printings,prior);
 });
+
+test('ambiguity overflow, unsupported title, language and List counterparts stay explicit',()=>{
+  const overflow=acquisitionFooterObservations(['ABC EN','R 01S1','R 02S2','R 03S3']);
+  assert.deepEqual(overflow.collectorAlternatives,[]);
+  assert.equal(overflow.recoveredLayout,true);
+  assert(!proposeAcquisitionPrintings(index,{title:['Different card'],footer:['ABC EN','R 03S6']}).proposals.some(p=>p.reasons.includes('COLLECTOR_OCR_ALTERNATIVE')));
+  assert(!proposeAcquisitionPrintings(index,{title:[right.name],footer:['ABC FR','R 03S6']}).proposals.some(p=>p.reasons.includes('COLLECTOR_OCR_ALTERNATIVE')));
+  const original={...right,collectorNumber:'336'},list={...original,id:'list',setCode:'plst',collectorNumber:'ABC-336'};
+  const result=proposeAcquisitionPrintings(createAcquisitionRecognitionIndex([original,list]),{title:[right.name],footer:['ABC EN','R 03S6']});
+  assert.equal(result.proposals.length,2);
+  assert(result.proposals.every(p=>p.reasons.includes('COLLECTOR_OCR_ALTERNATIVE')&&p.reasons.includes('STAMP_UNVERIFIED')));
+  assert.equal(result.automaticAcceptance,false);
+  const wrongDirection=photo();wrongDirection.readings[0].text=['Different card'];
+  wrongDirection.readings.push({rotationDegrees:180,text:[right.name],truncated:false});
+  assert(!combineAcquisitionPhotoText(index,proposeOrientedAcquisitionPrintings(index,[]),wrongDirection).proposals.some(p=>p.reasons.includes('COLLECTOR_OCR_ALTERNATIVE')));
+});
