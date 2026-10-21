@@ -41,3 +41,29 @@ export async function lockWritableDeck(tx: Tx, deckId: string, expectedOwnerUser
   return deck;
 }
 
+/** Delete/zero cleanup must join the same order even for zero lots, which do
+ * not have positive TradeLine reservation members. Refresh location after stock
+ * locks; a source newly moved into an unobserved deck requires a retry/skip. */
+export async function lockInventoryDeckSources(tx: Tx, inventoryItemIds: string[]) {
+  if (!inventoryItemIds.length) return new Set<string>();
+  const rows = await tx.inventoryItem.findMany({ where: { id: { in: inventoryItemIds } }, select: {
+    location: { select: { deck: { select: { id: true, ownerUserId: true } } } },
+  } });
+  const decks = rows.flatMap(row => row.location?.deck ? [row.location.deck] : []);
+  const expected = new Map(decks.map(deck => [deck.id, deck.ownerUserId]));
+  await lockDeckOwners(tx, [...expected.values()]);
+  await lockDeckRows(tx, [...expected.keys()]);
+  const current = expected.size ? await tx.deck.findMany({ where: { id: { in: [...expected.keys()] } }, select: { id: true, ownerUserId: true } }) : [];
+  if (current.length !== expected.size || current.some(deck => deck.ownerUserId !== expected.get(deck.id)))
+    throw new DeckTradeWriteError("Deck storage ownership changed. Refresh and retry.");
+  return new Set(current.map(deck => deck.id));
+}
+
+export async function assertInventoryDeckWritable(tx: Tx, locationId: string | null, lockedDeckIds: Set<string>) {
+  if (!locationId) return;
+  const location = await tx.inventoryLocation.findUnique({ where: { id: locationId }, select: { deckId: true } });
+  if (!location?.deckId) return;
+  if (!lockedDeckIds.has(location.deckId)) throw new DeckTradeWriteError("Deck storage changed. Refresh and retry.");
+  await assertDeckUnreserved(tx, location.deckId);
+}
+

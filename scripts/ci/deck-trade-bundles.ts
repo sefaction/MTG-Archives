@@ -19,13 +19,15 @@ const cards = Array.from({ length: 55 }, (_, index) => tag + "-card-" + index);
 let failure: unknown;
 const trades: string[] = [];
 let actor: any;
+let fixtureAdminMode = false;
 function loadActual(relative: string, client: PrismaClient = db, extra = ""): any {
   const filename = path.resolve(relative), realRequire = createRequire(filename), loaded = new (Module as any)(filename);
   loaded.filename = filename; loaded.paths = (Module as any)._nodeModulePaths(path.dirname(filename));
   loaded.require = (name: string) => {
     if (name === "@/lib/prisma") return { prisma: client };
     if (name === "@/lib/auth") return { requireLogin: async () => actor, getCurrentUser: async () => actor,
-      getAccessScope: async () => ({ mode: "user", userId: actor.id, playerId: actor.playerId, isAdminUser: false }) };
+      getAccessScope: async () => ({ mode: fixtureAdminMode && actor.role === "ADMIN" ? "admin" : "user",
+        userId: actor.id, playerId: actor.playerId, isAdminUser: actor.role === "ADMIN" }) };
     if (name === "next/cache") return { revalidatePath: () => {} };
     if (name === "next/navigation") return { redirect: () => { throw new Error("Unexpected fixture redirect"); } };
     if (name === "@/lib/deck-management-policy") return loadActual("lib/deck-management-policy.ts", client);
@@ -50,7 +52,8 @@ async function makeTrade() {
 async function run() {
   for (let index = 0; index < 2; index++) {
     await db.player.create({ data: { id: owners[index], name: owners[index], displayName: owners[index] } });
-    await db.user.create({ data: { id: users[index], username: users[index], displayName: users[index], playerId: owners[index], passwordHash: "not-a-login-hash" } });
+    await db.user.create({ data: { id: users[index], username: users[index], displayName: users[index], playerId: owners[index],
+      role: index === 0 ? "ADMIN" : "PLAYER", passwordHash: "not-a-login-hash" } });
     await db.deckFolder.create({ data: { id: tag + "-folder-" + index, ownerUserId: users[index], name: "Owned folder" } });
     await db.deckTag.create({ data: { id: tag + "-tag-" + index, ownerUserId: users[index], name: "Owned tag", normalizedName: "owned tag" } });
   }
@@ -65,6 +68,8 @@ async function run() {
   await db.inventoryLocation.create({ data: { id: tag + "-normal", ownerPlayerId: owners[0], name: "Normal destination", normalizedName: tag + "-normal" } });
   await db.inventoryItem.createMany({ data: cards.map(cardId => ({ currentOwnerId: owners[0], originalOpenerId: owners[1],
     cardId, quantity: 1, locationId, sourceType: "MANUAL", condition: "NM", notes: "Preserve physical provenance" })) });
+  const zero = await db.inventoryItem.create({ data: { currentOwnerId: owners[0], cardId: cards[0], quantity: 0,
+    locationId, sourceType: "MANUAL", condition: "NM", notes: "Reserved deck metadata without a positive line" } });
   const stock = await db.inventoryItem.findMany({ where: { locationId }, orderBy: { id: "asc" } });
   const audits = await db.inventoryAuditLog.findMany({ orderBy: { id: "asc" } });
   const first = await makeTrade();
@@ -72,14 +77,16 @@ async function run() {
     await lockTradeDeckSources(tx, [deckId]); await assertDeckUnreserved(tx, deckId);
     return readTradeDeck(tx, deckId, owners[0]);
   });
-  assert.equal(initial.stock.length, 55); assert.equal(initial.snapshot.cards.length, 56);
+  assert.equal(initial.stock.length, 56); assert.equal(initial.stock.filter(item => item.quantity > 0).length, 55);
+  assert.equal(initial.snapshot.cards.length, 56);
   const bundle = await db.tradeDeckBundle.create({ data: { tradeId: first.id, side: "PROPOSER", deckId,
     snapshotJson: initial.snapshot, snapshotDigest: initial.digest } });
-  await db.tradeLine.createMany({ data: stock.map((item, position) => ({ tradeId: first.id, side: "PROPOSER", deckBundleId: bundle.id,
+  await db.tradeLine.createMany({ data: stock.filter(item => item.quantity > 0).map((item, position) => ({ tradeId: first.id, side: "PROPOSER", deckBundleId: bundle.id,
     inventoryItemId: item.id, quantity: item.quantity, position, snapshotJson: { sourceId: item.id, quantity: item.quantity } })) });
   assert.equal(await db.tradeLine.count({ where: { deckBundleId: bundle.id } }), 55);
   actor = await db.user.findUniqueOrThrow({ where: { id: users[0] }, include: { player: true } });
   const actions = loadActual("app/decks/actions.ts");
+  const inventoryActions = loadActual("app/inventory/actions.ts");
   const wishlist = loadActual("app/wishlist/actions.ts", db, "exports.fixturePrintingChange=applyDeckCardPrintingChange;");
   const deckCard = await db.deckCard.findFirstOrThrow({ where: { deckId, cardId: cards[0] } });
   const graph = () => Promise.all([
@@ -122,6 +129,12 @@ async function run() {
       assert.equal(response.status, 409, route);
       assert.match((await response.json()).error, /reserved in an active trade/, route);
     }
+    for (const item of [stock.find(item => item.quantity > 0)!, zero]) {
+      await assert.rejects(inventoryActions.deleteInventoryItem(form({ inventoryItemId: item.id, deleteReason: "Reserved fixture must survive" })), /reserved in an active trade/);
+    }
+    fixtureAdminMode = true;
+    try { await inventoryActions.cleanupZeroQuantityInventory(form({ reason: "Do not remove an active deck's zero metadata" })); }
+    finally { fixtureAdminMode = false; }
     assert.deepEqual(await graph(), before, `${status} real writer refusals must preserve the complete deck/location/stock/audit graph`);
   }
   await db.trade.update({ where: { id: first.id }, data: { status: "CANCELLED" } });
@@ -129,7 +142,7 @@ async function run() {
   await actions.updateDeck(form({ name: "Renamed Deck" }));
   assert.equal((await db.deck.findUniqueOrThrow({ where: { id: deckId } })).name, "Renamed Deck");
   assert.equal((await db.inventoryLocation.findUniqueOrThrow({ where: { id: locationId } })).name, "Deck: Renamed Deck");
-  console.log("PASS deck writer integration: 13 actual metadata/list/folder/printing/return/delete action-route paths refuse all three active statuses with full graph equality; terminal metadata/location update still works");
+  console.log("PASS deck writer integration: 13 actual deck action-route paths plus positive/zero Inventory Delete and admin zero cleanup preserve all three active bundle graphs; terminal metadata/location update still works");
   const contenders = await Promise.all([makeTrade(), makeTrade()]);
   const results = await Promise.allSettled(contenders.map(trade => db.$transaction(async tx => {
     await lockTradeDeckSources(tx, [deckId]); await assertDeckUnreserved(tx, deckId);
@@ -153,12 +166,20 @@ async function run() {
   await assert.rejects(db.$transaction(tx => validateDeckReceipt(tx, users[1], owners[1], { ...receipt, tagIds: [tag + "-tag-0"] })), /own deck library/);
   assert.deepEqual(await db.inventoryItem.findMany({ where: { locationId }, orderBy: { id: "asc" } }), stock);
   assert.deepEqual(await db.inventoryAuditLog.findMany({ orderBy: { id: "asc" } }), audits);
+  fixtureAdminMode = true;
+  try { await inventoryActions.cleanupZeroQuantityInventory(form({ reason: "Terminal deck cleanup positive control" })); }
+  finally { fixtureAdminMode = false; }
+  assert.equal(await db.inventoryItem.count({ where: { id: zero.id } }), 0);
+  assert.deepEqual(await db.inventoryItem.findMany({ where: { locationId, quantity: { gt: 0 } }, orderBy: { id: "asc" } }), stock.filter(item => item.quantity > 0));
+  assert.equal(await db.inventoryAuditLog.count(), audits.length + 1);
+  assert.equal(await db.inventoryAuditLog.count({ where: { changedByUserId: users[0], changeType: "admin_cleanup_zero_quantity" } }), 1);
   console.log("PASS deck bundle foundation: real 55-lot/full-list snapshot, bundle/trade/side and positive-quantity constraints, three active reservation fences, competing owner/deck locks, stale owner denial, recipient-owned settings and Inventory/audit conservation");
 }
 run().catch(error => { failure = error; }).finally(async () => {
   const failures: unknown[] = failure ? [failure] : [];
   try {
     await db.trade.deleteMany({ where: { id: { in: trades } } });
+    await db.inventoryAuditLog.deleteMany({ where: { changedByUserId: { in: users } } });
     await db.inventoryItem.deleteMany({ where: { currentOwnerId: { in: owners } } });
     await db.deck.deleteMany({ where: { id: deckId } });
     await db.inventoryLocation.deleteMany({ where: { ownerPlayerId: { in: owners } } });
@@ -177,6 +198,7 @@ run().catch(error => { failure = error; }).finally(async () => {
     assert.equal(await db.player.count({ where: { id: { in: owners } } }), 0);
     assert.equal(await db.deckFolder.count({ where: { ownerUserId: { in: users } } }), 0);
     assert.equal(await db.deckTag.count({ where: { ownerUserId: { in: users } } }), 0);
+    assert.equal(await db.inventoryAuditLog.count({ where: { changedByUserId: { in: users } } }), 0);
     console.log("PASS deck bundle fixture: exact owned rows removed; no user/deck/location/trade/bundle/line/card residue");
   } catch (error) { failures.push(error); }
   await db.$disconnect();
