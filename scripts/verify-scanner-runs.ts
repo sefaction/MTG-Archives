@@ -162,6 +162,26 @@ export async function verifyScannerRuns(db: PrismaClient) {
     } }, epoch)).physicalCount, "ASSUMED_FROM_IMAGES");
     assert.equal(((await getScannerBatch(db, tag, uncounted.runId)).reconciliation as { mode: string }).mode, "SCANNER_IMAGE_COUNT");
     assert.equal(captureSummary((await getAcquisitionSession(db, actor, uncounted.sessionId)).session).confirmedCandidates, 2);
+    // P2/#304: source exhaustion and derived counters must survive a fresh
+    // database client and a lost final acknowledgement, without extra copies.
+    const exhaustedSession = await getAcquisitionSession(db, actor, uncounted.sessionId);
+    const exhaustedBatch = await getScannerBatch(db, tag, uncounted.runId);
+    const reconnect = new (db.constructor as typeof PrismaClient)();
+    try {
+      assert.equal((await finishScannerRun(reconnect, first.token, {
+        ...uncountedClaim, outcome: {
+          ...outcome, outcome: "SOURCE_EXHAUSTED", sourceExhausted: "REPORTED_EMPTY",
+        },
+      }, epoch)).physicalCount, "ASSUMED_FROM_IMAGES");
+      const reloaded = await getAcquisitionSession(reconnect, actor, uncounted.sessionId);
+      assert.deepEqual(reloaded, exhaustedSession, "reconnect/replayed completion preserves the complete durable session");
+      assert.deepEqual(captureSummary(reloaded.session), captureSummary(exhaustedSession.session), "counters recompute identically from persisted candidates");
+      assert.deepEqual(await getScannerBatch(reconnect, tag, uncounted.runId), exhaustedBatch, "explicit source exhaustion survives reconnect and lost acknowledgement");
+      assert.equal(await reconnect.inventoryItem.count({ where: { currentOwnerId: tag } }), 0);
+    } finally {
+      await reconnect.$disconnect();
+    }
+    console.log("PASS: scanner source exhaustion, complete session and derived counts survive reconnect and final ACK replay without Inventory writes");
     assert.equal(await db.inventoryItem.count({ where: { currentOwnerId: tag } }), 0);
     const interrupted = await createScannerBatch(db, actor, { ...input, requestKey: randomUUID(), loadedCount: null }, epoch);
     const interruptedClaim = { ...claim, runId: interrupted.runId, executionId: randomUUID() };
