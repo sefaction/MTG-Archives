@@ -1,5 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, readlinkSync } from "node:fs";
+import { createHash } from "node:crypto";
+import path from "node:path";
 import { z } from "zod";
 
 const identity = z.object({
@@ -11,6 +13,12 @@ const manifestSchema = z.object({
   project: z.string().regex(/^[a-z0-9][a-z0-9_-]+$/),
   baseURL: z.string(),
   networkName: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/),
+  hostedProxy: z.object({
+    pid: z.number().int().positive(),
+    backendAddress: z.string().ip({ version: "v4" }),
+    networkId: z.string().regex(/^[a-f0-9]{64}$/),
+    scriptSHA256: z.string().regex(/^[a-f0-9]{64}$/),
+  }).optional(),
   web: identity,
   database: identity.extend({
     host: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/),
@@ -86,14 +94,33 @@ export function verifyIsolatedQualificationTarget(
       for (const binding of bindings ?? []) requireGuard(binding.HostIp === "127.0.0.1", "published ports must be loopback-only");
     }
   }
-  const bindings = web.NetworkSettings.Ports?.["3000/tcp"];
-  requireGuard(Array.isArray(bindings) && bindings.length === 1 && bindings[0].HostPort === new URL(target.baseURL).port, "web port does not match baseURL");
+  if (!target.hostedProxy) {
+    const bindings = web.NetworkSettings.Ports?.["3000/tcp"];
+    requireGuard(Array.isArray(bindings) && bindings.length === 1 && bindings[0].HostPort === new URL(target.baseURL).port, "web port does not match baseURL");
+  }
   const network = inspect("network", target.networkName);
   requireGuard(network.Name === target.networkName && network.Labels?.[ownershipLabel] === target.runId, "network ownership mismatch");
   requireGuard(network.Driver === "bridge" && network.Scope === "local" && network.Internal === true, "requires an internal local bridge network");
   const peers = Object.keys(network.Containers ?? {}).sort();
   requireGuard(peers.length === 2 && peers.includes(target.web.id) && peers.includes(target.database.id), "private network contains unexpected containers");
   requireGuard(web.NetworkSettings.Networks[target.networkName].NetworkID === network.Id && database.NetworkSettings.Networks[target.networkName].NetworkID === network.Id, "network identity changed");
+  if (target.hostedProxy) {
+    requireGuard(process.platform === "linux" && process.env.GITHUB_ACTIONS === "true" && process.env.RUNNER_ENVIRONMENT === "github-hosted" && process.env.GITHUB_REPOSITORY === "sefaction/MTG-Archives" && process.env.GITHUB_REF === "refs/heads/codex/qualification-shared-stock-887", "proxy requires the dedicated hosted qualification branch");
+    const proxy = target.hostedProxy;
+    requireGuard(proxy.networkId === network.Id && proxy.backendAddress === web.NetworkSettings.Networks[target.networkName].IPAddress, "proxy backend is not the owned web endpoint");
+    requireGuard(Object.values(web.NetworkSettings.Ports ?? {}).every((entries: any) => !entries?.length), "proxy mode forbids Docker published ports");
+    const script = path.resolve(".github/scripts/qualification-loopback-proxy.cjs");
+    requireGuard(createHash("sha256").update(readFileSync(script)).digest("hex") === proxy.scriptSHA256, "proxy script identity mismatch");
+    const argv = readFileSync(`/proc/${proxy.pid}/cmdline`, "utf8").split("\0").filter(Boolean);
+    requireGuard(argv.length === 6 && argv[0] === process.execPath && argv[1] === script && argv[2] === target.runId && argv[3] === target.web.id && argv[4] === proxy.backendAddress && argv[5] === network.Id, "proxy process identity mismatch");
+    const sockets = new Set(readdirSync(`/proc/${proxy.pid}/fd`).flatMap(fd => {
+      try { const match = /^socket:\[(\d+)\]$/.exec(readlinkSync(`/proc/${proxy.pid}/fd/${fd}`)); return match ? [match[1]] : []; } catch { return []; }
+    }));
+    const endpoint = `0100007F:${Number(new URL(target.baseURL).port).toString(16).toUpperCase().padStart(4, "0")}`;
+    requireGuard(readFileSync(`/proc/${proxy.pid}/net/tcp`, "utf8").trim().split("\n").slice(1).some(line => {
+      const fields = line.trim().split(/\s+/); return fields[1] === endpoint && fields[3] === "0A" && sockets.has(fields[9]);
+    }), "proxy does not own the exact loopback listener");
+  }
   const aliases = database.NetworkSettings.Networks[target.networkName].Aliases ?? [];
   requireGuard(target.database.host === target.database.name || aliases.includes(target.database.host), "database host is not the owned container");
   const urls = (web.Config.Env as string[]).filter((entry) => entry.startsWith("DATABASE_URL="));
