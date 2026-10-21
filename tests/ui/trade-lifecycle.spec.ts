@@ -291,7 +291,7 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
       .toBe("ACCEPTED_PENDING_EXCHANGE");
     expect(total()).toBe(16);
 
-    async function rejectPhysicalSubmission(page: Page, detail: Locator, invalid: string, caseName: string = "gift-qualification") {
+    async function rejectPhysicalSubmission(page: Page, detail: Locator, invalid: string, caseName: string = "writers-qualification") {
       const snapshot = () => database<unknown>(`return p.$transaction(async tx=>({
         trade:await tx.trade.findUniqueOrThrow({where:{id:${quote(counter)}}}),
         events:await tx.tradeEvent.findMany({where:{tradeId:${quote(counter)}},orderBy:{id:'asc'}}),
