@@ -1,6 +1,6 @@
 # Whole-deck trade design — decision checkpoint for #807
 
-Status: draft; source reviewed at main b810f06a. No deck-transfer implementation or migration. Individual-card gifts are a separate batch in PR #880. This document preserves the confirmed requirements and identifies the product boundary that needs Brian's input.
+Status: draft design, integrated with main3ae13d0d. Original source findings below were reviewed at b810f06a and must be reconciled before implementation. No deck-transfer implementation or migration yet. Individual-card gifts #880 are separately merged. This document preserves confirmed requirements and the remaining product boundary.
 
 ## Confirmed behavior
 
@@ -12,8 +12,11 @@ Brian explicitly confirmed in this chat:
 
 - An offer supports multiple whole decks and individual cards on either side. A single-deck-only first version is not the agreed scope. Each deck remains indivisible.
 - Every League-linked deck is excluded from transfer, including unsubmitted decks. No League membership or submission reassignment is introduced.
+- A counter may remove or replace whole decks and change individual cards; the revised offer requires fresh acceptance. A deck is never split.
+- Each recipient chooses organization and explicitly confirms visibility for received decks; sender-owned folder/tag links do not cross ownership.
+- Maybeboard must contain no physically committed copies. The same-printing section ambiguity still needs its explicit handling decision.
 
-The remaining counter, recipient organization/visibility, ambiguous Maybeboard allocation and received-storage choices below still require explicit resolution. These decisions supersede the corresponding questions and narrower suggested first-delivery boundary in the preserved design history below; they do not authorize merge or deployment.
+Only the concrete same-printing Maybeboard ambiguity and received-storage handling below still require explicit resolution. These decisions supersede the earlier narrower suggested first-delivery boundary; they do not authorize merge or deployment.
 ## Source findings and consequences
 
 - `prisma/schema.prisma`: Deck ownership is `ownerUserId`; physical ownership is InventoryItem.currentOwnerId, linked through User.playerId. InventoryLocation has a unique deckId and its own ownerPlayerId. Changing only Deck.ownerUserId would leave physical storage/ownership inconsistent.
@@ -26,10 +29,10 @@ The remaining counter, recipient organization/visibility, ambiguous Maybeboard a
 
 ## Decisions required before publishing a deck trade flow
 
-1. Offer composition: may one offer include a deck plus individual cards, multiple decks, or a deck on both sides? A single indivisible deck gift is confirmed, but this does not decide the rest. Suggested first delivery: one indivisible deck per offer, with a card-only or empty return side, if Brian approves that boundary.
-2. Counters: should a counter preserve a bundle whole, replace it whole, or remove it? Partial transfer cannot satisfy the confirmed as-is requirement. A changed bundle always needs renewed review and confirmation.
-3. Organization and visibility: should the recipient choose folder/tags and explicitly confirm effective visibility? Suggested boundary: no sender-owned folder/tag links cross the ownership boundary; do not silently choose a public default or discard organization without an agreed policy.
-4. League decks: retain current restrictions and block submitted/frozen decks. Is transfer of an unsubmitted League-linked deck allowed at all? No implicit League membership/snapshot reassignment.
+1. Confirmed composition: multiple indivisible decks and individual cards on either side; do not narrow the first version to one deck.
+2. Confirmed counters: whole-deck removal/replacement and card changes are allowed, followed by fresh acceptance.
+3. Confirmed organization/visibility: recipient chooses organization and confirms visibility; no foreign sender-owned links remain.
+4. Confirmed League exclusion: every League-linked deck is blocked, including unsubmitted decks.
 5. Ambiguous Maybeboard commitments: when the same printing exists in both Maybeboard and an eligible section, is any positive committed quantity for that printing blocking, or must per-section physical allocation be introduced? Do not infer allocation from quantities or silently remove the Maybeboard row.
 6. Received storage: how should the explicit trade destination interact with the system deck location that keeps the transferred cards committed? Options need a deliberate product decision; ordinary trade receipt into a normal location alone would lose valid deck commitments.
 
