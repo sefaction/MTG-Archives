@@ -39,7 +39,7 @@ assert(helperChanges.every(name=>name === 'lib/trade-proposal.ts'),'old-action c
 // action does not import. Existing validation-state exports remain unchanged.
 if(helperChanges.length) {
   const normalize=text=>text.replace(/\r\n/g,'\n').trim();
-  const current=fs.readFileSync('lib/trade-proposal.ts','utf8').replace(/\nexport function hasTradeContents\(offeredCount: number, requestedCount: number\) \{\r?\n  return offeredCount > 0 \|\| requestedCount > 0;\r?\n\}\r?\n/,'\n');
+  const current=fs.readFileSync('lib/trade-proposal.ts','utf8').replace(/\nexport function hasTradeContents\(offeredCount: number, requestedCount: number\) \{\r?\n  return offeredCount > 0 \|\| requestedCount > 0;\r?\n\}\r?\n/,'');
   assert.equal(normalize(current),normalize(run('git',['show',`${helperBaseline}:lib/trade-proposal.ts`])),'baseline proposal helpers must be byte-equivalent after removing the added gift predicate');
 }
 fs.writeFileSync(path.join(out,'baseline-actions.ts'),run('git',['show',`${baseline}:app/trades/actions.ts`])+'\n');
