@@ -32,7 +32,7 @@ const endpoint=JSON.parse(docker('context','inspect',docker('context','show'),'-
 assert.match(endpoint,/^unix:\/\//,'selected Docker context must be local');
 evidence.dockerEndpoint=endpoint;
 const baseline='f32ebffbec91d5488e7e3318510d446bdc3d80d7';
-const helperBaseline='b810f06a18f1e358b970bccf8093e4b1026eeb66';
+const helperBaseline='08d90ea3cadf18ec8cb95b366023b7aceabe2b37';
 const helperChanges=run('git',['diff','--name-only',helperBaseline,'HEAD','--','lib','prisma','package.json','package-lock.json','tsconfig.json']).split('\n').filter(Boolean);
 assert(helperChanges.every(name=>name === 'lib/trade-proposal.ts'),'old-action control requires unchanged transfer helpers/schema/dependencies');
 // The only permitted helper delta adds gift-content validation, which the old
