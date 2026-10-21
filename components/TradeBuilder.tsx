@@ -408,8 +408,13 @@ export function TradeBuilder({
   initialOfferedItem,
   initialRequestedItem,
 }: TradeBuilderProps) {
+  const [message, setMessage] = useState("");
   const [proposalState, submitProposal] = useActionState(
-    createTradeAction,
+    async (previousState: TradeProposalActionState, formData: FormData) => {
+      const result = await createTradeAction(previousState, formData);
+      if (result.status === "success") setMessage("");
+      return result;
+    },
     initialTradeProposalActionState,
   );
   const [offerSearch, setOfferSearch] = useState<SearchState>(emptySearchState);
@@ -600,6 +605,8 @@ export function TradeBuilder({
           Message / notes
           <textarea
             name="message"
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
             className={cn(filterTextareaClass, "mt-1 w-full")}
             placeholder="Add context, condition notes, or negotiation details."
           />
