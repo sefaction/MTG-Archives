@@ -120,7 +120,7 @@ async function runMode(label: string, source: string, expectDefect: boolean) {
       const fd = new FormData(); fd.set("tradeId", f.trades[recipient - 1].id); fd.set("destinationLocationId", f.people[recipient].locationId);
       return context.run({ actor: f.people[recipient], sourceId: f.items[0].id, inventoryLocked: false, gate: overlap, reads, backends }, () => actions.confirmPhysicalTrade(fd));
     }));
-    assert(outcomes.every(outcome => outcome.status === "fulfilled"), JSON.stringify(outcomes));
+    assert(outcomes.every(outcome => outcome.status === "fulfilled"), JSON.stringify(outcomes.map(outcome => outcome.status === "rejected" ? String(outcome.reason) : outcome.status)));
     const sourceRow = await p.inventoryItem.findUnique({ where: { id: f.items[0].id } });
     const audits = await p.inventoryAuditLog.findMany({ where: { tradeId: { in: f.trades.map(trade => trade.id) } } });
     const sourceAudits = audits.filter(audit => (audit.beforeJson as any)?.id === f.items[0].id);
