@@ -4,7 +4,9 @@ Base: `f32ebffbec91d5488e7e3318510d446bdc3d80d7`, after merged #874.
 The source hypothesis is unproven until the actual action reproduces it.
 
 The hosted-only harness compiles the checked-in action module without changing
-its statements. It adapts request identity and Next cache invalidation only.
+its statements. It adapts request identity and Next cache invalidation. A Prisma
+forwarding proxy delays actual read results for barriers and injects the declared
+second-receipt failure; it forwards transaction options/defaults unchanged.
 Real Prisma transactions, source removals, destination receipts, provenance,
 audit logs, wishlists, notifications and announcement queue logic execute.
 It does not qualify browser transport or authentication/session handling.
@@ -67,6 +69,14 @@ source review found no blocking product issue. Its suggested selected-context
 and clean-checkout fences are added for the final run; that run also strengthens
 audit quantity assertions and injects failure on the second receipt after the
 first receipt and audit have executed.
+
+The reviewer-requested evidence hardening also records call IDs/read sequences
+and scenario-specific gates. Both initial action reads must overlap in every
+scenario; both completion-load/status reads must overlap in each expected-defect
+baseline case. The fixed path may serialize before the second post-lock read.
+Baseline helpers, schema and dependency files must match the frozen baseline.
+The selected context must be local Unix Docker and the internal network a local
+bridge. Synthetic PostgreSQL data is tmpfs-only with bounded memory/swap/CPU/PIDs.
 
 The remaining #309 all-writer/phase acceptance is broader: this does not qualify
 arbitrary unrelated Inventory writers, nonphysical trade actions, browser/session

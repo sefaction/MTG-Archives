@@ -32,6 +32,7 @@ const endpoint=JSON.parse(docker('context','inspect',docker('context','show'),'-
 assert.match(endpoint,/^unix:\/\//,'selected Docker context must be local');
 evidence.dockerEndpoint=endpoint;
 const baseline='f32ebffbec91d5488e7e3318510d446bdc3d80d7';
+assert.equal(run('git',['diff','--name-only',baseline,'HEAD','--','lib','prisma','package.json','package-lock.json','tsconfig.json']),'','old-action control requires unchanged helpers/schema/dependencies');
 fs.writeFileSync(path.join(out,'baseline-actions.ts'),run('git',['show',`${baseline}:app/trades/actions.ts`])+'\n');
 evidence.sources = Object.fromEntries(['app/trades/actions.ts','scripts/ci/trade-concurrency.ts','scripts/ci/trade-concurrency-runner.cjs','prisma/schema.prisma'].map(name=>[name,crypto.createHash('sha256').update(fs.readFileSync(name)).digest('hex')]));
 try {
@@ -39,8 +40,8 @@ try {
   const pgImage=inspect('image','postgres:16').Id, nodeImage=inspect('image','node:22-bookworm').Id;
   evidence.images={pgImage,nodeImage};
   network=docker('network','create','--internal','--label',label,`trade-${runId}`);
-  const net=inspect('network',network);assert.equal(net.Internal,true);assert.equal(net.Labels['mtg-trade-concurrency'],runId);
-  const pg=create(['--network',network,'--network-alias','postgres','--memory','512m','--cpus','1','-e','POSTGRES_USER=ci','-e','POSTGRES_PASSWORD=synthetic','-e','POSTGRES_DB=trade_fixture',pgImage]);
+  const net=inspect('network',network);assert.equal(net.Internal,true);assert.equal(net.Driver,'bridge');assert.equal(net.Scope,'local');assert.equal(net.Labels['mtg-trade-concurrency'],runId);
+  const pg=create(['--network',network,'--network-alias','postgres','--memory','512m','--memory-swap','512m','--cpus','1','--pids-limit','128','--tmpfs','/var/lib/postgresql/data:rw,size=256m','-e','POSTGRES_USER=ci','-e','POSTGRES_PASSWORD=synthetic','-e','POSTGRES_DB=trade_fixture',pgImage]);
   docker('start',pg);
   let ready=false;
   for(let i=0;i<30;i++) {const r=cp.spawnSync('docker',['exec',pg,'pg_isready','-U','ci','-d','trade_fixture'],{encoding:'utf8'});if(r.status===0){ready=true;break;}cp.spawnSync('sleep',['1']);}

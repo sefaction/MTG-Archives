@@ -19,14 +19,16 @@ let gates: Record<string, ReturnType<typeof barrier>> = {};
 let injectRollback = false;
 let receiptCreates = 0;
 const observations: any[] = [];
+let scenario = 'startup';
 function barrier(name: string) {
+  const mode = scenario;
   let arrivals = 0, release!: () => void;
   const ready = new Promise<void>(r => release = r);
   let timer: ReturnType<typeof setTimeout>;
   return async () => {
     arrivals++;
-    if (arrivals === 1) timer = setTimeout(() => { observations.push({gate:name, arrivals, timeout:true}); release(); }, 1500);
-    if (arrivals === 2) { clearTimeout(timer); observations.push({gate:name, arrivals, timeout:false}); release(); }
+    if (arrivals === 1) timer = setTimeout(() => { observations.push({mode,gate:name, arrivals, timeout:true}); release(); }, 1500);
+    if (arrivals === 2) { clearTimeout(timer); observations.push({mode,gate:name, arrivals, timeout:false}); release(); }
     await ready;
   };
 }
@@ -46,6 +48,7 @@ function wrap(client: any, transaction = false): any {
         const ctx = context.getStore();
         if (ctx && key === 'trade' && method === 'findUnique' && args.include) {
           ctx.reads++;
+          observations.push({mode:scenario,callId:ctx.callId,readSequence:ctx.reads,transaction,status:result?.status,proposerConfirmed:Boolean(result?.proposerCommittedAt),receiverConfirmed:Boolean(result?.receiverCommittedAt)});
           await gates[`read-${ctx.reads}`]?.();
         }
         if (ctx && transaction && key === 'trade' && method === 'findUnique' && args.select?.status) await gates.status?.();
@@ -95,7 +98,7 @@ async function fixture(mode: string) {
 async function call(f: Awaited<ReturnType<typeof fixture>>, index: number, force = false, destination?: string) {
   const fd = new FormData(); fd.set('tradeId',f.trade.id); fd.set('destinationLocationId',destination ?? f.people[index].locationId);
   if (force) { fd.set('forceComplete','1'); fd.set('reason','synthetic overlap'); }
-  return context.run({actor:f.people[index],reads:0},()=>confirmPhysicalTrade(fd));
+  return context.run({actor:f.people[index],reads:0,callId:randomUUID()},()=>confirmPhysicalTrade(fd));
 }
 async function state(f: Awaited<ReturnType<typeof fixture>>) {
   return {trade:await p.trade.findUniqueOrThrow({where:{id:f.trade.id}}), items:await p.inventoryItem.findMany({where:{cardId:{in:f.items.map(i=>i.cardId)}},orderBy:{id:'asc'}}), audits:await p.inventoryAuditLog.findMany({where:{tradeId:f.trade.id},orderBy:{id:'asc'}}), events:await p.tradeEvent.findMany({where:{tradeId:f.trade.id},orderBy:{id:'asc'}})};
@@ -130,11 +133,13 @@ async function main() {
 try {
   assert.equal(await p.user.count(),0,'empty synthetic database required');
   for (const mode of ['duplicate','simultaneous','admin-overlap']) {
+    scenario = mode;
     const f = await fixture(mode);
     gates = {'read-1':barrier('initial'), 'read-2':barrier('completion-load'), status:barrier('transaction-status')};
     const settled = await Promise.allSettled(mode === 'duplicate' ? [call(f,1),call(f,1)] : mode === 'simultaneous' ? [call(f,0),call(f,1)] : [call(f,2,true),call(f,1)]);
     gates = {};
     const s = await state(f);
+    assert(observations.some(o=>o.mode === mode && o.gate === 'initial' && o.arrivals === 2 && !o.timeout),'both actual initial action reads must overlap');
     let violation: string | null = null;
     try { assertOnce(f,s); } catch (error: any) { violation = error.message; }
     results.push({mode,settled:settled.map(r=>r.status === 'fulfilled' ? {status:r.status} : {status:r.status,error:String(r.reason)}),completionEvents:s.events.filter(e=>e.eventType === 'completed').length,sourceQuantities:f.items.map(i=>s.items.find(x=>x.id === i.id)?.quantity),receivedLots:s.items.filter(i=>i.sourceType === 'TRADE').length,audits:s.audits.length,violation});
@@ -147,9 +152,11 @@ try {
       assert.deepEqual(result.sourceQuantities,[6,6]);
       assert.equal(result.receivedLots,4);
       assert.equal(result.audits,8);
+      for (const gate of ['completion-load','transaction-status']) assert(observations.some(o=>o.mode === mode && o.gate === gate && o.arrivals === 2 && !o.timeout),`${mode}: both actual ${gate} reads must overlap`);
     }
   }
   // Real transactional failure after the first source decrements must roll back.
+  scenario = 'rollback';
   const f = await fixture('rollback');
   const before = await state(f);
   injectRollback = true;
@@ -163,13 +170,14 @@ try {
   assert.equal(receiptCreates,2,'failure injected only after one real receipt and audit');
   results.push({mode:'rollback',passed:true,receiptCreatesBeforeFailure:receiptCreates,confirmationAtomic:after.events.length === 0});
   // Destination and participant authority remain real action checks.
+  scenario = 'authorization-and-destination';
   const denial = await fixture('denial');
   await assert.rejects(call(denial,1,false,''),/Choose a destination/);
   await assert.rejects(call(denial,1,false,denial.people[0].locationId),/active normal location/);
   await assert.rejects(call(denial,2),/Only trade participants/);
   results.push({mode:'authorization-and-destination',passed:true});
 } finally {
-  console.log('TRADE_REPORT='+JSON.stringify({head:process.env.SOURCE_SHA,actionSha256:createHash('sha256').update(source).digest('hex'),adapters:['auth request identity','next cache invalidation'],results,observations}));
+  console.log('TRADE_REPORT='+JSON.stringify({head:process.env.SOURCE_SHA,actionSha256:createHash('sha256').update(source).digest('hex'),adapters:['auth request identity','next cache invalidation','Prisma forwarding proxy: post-query read barriers and second-receipt rollback injection'],results,observations}));
   await p.$disconnect();
 }
 }
