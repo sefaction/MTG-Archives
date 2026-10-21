@@ -408,14 +408,15 @@ export function TradeBuilder({
   initialOfferedItem,
   initialRequestedItem,
 }: TradeBuilderProps) {
+  const [message, setMessage] = useState("");
   const [proposalState, submitProposal] = useActionState(
-    createTradeAction,
+    async (previousState: TradeProposalActionState, formData: FormData) => {
+      const result = await createTradeAction(previousState, formData);
+      if (result.status === "success") setMessage("");
+      return result;
+    },
     initialTradeProposalActionState,
   );
-  const [message, setMessage] = useState("");
-  useEffect(() => {
-    if (proposalState.status === "success") setMessage("");
-  }, [proposalState]);
   const [offerSearch, setOfferSearch] = useState<SearchState>(emptySearchState);
   const [requestSearch, setRequestSearch] =
     useState<SearchState>(emptySearchState);
