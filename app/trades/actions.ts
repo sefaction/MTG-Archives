@@ -227,7 +227,6 @@ async function loadTradeForAction(
             include: {
               card: true,
               currentOwner: true,
-              auditLogs: true,
             },
           },
         },
@@ -236,14 +235,12 @@ async function loadTradeForAction(
         include: {
           card: true,
           currentOwner: true,
-          auditLogs: true,
         },
       },
       requestedInventoryItem: {
         include: {
           card: true,
           currentOwner: true,
-          auditLogs: true,
         },
       },
     },
@@ -606,6 +603,8 @@ async function removeFromSource(
   actorUserId: string,
   reason: string,
 ) {
+  // Item reads exclude prior audit rows: spreading that history here would
+  // recursively duplicate old snapshots instead of keeping canonical records.
   const beforeJson = {
     ...item,
     previousOwnerId: item.currentOwnerId,
@@ -764,7 +763,6 @@ async function completeTradeIfReady(
       include: {
         card: true,
         currentOwner: true,
-        auditLogs: true,
       },
     });
     const currentById = new Map(currentItems.map((item) => [item.id, item]));

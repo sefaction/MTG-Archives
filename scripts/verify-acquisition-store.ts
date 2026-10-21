@@ -20,6 +20,7 @@ import { verifyAcquisitionBatchManagement } from "./verify-acquisition-batch-man
 import { verifyScannerStartRetirement } from "./verify-scanner-start-retirement";
 import assert from "node:assert/strict";
 import { verifyAcquisitionPhotos } from "./verify-acquisition-photos";
+import { verifyAcquisitionStorageBoundaries } from "./verify-acquisition-storage-boundaries";
 import { verifyAcquisitionCatalog } from "./verify-acquisition-catalog";
 import { verifyAcquisitionCatalogCache } from "./verify-acquisition-catalog-cache";
 import { verifyAcquisitionOrchestration } from "./verify-acquisition-orchestration";
@@ -401,6 +402,7 @@ async function run() {
   await verifyRecognitionReplacement(db, actor, input());
   await verifyAcquisitionReferenceRefinement(db, actor, input());
   await verifyAcquisitionPhotos(db, actor, stranger, input());
+  await verifyAcquisitionStorageBoundaries(db, actor, input());
   await verifyAcquisitionCatalog(db, admin, actor, cardId);
   await verifyAcquisitionCatalogCache(db);
   await verifyAcquisitionHandoff(db);
