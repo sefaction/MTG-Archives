@@ -328,9 +328,14 @@ export async function verifyAcquisitionOrchestration(
   assert.equal(new Set(admitted.map(job => job.candidateRevision)).size, 1);
   const contractReconnect = new (db.constructor as typeof PrismaClient)();
   try {
-    const claimed = await claimAcquisitionJobs(contractReconnect, { workerId: "version-contract-reconnect", stages: ["version-contract"], limit: 7 }, new Date(Date.now() + 1000));
-    assert.equal(claimed.length, 7);
-    for (const job of claimed) {
+    const claimedIds = new Set<string>();
+    for (let turn = 0; turn < 7; turn++) {
+      // Use ordinary bounded turns; this is an identity test, not an exception
+      // to the queue's per-run fairness/admission policy.
+      const claimed = await claimAcquisitionJobs(contractReconnect, { workerId: "version-contract-reconnect", stages: ["version-contract"], limit: 1 }, new Date(Date.now() + 1000));
+      assert.equal(claimed.length, 1);
+      const job = claimed[0];
+      claimedIds.add(job.id);
       const original = admitted.find(item => item.id === job.id)!;
       assert.deepEqual(job.input, original.input, "fresh worker reads the admitted immutable input, not the caller's later mutation");
       const output = { fixture: "version-contract", boundInput: job.input as any };
@@ -339,6 +344,7 @@ export async function verifyAcquisitionOrchestration(
       assert.deepEqual(saved.output, output);
       assert.deepEqual(saved.input, original.input);
     }
+    assert.equal(claimedIds.size, 7);
     assert.deepEqual(await getAcquisitionSession(contractReconnect, actor, contract.session.id), contractBefore, "generic evidence completion does not change human decisions or physical candidates");
     assert.deepEqual(await contractReconnect.inventoryItem.findMany({ where: { currentOwnerId: base.ownerPlayerId }, orderBy: { id: "asc" } }), stockBefore);
   } finally {
