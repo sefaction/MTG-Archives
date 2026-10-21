@@ -23,7 +23,11 @@ function gate() {
 function wrap(client: any, transaction = false): any {
   return new Proxy(client, { get(target, key) {
     if (key === "$transaction") return (fn: any, options: any) => target.$transaction(
-      typeof fn === "function" ? (tx: any) => fn(wrap(tx, true)) : fn, options);
+      typeof fn === "function" ? async (tx: any) => {
+        const result = await fn(wrap(tx, true));
+        if (context.getStore()?.rollback) throw new Error("owned failure after real proposal/event/notification writes");
+        return result;
+      } : fn, options);
     const value = target[key];
     if (key === "$queryRaw") return async (...args: any[]) => {
       const result = await value.apply(target, args), ctx = context.getStore();
@@ -35,6 +39,9 @@ function wrap(client: any, transaction = false): any {
       const fn = model[method]; if (typeof fn !== "function") return fn;
       return async (args: any) => {
         const result = await fn.call(model, args), ctx = context.getStore();
+        if (ctx?.counterId && key === "trade" && method === "findUnique" && args.where?.id === ctx.counterId && args.select?.proposerPlayerId) {
+          await ctx.gate.wait();
+        }
         if (ctx && method === "findMany" && key === "tradeLine" && args.select?.quantity) {
           ctx.reads.push({ lines: result.length, reserved: result.reduce((sum: number, line: any) => sum + line.quantity, 0), locked: ctx.locked });
         }
@@ -70,13 +77,14 @@ async function fixture(quantity: number) {
     quantity, condition: "NM", language: "EN", sourceType: "MANUAL", notes: tag } });
   return f;
 }
-async function propose(f: any, orientation: string, index: number, overlap: ReturnType<typeof gate>, reads: any[]) {
+async function propose(f: any, orientation: string, index: number, overlap: ReturnType<typeof gate>, reads: any[], counterId?: string, rollback = false) {
   const fd = new FormData(), offered = orientation === "offered", actor = f.people[offered ? 0 : index];
   fd.set("receiverPlayerId", f.owners[offered ? index : 0]);
   fd.set("offeredLinesJson", JSON.stringify(offered ? [{ inventoryItemId: f.item.id, quantity: 1 }] : []));
   fd.set("requestedLinesJson", JSON.stringify(offered ? [] : [{ inventoryItemId: f.item.id, quantity: 1 }]));
   fd.set("message", `owned proposal ${index}`);
-  return context.run({ actor, gate: overlap, reads, locked: false }, () => loaded.exports.createTrade({ status: "idle", message: "" }, fd));
+  if (counterId) fd.set("counterTradeId", counterId);
+  return context.run({ actor, gate: overlap, reads, locked: false, counterId, rollback }, () => loaded.exports.createTrade({ status: "idle", message: "" }, fd));
 }
 async function main() {
   assert.equal(await db.user.count(), 0, "empty disposable database after shared-stock cleanup required");
@@ -97,6 +105,56 @@ async function main() {
     } finally { overlap.close(); }
   }
   assert.ok(results.every(r => r.reserved <= r.quantity && r.success === r.quantity), "two proposals must not reserve the same final physical copy");
+  const exchange = await fixture(1), exchangeGate = gate(), exchangeReads: any[] = [];
+  const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...stock } = exchange.item;
+  const secondStock = await db.inventoryItem.create({ data: { ...stock, currentOwnerId: exchange.owners[1] } });
+  try {
+    const sources = [exchange.item, secondStock];
+    const responses = await Promise.all([0, 1].map(index => {
+      const fd = new FormData(); fd.set("receiverPlayerId", exchange.owners[1 - index]);
+      fd.set("offeredLinesJson", JSON.stringify([{ inventoryItemId: sources[index].id, quantity: 1 }]));
+      fd.set("requestedLinesJson", JSON.stringify([{ inventoryItemId: sources[1 - index].id, quantity: 1 }]));
+      return context.run({ actor: exchange.people[index], gate: exchangeGate, reads: exchangeReads, locked: false },
+        () => loaded.exports.createTrade({ status: "idle", message: "" }, fd));
+    }));
+    assert.equal(responses.filter(r => r.status === "success").length, 1);
+    assert.equal(responses.filter(r => r.status === "error").length, 1);
+    const saved = await db.trade.findMany({ where: { proposerPlayerId: { in: exchange.owners } }, include: { lines: true } });
+    assert.equal(saved.length, 1); assert.equal(saved[0].lines.length, 2);
+    for (const source of sources) {
+      assert.deepEqual(await db.inventoryItem.findUniqueOrThrow({ where: { id: source.id } }), source);
+      assert.equal(saved[0].lines.find(line => line.inventoryItemId === source.id)?.quantity, 1);
+    }
+  } finally { exchangeGate.close(); }
+  const counter = await fixture(1), counterGate = gate(), counterReads: any[] = [];
+  try {
+    assert.equal((await propose(counter, "offered", 1, counterGate, counterReads)).status, "success");
+    const original = await db.trade.findFirstOrThrow({ where: { proposerPlayerId: counter.owners[0] } });
+    const replies = await Promise.all([1, 2].map(() => propose(counter, "requested", 1, counterGate, counterReads, original.id)));
+    assert.equal(counterGate.arrivals, 2, "both actual proposed-state counter preflights overlap before locks");
+    assert.equal(replies.filter(r => r.status === "success").length, 1);
+    assert.equal(replies.filter(r => r.status === "error").length, 1);
+    assert.equal((await db.trade.findUniqueOrThrow({ where: { id: original.id } })).status, "DECLINED");
+    const replacements = await db.trade.findMany({ where: { proposerPlayerId: counter.owners[1], status: "PROPOSED" }, include: { lines: true } });
+    assert.equal(replacements.length, 1);
+    assert.equal(replacements[0].lines[0].inventoryItemId, counter.item.id);
+    assert.equal(replacements[0].lines[0].quantity, 1);
+    assert.equal(await db.tradeEvent.count({ where: { tradeId: original.id, eventType: "countered" } }), 1);
+    assert.equal(await db.tradeEvent.count({ where: { tradeId: replacements[0].id, eventType: "counter_proposed" } }), 1);
+    assert.equal(await db.notification.count({ where: { recipientUserId: { in: counter.people.map((u: any) => u.id) } } }), 2);
+    assert.deepEqual(await db.inventoryItem.findUniqueOrThrow({ where: { id: counter.item.id } }), counter.item);
+  } finally { counterGate.close(); }
+  const rollback = await fixture(1), rollbackGate = gate(), rollbackReads: any[] = [];
+  try {
+    const before = await Promise.all([db.trade.count(), db.tradeEvent.count(), db.notification.count(), db.notificationDeliveryJob.count()]);
+    await assert.rejects(propose(rollback, "offered", 1, rollbackGate, rollbackReads, undefined, true), /owned failure after real proposal/);
+    assert.deepEqual(await Promise.all([db.trade.count(), db.tradeEvent.count(), db.notification.count(), db.notificationDeliveryJob.count()]), before);
+    assert.deepEqual(await db.inventoryItem.findUniqueOrThrow({ where: { id: rollback.item.id } }), rollback.item);
+    assert.equal((await propose(rollback, "offered", 1, rollbackGate, rollbackReads)).status, "success");
+    assert.equal(await db.trade.count({ where: { proposerPlayerId: rollback.owners[0] } }), 1);
+    assert.equal(await db.inventoryAuditLog.count(), 0);
+  } finally { rollbackGate.close(); }
+  console.log("PASS: opposite two-sided proposals preserve one reservation per source; competing real counter preflights replace once; real proposal/event/notification writes roll back together before retry");
   console.log("PASS: concurrent offered/requested proposals admit exactly available stock, preserve Inventory and emit events/notifications only for committed proposals");
 }
 main().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
@@ -115,6 +173,7 @@ main().catch(error => { console.error(error); process.exitCode = 1; }).finally(a
     }
     assert.equal(await db.user.count(), 0); assert.equal(await db.player.count(), 0); assert.equal(await db.card.count(), 0);
     assert.equal(await db.trade.count(), 0); assert.equal(await db.notification.count(), 0); assert.equal(await db.inventoryAuditLog.count(), 0);
+    assert.equal(await db.inventoryItem.count(), 0); assert.equal(await db.tradeEvent.count(), 0); assert.equal(await db.notificationDeliveryJob.count(), 0);
     console.log("PASS: exact proposal reservation fixture cleanup");
   } finally { await db.$disconnect(); }
 });

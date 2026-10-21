@@ -96,7 +96,8 @@ function inventorySnapshot(
 
 async function validateProposedTrade(
   data: ProposedTradeData,
-  ignoredReservationTradeId?: string,
+  ignoredReservationTradeId: string | undefined,
+  tx: Prisma.TransactionClient,
 ) {
   if (data.proposerPlayerId === data.receiverPlayerId)
     throw new TradeProposalValidationError(
@@ -111,7 +112,7 @@ async function validateProposedTrade(
   const itemIds = Array.from(
     new Set(selections.map((line) => line.inventoryItemId)),
   );
-  const items = await prisma.inventoryItem.findMany({
+  const items = await tx.inventoryItem.findMany({
     where: { id: { in: itemIds } },
     include: { currentOwner: true, card: true, location: true },
   });
@@ -144,7 +145,7 @@ async function validateProposedTrade(
     "You can only request cards from the selected trade partner.",
   );
   const [reservationLines, legacyReservations] = await Promise.all([
-    prisma.tradeLine.findMany({
+    tx.tradeLine.findMany({
       where: {
         inventoryItemId: { in: itemIds },
         trade: {
@@ -156,7 +157,7 @@ async function validateProposedTrade(
       },
       select: { inventoryItemId: true, quantity: true },
     }),
-    prisma.trade.findMany({
+    tx.trade.findMany({
       where: {
         status: { in: activeStatuses },
         ...(ignoredReservationTradeId
@@ -298,44 +299,58 @@ async function createTradeMutation(fd: FormData) {
       throw asTradeProposalValidationError(error);
     }
   }
-  const { offered, requested } = await validateProposedTrade(
-    data,
-    counterSource?.id,
-  );
-  const createData = {
-    proposerPlayerId: data.proposerPlayerId,
-    receiverPlayerId: data.receiverPlayerId,
-    status: TradeStatus.PROPOSED,
-    message: String(fd.get("message") || "") || null,
-    createdByUserId: actor.id,
-    lines: {
-      create: [
-        ...offered.map((line, position) => ({
-          side: TradeLineSide.PROPOSER,
-          inventoryItemId: line.item.id,
-          quantity: line.quantity,
-          position,
-          snapshotJson: inventorySnapshot(
-            line.item,
-            line.quantity,
-            actor.preferredPriceProvider,
-          ),
-        })),
-        ...requested.map((line, position) => ({
-          side: TradeLineSide.RECEIVER,
-          inventoryItemId: line.item.id,
-          quantity: line.quantity,
-          position,
-          snapshotJson: inventorySnapshot(
-            line.item,
-            line.quantity,
-            actor.preferredPriceProvider,
-          ),
-        })),
-      ],
-    },
-  };
   await prisma.$transaction(async (tx) => {
+    // Match completion's Trade-before-Inventory lock order for counters, then
+    // serialize overlapping reservation creation before reading current stock.
+    if (counterSource) {
+      await tx.$queryRaw`SELECT "id" FROM "Trade" WHERE "id" = ${counterSource.id} FOR UPDATE`;
+    }
+    const reservationItemIds = Array.from(new Set(
+      [...data.offeredLines, ...data.requestedLines].map(line => line.inventoryItemId),
+    )).sort();
+    if (reservationItemIds.length) {
+      await tx.$queryRaw`SELECT "id" FROM "InventoryItem"
+        WHERE "id" IN (${Prisma.join(reservationItemIds)}) ORDER BY "id" FOR UPDATE`;
+    }
+    const { offered, requested } = await validateProposedTrade(
+      data,
+      counterSource?.id,
+      tx,
+    );
+    const createData = {
+      proposerPlayerId: data.proposerPlayerId,
+      receiverPlayerId: data.receiverPlayerId,
+      status: TradeStatus.PROPOSED,
+      message: String(fd.get("message") || "") || null,
+      createdByUserId: actor.id,
+      lines: {
+        create: [
+          ...offered.map((line, position) => ({
+            side: TradeLineSide.PROPOSER,
+            inventoryItemId: line.item.id,
+            quantity: line.quantity,
+            position,
+            snapshotJson: inventorySnapshot(
+              line.item,
+              line.quantity,
+              actor.preferredPriceProvider,
+            ),
+          })),
+          ...requested.map((line, position) => ({
+            side: TradeLineSide.RECEIVER,
+            inventoryItemId: line.item.id,
+            quantity: line.quantity,
+            position,
+            snapshotJson: inventorySnapshot(
+              line.item,
+              line.quantity,
+              actor.preferredPriceProvider,
+            ),
+          })),
+        ],
+      },
+    };
+
     if (counterSource) {
       const replaced = await tx.trade.updateMany({
         where: {
