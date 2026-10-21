@@ -1,0 +1,43 @@
+name: Proposal notes browser qualification
+on:
+  push:
+    branches: [codex/qualification-proposal-draft]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  proposal-draft-browser:
+    if: github.ref == 'refs/heads/codex/qualification-proposal-draft'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: docker/setup-buildx-action@v3
+        id: builder
+        with:
+          version: latest
+          driver-opts: |
+            memory=4g
+            memory-swap=4g
+            cpu-period=100000
+            cpu-quota=200000
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Exact combined source, canonical image and isolated actual browser
+        env:
+          QUALIFICATION_BUILDER: ${{ steps.builder.outputs.name }}
+        run: node .github/scripts/qualify-proposal-draft.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: proposal-draft-browser-evidence
+          path: .local-data/qualification-ci/
+          retention-days: 7
+          if-no-files-found: error
