@@ -1,6 +1,6 @@
 # Whole-deck trade design — decision checkpoint for #807
 
-Status: draft design, integrated with main3ae13d0d. Original source findings below were reviewed at b810f06a and must be reconciled before implementation. No deck-transfer implementation or migration yet. Individual-card gifts #880 are separately merged. This document preserves confirmed requirements and the remaining product boundary.
+Status: product decisions complete; implementation in progress, integrated with main3ae13d0d. Original source findings below were reviewed at b810f06a and must be reconciled before implementation. No deck-transfer implementation or migration yet. Individual-card gifts #880 are separately merged. This document preserves confirmed requirements and the remaining product boundary.
 
 ## Confirmed behavior
 
@@ -14,9 +14,10 @@ Brian explicitly confirmed in this chat:
 - Every League-linked deck is excluded from transfer, including unsubmitted decks. No League membership or submission reassignment is introduced.
 - A counter may remove or replace whole decks and change individual cards; the revised offer requires fresh acceptance. A deck is never split.
 - Each recipient chooses organization and explicitly confirms visibility for received decks; sender-owned folder/tag links do not cross ownership.
-- Maybeboard must contain no physically committed copies. The same-printing section ambiguity still needs its explicit handling decision.
+- Maybeboard must contain no physically committed copies. If a printing appears in both Maybeboard and an eligible section and has any committed quantity, block transfer until the ambiguity is removed. Do not introduce per-section allocation in this feature.
+- Transfer the existing system deck location with its owner and committed copies. Normal trade destinations apply only to loose cards; never uncommit the deck as a receipt side effect.
 
-Only the concrete same-printing Maybeboard ambiguity and received-storage handling below still require explicit resolution. These decisions supersede the earlier narrower suggested first-delivery boundary; they do not authorize merge or deployment.
+All six product decisions are now resolved. These decisions supersede the earlier narrower suggested first-delivery boundary; implementation is authorized under the active goal, but individual PR merge and deployment remain separate.
 ## Source findings and consequences
 
 - `prisma/schema.prisma`: Deck ownership is `ownerUserId`; physical ownership is InventoryItem.currentOwnerId, linked through User.playerId. InventoryLocation has a unique deckId and its own ownerPlayerId. Changing only Deck.ownerUserId would leave physical storage/ownership inconsistent.
@@ -27,18 +28,15 @@ Only the concrete same-printing Maybeboard ambiguity and received-storage handli
 - `app/trades/actions.ts`: ordinary trade proposal rejects DECK inventory locations. Transfer receipts are separate lots in an explicit normal destination. A deck bundle requires a distinct validated path; removing the DECK exclusion globally would permit partial bundle transfers and invalid commitments.
 - `lib/trade-lines.ts`: ordinary offers allow 50 unique physical lots per side. A 100-card deck may exceed this with printing/finish/condition lots. A deck bundle must not silently truncate or merely raise ordinary offer limits.
 
-## Decisions required before publishing a deck trade flow
+## Resolved product decisions
 
 1. Confirmed composition: multiple indivisible decks and individual cards on either side; do not narrow the first version to one deck.
 2. Confirmed counters: whole-deck removal/replacement and card changes are allowed, followed by fresh acceptance.
 3. Confirmed organization/visibility: recipient chooses organization and confirms visibility; no foreign sender-owned links remain.
 4. Confirmed League exclusion: every League-linked deck is blocked, including unsubmitted decks.
-5. Ambiguous Maybeboard commitments: when the same printing exists in both Maybeboard and an eligible section, is any positive committed quantity for that printing blocking, or must per-section physical allocation be introduced? Do not infer allocation from quantities or silently remove the Maybeboard row.
-6. Received storage: how should the explicit trade destination interact with the system deck location that keeps the transferred cards committed? Options need a deliberate product decision; ordinary trade receipt into a normal location alone would lose valid deck commitments.
-
-No response is needed during unattended work. Stop the dependent product mutations at these decisions and continue independent queue work.
-
-## Proposed implementation after decisions
+5. Confirmed Maybeboard handling: any physical Maybeboard commitment blocks transfer; same-printing ambiguity also blocks until removed. No per-section allocation is introduced now.
+6. Confirmed received storage: keep the existing deck location and commitments, transferring its ownership with the deck. Normal trade destination applies only to loose cards.
+## Implementation plan
 
 Use a first-class bundle reference and immutable reviewed snapshot tied to the existing deck ID, list/organization/visibility revision, physical lot IDs/quantities/attributes and relevant restrictions. A revision token must cover all of those values, not only Deck.updatedAt; physical moves may not update that timestamp. Display list-only gaps and exact committed quantities distinctly. Do not flatten a bundle into editable ordinary lines.
 
@@ -48,6 +46,7 @@ Complete ownership, physical lot transfer, system location ownership, valid comm
 
 ## Independent acceptance plan
 
+- Mixed offers: multiple indivisible decks and loose cards on both sides, deck-only and card-only gifts, complete review without truncation, whole-deck removal/replacement in counters and renewed acceptance.
 - Real PostgreSQL: 100-card deck with more than 50 physical lots; partial physical coverage and assumed basic lands; list-only Maybeboard retained; physical Maybeboard blocked; same-printing multi-section ambiguity follows the chosen policy.
 - Gift and two-sided trade: recipient accepts, each party explicitly confirms; first confirmation transfers nothing; second transfers the same existing deck and exactly reviewed lots once. Retry, duplicate final confirmation and admin overlap do not duplicate transfer.
 - Concurrent edits, stock relocation, reservations, duplicate bundle offers and ownership changes invalidate stale review. Completion rollback after the first lot leaves deck, locations, list, lots, quantities and audits unchanged.
