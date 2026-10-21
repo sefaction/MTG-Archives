@@ -9637,3 +9637,7 @@ Next full feature stages still required: audit remaining overlapping storage/Lea
 
 Prepared-source b30c9b28 Verify39618012969: real PostgreSQL stock controls PASS; Core failed TS7034/TS7005 in new fixture extraSelections inference. Explicit typed selection array fixes this without expectation changes. Added internal complete-bundle reservation helper (not an enabled action), real four-deck/55-lot writes, injected post-write rollback, replay refusal, zero/list-only no-lot coverage and exact stock/audit conservation controls. Fresh qualification pending; full feature proposal/completion/UI still required.
 
+
+## Recipient receipt and transfer component — October21,2026
+84170b3e Verify39619198103 all7 terminalPASS. Prepared new internal receipt/transfer component preserving existing Deck/list/location/positive and zero stock IDs/provenance, recipient-owned folder/tags/explicit visibility, actual-owner confirmation, and two confirmations. Source reads now exclude linked League/storage children before offer, preventing ownership-crossing links. Added actual PostgreSQL four-deck transfer inside injected final rollback: no early ownership, receiver settings, unchanged list/provenance,56audit rows, terminal replay refusal and exact rollback of decks/stock/audits/receipts/trade. These new controls pending hosted qualification; helpers not wired into action/UI yet. Seven focused policy tests PASS. No local runtime mutation or mainmerge.
+

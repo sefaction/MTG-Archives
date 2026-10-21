@@ -7,6 +7,7 @@ import ts from "typescript";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { readTradeDeck, lockTradeDeckSources, assertDeckUnreserved, lockWritableDeck, validateDeckReceipt,
   prepareTradeDeckBundles, revalidatePreparedTradeDecks, reservePreparedTradeDecks } from "../../lib/deck-trade-store";
+import { recordTradeDeckReceipts, transferConfirmedTradeDecks } from "../../lib/deck-trade-transfer";
 
 assert.equal(process.env.GITHUB_ACTIONS, "true");
 assert.equal(process.env.RUNNER_ENVIRONMENT, "github-hosted");
@@ -237,6 +238,48 @@ async function run() {
   assert.deepEqual(await db.inventoryItem.findMany({ where: { locationId }, orderBy: { id: "asc" } }), stock);
   assert.deepEqual(await db.inventoryAuditLog.findMany({ orderBy: { id: "asc" } }), audits);
   console.log("PASS real bundle admission: four complete decks, all 55 positive lots beyond loose-card limits, zero/list-only preservation, actual write rollback and replay refusal without Inventory/audit mutation");
+  const deckGraph = () => db.deck.findMany({ where: { id: { in: fixtureDeckIds } }, orderBy: { id: "asc" },
+    include: { cards: { orderBy: { id: "asc" } }, tags: { orderBy: { tagId: "asc" } } } });
+  const beforeTransfer = await deckGraph();
+  await assert.rejects(db.$transaction(async tx => {
+    await tx.trade.update({ where: { id: reservation.id }, data: { status: "ACCEPTED_PENDING_EXCHANGE" } });
+    const bundles = await tx.tradeDeckBundle.findMany({ where: { tradeId: reservation.id } });
+    const choices = (side: "PROPOSER" | "RECEIVER", index: number) => bundles.filter(bundle => bundle.side === side).map(bundle => ({
+      bundleId: bundle.id, visibility: index ? "PUBLIC" : "PRIVATE", folderId: tag + "-folder-" + index, tagIds: [tag + "-tag-" + index],
+    }));
+    await assert.rejects(recordTradeDeckReceipts(tx, reservation.id, sharedUser, choices("RECEIVER", 0)), /actual deck owner/);
+    await assert.rejects(recordTradeDeckReceipts(tx, reservation.id, users[0], []), /every received deck/);
+    await recordTradeDeckReceipts(tx, reservation.id, users[0], choices("RECEIVER", 0));
+    await tx.trade.update({ where: { id: reservation.id }, data: { proposerCommittedAt: new Date(), status: "PARTIALLY_COMMITTED" } });
+    await assert.rejects(transferConfirmedTradeDecks(tx, reservation.id, users[0]), /Both participants/);
+    assert.deepEqual(await tx.inventoryItem.findMany({ where: { locationId }, orderBy: { id: "asc" } }), stock);
+    assert.deepEqual(await tx.deck.findMany({ where: { id: { in: fixtureDeckIds } }, orderBy: { id: "asc" },
+      include: { cards: { orderBy: { id: "asc" } }, tags: { orderBy: { tagId: "asc" } } } }), beforeTransfer);
+    await recordTradeDeckReceipts(tx, reservation.id, users[1], choices("PROPOSER", 1));
+    await tx.trade.update({ where: { id: reservation.id }, data: { receiverCommittedAt: new Date() } });
+    assert.equal((await transferConfirmedTradeDecks(tx, reservation.id, users[1])).length, 4);
+    const movedDeck = await tx.deck.findUniqueOrThrow({ where: { id: deckId }, include: { cards: { orderBy: { id: "asc" } }, tags: true } });
+    assert.equal(movedDeck.ownerUserId, users[1]); assert.equal(movedDeck.folderId, tag + "-folder-1"); assert.equal(movedDeck.visibility, "PUBLIC");
+    assert.deepEqual(movedDeck.tags.map(link => link.tagId), [tag + "-tag-1"]);
+    assert.deepEqual(movedDeck.cards, beforeTransfer.find(deck => deck.id === deckId)!.cards);
+    const movedLocation = await tx.inventoryLocation.findUniqueOrThrow({ where: { id: locationId } });
+    assert.equal(movedLocation.ownerPlayerId, owners[1]); assert.equal(movedLocation.deckId, deckId);
+    assert.equal(movedLocation.parentLocationId, null); assert.equal(movedLocation.visibility, "PUBLIC");
+    const movedStock = await tx.inventoryItem.findMany({ where: { locationId }, orderBy: { id: "asc" } });
+    assert.deepEqual(movedStock.map(({ currentOwnerId, updatedAt, ...item }) => item), stock.map(({ currentOwnerId, updatedAt, ...item }) => item));
+    assert.ok(movedStock.every(item => item.currentOwnerId === owners[1]));
+    assert.equal(await tx.inventoryAuditLog.count({ where: { tradeId: reservation.id, changeType: "trade_deck_completed" } }), 56);
+    assert.equal((await tx.deck.findUniqueOrThrow({ where: { id: partnerDeckId } })).ownerUserId, users[0]);
+    await tx.trade.update({ where: { id: reservation.id }, data: { status: "COMPLETED", completedAt: new Date() } });
+    await assert.rejects(transferConfirmedTradeDecks(tx, reservation.id, users[1]), /not awaiting physical confirmation/);
+    throw new Error("Injected after actual deck-location-stock transfers");
+  }, { timeout: 30000 }), /Injected after actual deck-location-stock transfers/);
+  assert.deepEqual(await deckGraph(), beforeTransfer);
+  assert.deepEqual(await db.inventoryItem.findMany({ where: { locationId }, orderBy: { id: "asc" } }), stock);
+  assert.deepEqual(await db.inventoryAuditLog.findMany({ orderBy: { id: "asc" } }), audits);
+  assert.equal((await db.trade.findUniqueOrThrow({ where: { id: reservation.id } })).status, "CANCELLED");
+  assert.equal(await db.tradeDeckBundle.count({ where: { tradeId: reservation.id, receiptJson: { not: Prisma.DbNull } } }), 0);
+  console.log("PASS actual deck transfers within rollback control: both confirmations required, actual owner consent, recipient organization/visibility, same Deck/list/location/56 stock rows and provenance, replay refusal, full post-write rollback");
   fixtureAdminMode = true;
   try { await inventoryActions.cleanupZeroQuantityInventory(form({ reason: "Terminal deck cleanup positive control" })); }
   finally { fixtureAdminMode = false; }

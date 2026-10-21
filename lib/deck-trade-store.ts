@@ -24,6 +24,9 @@ export async function readTradeDeck(tx: Tx, deckId: string, expectedOwnerPlayerI
     const legacy = await findSystemDeckLocation(tx, { deckId, ownerPlayerId: expectedOwnerPlayerId });
     if (legacy) location = await tx.inventoryLocation.findUnique({ where: { id: legacy.id } });
   }
+  if (location && (await tx.commanderLeagueLocation.count({ where: { locationId: location.id } }) ||
+      await tx.inventoryLocation.count({ where: { parentLocationId: location.id } })))
+    throw new DeckTradeValidationError("Remove linked storage or League locations before trading this deck.");
   const stock = location ? await tx.inventoryItem.findMany({ where: { locationId: location.id },
     include: { card: true, currentOwner: true, location: true }, orderBy: { id: "asc" },
   }) : [];
