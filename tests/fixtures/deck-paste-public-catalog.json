@@ -1,0 +1,6872 @@
+{
+  "source": "https://api.scryfall.com/cards/collection",
+  "fetchedAt": "2026-10-21T02:51:05.176Z",
+  "fixtureSha256": "23a4a81ed1918f0718ca7a08b659caf24b25d6e65d3f9675ec021c5d7749c431",
+  "outcomes": [
+    {
+      "line": 1,
+      "raw": "1 High Perfect Morcant (ECL) 229",
+      "quantity": 1,
+      "name": "High Perfect Morcant",
+      "set": "ecl",
+      "collector_number": "229",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "dfe7b8bf-c150-4be0-aef4-e8bb6f09787a",
+        "name": "High Perfect Morcant",
+        "set": "ecl",
+        "collector_number": "229",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 2,
+      "raw": "1 Rhys, the Evermore (ECL) 32",
+      "quantity": 1,
+      "name": "Rhys, the Evermore",
+      "set": "ecl",
+      "collector_number": "32",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "a7072412-4aa2-40ef-a267-bd717551a42b",
+        "name": "Rhys, the Evermore",
+        "set": "ecl",
+        "collector_number": "32",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 3,
+      "raw": "1 Abomination of Llanowar (CMR) 265",
+      "quantity": 1,
+      "name": "Abomination of Llanowar",
+      "set": "cmr",
+      "collector_number": "265",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "567dbc64-4d59-4bab-a551-08fc66c085fa",
+        "name": "Abomination of Llanowar",
+        "set": "cmr",
+        "collector_number": "265",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 4,
+      "raw": "1 Another Round (OTJ) 1",
+      "quantity": 1,
+      "name": "Another Round",
+      "set": "otj",
+      "collector_number": "1",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "4f8dc511-e307-4412-bb79-375a6077312d",
+        "name": "Another Round",
+        "set": "otj",
+        "collector_number": "1",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 5,
+      "raw": "1 Ascend from Avernus (CLB) 5",
+      "quantity": 1,
+      "name": "Ascend from Avernus",
+      "set": "clb",
+      "collector_number": "5",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "6b26c05b-f166-40ab-9693-2129b4bf75e9",
+        "name": "Ascend from Avernus",
+        "set": "clb",
+        "collector_number": "5",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 6,
+      "raw": "1 Barrensteppe Siege (TDM) 171",
+      "quantity": 1,
+      "name": "Barrensteppe Siege",
+      "set": "tdm",
+      "collector_number": "171",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "2556a35b-2229-42c7-8cb3-c8c668403dd2",
+        "name": "Barrensteppe Siege",
+        "set": "tdm",
+        "collector_number": "171",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 7,
+      "raw": "1 Basilisk Collar (CLB) 300",
+      "quantity": 1,
+      "name": "Basilisk Collar",
+      "set": "clb",
+      "collector_number": "300",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "52a55efe-a870-4cd7-b22b-37c917065653",
+        "name": "Basilisk Collar",
+        "set": "clb",
+        "collector_number": "300",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 8,
+      "raw": "1 Blasphemous Edict (FDN) 57",
+      "quantity": 1,
+      "name": "Blasphemous Edict",
+      "set": "fdn",
+      "collector_number": "57",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "11040ecd-3153-4029-b42b-1441bc51ec34",
+        "name": "Blasphemous Edict",
+        "set": "fdn",
+        "collector_number": "57",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 9,
+      "raw": "1 Blossoming Sands (TDM) 251",
+      "quantity": 1,
+      "name": "Blossoming Sands",
+      "set": "tdm",
+      "collector_number": "251",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "0a9df994-e0f4-4919-af99-4f643eb9199c",
+        "name": "Blossoming Sands",
+        "set": "tdm",
+        "collector_number": "251",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 10,
+      "raw": "1 Bovine Intervention (OTJ) 6",
+      "quantity": 1,
+      "name": "Bovine Intervention",
+      "set": "otj",
+      "collector_number": "6",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "26c36742-456f-4618-99bc-793ef20b31b0",
+        "name": "Bovine Intervention",
+        "set": "otj",
+        "collector_number": "6",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 11,
+      "raw": "1 Celestial Reunion (ECL) 170",
+      "quantity": 1,
+      "name": "Celestial Reunion",
+      "set": "ecl",
+      "collector_number": "170",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "583b2863-aca1-4dab-9196-ea453b5d9454",
+        "name": "Celestial Reunion",
+        "set": "ecl",
+        "collector_number": "170",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 12,
+      "raw": "1 Citadel Gate (CLB) 349",
+      "quantity": 1,
+      "name": "Citadel Gate",
+      "set": "clb",
+      "collector_number": "349",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "c0e6f002-9a10-49a1-8604-2b8ff57732dd",
+        "name": "Citadel Gate",
+        "set": "clb",
+        "collector_number": "349",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 13,
+      "raw": "1 Cloakwood Swarmkeeper (CLB) 222",
+      "quantity": 1,
+      "name": "Cloakwood Swarmkeeper",
+      "set": "clb",
+      "collector_number": "222",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "b6918a85-1a10-4a73-917c-23bd0a877a04",
+        "name": "Cloakwood Swarmkeeper",
+        "set": "clb",
+        "collector_number": "222",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 14,
+      "raw": "1 Command Tower (CLB) 351",
+      "quantity": 1,
+      "name": "Command Tower",
+      "set": "clb",
+      "collector_number": "351",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "7eafe88e-ab38-442c-b147-bb01cc81178d",
+        "name": "Command Tower",
+        "set": "clb",
+        "collector_number": "351",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 15,
+      "raw": "1 Creakwood Safewright (ECL) 96",
+      "quantity": 1,
+      "name": "Creakwood Safewright",
+      "set": "ecl",
+      "collector_number": "96",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "3bcc24cf-776a-4182-bf77-a611ad90b28f",
+        "name": "Creakwood Safewright",
+        "set": "ecl",
+        "collector_number": "96",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 16,
+      "raw": "1 Dalkovan Encampment (TDM) 253",
+      "quantity": 1,
+      "name": "Dalkovan Encampment",
+      "set": "tdm",
+      "collector_number": "253",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "98ad5f0c-8775-4e89-8e92-84a6ade93e35",
+        "name": "Dalkovan Encampment",
+        "set": "tdm",
+        "collector_number": "253",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 17,
+      "raw": "1 Dawnhand Dissident (ECL) 98",
+      "quantity": 1,
+      "name": "Dawnhand Dissident",
+      "set": "ecl",
+      "collector_number": "98",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "6ac1f765-f348-4813-88dc-26376e0f3f33",
+        "name": "Dawnhand Dissident",
+        "set": "ecl",
+        "collector_number": "98",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 18,
+      "raw": "1 Dwynen, Gilt-Leaf Daen (FDN) 217",
+      "quantity": 1,
+      "name": "Dwynen, Gilt-Leaf Daen",
+      "set": "fdn",
+      "collector_number": "217",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "01c00d7b-7fac-4f8c-a1ea-de2cf4d06627",
+        "name": "Dwynen, Gilt-Leaf Daen",
+        "set": "fdn",
+        "collector_number": "217",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 19,
+      "raw": "1 Dwynen's Elite (FDN) 218",
+      "quantity": 1,
+      "name": "Dwynen's Elite",
+      "set": "fdn",
+      "collector_number": "218",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "89d94c28-ea2e-4a3d-935f-6b2d9f2efc7a",
+        "name": "Dwynen's Elite",
+        "set": "fdn",
+        "collector_number": "218",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 20,
+      "raw": "1 Elvish Regrower (FDN) 104",
+      "quantity": 1,
+      "name": "Elvish Regrower",
+      "set": "fdn",
+      "collector_number": "104",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "2694e3cd-26ed-4a10-ae55-fb84d7800253",
+        "name": "Elvish Regrower",
+        "set": "fdn",
+        "collector_number": "104",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 21,
+      "raw": "1 Elvish Visionary (CMR) 223",
+      "quantity": 1,
+      "name": "Elvish Visionary",
+      "set": "cmr",
+      "collector_number": "223",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "a2f174e6-9532-4fc3-815b-2dc3966c6523",
+        "name": "Elvish Visionary",
+        "set": "cmr",
+        "collector_number": "223",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 22,
+      "raw": "1 Evolving Wilds (ECL) 264",
+      "quantity": 1,
+      "name": "Evolving Wilds",
+      "set": "ecl",
+      "collector_number": "264",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "8c632984-5176-4c37-91df-6577cc294b85",
+        "name": "Evolving Wilds",
+        "set": "ecl",
+        "collector_number": "264",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 23,
+      "raw": "1 Eyeblight Cullers (CMR) 124",
+      "quantity": 1,
+      "name": "Eyeblight Cullers",
+      "set": "cmr",
+      "collector_number": "124",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "da777e75-6f1f-4e07-a5ec-e25454a0636c",
+        "name": "Eyeblight Cullers",
+        "set": "cmr",
+        "collector_number": "124",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 24,
+      "raw": "1 Farhaven Elf (SCD) 182",
+      "quantity": 1,
+      "name": "Farhaven Elf",
+      "set": "scd",
+      "collector_number": "182",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "8e4622e0-7723-415f-9afe-fc34619d49cc",
+        "name": "Farhaven Elf",
+        "set": "scd",
+        "collector_number": "182",
+        "finishes": [
+          "nonfoil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 25,
+      "raw": "1 Festering Gulch (OTJ) 257",
+      "quantity": 1,
+      "name": "Festering Gulch",
+      "set": "otj",
+      "collector_number": "257",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "4ad841eb-da0d-43d4-8b60-efe30922990b",
+        "name": "Festering Gulch",
+        "set": "otj",
+        "collector_number": "257",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 26,
+      "raw": "9 Forest (UST) 216",
+      "quantity": 9,
+      "name": "Forest",
+      "set": "ust",
+      "collector_number": "216",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "f8772631-d4a1-440d-ac89-ac6659bdc073",
+        "name": "Forest",
+        "set": "ust",
+        "collector_number": "216",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 27,
+      "raw": "1 Forum of Amity (SOS) 256",
+      "quantity": 1,
+      "name": "Forum of Amity",
+      "set": "sos",
+      "collector_number": "256",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "1de6c6cc-0c55-4997-8623-d7f796bd9ab8",
+        "name": "Forum of Amity",
+        "set": "sos",
+        "collector_number": "256",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 28,
+      "raw": "1 Gnarlid Colony (FDN) 224",
+      "quantity": 1,
+      "name": "Gnarlid Colony",
+      "set": "fdn",
+      "collector_number": "224",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "47565d10-96bf-4fb0-820f-f20a44a76b6f",
+        "name": "Gnarlid Colony",
+        "set": "fdn",
+        "collector_number": "224",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 29,
+      "raw": "1 Godless Shrine (EOE) 254",
+      "quantity": 1,
+      "name": "Godless Shrine",
+      "set": "eoe",
+      "collector_number": "254",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "8c542ea4-98c3-4c2d-9066-205ab7aa697a",
+        "name": "Godless Shrine",
+        "set": "eoe",
+        "collector_number": "254",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 30,
+      "raw": "1 Gohn, Town of Ruin (FIN) 278",
+      "quantity": 1,
+      "name": "Gohn, Town of Ruin",
+      "set": "fin",
+      "collector_number": "278",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "99582781-613e-4a33-aec7-7569b4a961aa",
+        "name": "Gohn, Town of Ruin",
+        "set": "fin",
+        "collector_number": "278",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 31,
+      "raw": "1 Golgari Findbroker (RVR) 187",
+      "quantity": 1,
+      "name": "Golgari Findbroker",
+      "set": "rvr",
+      "collector_number": "187",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "eb6104f6-127f-4ab8-94bb-d98783ecb377",
+        "name": "Golgari Findbroker",
+        "set": "rvr",
+        "collector_number": "187",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 32,
+      "raw": "1 Golgari Guildgate (RVR) 278",
+      "quantity": 1,
+      "name": "Golgari Guildgate",
+      "set": "rvr",
+      "collector_number": "278",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "4fb450ae-0dc7-47bd-9a60-1cc4d9d5a695",
+        "name": "Golgari Guildgate",
+        "set": "rvr",
+        "collector_number": "278",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 33,
+      "raw": "1 Herd Heirloom (TDM) 144",
+      "quantity": 1,
+      "name": "Herd Heirloom",
+      "set": "tdm",
+      "collector_number": "144",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "a88c7713-b3a9-4685-b1d3-623d35b62365",
+        "name": "Herd Heirloom",
+        "set": "tdm",
+        "collector_number": "144",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 34,
+      "raw": "1 Hollowmurk Siege (TDM) 192",
+      "quantity": 1,
+      "name": "Hollowmurk Siege",
+      "set": "tdm",
+      "collector_number": "192",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "5ac0e136-8877-4bfc-a831-2bf7b7b5ad1e",
+        "name": "Hollowmurk Siege",
+        "set": "tdm",
+        "collector_number": "192",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 35,
+      "raw": "1 Insomnia, Crown City (FIN) 282",
+      "quantity": 1,
+      "name": "Insomnia, Crown City",
+      "set": "fin",
+      "collector_number": "282",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "07fca511-a65c-4779-82c0-9215b0dcd068",
+        "name": "Insomnia, Crown City",
+        "set": "fin",
+        "collector_number": "282",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 36,
+      "raw": "1 Inspiring Call (FDN) 226",
+      "quantity": 1,
+      "name": "Inspiring Call",
+      "set": "fdn",
+      "collector_number": "226",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "3e241642-5172-4437-b694-f6aa159d5cd9",
+        "name": "Inspiring Call",
+        "set": "fdn",
+        "collector_number": "226",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 37,
+      "raw": "1 Jaheira, Friend of the Forest (CLB) 237",
+      "quantity": 1,
+      "name": "Jaheira, Friend of the Forest",
+      "set": "clb",
+      "collector_number": "237",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "feb7ad1b-4466-48f7-b46d-cc83d4e22b51",
+        "name": "Jaheira, Friend of the Forest",
+        "set": "clb",
+        "collector_number": "237",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 38,
+      "raw": "1 Jungle Hollow (TDM) 258",
+      "quantity": 1,
+      "name": "Jungle Hollow",
+      "set": "tdm",
+      "collector_number": "258",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "ea13440b-3f7b-4182-9541-27c1fa3121e5",
+        "name": "Jungle Hollow",
+        "set": "tdm",
+        "collector_number": "258",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 39,
+      "raw": "1 Kami of Whispered Hopes (MOM) 196",
+      "quantity": 1,
+      "name": "Kami of Whispered Hopes",
+      "set": "mom",
+      "collector_number": "196",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "5c644650-3861-4a78-9e39-a413b073ddac",
+        "name": "Kami of Whispered Hopes",
+        "set": "mom",
+        "collector_number": "196",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 40,
+      "raw": "1 Kefka's Tower (FCA) 7",
+      "quantity": 1,
+      "name": "Kefka's Tower",
+      "set": "fca",
+      "collector_number": "7",
+      "foil": false,
+      "outcome": "EXACT_FLAVOR_NAME",
+      "card": {
+        "id": "24b2833e-6c08-4f33-8481-f65f2a063c60",
+        "name": "Bolas's Citadel",
+        "set": "fca",
+        "collector_number": "7",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": "Kefka's Tower"
+      }
+    },
+    {
+      "line": 41,
+      "raw": "1 Leyline Immersion (MAT) 21",
+      "quantity": 1,
+      "name": "Leyline Immersion",
+      "set": "mat",
+      "collector_number": "21",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "197f5adc-e14b-4c84-896f-ef5f01f7ff57",
+        "name": "Leyline Immersion",
+        "set": "mat",
+        "collector_number": "21",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 42,
+      "raw": "1 Llanowar Elves (FDN) 227",
+      "quantity": 1,
+      "name": "Llanowar Elves",
+      "set": "fdn",
+      "collector_number": "227",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "6a0b230b-d391-4998-a3f7-7b158a0ec2cd",
+        "name": "Llanowar Elves",
+        "set": "fdn",
+        "collector_number": "227",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 43,
+      "raw": "1 Manor Gate (CLB) 356",
+      "quantity": 1,
+      "name": "Manor Gate",
+      "set": "clb",
+      "collector_number": "356",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "793d4978-9e00-453d-8dc2-6d51ad6c26b7",
+        "name": "Manor Gate",
+        "set": "clb",
+        "collector_number": "356",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 44,
+      "raw": "1 Mask of Memory (CMR) 324",
+      "quantity": 1,
+      "name": "Mask of Memory",
+      "set": "cmr",
+      "collector_number": "324",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "ba275c02-8581-46a0-9c7c-8baa0fdb4982",
+        "name": "Mask of Memory",
+        "set": "cmr",
+        "collector_number": "324",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 45,
+      "raw": "1 Master Chef (CLB) 241",
+      "quantity": 1,
+      "name": "Master Chef",
+      "set": "clb",
+      "collector_number": "241",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "b534b1cb-0cd7-4b8c-bb25-42207fcba209",
+        "name": "Master Chef",
+        "set": "clb",
+        "collector_number": "241",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 46,
+      "raw": "1 Miara, Thorn of the Glade (CMR) 133",
+      "quantity": 1,
+      "name": "Miara, Thorn of the Glade",
+      "set": "cmr",
+      "collector_number": "133",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "41a76adc-42e1-4f65-940c-d0a5555c0633",
+        "name": "Miara, Thorn of the Glade",
+        "set": "cmr",
+        "collector_number": "133",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 47,
+      "raw": "1 Minthara, Merciless Soul (CLB) 286",
+      "quantity": 1,
+      "name": "Minthara, Merciless Soul",
+      "set": "clb",
+      "collector_number": "286",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "0c9e944b-98fa-4aea-825d-b8b8a9d7ed47",
+        "name": "Minthara, Merciless Soul",
+        "set": "clb",
+        "collector_number": "286",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 48,
+      "raw": "1 Mirrormind Crown (ECL) 258",
+      "quantity": 1,
+      "name": "Mirrormind Crown",
+      "set": "ecl",
+      "collector_number": "258",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "061d765e-df27-406a-9ba0-b51b0cbb65da",
+        "name": "Mirrormind Crown",
+        "set": "ecl",
+        "collector_number": "258",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 49,
+      "raw": "1 Moon-Vigil Adherents (ECL) 184",
+      "quantity": 1,
+      "name": "Moon-Vigil Adherents",
+      "set": "ecl",
+      "collector_number": "184",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "60621c37-62e1-4261-ae76-3946b4a0cfa3",
+        "name": "Moon-Vigil Adherents",
+        "set": "ecl",
+        "collector_number": "184",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 50,
+      "raw": "1 Morcant's Eyes (ECL) 185",
+      "quantity": 1,
+      "name": "Morcant's Eyes",
+      "set": "ecl",
+      "collector_number": "185",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "a730b254-ff7c-4f89-a559-b44ad7fd6c6c",
+        "name": "Morcant's Eyes",
+        "set": "ecl",
+        "collector_number": "185",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 51,
+      "raw": "1 Nadier, Agent of the Duskenel (CMR) 135",
+      "quantity": 1,
+      "name": "Nadier, Agent of the Duskenel",
+      "set": "cmr",
+      "collector_number": "135",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "47c5948b-b021-4d07-8003-9c11db690bc0",
+        "name": "Nadier, Agent of the Duskenel",
+        "set": "cmr",
+        "collector_number": "135",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 52,
+      "raw": "1 Nadier's Nightblade (CMR) 136",
+      "quantity": 1,
+      "name": "Nadier's Nightblade",
+      "set": "cmr",
+      "collector_number": "136",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "11fbba08-0d93-4750-9dd6-d6a2779c6cf3",
+        "name": "Nadier's Nightblade",
+        "set": "cmr",
+        "collector_number": "136",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 53,
+      "raw": "1 Nature's Rhythm (TDM) 349",
+      "quantity": 1,
+      "name": "Nature's Rhythm",
+      "set": "tdm",
+      "collector_number": "349",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "ce0ee309-b6c4-455d-8af6-48d8ac1426cb",
+        "name": "Nature's Rhythm",
+        "set": "tdm",
+        "collector_number": "349",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 54,
+      "raw": "1 Newfound Adventure (FCA) 45",
+      "quantity": 1,
+      "name": "Newfound Adventure",
+      "set": "fca",
+      "collector_number": "45",
+      "foil": false,
+      "outcome": "EXACT_FLAVOR_NAME",
+      "card": {
+        "id": "f36f237f-6b44-4513-ba5d-fe6b4936f78e",
+        "name": "Farseek",
+        "set": "fca",
+        "collector_number": "45",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": "Newfound Adventure"
+      }
+    },
+    {
+      "line": 55,
+      "raw": "1 Numa, Joraga Chieftain (CMR) 246",
+      "quantity": 1,
+      "name": "Numa, Joraga Chieftain",
+      "set": "cmr",
+      "collector_number": "246",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "9465d118-5ad5-42c5-a512-7aca5f7b905d",
+        "name": "Numa, Joraga Chieftain",
+        "set": "cmr",
+        "collector_number": "246",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 56,
+      "raw": "1 Open the Armory (CMR) 34",
+      "quantity": 1,
+      "name": "Open the Armory",
+      "set": "cmr",
+      "collector_number": "34",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "6db45698-9da9-4cea-b9bf-0f84ab276b51",
+        "name": "Open the Armory",
+        "set": "cmr",
+        "collector_number": "34",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 57,
+      "raw": "1 Pest Infestation (OTP) 30",
+      "quantity": 1,
+      "name": "Pest Infestation",
+      "set": "otp",
+      "collector_number": "30",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "8407c498-b972-49fe-b30a-a864c39ddc7a",
+        "name": "Pest Infestation",
+        "set": "otp",
+        "collector_number": "30",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 58,
+      "raw": "2 Plains (UST) 212",
+      "quantity": 2,
+      "name": "Plains",
+      "set": "ust",
+      "collector_number": "212",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "7a2c8b8e-2e28-4f10-b04f-9b313c60c0bb",
+        "name": "Plains",
+        "set": "ust",
+        "collector_number": "212",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 59,
+      "raw": "1 Practiced Offense (SOS) 25",
+      "quantity": 1,
+      "name": "Practiced Offense",
+      "set": "sos",
+      "collector_number": "25",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "79c7cf94-c0a1-432d-90d7-7f0599c2e7a8",
+        "name": "Practiced Offense",
+        "set": "sos",
+        "collector_number": "25",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 60,
+      "raw": "1 Pride of the Perfect (CMR) 144",
+      "quantity": 1,
+      "name": "Pride of the Perfect",
+      "set": "cmr",
+      "collector_number": "144",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "30272e6d-683d-4c9a-90d6-ea7908943267",
+        "name": "Pride of the Perfect",
+        "set": "cmr",
+        "collector_number": "144",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 61,
+      "raw": "1 Reclamation Sage (CMR) 248",
+      "quantity": 1,
+      "name": "Reclamation Sage",
+      "set": "cmr",
+      "collector_number": "248",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "b800bb44-3594-4fb7-b007-10732632b51a",
+        "name": "Reclamation Sage",
+        "set": "cmr",
+        "collector_number": "248",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 62,
+      "raw": "1 Restoration Seminar (SOS) 30",
+      "quantity": 1,
+      "name": "Restoration Seminar",
+      "set": "sos",
+      "collector_number": "30",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "9ebc4ecf-2fa2-4ab8-afde-3b91cf5eadb6",
+        "name": "Restoration Seminar",
+        "set": "sos",
+        "collector_number": "30",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 63,
+      "raw": "1 Rogue's Passage (FDN) 264",
+      "quantity": 1,
+      "name": "Rogue's Passage",
+      "set": "fdn",
+      "collector_number": "264",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "a2a424ea-ef32-4ac5-8f8c-3ea1839f01d4",
+        "name": "Rogue's Passage",
+        "set": "fdn",
+        "collector_number": "264",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 64,
+      "raw": "1 Roving Harper (CLB) 40",
+      "quantity": 1,
+      "name": "Roving Harper",
+      "set": "clb",
+      "collector_number": "40",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "c6b0ed9c-9a99-4a50-80a9-396420a8dcf9",
+        "name": "Roving Harper",
+        "set": "clb",
+        "collector_number": "40",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 65,
+      "raw": "1 Scarblade Scout (ECL) 118",
+      "quantity": 1,
+      "name": "Scarblade Scout",
+      "set": "ecl",
+      "collector_number": "118",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "c2412fea-4591-4345-913f-edc2da9ad975",
+        "name": "Scarblade Scout",
+        "set": "ecl",
+        "collector_number": "118",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 66,
+      "raw": "1 Scoured Barrens (NEO) 274",
+      "quantity": 1,
+      "name": "Scoured Barrens",
+      "set": "neo",
+      "collector_number": "274",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "00538414-90f3-41da-b67e-d81cfa643de3",
+        "name": "Scoured Barrens",
+        "set": "neo",
+        "collector_number": "274",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 67,
+      "raw": "1 Selesnya Guildgate (RVR) 286",
+      "quantity": 1,
+      "name": "Selesnya Guildgate",
+      "set": "rvr",
+      "collector_number": "286",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "edcd3a31-6ba8-4b72-a134-43d53da54c70",
+        "name": "Selesnya Guildgate",
+        "set": "rvr",
+        "collector_number": "286",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 68,
+      "raw": "1 Shadowheart, Dark Justiciar (CLB) 392",
+      "quantity": 1,
+      "name": "Shadowheart, Dark Justiciar",
+      "set": "clb",
+      "collector_number": "392",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "94951251-91a2-4b71-9346-903d400cc28e",
+        "name": "Shadowheart, Dark Justiciar",
+        "set": "clb",
+        "collector_number": "392",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 69,
+      "raw": "1 Shared Roots (SOA) 58",
+      "quantity": 1,
+      "name": "Shared Roots",
+      "set": "soa",
+      "collector_number": "58",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "3aeb1fe1-3ff3-466c-9eda-b8747702734c",
+        "name": "Shared Roots",
+        "set": "soa",
+        "collector_number": "58",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 70,
+      "raw": "1 Sharpshooter Elf (CLB) 253",
+      "quantity": 1,
+      "name": "Sharpshooter Elf",
+      "set": "clb",
+      "collector_number": "253",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "cfcd60dc-9534-412d-af48-31fcd8ea0843",
+        "name": "Sharpshooter Elf",
+        "set": "clb",
+        "collector_number": "253",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 71,
+      "raw": "1 Silhana Ledgewalker (RVR) 354",
+      "quantity": 1,
+      "name": "Silhana Ledgewalker",
+      "set": "rvr",
+      "collector_number": "354",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "e5a04b61-8684-442e-a037-7f74fa73d531",
+        "name": "Silhana Ledgewalker",
+        "set": "rvr",
+        "collector_number": "354",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 72,
+      "raw": "1 Sire of Seven Deaths (FDN) 1",
+      "quantity": 1,
+      "name": "Sire of Seven Deaths",
+      "set": "fdn",
+      "collector_number": "1",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "8d8432a7-1c8a-4cfb-947c-ecf9791063eb",
+        "name": "Sire of Seven Deaths",
+        "set": "fdn",
+        "collector_number": "1",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 73,
+      "raw": "1 Sol Ring (SLC) 19 *F*",
+      "quantity": 1,
+      "name": "Sol Ring",
+      "set": "slc",
+      "collector_number": "19",
+      "foil": true,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "193a5688-9e9b-48f4-9904-53134ec73c97",
+        "name": "Sol Ring",
+        "set": "slc",
+        "collector_number": "19",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 74,
+      "raw": "1 Staff of Domination (CMR) 343",
+      "quantity": 1,
+      "name": "Staff of Domination",
+      "set": "cmr",
+      "collector_number": "343",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "fde838c8-2f32-4e7d-a236-0bc42dd7abd9",
+        "name": "Staff of Domination",
+        "set": "cmr",
+        "collector_number": "343",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 75,
+      "raw": "1 Stirring Wildwood (EOS) 39",
+      "quantity": 1,
+      "name": "Stirring Wildwood",
+      "set": "eos",
+      "collector_number": "39",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "75ea63a8-3046-4578-a190-72efa34f8d88",
+        "name": "Stirring Wildwood",
+        "set": "eos",
+        "collector_number": "39",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 76,
+      "raw": "1 Surge of Salvation (MOM) 41",
+      "quantity": 1,
+      "name": "Surge of Salvation",
+      "set": "mom",
+      "collector_number": "41",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "41d25ee5-0348-4206-bb6a-ccb0a599ac87",
+        "name": "Surge of Salvation",
+        "set": "mom",
+        "collector_number": "41",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 77,
+      "raw": "5 Swamp (UST) 214",
+      "quantity": 5,
+      "name": "Swamp",
+      "set": "ust",
+      "collector_number": "214",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "f108b0fb-420a-422d-ae85-9a99c0f73169",
+        "name": "Swamp",
+        "set": "ust",
+        "collector_number": "214",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 78,
+      "raw": "1 Swiftfoot Boots (FDN) 258",
+      "quantity": 1,
+      "name": "Swiftfoot Boots",
+      "set": "fdn",
+      "collector_number": "258",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "41040541-b129-4cf4-9411-09b1d9d32c19",
+        "name": "Swiftfoot Boots",
+        "set": "fdn",
+        "collector_number": "258",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 79,
+      "raw": "1 Szat's Will (CMR) 152",
+      "quantity": 1,
+      "name": "Szat's Will",
+      "set": "cmr",
+      "collector_number": "152",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "9828be7b-1eae-4718-9e71-2f625121b00b",
+        "name": "Szat's Will",
+        "set": "cmr",
+        "collector_number": "152",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 80,
+      "raw": "1 Terramorphic Expanse (SOS) 265",
+      "quantity": 1,
+      "name": "Terramorphic Expanse",
+      "set": "sos",
+      "collector_number": "265",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "9a4c5629-fadd-42b9-850f-9f8586a2ca50",
+        "name": "Terramorphic Expanse",
+        "set": "sos",
+        "collector_number": "265",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 81,
+      "raw": "1 Titan's Grave (SOS) 266",
+      "quantity": 1,
+      "name": "Titan's Grave",
+      "set": "sos",
+      "collector_number": "266",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "a9ab41c8-3ee2-4676-9b8b-20c34d9f5f21",
+        "name": "Titan's Grave",
+        "set": "sos",
+        "collector_number": "266",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 82,
+      "raw": "1 Topiary Lecturer (SOS) 165",
+      "quantity": 1,
+      "name": "Topiary Lecturer",
+      "set": "sos",
+      "collector_number": "165",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "4f16a1c2-0a80-45e4-b025-3aa0c0b03812",
+        "name": "Topiary Lecturer",
+        "set": "sos",
+        "collector_number": "165",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 83,
+      "raw": "1 Trystan's Command (ECL) 247",
+      "quantity": 1,
+      "name": "Trystan's Command",
+      "set": "ecl",
+      "collector_number": "247",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "ba1d99ca-740a-481a-be89-615e40d56d06",
+        "name": "Trystan's Command",
+        "set": "ecl",
+        "collector_number": "247",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 84,
+      "raw": "1 Vault of Champions (CMR) 360",
+      "quantity": 1,
+      "name": "Vault of Champions",
+      "set": "cmr",
+      "collector_number": "360",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "0e144ae1-500d-4485-b476-5783b14380d9",
+        "name": "Vault of Champions",
+        "set": "cmr",
+        "collector_number": "360",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 85,
+      "raw": "1 Victimize (CMR) 157",
+      "quantity": 1,
+      "name": "Victimize",
+      "set": "cmr",
+      "collector_number": "157",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "855e9253-2219-4c43-8131-47633c564ee2",
+        "name": "Victimize",
+        "set": "cmr",
+        "collector_number": "157",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 86,
+      "raw": "1 Virulent Emissary (ECL) 202",
+      "quantity": 1,
+      "name": "Virulent Emissary",
+      "set": "ecl",
+      "collector_number": "202",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "0702efed-915e-466a-96bb-ac09af06b21e",
+        "name": "Virulent Emissary",
+        "set": "ecl",
+        "collector_number": "202",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    },
+    {
+      "line": 87,
+      "raw": "1 Windurst, Federation Center (FIN) 292",
+      "quantity": 1,
+      "name": "Windurst, Federation Center",
+      "set": "fin",
+      "collector_number": "292",
+      "foil": false,
+      "outcome": "EXACT_NAME",
+      "card": {
+        "id": "c74024bd-b383-468d-9cf5-d112a29f6457",
+        "name": "Windurst, Federation Center",
+        "set": "fin",
+        "collector_number": "292",
+        "finishes": [
+          "nonfoil",
+          "foil"
+        ],
+        "lang": "en",
+        "digital": false,
+        "flavor_name": null
+      }
+    }
+  ],
+  "cards": [
+    {
+      "id": "dfe7b8bf-c150-4be0-aef4-e8bb6f09787a",
+      "oracle_id": "dd27c5fa-4355-4e5c-8219-b74cfe209da0",
+      "name": "High Perfect Morcant",
+      "set": "ecl",
+      "set_name": "Lorwyn Eclipsed",
+      "collector_number": "229",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Legendary Creature — Elf Noble",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "B",
+        "G"
+      ],
+      "color_identity": [
+        "B",
+        "G"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "mana_cost": "{2}{B}{G}",
+      "cmc": 4,
+      "released_at": "2026-01-23",
+      "scryfall_uri": "https://scryfall.com/card/ecl/229/high-perfect-morcant?utm_source=api",
+      "projectionSHA256": "544c2d188b7f8c732bdab73458e7f42e9c7f59865c665496627697138247b62d"
+    },
+    {
+      "id": "a7072412-4aa2-40ef-a267-bd717551a42b",
+      "oracle_id": "9f013b5d-fff0-4c50-8621-158b6dc34834",
+      "name": "Rhys, the Evermore",
+      "set": "ecl",
+      "set_name": "Lorwyn Eclipsed",
+      "collector_number": "32",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Legendary Creature — Elf Warrior",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "W"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{1}{W}",
+      "cmc": 2,
+      "released_at": "2026-01-23",
+      "scryfall_uri": "https://scryfall.com/card/ecl/32/rhys-the-evermore?utm_source=api",
+      "projectionSHA256": "4160bf3a2fdf295087fe6b2be2cf9a233f367c03d3f489f5d927b4a0196bd35f"
+    },
+    {
+      "id": "567dbc64-4d59-4bab-a551-08fc66c085fa",
+      "oracle_id": "5146ba3f-2c5f-4a86-95d7-a34ce1e842b0",
+      "name": "Abomination of Llanowar",
+      "set": "cmr",
+      "set_name": "Commander Legends",
+      "collector_number": "265",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Legendary Creature — Elf Horror",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "B",
+        "G"
+      ],
+      "color_identity": [
+        "B",
+        "G"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{1}{B}{G}",
+      "cmc": 3,
+      "released_at": "2020-11-20",
+      "scryfall_uri": "https://scryfall.com/card/cmr/265/abomination-of-llanowar?utm_source=api",
+      "projectionSHA256": "bb82118590b8fc21a65941e6d9b55ad3a38a4639d2574d96a7313f031cb0b90e"
+    },
+    {
+      "id": "4f8dc511-e307-4412-bb79-375a6077312d",
+      "oracle_id": "8095ca78-db19-4724-a6ff-eacc85fa2274",
+      "name": "Another Round",
+      "set": "otj",
+      "set_name": "Outlaws of Thunder Junction",
+      "collector_number": "1",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Sorcery",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "W"
+      ],
+      "games": [
+        "paper",
+        "mtgo",
+        "arena"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{X}{X}{2}{W}",
+      "cmc": 3,
+      "released_at": "2024-04-19",
+      "scryfall_uri": "https://scryfall.com/card/otj/1/another-round?utm_source=api",
+      "projectionSHA256": "47ec2500a5710d347fa1144a6995ca3a2f0ce631b0d4b84ad55c63e13f070869"
+    },
+    {
+      "id": "6b26c05b-f166-40ab-9693-2129b4bf75e9",
+      "oracle_id": "451e8ece-7389-4d52-8bc9-450cb5e53e6a",
+      "name": "Ascend from Avernus",
+      "set": "clb",
+      "set_name": "Commander Legends: Battle for Baldur's Gate",
+      "collector_number": "5",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Sorcery",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "W"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{X}{W}{W}{W}",
+      "cmc": 3,
+      "released_at": "2022-06-10",
+      "scryfall_uri": "https://scryfall.com/card/clb/5/ascend-from-avernus?utm_source=api",
+      "projectionSHA256": "4dab7a2beceef28ba51e4c7cdd8d7f935889799ffd4ae23bac0f710a3b952c48"
+    },
+    {
+      "id": "2556a35b-2229-42c7-8cb3-c8c668403dd2",
+      "oracle_id": "228d3307-69a9-45ce-a610-77754ed50877",
+      "name": "Barrensteppe Siege",
+      "set": "tdm",
+      "set_name": "Tarkir: Dragonstorm",
+      "collector_number": "171",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Enchantment",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "B",
+        "W"
+      ],
+      "color_identity": [
+        "B",
+        "W"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "mana_cost": "{2}{W}{B}",
+      "cmc": 4,
+      "released_at": "2025-04-11",
+      "scryfall_uri": "https://scryfall.com/card/tdm/171/barrensteppe-siege?utm_source=api",
+      "projectionSHA256": "731164a54443363b6eb3ebeb43146fd5f45cc9af5395bc5c2b679e6f2a96f10e"
+    },
+    {
+      "id": "52a55efe-a870-4cd7-b22b-37c917065653",
+      "oracle_id": "f5f4dd28-f4ae-4d39-b9b8-6ebfd63c93fe",
+      "name": "Basilisk Collar",
+      "set": "clb",
+      "set_name": "Commander Legends: Battle for Baldur's Gate",
+      "collector_number": "300",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Artifact — Equipment",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [],
+      "games": [
+        "paper"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{1}",
+      "cmc": 1,
+      "released_at": "2022-06-10",
+      "scryfall_uri": "https://scryfall.com/card/clb/300/basilisk-collar?utm_source=api",
+      "projectionSHA256": "fd5a4ce1f6de8f02136a9acdf6649afc1e226896014f9b2d42e8adf8a8d0ab64"
+    },
+    {
+      "id": "11040ecd-3153-4029-b42b-1441bc51ec34",
+      "oracle_id": "6cf50e21-0f60-4e9a-b910-ebe1bad2a29e",
+      "name": "Blasphemous Edict",
+      "set": "fdn",
+      "set_name": "Foundations",
+      "collector_number": "57",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Sorcery",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "mana_cost": "{3}{B}{B}",
+      "cmc": 5,
+      "released_at": "2024-11-15",
+      "scryfall_uri": "https://scryfall.com/card/fdn/57/blasphemous-edict?utm_source=api",
+      "projectionSHA256": "43164b5e73f566337d60fd02241b94edaef19dad0d8f844630c67b03ecd7ef66"
+    },
+    {
+      "id": "0a9df994-e0f4-4919-af99-4f643eb9199c",
+      "oracle_id": "45429b2c-be3b-4b2e-9bab-a059ccbda8cd",
+      "name": "Blossoming Sands",
+      "set": "tdm",
+      "set_name": "Tarkir: Dragonstorm",
+      "collector_number": "251",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [
+        "G",
+        "W"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2025-04-11",
+      "scryfall_uri": "https://scryfall.com/card/tdm/251/blossoming-sands?utm_source=api",
+      "projectionSHA256": "4af06b85f044c858a77bdf8e5ef7979b35bb3e5ef3a7f73d80b0edefe078885a"
+    },
+    {
+      "id": "26c36742-456f-4618-99bc-793ef20b31b0",
+      "oracle_id": "7402d98f-6d58-4ff2-a0db-9eec4417a75f",
+      "name": "Bovine Intervention",
+      "set": "otj",
+      "set_name": "Outlaws of Thunder Junction",
+      "collector_number": "6",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Instant",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "W"
+      ],
+      "games": [
+        "paper",
+        "mtgo",
+        "arena"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{1}{W}",
+      "cmc": 2,
+      "released_at": "2024-04-19",
+      "scryfall_uri": "https://scryfall.com/card/otj/6/bovine-intervention?utm_source=api",
+      "projectionSHA256": "ccd72d6356c614e8fdde4dbcf78eebb05e655a69cd15310150616268bd2c9c19"
+    },
+    {
+      "id": "583b2863-aca1-4dab-9196-ea453b5d9454",
+      "oracle_id": "ba0a815c-1dfe-47c1-890f-496c670124f3",
+      "name": "Celestial Reunion",
+      "set": "ecl",
+      "set_name": "Lorwyn Eclipsed",
+      "collector_number": "170",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Sorcery",
+      "rarity": "mythic",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{X}{G}",
+      "cmc": 1,
+      "released_at": "2026-01-23",
+      "scryfall_uri": "https://scryfall.com/card/ecl/170/celestial-reunion?utm_source=api",
+      "projectionSHA256": "c80f0e2436e04763869d4fe2397bc674c61b243d5d1d7ff8af6f616006e4389a"
+    },
+    {
+      "id": "c0e6f002-9a10-49a1-8604-2b8ff57732dd",
+      "oracle_id": "15f1fe23-5af4-4fc4-8cde-2e0bf9f9be0c",
+      "name": "Citadel Gate",
+      "set": "clb",
+      "set_name": "Commander Legends: Battle for Baldur's Gate",
+      "collector_number": "349",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land — Gate",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [
+        "W"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2022-06-10",
+      "scryfall_uri": "https://scryfall.com/card/clb/349/citadel-gate?utm_source=api",
+      "projectionSHA256": "31faea8842092fe412f1e80e88ec3ede4e9728b5079273cc948db14a6f53c436"
+    },
+    {
+      "id": "b6918a85-1a10-4a73-917c-23bd0a877a04",
+      "oracle_id": "61f09fcc-11cd-4999-a43a-54488b19861d",
+      "name": "Cloakwood Swarmkeeper",
+      "set": "clb",
+      "set_name": "Commander Legends: Battle for Baldur's Gate",
+      "collector_number": "222",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Elf Ranger",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{G}",
+      "cmc": 1,
+      "released_at": "2022-06-10",
+      "scryfall_uri": "https://scryfall.com/card/clb/222/cloakwood-swarmkeeper?utm_source=api",
+      "projectionSHA256": "b9563617da036037d5db46d8dd722b4d712851fed0d04dee93ba49e35c1605f3"
+    },
+    {
+      "id": "7eafe88e-ab38-442c-b147-bb01cc81178d",
+      "oracle_id": "0895c9b7-ae7d-4bb3-af17-3b75deb50a25",
+      "name": "Command Tower",
+      "set": "clb",
+      "set_name": "Commander Legends: Battle for Baldur's Gate",
+      "collector_number": "351",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2022-06-10",
+      "scryfall_uri": "https://scryfall.com/card/clb/351/command-tower?utm_source=api",
+      "projectionSHA256": "17f061251a521df5c44bfc19c8f83dd36ff7170a09a2fe05553078d2c2baa26f"
+    },
+    {
+      "id": "3bcc24cf-776a-4182-bf77-a611ad90b28f",
+      "oracle_id": "f9b7bbea-ea20-400b-a5b7-4d6993d8777b",
+      "name": "Creakwood Safewright",
+      "set": "ecl",
+      "set_name": "Lorwyn Eclipsed",
+      "collector_number": "96",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Elf Warrior",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{1}{B}",
+      "cmc": 2,
+      "released_at": "2026-01-23",
+      "scryfall_uri": "https://scryfall.com/card/ecl/96/creakwood-safewright?utm_source=api",
+      "projectionSHA256": "e7008cd6cdb104b4de3924513eb024dec78f2a681f603b91797e8b06cde5eacf"
+    },
+    {
+      "id": "98ad5f0c-8775-4e89-8e92-84a6ade93e35",
+      "oracle_id": "33a90122-7280-4481-9b97-5879194cae40",
+      "name": "Dalkovan Encampment",
+      "set": "tdm",
+      "set_name": "Tarkir: Dragonstorm",
+      "collector_number": "253",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [
+        "W"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2025-04-11",
+      "scryfall_uri": "https://scryfall.com/card/tdm/253/dalkovan-encampment?utm_source=api",
+      "projectionSHA256": "a5730724e1e7337a74db5081adc26475be13861e851613bb9309097136aa5fe2"
+    },
+    {
+      "id": "6ac1f765-f348-4813-88dc-26376e0f3f33",
+      "oracle_id": "2cabf7a4-17af-45c7-b314-a84f5dc0d070",
+      "name": "Dawnhand Dissident",
+      "set": "ecl",
+      "set_name": "Lorwyn Eclipsed",
+      "collector_number": "98",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Elf Warlock",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{B}",
+      "cmc": 1,
+      "released_at": "2026-01-23",
+      "scryfall_uri": "https://scryfall.com/card/ecl/98/dawnhand-dissident?utm_source=api",
+      "projectionSHA256": "54b63a18c5cf56517b38d72cbf5907303cfb2e284c9d2a16459166691da1ac06"
+    },
+    {
+      "id": "01c00d7b-7fac-4f8c-a1ea-de2cf4d06627",
+      "oracle_id": "30d0d75f-e94c-460b-b957-9f1d655c0f65",
+      "name": "Dwynen, Gilt-Leaf Daen",
+      "set": "fdn",
+      "set_name": "Foundations",
+      "collector_number": "217",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Legendary Creature — Elf Warrior",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "mana_cost": "{2}{G}{G}",
+      "cmc": 4,
+      "released_at": "2024-11-15",
+      "scryfall_uri": "https://scryfall.com/card/fdn/217/dwynen-gilt-leaf-daen?utm_source=api",
+      "projectionSHA256": "7224be525a598eb287257e130a09fdbe94483d60c8d013a9a57f686b153ff187"
+    },
+    {
+      "id": "89d94c28-ea2e-4a3d-935f-6b2d9f2efc7a",
+      "oracle_id": "3d4a7dd3-9258-4bd1-adc4-08f0205e196a",
+      "name": "Dwynen's Elite",
+      "set": "fdn",
+      "set_name": "Foundations",
+      "collector_number": "218",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Elf Warrior",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{1}{G}",
+      "cmc": 2,
+      "released_at": "2024-11-15",
+      "scryfall_uri": "https://scryfall.com/card/fdn/218/dwynens-elite?utm_source=api",
+      "projectionSHA256": "ebb1c782b61e0653e84b8e19bf196929a9251dfc058b34c5b28510896da9b468"
+    },
+    {
+      "id": "2694e3cd-26ed-4a10-ae55-fb84d7800253",
+      "oracle_id": "adac526d-1a85-431a-a302-0a4b8f4a0c44",
+      "name": "Elvish Regrower",
+      "set": "fdn",
+      "set_name": "Foundations",
+      "collector_number": "104",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Elf Druid",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "mana_cost": "{2}{G}{G}",
+      "cmc": 4,
+      "released_at": "2024-11-15",
+      "scryfall_uri": "https://scryfall.com/card/fdn/104/elvish-regrower?utm_source=api",
+      "projectionSHA256": "42135b4dbfa5939435258d9b8cefa8e6019f4174ca592461cd3c49344f178c0d"
+    },
+    {
+      "id": "a2f174e6-9532-4fc3-815b-2dc3966c6523",
+      "oracle_id": "c6a3a882-a127-4590-93d7-679ef4313efe",
+      "name": "Elvish Visionary",
+      "set": "cmr",
+      "set_name": "Commander Legends",
+      "collector_number": "223",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Elf Shaman",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{1}{G}",
+      "cmc": 2,
+      "released_at": "2020-11-20",
+      "scryfall_uri": "https://scryfall.com/card/cmr/223/elvish-visionary?utm_source=api",
+      "projectionSHA256": "27fc152c1cf9cbfc65bbaeb66291a7ec986fbb443391ad34db4b6b2c76da9b46"
+    },
+    {
+      "id": "8c632984-5176-4c37-91df-6577cc294b85",
+      "oracle_id": "a75445d3-1303-4bb5-89ad-26ea93fecd48",
+      "name": "Evolving Wilds",
+      "set": "ecl",
+      "set_name": "Lorwyn Eclipsed",
+      "collector_number": "264",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2026-01-23",
+      "scryfall_uri": "https://scryfall.com/card/ecl/264/evolving-wilds?utm_source=api",
+      "projectionSHA256": "f0fdd77661b74b0224cb02ee8287131f29c36278871e9e57730c5632d0dd99cb"
+    },
+    {
+      "id": "da777e75-6f1f-4e07-a5ec-e25454a0636c",
+      "oracle_id": "b7d69422-b90b-4149-8c6d-eef636d5c6f5",
+      "name": "Eyeblight Cullers",
+      "set": "cmr",
+      "set_name": "Commander Legends",
+      "collector_number": "124",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Elf Warrior",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "mana_cost": "{4}{B}",
+      "cmc": 5,
+      "released_at": "2020-11-20",
+      "scryfall_uri": "https://scryfall.com/card/cmr/124/eyeblight-cullers?utm_source=api",
+      "projectionSHA256": "4abd123bb34179ae996946686400cd8c588a2bf2af09de30bf961cd3db391198"
+    },
+    {
+      "id": "8e4622e0-7723-415f-9afe-fc34619d49cc",
+      "oracle_id": "4ce2357f-93e6-40ca-beca-8f4e15adc464",
+      "name": "Farhaven Elf",
+      "set": "scd",
+      "set_name": "Starter Commander Decks",
+      "collector_number": "182",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Elf Druid",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{2}{G}",
+      "cmc": 3,
+      "released_at": "2022-12-02",
+      "scryfall_uri": "https://scryfall.com/card/scd/182/farhaven-elf?utm_source=api",
+      "projectionSHA256": "d5d7274457a9e1bc4759575bc84edac0c050959bab684a8ede280e38b9d5d540"
+    },
+    {
+      "id": "4ad841eb-da0d-43d4-8b60-efe30922990b",
+      "oracle_id": "9d3b60af-3e38-4d36-95fc-11b31c38f955",
+      "name": "Festering Gulch",
+      "set": "otj",
+      "set_name": "Outlaws of Thunder Junction",
+      "collector_number": "257",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land — Desert",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [
+        "B",
+        "G"
+      ],
+      "games": [
+        "paper",
+        "mtgo",
+        "arena"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2024-04-19",
+      "scryfall_uri": "https://scryfall.com/card/otj/257/festering-gulch?utm_source=api",
+      "projectionSHA256": "ebf85dd685c7ec4406895c34e51646d0c4c9f792ee970a1a35771bc3a5b34cfc"
+    },
+    {
+      "id": "f8772631-d4a1-440d-ac89-ac6659bdc073",
+      "oracle_id": "b34bb2dc-c1af-4d77-b0b3-a0fb342a5fc6",
+      "name": "Forest",
+      "set": "ust",
+      "set_name": "Unstable",
+      "collector_number": "216",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Basic Land — Forest",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "legal",
+        "predh": "legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2017-12-08",
+      "scryfall_uri": "https://scryfall.com/card/ust/216/forest?utm_source=api",
+      "projectionSHA256": "604ca614f50a373a63e48886216454405ab9fb88eb147a4f48df813b27b0cabf"
+    },
+    {
+      "id": "1de6c6cc-0c55-4997-8623-d7f796bd9ab8",
+      "oracle_id": "349ea6c7-6b3e-417f-b082-b712e2b1635b",
+      "name": "Forum of Amity",
+      "set": "sos",
+      "set_name": "Secrets of Strixhaven",
+      "collector_number": "256",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [
+        "B",
+        "W"
+      ],
+      "games": [
+        "paper",
+        "mtgo",
+        "arena"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2026-04-24",
+      "scryfall_uri": "https://scryfall.com/card/sos/256/forum-of-amity?utm_source=api",
+      "projectionSHA256": "0ee191b2011b80983fab0e77943b9baf930c85a8cece88dd3bac33bb7685f921"
+    },
+    {
+      "id": "47565d10-96bf-4fb0-820f-f20a44a76b6f",
+      "oracle_id": "e5481431-c952-4ad9-94fe-355076ef632b",
+      "name": "Gnarlid Colony",
+      "set": "fdn",
+      "set_name": "Foundations",
+      "collector_number": "224",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Beast",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{1}{G}",
+      "cmc": 2,
+      "released_at": "2024-11-15",
+      "scryfall_uri": "https://scryfall.com/card/fdn/224/gnarlid-colony?utm_source=api",
+      "projectionSHA256": "a8aa3ee9553345e0af728dc2af135e442b380d6bc3c2ae7ce648972546437c21"
+    },
+    {
+      "id": "8c542ea4-98c3-4c2d-9066-205ab7aa697a",
+      "oracle_id": "73864fcc-1bde-4bc0-831e-2b93e546e417",
+      "name": "Godless Shrine",
+      "set": "eoe",
+      "set_name": "Edge of Eternities",
+      "collector_number": "254",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land — Plains Swamp",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [
+        "B",
+        "W"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2025-08-01",
+      "scryfall_uri": "https://scryfall.com/card/eoe/254/godless-shrine?utm_source=api",
+      "projectionSHA256": "76effde48640fdb530bb9372e9e3e9cf8bea038b00b07eb05716e1c1ca59a81f"
+    },
+    {
+      "id": "99582781-613e-4a33-aec7-7569b4a961aa",
+      "oracle_id": "13fbd525-c9ee-4bd6-b269-94fb264024b6",
+      "name": "Gohn, Town of Ruin",
+      "set": "fin",
+      "set_name": "Final Fantasy",
+      "collector_number": "278",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land — Town",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [
+        "B",
+        "G"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2025-06-13",
+      "scryfall_uri": "https://scryfall.com/card/fin/278/gohn-town-of-ruin?utm_source=api",
+      "projectionSHA256": "ab841559f4442d72b93d7b7805fa383f523b9af74ef25baa1ba446e5da4689a0"
+    },
+    {
+      "id": "eb6104f6-127f-4ab8-94bb-d98783ecb377",
+      "oracle_id": "e5456b35-d7a9-4717-90df-c6c46f1ec437",
+      "name": "Golgari Findbroker",
+      "set": "rvr",
+      "set_name": "Ravnica Remastered",
+      "collector_number": "187",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Elf Shaman",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "B",
+        "G"
+      ],
+      "color_identity": [
+        "B",
+        "G"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "mana_cost": "{B}{B}{G}{G}",
+      "cmc": 4,
+      "released_at": "2024-01-12",
+      "scryfall_uri": "https://scryfall.com/card/rvr/187/golgari-findbroker?utm_source=api",
+      "projectionSHA256": "651db6bb60f0ed94c2669ba6beef3c64d0231ee7e8017a20bb04cdf961e47161"
+    },
+    {
+      "id": "4fb450ae-0dc7-47bd-9a60-1cc4d9d5a695",
+      "oracle_id": "fa2da325-6859-45bb-b185-35526b01bcc1",
+      "name": "Golgari Guildgate",
+      "set": "rvr",
+      "set_name": "Ravnica Remastered",
+      "collector_number": "278",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land — Gate",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [
+        "B",
+        "G"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2024-01-12",
+      "scryfall_uri": "https://scryfall.com/card/rvr/278/golgari-guildgate?utm_source=api",
+      "projectionSHA256": "443a8a0dd36920a259e485d549505c66fec68d80ada71057235cfb1a5c1dc2f3"
+    },
+    {
+      "id": "a88c7713-b3a9-4685-b1d3-623d35b62365",
+      "oracle_id": "78b6dd40-c182-4037-a4d3-9fd012b2c584",
+      "name": "Herd Heirloom",
+      "set": "tdm",
+      "set_name": "Tarkir: Dragonstorm",
+      "collector_number": "144",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Artifact",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{1}{G}",
+      "cmc": 2,
+      "released_at": "2025-04-11",
+      "scryfall_uri": "https://scryfall.com/card/tdm/144/herd-heirloom?utm_source=api",
+      "projectionSHA256": "eb34d9e545dbc6acb82124d8bb154b2adcdb076b534742971babb7bcecbc3122"
+    },
+    {
+      "id": "5ac0e136-8877-4bfc-a831-2bf7b7b5ad1e",
+      "oracle_id": "31061e34-042e-40c3-99ab-752795ab4324",
+      "name": "Hollowmurk Siege",
+      "set": "tdm",
+      "set_name": "Tarkir: Dragonstorm",
+      "collector_number": "192",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Enchantment",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "B",
+        "G"
+      ],
+      "color_identity": [
+        "B",
+        "G"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{B}{G}",
+      "cmc": 2,
+      "released_at": "2025-04-11",
+      "scryfall_uri": "https://scryfall.com/card/tdm/192/hollowmurk-siege?utm_source=api",
+      "projectionSHA256": "a1d44e1ae614f1eadd32c75503e51afa744462af65765dd2e9de3c8e1ef3639b"
+    },
+    {
+      "id": "07fca511-a65c-4779-82c0-9215b0dcd068",
+      "oracle_id": "b7140f72-91b6-4be4-8d71-c019e64c2351",
+      "name": "Insomnia, Crown City",
+      "set": "fin",
+      "set_name": "Final Fantasy",
+      "collector_number": "282",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land — Town",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [
+        "B",
+        "W"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2025-06-13",
+      "scryfall_uri": "https://scryfall.com/card/fin/282/insomnia-crown-city?utm_source=api",
+      "projectionSHA256": "8e0dcf70e7d04eaa86683937bc40508340931d3263dd712e7137531f67b301cb"
+    },
+    {
+      "id": "3e241642-5172-4437-b694-f6aa159d5cd9",
+      "oracle_id": "9b9a10ff-5a5d-4df8-88aa-18d84ff9117c",
+      "name": "Inspiring Call",
+      "set": "fdn",
+      "set_name": "Foundations",
+      "collector_number": "226",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Instant",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{2}{G}",
+      "cmc": 3,
+      "released_at": "2024-11-15",
+      "scryfall_uri": "https://scryfall.com/card/fdn/226/inspiring-call?utm_source=api",
+      "projectionSHA256": "0fa1284f038a3761f40049015c5717ad2648c4831c52806bee640a29bf4ef28a"
+    },
+    {
+      "id": "feb7ad1b-4466-48f7-b46d-cc83d4e22b51",
+      "oracle_id": "0aeeb0d7-15a3-4722-ad67-8fc7fe89220d",
+      "name": "Jaheira, Friend of the Forest",
+      "set": "clb",
+      "set_name": "Commander Legends: Battle for Baldur's Gate",
+      "collector_number": "237",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Legendary Creature — Human Elf Druid",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{2}{G}",
+      "cmc": 3,
+      "released_at": "2022-06-10",
+      "scryfall_uri": "https://scryfall.com/card/clb/237/jaheira-friend-of-the-forest?utm_source=api",
+      "projectionSHA256": "2e1c169dfb368ebdf150496e0b8bf2b0e152e390545d7c65e1eb23037e83ff88"
+    },
+    {
+      "id": "ea13440b-3f7b-4182-9541-27c1fa3121e5",
+      "oracle_id": "6de714e1-446d-4fb9-9e3d-bcd3ec6af9ca",
+      "name": "Jungle Hollow",
+      "set": "tdm",
+      "set_name": "Tarkir: Dragonstorm",
+      "collector_number": "258",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [
+        "B",
+        "G"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2025-04-11",
+      "scryfall_uri": "https://scryfall.com/card/tdm/258/jungle-hollow?utm_source=api",
+      "projectionSHA256": "37256847f3741cb21c5bc5ffca04fbb86d0099d8598282b011d1b61690e50e21"
+    },
+    {
+      "id": "5c644650-3861-4a78-9e39-a413b073ddac",
+      "oracle_id": "f122624f-f30d-444e-a62a-939829241045",
+      "name": "Kami of Whispered Hopes",
+      "set": "mom",
+      "set_name": "March of the Machine",
+      "collector_number": "196",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Spirit",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "mtgo",
+        "arena"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{2}{G}",
+      "cmc": 3,
+      "released_at": "2023-04-21",
+      "scryfall_uri": "https://scryfall.com/card/mom/196/kami-of-whispered-hopes?utm_source=api",
+      "projectionSHA256": "6cbf30165de5660be656a1633c0a3612a3af846b2fd38c78393a1b0a110cb855"
+    },
+    {
+      "id": "24b2833e-6c08-4f33-8481-f65f2a063c60",
+      "oracle_id": "2bd111bb-ce02-414c-b5b7-e0e037d8d96b",
+      "name": "Bolas's Citadel",
+      "set": "fca",
+      "set_name": "Final Fantasy: Through the Ages",
+      "collector_number": "7",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Legendary Artifact",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "flavor_name": "Kefka's Tower",
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "mana_cost": "{3}{B}{B}{B}",
+      "cmc": 6,
+      "released_at": "2025-06-13",
+      "scryfall_uri": "https://scryfall.com/card/fca/7/bolass-citadel?utm_source=api",
+      "projectionSHA256": "4dc3a7f85dda85888532c4e7d20ca5956b99e73ac538fd4a6702392b1e805439"
+    },
+    {
+      "id": "197f5adc-e14b-4c84-896f-ef5f01f7ff57",
+      "oracle_id": "aa6c4079-72e1-4b2e-bd26-9399298c6105",
+      "name": "Leyline Immersion",
+      "set": "mat",
+      "set_name": "March of the Machine: The Aftermath",
+      "collector_number": "21",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Enchantment — Aura",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "mana_cost": "{3}{G}",
+      "cmc": 4,
+      "released_at": "2023-05-12",
+      "scryfall_uri": "https://scryfall.com/card/mat/21/leyline-immersion?utm_source=api",
+      "projectionSHA256": "9031ae99ba45c28dd365504c346dd1d9303aaa73e894e27ee72b87bd918577bc"
+    },
+    {
+      "id": "6a0b230b-d391-4998-a3f7-7b158a0ec2cd",
+      "oracle_id": "68954295-54e3-4303-a6bc-fc4547a4e3a3",
+      "name": "Llanowar Elves",
+      "set": "fdn",
+      "set_name": "Foundations",
+      "collector_number": "227",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Elf Druid",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "legal",
+        "predh": "legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{G}",
+      "cmc": 1,
+      "released_at": "2024-11-15",
+      "scryfall_uri": "https://scryfall.com/card/fdn/227/llanowar-elves?utm_source=api",
+      "projectionSHA256": "462e34f6bf3d109c3e5ba2260e5ba3f4c6dd61d0f4f01750c59c55346931f872"
+    },
+    {
+      "id": "793d4978-9e00-453d-8dc2-6d51ad6c26b7",
+      "oracle_id": "dd6e67c0-66a1-49b7-8a86-3cf4b209fd07",
+      "name": "Manor Gate",
+      "set": "clb",
+      "set_name": "Commander Legends: Battle for Baldur's Gate",
+      "collector_number": "356",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land — Gate",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2022-06-10",
+      "scryfall_uri": "https://scryfall.com/card/clb/356/manor-gate?utm_source=api",
+      "projectionSHA256": "f3ab13cc8852ccbd90247915b0194f165f10d2f10016778e28027bc380f2a576"
+    },
+    {
+      "id": "ba275c02-8581-46a0-9c7c-8baa0fdb4982",
+      "oracle_id": "d6b2c998-a226-426c-a40d-6e6007041bfe",
+      "name": "Mask of Memory",
+      "set": "cmr",
+      "set_name": "Commander Legends",
+      "collector_number": "324",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Artifact — Equipment",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{2}",
+      "cmc": 2,
+      "released_at": "2020-11-20",
+      "scryfall_uri": "https://scryfall.com/card/cmr/324/mask-of-memory?utm_source=api",
+      "projectionSHA256": "e50265966c4655eae6cf92576d50945501e7683ecf055b99cbdcb4f723e4f412"
+    },
+    {
+      "id": "b534b1cb-0cd7-4b8c-bb25-42207fcba209",
+      "oracle_id": "9eab87ff-82a0-4655-b6ea-00b27e882449",
+      "name": "Master Chef",
+      "set": "clb",
+      "set_name": "Commander Legends: Battle for Baldur's Gate",
+      "collector_number": "241",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Legendary Enchantment — Background",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{2}{G}",
+      "cmc": 3,
+      "released_at": "2022-06-10",
+      "scryfall_uri": "https://scryfall.com/card/clb/241/master-chef?utm_source=api",
+      "projectionSHA256": "5e8e04dcdb45bdc36fa8f1d0bbc64ebcfccba7a91ba371c57bb8501df7ff400c"
+    },
+    {
+      "id": "41a76adc-42e1-4f65-940c-d0a5555c0633",
+      "oracle_id": "6895d7a2-264b-4731-9294-c02e1e220384",
+      "name": "Miara, Thorn of the Glade",
+      "set": "cmr",
+      "set_name": "Commander Legends",
+      "collector_number": "133",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Legendary Creature — Elf Scout",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{1}{B}",
+      "cmc": 2,
+      "released_at": "2020-11-20",
+      "scryfall_uri": "https://scryfall.com/card/cmr/133/miara-thorn-of-the-glade?utm_source=api",
+      "projectionSHA256": "d7f24c62ce16e5cf8893450db8be627a64e7957489a632ab3132547880cbec3c"
+    },
+    {
+      "id": "0c9e944b-98fa-4aea-825d-b8b8a9d7ed47",
+      "oracle_id": "fad0c174-4c4a-4662-bd1f-224886e826e1",
+      "name": "Minthara, Merciless Soul",
+      "set": "clb",
+      "set_name": "Commander Legends: Battle for Baldur's Gate",
+      "collector_number": "286",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Legendary Creature — Elf Cleric",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "B",
+        "W"
+      ],
+      "color_identity": [
+        "B",
+        "W"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "mana_cost": "{2}{W}{B}",
+      "cmc": 4,
+      "released_at": "2022-06-10",
+      "scryfall_uri": "https://scryfall.com/card/clb/286/minthara-merciless-soul?utm_source=api",
+      "projectionSHA256": "3ca835ca37caa2f0e0f2b0a639b1a7b9ac9b5dcabfd62d9e0feb69b09e26d116"
+    },
+    {
+      "id": "061d765e-df27-406a-9ba0-b51b0cbb65da",
+      "oracle_id": "353db389-b829-4e66-85d5-6018bc87c3e0",
+      "name": "Mirrormind Crown",
+      "set": "ecl",
+      "set_name": "Lorwyn Eclipsed",
+      "collector_number": "258",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Artifact — Equipment",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "mana_cost": "{4}",
+      "cmc": 4,
+      "released_at": "2026-01-23",
+      "scryfall_uri": "https://scryfall.com/card/ecl/258/mirrormind-crown?utm_source=api",
+      "projectionSHA256": "db263560a4c3a36895a3b748cd065ca42a91a4f01f84d678fdce30bb69d1ccef"
+    },
+    {
+      "id": "60621c37-62e1-4261-ae76-3946b4a0cfa3",
+      "oracle_id": "d0fa43f6-d8f6-4674-b538-6d546b7dcf40",
+      "name": "Moon-Vigil Adherents",
+      "set": "ecl",
+      "set_name": "Lorwyn Eclipsed",
+      "collector_number": "184",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Elf Druid",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "mana_cost": "{2}{G}{G}",
+      "cmc": 4,
+      "released_at": "2026-01-23",
+      "scryfall_uri": "https://scryfall.com/card/ecl/184/moon-vigil-adherents?utm_source=api",
+      "projectionSHA256": "6486d280bfc02675bdfa8477585b4e294fc831e78f606b5694ae843c2ee0d553"
+    },
+    {
+      "id": "a730b254-ff7c-4f89-a559-b44ad7fd6c6c",
+      "oracle_id": "c55a27cc-8e25-4714-b1da-86e5c1c6661a",
+      "name": "Morcant's Eyes",
+      "set": "ecl",
+      "set_name": "Lorwyn Eclipsed",
+      "collector_number": "185",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Kindred Enchantment — Elf",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{1}{G}",
+      "cmc": 2,
+      "released_at": "2026-01-23",
+      "scryfall_uri": "https://scryfall.com/card/ecl/185/morcants-eyes?utm_source=api",
+      "projectionSHA256": "3e2f8bbe3192d14073e621b775aa68d13dcc2c6351975e1a761575fe3f8579f2"
+    },
+    {
+      "id": "47c5948b-b021-4d07-8003-9c11db690bc0",
+      "oracle_id": "42b12ba0-7d1d-48f9-9473-881f7a19514a",
+      "name": "Nadier, Agent of the Duskenel",
+      "set": "cmr",
+      "set_name": "Commander Legends",
+      "collector_number": "135",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Legendary Creature — Elf Warrior",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "mana_cost": "{5}{B}",
+      "cmc": 6,
+      "released_at": "2020-11-20",
+      "scryfall_uri": "https://scryfall.com/card/cmr/135/nadier-agent-of-the-duskenel?utm_source=api",
+      "projectionSHA256": "5d7ce7f353010a4e53677a2a48b1fe431b7d0394f9adb5b808cbaae09dd3f1e1"
+    },
+    {
+      "id": "11fbba08-0d93-4750-9dd6-d6a2779c6cf3",
+      "oracle_id": "391978f6-0bbc-41e8-9246-f7d0e21c7900",
+      "name": "Nadier's Nightblade",
+      "set": "cmr",
+      "set_name": "Commander Legends",
+      "collector_number": "136",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Elf Warrior",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "not_legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{2}{B}",
+      "cmc": 3,
+      "released_at": "2020-11-20",
+      "scryfall_uri": "https://scryfall.com/card/cmr/136/nadiers-nightblade?utm_source=api",
+      "projectionSHA256": "2a2f1b860997b0e97e12d02448cce5361ef025b9b51815b659cb0cf1a5509a50"
+    },
+    {
+      "id": "ce0ee309-b6c4-455d-8af6-48d8ac1426cb",
+      "oracle_id": "0259f063-3e3f-4e07-9066-f748d4819829",
+      "name": "Nature's Rhythm",
+      "set": "tdm",
+      "set_name": "Tarkir: Dragonstorm",
+      "collector_number": "349",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Sorcery",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{X}{G}{G}",
+      "cmc": 2,
+      "released_at": "2025-04-11",
+      "scryfall_uri": "https://scryfall.com/card/tdm/349/natures-rhythm?utm_source=api",
+      "projectionSHA256": "83efc11bd51cc2bac978c2f9b237b1916330d6c20aac492de25a8829cb7b4cbb"
+    },
+    {
+      "id": "f36f237f-6b44-4513-ba5d-fe6b4936f78e",
+      "oracle_id": "495e52e6-4c2b-4574-9474-eadbdcc8b4ac",
+      "name": "Farseek",
+      "set": "fca",
+      "set_name": "Final Fantasy: Through the Ages",
+      "collector_number": "45",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Sorcery",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "flavor_name": "Newfound Adventure",
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "not_legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{1}{G}",
+      "cmc": 2,
+      "released_at": "2025-06-13",
+      "scryfall_uri": "https://scryfall.com/card/fca/45/farseek?utm_source=api",
+      "projectionSHA256": "d60bbb1026cc5a2dffd1d02e15e18761c25f253c529d5cce6fd23f97e5e7440a"
+    },
+    {
+      "id": "9465d118-5ad5-42c5-a512-7aca5f7b905d",
+      "oracle_id": "7f4aa98d-3572-4637-9b0d-3c12f63a96ec",
+      "name": "Numa, Joraga Chieftain",
+      "set": "cmr",
+      "set_name": "Commander Legends",
+      "collector_number": "246",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Legendary Creature — Elf Warrior",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{2}{G}",
+      "cmc": 3,
+      "released_at": "2020-11-20",
+      "scryfall_uri": "https://scryfall.com/card/cmr/246/numa-joraga-chieftain?utm_source=api",
+      "projectionSHA256": "b1c6704fe43f979038401a5e511e9180032caaf49151dcc54dc8f41c4b596b70"
+    },
+    {
+      "id": "6db45698-9da9-4cea-b9bf-0f84ab276b51",
+      "oracle_id": "2ecf7771-8061-4710-ad2e-80b092ae0b4b",
+      "name": "Open the Armory",
+      "set": "cmr",
+      "set_name": "Commander Legends",
+      "collector_number": "34",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Sorcery",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "W"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{1}{W}",
+      "cmc": 2,
+      "released_at": "2020-11-20",
+      "scryfall_uri": "https://scryfall.com/card/cmr/34/open-the-armory?utm_source=api",
+      "projectionSHA256": "e473aef86323aaab3de5180a9dd2126f2946698ae7d9d9c2416296331c3efb17"
+    },
+    {
+      "id": "8407c498-b972-49fe-b30a-a864c39ddc7a",
+      "oracle_id": "1b704798-0c69-4c18-ac7e-42933ce90028",
+      "name": "Pest Infestation",
+      "set": "otp",
+      "set_name": "Breaking News",
+      "collector_number": "30",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Sorcery",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "mtgo",
+        "arena"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{X}{X}{G}",
+      "cmc": 1,
+      "released_at": "2024-04-19",
+      "scryfall_uri": "https://scryfall.com/card/otp/30/pest-infestation?utm_source=api",
+      "projectionSHA256": "53164ff85db1c677f13f3c992f88874771e6551075245e128379706838c74581"
+    },
+    {
+      "id": "7a2c8b8e-2e28-4f10-b04f-9b313c60c0bb",
+      "oracle_id": "bc71ebf6-2056-41f7-be35-b2e5c34afa99",
+      "name": "Plains",
+      "set": "ust",
+      "set_name": "Unstable",
+      "collector_number": "212",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Basic Land — Plains",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [
+        "W"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "legal",
+        "predh": "legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2017-12-08",
+      "scryfall_uri": "https://scryfall.com/card/ust/212/plains?utm_source=api",
+      "projectionSHA256": "7f693012346557176082a11d5590da1a7533a47ed96bcc7fb0149fd9e5a87b00"
+    },
+    {
+      "id": "79c7cf94-c0a1-432d-90d7-7f0599c2e7a8",
+      "oracle_id": "99678cc9-59c8-4358-b847-8c38ffb4a050",
+      "name": "Practiced Offense",
+      "set": "sos",
+      "set_name": "Secrets of Strixhaven",
+      "collector_number": "25",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Sorcery",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "W"
+      ],
+      "games": [
+        "paper",
+        "mtgo",
+        "arena"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{2}{W}",
+      "cmc": 3,
+      "released_at": "2026-04-24",
+      "scryfall_uri": "https://scryfall.com/card/sos/25/practiced-offense?utm_source=api",
+      "projectionSHA256": "7d2fcae2a30eab7fb206a958d19393d643a02f34a4cb9a0c4199c946b5b1dcb4"
+    },
+    {
+      "id": "30272e6d-683d-4c9a-90d6-ea7908943267",
+      "oracle_id": "83e2b251-bd60-4c5c-b9e2-32c22b28fb8b",
+      "name": "Pride of the Perfect",
+      "set": "cmr",
+      "set_name": "Commander Legends",
+      "collector_number": "144",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Enchantment",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "mana_cost": "{3}{B}",
+      "cmc": 4,
+      "released_at": "2020-11-20",
+      "scryfall_uri": "https://scryfall.com/card/cmr/144/pride-of-the-perfect?utm_source=api",
+      "projectionSHA256": "71f2fa4b48ae0686d1022c3f05fb2cdc130a5c65256e5d20ea413d6b14d93340"
+    },
+    {
+      "id": "b800bb44-3594-4fb7-b007-10732632b51a",
+      "oracle_id": "032ec6e2-6cc3-4a97-9cc7-3233f5e11904",
+      "name": "Reclamation Sage",
+      "set": "cmr",
+      "set_name": "Commander Legends",
+      "collector_number": "248",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Elf Shaman",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{2}{G}",
+      "cmc": 3,
+      "released_at": "2020-11-20",
+      "scryfall_uri": "https://scryfall.com/card/cmr/248/reclamation-sage?utm_source=api",
+      "projectionSHA256": "187c2d73247c4ed9337a3fc974ca86a5f14101e15c202ce6dfbb92ce72076390"
+    },
+    {
+      "id": "9ebc4ecf-2fa2-4ab8-afde-3b91cf5eadb6",
+      "oracle_id": "fd0a27a9-7d7e-4a16-9dd0-0715e6c97b36",
+      "name": "Restoration Seminar",
+      "set": "sos",
+      "set_name": "Secrets of Strixhaven",
+      "collector_number": "30",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Sorcery — Lesson",
+      "rarity": "mythic",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "W"
+      ],
+      "games": [
+        "paper",
+        "mtgo",
+        "arena"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "mana_cost": "{5}{W}{W}",
+      "cmc": 7,
+      "released_at": "2026-04-24",
+      "scryfall_uri": "https://scryfall.com/card/sos/30/restoration-seminar?utm_source=api",
+      "projectionSHA256": "1206f98f6d946589856d6bf3dd4ce29cea505f687e1ab298de39faf443061dac"
+    },
+    {
+      "id": "a2a424ea-ef32-4ac5-8f8c-3ea1839f01d4",
+      "oracle_id": "f29dc596-2121-4421-8463-15f6c2e8b9b3",
+      "name": "Rogue's Passage",
+      "set": "fdn",
+      "set_name": "Foundations",
+      "collector_number": "264",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2024-11-15",
+      "scryfall_uri": "https://scryfall.com/card/fdn/264/rogues-passage?utm_source=api",
+      "projectionSHA256": "2e27b3c603e9ac4feeff8502f60c9e82ac7ce65d58cb11201773dcd3026b9ae9"
+    },
+    {
+      "id": "c6b0ed9c-9a99-4a50-80a9-396420a8dcf9",
+      "oracle_id": "6474f6b3-4e8e-4056-a01c-2f5e5e59c8de",
+      "name": "Roving Harper",
+      "set": "clb",
+      "set_name": "Commander Legends: Battle for Baldur's Gate",
+      "collector_number": "40",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Elf Scout",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "W"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{2}{W}",
+      "cmc": 3,
+      "released_at": "2022-06-10",
+      "scryfall_uri": "https://scryfall.com/card/clb/40/roving-harper?utm_source=api",
+      "projectionSHA256": "5b4514f259d2b956ddc0861fbdb239902f4c70a109e813c2c3738c6eea3df626"
+    },
+    {
+      "id": "c2412fea-4591-4345-913f-edc2da9ad975",
+      "oracle_id": "f6758e8f-5462-48a7-96d3-60d07b1563fc",
+      "name": "Scarblade Scout",
+      "set": "ecl",
+      "set_name": "Lorwyn Eclipsed",
+      "collector_number": "118",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Elf Scout",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{1}{B}",
+      "cmc": 2,
+      "released_at": "2026-01-23",
+      "scryfall_uri": "https://scryfall.com/card/ecl/118/scarblade-scout?utm_source=api",
+      "projectionSHA256": "32260bc2101eb56b61fc7773301d14d91ca4d80b0dcdb69a2dfdaa2156a0383c"
+    },
+    {
+      "id": "00538414-90f3-41da-b67e-d81cfa643de3",
+      "oracle_id": "d37f858e-03c8-4594-9b92-cd03699a1591",
+      "name": "Scoured Barrens",
+      "set": "neo",
+      "set_name": "Kamigawa: Neon Dynasty",
+      "collector_number": "274",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [
+        "B",
+        "W"
+      ],
+      "games": [
+        "paper",
+        "mtgo",
+        "arena"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2022-02-18",
+      "scryfall_uri": "https://scryfall.com/card/neo/274/scoured-barrens?utm_source=api",
+      "projectionSHA256": "20586714b5990b8f4a03032eee61065926632f73634fe5286601acca2a9b6860"
+    },
+    {
+      "id": "edcd3a31-6ba8-4b72-a134-43d53da54c70",
+      "oracle_id": "75b235d3-595a-4859-be45-9559d8445db5",
+      "name": "Selesnya Guildgate",
+      "set": "rvr",
+      "set_name": "Ravnica Remastered",
+      "collector_number": "286",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land — Gate",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [
+        "G",
+        "W"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2024-01-12",
+      "scryfall_uri": "https://scryfall.com/card/rvr/286/selesnya-guildgate?utm_source=api",
+      "projectionSHA256": "2cbeedbaaeaa293f3b84ffe9e121024824651f993115501531cd8b078172452e"
+    },
+    {
+      "id": "94951251-91a2-4b71-9346-903d400cc28e",
+      "oracle_id": "180919a5-67b2-473a-9b90-a828bdc2477c",
+      "name": "Shadowheart, Dark Justiciar",
+      "set": "clb",
+      "set_name": "Commander Legends: Battle for Baldur's Gate",
+      "collector_number": "392",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Legendary Creature — Human Elf Cleric",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "games": [
+        "paper"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "mana_cost": "{3}{B}",
+      "cmc": 4,
+      "released_at": "2022-06-10",
+      "scryfall_uri": "https://scryfall.com/card/clb/392/shadowheart-dark-justiciar?utm_source=api",
+      "projectionSHA256": "4dd22b9daf2eeb15ed985f47705ffa1ad22dc84517abed354c7b4c8043428e12"
+    },
+    {
+      "id": "3aeb1fe1-3ff3-466c-9eda-b8747702734c",
+      "oracle_id": "9e0fd3bf-f47a-4f06-8ff1-73f6bf5d1e03",
+      "name": "Shared Roots",
+      "set": "soa",
+      "set_name": "Secrets of Strixhaven Mystical Archive",
+      "collector_number": "58",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Sorcery — Lesson",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "mtgo",
+        "arena"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{1}{G}",
+      "cmc": 2,
+      "released_at": "2026-04-24",
+      "scryfall_uri": "https://scryfall.com/card/soa/58/shared-roots?utm_source=api",
+      "projectionSHA256": "53dfe80d188cd54772e459d20fbcb302627ec31d7127dfc7778c77289faaa82e"
+    },
+    {
+      "id": "cfcd60dc-9534-412d-af48-31fcd8ea0843",
+      "oracle_id": "a25308ae-d757-4868-883d-62bbb00d6cbe",
+      "name": "Sharpshooter Elf",
+      "set": "clb",
+      "set_name": "Commander Legends: Battle for Baldur's Gate",
+      "collector_number": "253",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Elf Ranger",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{2}{G}",
+      "cmc": 3,
+      "released_at": "2022-06-10",
+      "scryfall_uri": "https://scryfall.com/card/clb/253/sharpshooter-elf?utm_source=api",
+      "projectionSHA256": "5cb4f9efbcd8b39042efcce19da9011656eeb41ab118a00bfdaa78442973382c"
+    },
+    {
+      "id": "e5a04b61-8684-442e-a037-7f74fa73d531",
+      "oracle_id": "5b15dcac-38dc-4957-bc01-40153ea07559",
+      "name": "Silhana Ledgewalker",
+      "set": "rvr",
+      "set_name": "Ravnica Remastered",
+      "collector_number": "354",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Elf Rogue",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{1}{G}",
+      "cmc": 2,
+      "released_at": "2024-01-12",
+      "scryfall_uri": "https://scryfall.com/card/rvr/354/silhana-ledgewalker?utm_source=api",
+      "projectionSHA256": "a70a89cd55ca4dbff1d3e67a196393c77b0b3e377e248993c71ef76682bd477e"
+    },
+    {
+      "id": "8d8432a7-1c8a-4cfb-947c-ecf9791063eb",
+      "oracle_id": "a15547d0-bbcb-41ee-a9ae-8325a9e7fe1f",
+      "name": "Sire of Seven Deaths",
+      "set": "fdn",
+      "set_name": "Foundations",
+      "collector_number": "1",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Eldrazi",
+      "rarity": "mythic",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "mana_cost": "{7}",
+      "cmc": 7,
+      "released_at": "2024-11-15",
+      "scryfall_uri": "https://scryfall.com/card/fdn/1/sire-of-seven-deaths?utm_source=api",
+      "projectionSHA256": "89f6e6106fd636ab5fc8d81a8184d3d3ab140cc9e303ed2d82a076f8a09c0a0a"
+    },
+    {
+      "id": "193a5688-9e9b-48f4-9904-53134ec73c97",
+      "oracle_id": "6ad8011d-3471-4369-9d68-b264cc027487",
+      "name": "Sol Ring",
+      "set": "slc",
+      "set_name": "Secret Lair Countdown",
+      "collector_number": "19",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Artifact",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [],
+      "games": [
+        "paper"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "banned",
+        "pauper": "not_legal",
+        "vintage": "restricted",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "banned",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "banned",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "legal",
+        "tlr": "banned"
+      },
+      "mana_cost": "{1}",
+      "cmc": 1,
+      "released_at": "2025-11-03",
+      "scryfall_uri": "https://scryfall.com/card/slc/19/sol-ring?utm_source=api",
+      "projectionSHA256": "a71bd906fe598b294afa9e1939f33f7c2e353a0775ec7e4d4d01abc39c614164"
+    },
+    {
+      "id": "fde838c8-2f32-4e7d-a236-0bc42dd7abd9",
+      "oracle_id": "d7888719-647d-4022-a211-822fa09f0791",
+      "name": "Staff of Domination",
+      "set": "cmr",
+      "set_name": "Commander Legends",
+      "collector_number": "343",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Artifact",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "not_legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{3}",
+      "cmc": 3,
+      "released_at": "2020-11-20",
+      "scryfall_uri": "https://scryfall.com/card/cmr/343/staff-of-domination?utm_source=api",
+      "projectionSHA256": "233ddf2888da5c61c8fdce923d3e5628fc72f751f04e4982a7a5f218032608af"
+    },
+    {
+      "id": "75ea63a8-3046-4578-a190-72efa34f8d88",
+      "oracle_id": "e900f211-dc8b-40f7-a217-1b1462b15c26",
+      "name": "Stirring Wildwood",
+      "set": "eos",
+      "set_name": "Edge of Eternities: Stellar Sights",
+      "collector_number": "39",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [
+        "G",
+        "W"
+      ],
+      "games": [
+        "paper",
+        "mtgo",
+        "arena"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "not_legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2025-08-01",
+      "scryfall_uri": "https://scryfall.com/card/eos/39/stirring-wildwood?utm_source=api",
+      "projectionSHA256": "e1cae27e115a70b829eabbe7331da9dda2e069345d9b2883e965f86ecbf99cd5"
+    },
+    {
+      "id": "41d25ee5-0348-4206-bb6a-ccb0a599ac87",
+      "oracle_id": "b9a62c6b-5848-44b1-932b-8d5de2560976",
+      "name": "Surge of Salvation",
+      "set": "mom",
+      "set_name": "March of the Machine",
+      "collector_number": "41",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Instant",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "W"
+      ],
+      "color_identity": [
+        "W"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{W}",
+      "cmc": 1,
+      "released_at": "2023-04-21",
+      "scryfall_uri": "https://scryfall.com/card/mom/41/surge-of-salvation?utm_source=api",
+      "projectionSHA256": "d0e03f77be9cd27a46a570c19d0cb1b5c009d59a6151d19eaf593e2ff0179204"
+    },
+    {
+      "id": "f108b0fb-420a-422d-ae85-9a99c0f73169",
+      "oracle_id": "56719f6a-1a6c-4c0a-8d21-18f7d7350b68",
+      "name": "Swamp",
+      "set": "ust",
+      "set_name": "Unstable",
+      "collector_number": "214",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Basic Land — Swamp",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [
+        "B"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "legal",
+        "predh": "legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2017-12-08",
+      "scryfall_uri": "https://scryfall.com/card/ust/214/swamp?utm_source=api",
+      "projectionSHA256": "2e0ca8664918ea8a411374d5d5b9bb1eafaf7f5f081bd1795f49c2d61dce4312"
+    },
+    {
+      "id": "41040541-b129-4cf4-9411-09b1d9d32c19",
+      "oracle_id": "c8b143ad-43ec-4e0d-a440-e348daa31391",
+      "name": "Swiftfoot Boots",
+      "set": "fdn",
+      "set_name": "Foundations",
+      "collector_number": "258",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Artifact — Equipment",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{2}",
+      "cmc": 2,
+      "released_at": "2024-11-15",
+      "scryfall_uri": "https://scryfall.com/card/fdn/258/swiftfoot-boots?utm_source=api",
+      "projectionSHA256": "5be997c3847dfca5105a891ceed72ac7fd438eb8175aeacd509ce71a300ab152"
+    },
+    {
+      "id": "9828be7b-1eae-4718-9e71-2f625121b00b",
+      "oracle_id": "f0d8bde1-76db-4bd2-ae90-3e3a3418de0b",
+      "name": "Szat's Will",
+      "set": "cmr",
+      "set_name": "Commander Legends",
+      "collector_number": "152",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Instant",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "mana_cost": "{4}{B}",
+      "cmc": 5,
+      "released_at": "2020-11-20",
+      "scryfall_uri": "https://scryfall.com/card/cmr/152/szats-will?utm_source=api",
+      "projectionSHA256": "fcd3e8b06a8cff3ae51863f2ac53cc78f934dc2847e2fd3ff3158ac2cb51c754"
+    },
+    {
+      "id": "9a4c5629-fadd-42b9-850f-9f8586a2ca50",
+      "oracle_id": "1bd3e453-aa21-4ee6-95c2-d6d920ee8e7a",
+      "name": "Terramorphic Expanse",
+      "set": "sos",
+      "set_name": "Secrets of Strixhaven",
+      "collector_number": "265",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [],
+      "games": [
+        "paper",
+        "mtgo",
+        "arena"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2026-04-24",
+      "scryfall_uri": "https://scryfall.com/card/sos/265/terramorphic-expanse?utm_source=api",
+      "projectionSHA256": "1c539ae4302ea40eadb62caf4202b8c54ab7d787d545ea25270ffe4686e98fc8"
+    },
+    {
+      "id": "a9ab41c8-3ee2-4676-9b8b-20c34d9f5f21",
+      "oracle_id": "595f0eb5-f521-4174-9c48-b89e85ea907c",
+      "name": "Titan's Grave",
+      "set": "sos",
+      "set_name": "Secrets of Strixhaven",
+      "collector_number": "266",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [
+        "B",
+        "G"
+      ],
+      "games": [
+        "paper",
+        "mtgo",
+        "arena"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2026-04-24",
+      "scryfall_uri": "https://scryfall.com/card/sos/266/titans-grave?utm_source=api",
+      "projectionSHA256": "30469bbf9fee507c222ece4cbc4f31e62f18132c1e7eac24d7d86a0f6ab90c74"
+    },
+    {
+      "id": "4f16a1c2-0a80-45e4-b025-3aa0c0b03812",
+      "oracle_id": "5f5fe039-4be4-42ae-9fa4-4392328aa665",
+      "name": "Topiary Lecturer",
+      "set": "sos",
+      "set_name": "Secrets of Strixhaven",
+      "collector_number": "165",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Elf Druid",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "mtgo",
+        "arena"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{2}{G}",
+      "cmc": 3,
+      "released_at": "2026-04-24",
+      "scryfall_uri": "https://scryfall.com/card/sos/165/topiary-lecturer?utm_source=api",
+      "projectionSHA256": "0f923a2dc7cbe480db275c981f07b82cdee31501533799e999a987e25b628625"
+    },
+    {
+      "id": "ba1d99ca-740a-481a-be89-615e40d56d06",
+      "oracle_id": "ecc4e230-a546-4cb4-987c-87300060bbe2",
+      "name": "Trystan's Command",
+      "set": "ecl",
+      "set_name": "Lorwyn Eclipsed",
+      "collector_number": "247",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Kindred Sorcery — Elf",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "B",
+        "G"
+      ],
+      "color_identity": [
+        "B",
+        "G"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "not_legal"
+      },
+      "mana_cost": "{4}{B}{G}",
+      "cmc": 6,
+      "released_at": "2026-01-23",
+      "scryfall_uri": "https://scryfall.com/card/ecl/247/trystans-command?utm_source=api",
+      "projectionSHA256": "7a185a155ea85672b1040df4e582b807369f48352117b50b84044649128eba73"
+    },
+    {
+      "id": "0e144ae1-500d-4485-b476-5783b14380d9",
+      "oracle_id": "ebc5ac83-08d4-4d6b-b840-0c4ba71a38ab",
+      "name": "Vault of Champions",
+      "set": "cmr",
+      "set_name": "Commander Legends",
+      "collector_number": "360",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land",
+      "rarity": "rare",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [
+        "B",
+        "W"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "not_legal",
+        "timeless": "not_legal",
+        "gladiator": "not_legal",
+        "pioneer": "not_legal",
+        "modern": "not_legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "not_legal",
+        "competitivebrawl": "not_legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2020-11-20",
+      "scryfall_uri": "https://scryfall.com/card/cmr/360/vault-of-champions?utm_source=api",
+      "projectionSHA256": "8a8a34bc94160f16c028ae5f76a18eaa3f24b321e69ebe5a4491d5207360801a"
+    },
+    {
+      "id": "855e9253-2219-4c43-8131-47633c564ee2",
+      "oracle_id": "240e85d3-e495-4877-8609-4b4056c402f7",
+      "name": "Victimize",
+      "set": "cmr",
+      "set_name": "Commander Legends",
+      "collector_number": "157",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Sorcery",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "B"
+      ],
+      "color_identity": [
+        "B"
+      ],
+      "games": [
+        "paper",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "not_legal",
+        "future": "not_legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "not_legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "not_legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "not_legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "legal",
+        "predh": "legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{2}{B}",
+      "cmc": 3,
+      "released_at": "2020-11-20",
+      "scryfall_uri": "https://scryfall.com/card/cmr/157/victimize?utm_source=api",
+      "projectionSHA256": "2441f4d4e7c8058d824acb8531f2cdde2d93b89f356e933c1886a2ab90452c8a"
+    },
+    {
+      "id": "0702efed-915e-466a-96bb-ac09af06b21e",
+      "oracle_id": "3d4bec90-7bbc-4385-a2b8-303c7a8d0a0f",
+      "name": "Virulent Emissary",
+      "set": "ecl",
+      "set_name": "Lorwyn Eclipsed",
+      "collector_number": "202",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Creature — Elf Assassin",
+      "rarity": "uncommon",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [
+        "G"
+      ],
+      "color_identity": [
+        "G"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "not_legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "not_legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "{G}",
+      "cmc": 1,
+      "released_at": "2026-01-23",
+      "scryfall_uri": "https://scryfall.com/card/ecl/202/virulent-emissary?utm_source=api",
+      "projectionSHA256": "38a3f52d45bc52e7a722d6039f442a5af64ceb45fcf479edfbe6cc5c8a90b067"
+    },
+    {
+      "id": "c74024bd-b383-468d-9cf5-d112a29f6457",
+      "oracle_id": "e198126a-f280-47f7-8bd0-3dc9f5ff05a0",
+      "name": "Windurst, Federation Center",
+      "set": "fin",
+      "set_name": "Final Fantasy",
+      "collector_number": "292",
+      "lang": "en",
+      "digital": false,
+      "type_line": "Land — Town",
+      "rarity": "common",
+      "finishes": [
+        "nonfoil",
+        "foil"
+      ],
+      "colors": [],
+      "color_identity": [
+        "G",
+        "W"
+      ],
+      "games": [
+        "paper",
+        "arena",
+        "mtgo"
+      ],
+      "legalities": {
+        "standard": "legal",
+        "future": "legal",
+        "historic": "legal",
+        "timeless": "legal",
+        "gladiator": "legal",
+        "pioneer": "legal",
+        "modern": "legal",
+        "legacy": "legal",
+        "pauper": "legal",
+        "vintage": "legal",
+        "penny": "not_legal",
+        "commander": "legal",
+        "oathbreaker": "legal",
+        "standardbrawl": "legal",
+        "brawl": "legal",
+        "competitivebrawl": "legal",
+        "alchemy": "legal",
+        "paupercommander": "legal",
+        "duel": "legal",
+        "oldschool": "not_legal",
+        "premodern": "not_legal",
+        "predh": "not_legal",
+        "tlr": "legal"
+      },
+      "mana_cost": "",
+      "cmc": 0,
+      "released_at": "2025-06-13",
+      "scryfall_uri": "https://scryfall.com/card/fin/292/windurst-federation-center?utm_source=api",
+      "projectionSHA256": "4b2af71538aa5aafa9ea5b1d6f7337a916c047c103315c6dd6ecd42e6e048550"
+    }
+  ]
+}

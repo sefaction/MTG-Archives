@@ -1,0 +1,87 @@
+1 High Perfect Morcant (ECL) 229
+1 Rhys, the Evermore (ECL) 32
+1 Abomination of Llanowar (CMR) 265
+1 Another Round (OTJ) 1
+1 Ascend from Avernus (CLB) 5
+1 Barrensteppe Siege (TDM) 171
+1 Basilisk Collar (CLB) 300
+1 Blasphemous Edict (FDN) 57
+1 Blossoming Sands (TDM) 251
+1 Bovine Intervention (OTJ) 6
+1 Celestial Reunion (ECL) 170
+1 Citadel Gate (CLB) 349
+1 Cloakwood Swarmkeeper (CLB) 222
+1 Command Tower (CLB) 351
+1 Creakwood Safewright (ECL) 96
+1 Dalkovan Encampment (TDM) 253
+1 Dawnhand Dissident (ECL) 98
+1 Dwynen, Gilt-Leaf Daen (FDN) 217
+1 Dwynen's Elite (FDN) 218
+1 Elvish Regrower (FDN) 104
+1 Elvish Visionary (CMR) 223
+1 Evolving Wilds (ECL) 264
+1 Eyeblight Cullers (CMR) 124
+1 Farhaven Elf (SCD) 182
+1 Festering Gulch (OTJ) 257
+9 Forest (UST) 216
+1 Forum of Amity (SOS) 256
+1 Gnarlid Colony (FDN) 224
+1 Godless Shrine (EOE) 254
+1 Gohn, Town of Ruin (FIN) 278
+1 Golgari Findbroker (RVR) 187
+1 Golgari Guildgate (RVR) 278
+1 Herd Heirloom (TDM) 144
+1 Hollowmurk Siege (TDM) 192
+1 Insomnia, Crown City (FIN) 282
+1 Inspiring Call (FDN) 226
+1 Jaheira, Friend of the Forest (CLB) 237
+1 Jungle Hollow (TDM) 258
+1 Kami of Whispered Hopes (MOM) 196
+1 Kefka's Tower (FCA) 7
+1 Leyline Immersion (MAT) 21
+1 Llanowar Elves (FDN) 227
+1 Manor Gate (CLB) 356
+1 Mask of Memory (CMR) 324
+1 Master Chef (CLB) 241
+1 Miara, Thorn of the Glade (CMR) 133
+1 Minthara, Merciless Soul (CLB) 286
+1 Mirrormind Crown (ECL) 258
+1 Moon-Vigil Adherents (ECL) 184
+1 Morcant's Eyes (ECL) 185
+1 Nadier, Agent of the Duskenel (CMR) 135
+1 Nadier's Nightblade (CMR) 136
+1 Nature's Rhythm (TDM) 349
+1 Newfound Adventure (FCA) 45
+1 Numa, Joraga Chieftain (CMR) 246
+1 Open the Armory (CMR) 34
+1 Pest Infestation (OTP) 30
+2 Plains (UST) 212
+1 Practiced Offense (SOS) 25
+1 Pride of the Perfect (CMR) 144
+1 Reclamation Sage (CMR) 248
+1 Restoration Seminar (SOS) 30
+1 Rogue's Passage (FDN) 264
+1 Roving Harper (CLB) 40
+1 Scarblade Scout (ECL) 118
+1 Scoured Barrens (NEO) 274
+1 Selesnya Guildgate (RVR) 286
+1 Shadowheart, Dark Justiciar (CLB) 392
+1 Shared Roots (SOA) 58
+1 Sharpshooter Elf (CLB) 253
+1 Silhana Ledgewalker (RVR) 354
+1 Sire of Seven Deaths (FDN) 1
+1 Sol Ring (SLC) 19 *F*
+1 Staff of Domination (CMR) 343
+1 Stirring Wildwood (EOS) 39
+1 Surge of Salvation (MOM) 41
+5 Swamp (UST) 214
+1 Swiftfoot Boots (FDN) 258
+1 Szat's Will (CMR) 152
+1 Terramorphic Expanse (SOS) 265
+1 Titan's Grave (SOS) 266
+1 Topiary Lecturer (SOS) 165
+1 Trystan's Command (ECL) 247
+1 Vault of Champions (CMR) 360
+1 Victimize (CMR) 157
+1 Virulent Emissary (ECL) 202
+1 Windurst, Federation Center (FIN) 292

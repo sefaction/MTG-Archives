@@ -1,0 +1,51 @@
+name: Qualify supplied paste isolated browser
+on:
+  push:
+    branches: [codex/qualification-808844-ci]
+permissions:
+  contents: read
+concurrency:
+  group: qualify-paste-example-isolated
+  cancel-in-progress: false
+jobs:
+  browser:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/codex/qualification-808844-ci'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: docker/setup-buildx-action@v3
+        id: builder
+        with:
+          version: latest
+          driver-opts: |
+            memory=4g
+            memory-swap=4g
+            cpu-period=100000
+            cpu-quota=200000
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx tsx --test tests/isolated-qualification-target.test.ts tests/deck-paste-user-example.test.ts tests/deck-paste-user-fixture.test.mjs
+      - run: npx playwright install --with-deps chromium
+      - name: Exact product image and owned browser fixture
+        env:
+          QUALIFICATION_BUILDER: ${{ steps.builder.outputs.name }}
+        run: node .github/scripts/qualify-paste-example.cjs
+      - name: Preserve qualification evidence and failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paste-example-isolated-qualification
+          path: |
+            .local-data/qualification-ci/
+            !.local-data/qualification-ci/product-source/**
+            !.local-data/qualification-ci/product-source.tar
+          retention-days: 7
+          if-no-files-found: error
