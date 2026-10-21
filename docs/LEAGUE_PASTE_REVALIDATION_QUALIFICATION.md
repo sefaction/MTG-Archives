@@ -1,3 +1,16 @@
+# Unattended investigation boundary — October 20, 2026 Central
+
+Related issue #844. The confirmed workflow is **sealed Commander League**, failing at final apply on Unraid. This remains distinct from the ordinary-deck physical-copy report #808. The actual failing list, incident request/revision/error and persistence outcome are not available in the current issue or retained investigation handoff.
+
+Merged #849 repairs a demonstrated stale-pool revalidation/feedback problem, but no evidence attributes Brian's actual request to that problem. Existing diverse synthetic League success and controlled stale-pool rejection/retry checks are not repeated as incident acceptance. No real production import or new local runtime test was run during this checkpoint.
+
+**Input boundary:** retain the actual failing list or faithful failing minimized list, League/deck/mode context, affected revision and approximate time/request reference. Correlate any retained server error to this final-apply attempt. Never infer the ordinary-deck cause from a shared generic error page. No response is required while Brian is unavailable; keep this checkpoint in a labeled draft PR and continue independent work.
+
+Once evidence is available, reproduce final apply in an owned disposable League fixture with the same membership, pool restrictions, list and mode. Assert either correct reviewed quantities/commitments or an actionable restriction explanation with no partial writes. Compare complete before/after list, Inventory and audit state. Qualify desktop/phone preservation of review and intentional retry without relaxing League rules. Shared laptop runtime access remains reserved by its exact owner; merge, installation and actual reporter acceptance stay separate.
+
+#844 remains OPEN/investigating. This source/issue reconciliation establishes a concrete evidence boundary, not an incident cause, fix, deployment or passing reporter-case test.
+
+---
 # League paste pool revalidation qualification
 
 [PR #849](https://github.com/sefaction/MTG-Archives/pull/849) fixes narrow [#848](https://github.com/sefaction/MTG-Archives/issues/848). Related reporter incidents [#844](https://github.com/sefaction/MTG-Archives/issues/844) and [#808](https://github.com/sefaction/MTG-Archives/issues/808) remain separate and unverified. October 18, 2026.

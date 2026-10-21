@@ -1,3 +1,16 @@
+# Unattended investigation boundary — October 20, 2026 Central
+
+Related issue #808. The confirmed workflow is **ordinary decks**, Paste decklist with physical copies enabled for every submitted card, on Unraid. Brian reported a commander list, generic/black error page and nothing added afterward. Preserve this as a separate incident from the sealed League final-apply report #844.
+
+Current-main review at b810f06a reconciles the prior report, DECK_PASTE_CONTENTION_QUALIFICATION.md and merged #810/#849. The actual failing list, incident timestamp/revision, request/server error and persisted outcome are still not present in the issue or retained investigation handoff. Existing one-card and diverse 100-line successes, controlled transaction-expiry/quantity-loss fixes and stale-League-pool controls do not identify this report's cause. No unchanged synthetic controls or real production import were repeated during this checkpoint.
+
+**Input boundary:** resume only with the actual failing list (or a faithful failing minimized list), affected installation/revision and approximate occurrence time plus any retained error/request reference. The exact server exception must be correlated to this ordinary-deck attempt before assigning a cause. If the historical request is unavailable, a separately authorized observation of a real recurrence can establish a new reproduction; no automatic production replay is authorized here. Private logs remain private; do not put credentials, sessions or tokens in an issue.
+
+Then compare list-only versus the exact selected physical-copy quantities on an owned disposable local fixture. Capture complete before/after list, Inventory, commitments and audit state, including useful failure feedback and an intentional retry. Preserve append semantics: a deliberate second successful append is not an automatic retry-idempotency test. Qualify a demonstrated correction on desktop and phone, load cumulative local Docker when its owner permits access, and keep merge/deployment/actual reporter acceptance distinct.
+
+This investigation is stopped at missing incident evidence. The related checkpoint stays in a labeled draft PR. #808 remains OPEN/investigating; no resolution, new source fix, production read/replay, local runtime change or user response is claimed.
+
+---
 # Current investigation — October 15, 2026
 
 Brian has now identified the Unraid site, a commander deck, a black error page and nothing added afterward. Two controlled local contention defects are repaired in PR #810 under child #818; [current qualification](DECK_PASTE_CONTENTION_QUALIFICATION.md) distinguishes those demonstrated classes from the still-unconfirmed cause of parent #808. The earlier coverage-only evidence below is preserved as October14 history; its unanswered-installation statements describe that earlier stage.
