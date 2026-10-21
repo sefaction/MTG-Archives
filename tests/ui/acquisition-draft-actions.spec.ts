@@ -4,14 +4,18 @@ import { createHash, randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { cleanupCorrectionFixture } from "./correction-fixture";
 
+import { loadIsolatedQualificationTarget, verifyIsolatedQualificationTarget } from './isolated-qualification-target';
+const qualification = loadIsolatedQualificationTarget();
+if (!qualification) throw new Error('Explicit isolated hosted target required');
 function database(body: string) {
-  return execFileSync("docker", ["exec", "-i", "mtg-archives-web-1", "node"], { windowsHide: true, encoding: "utf8", timeout: 30000,
+  const target = verifyIsolatedQualificationTarget(qualification!);
+  return execFileSync("docker", ["exec", "-i", target.web.id, "node"], { windowsHide: true, encoding: "utf8", timeout: 30000,
     input: `const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().catch(e=>{console.error(e.message);process.exitCode=1}).finally(()=>p.$disconnect());` });
 }
 
 test("unsaved corrections protect bulk reviews and Inventory while clean cards stay usable", async ({ page, baseURL }) => {
   test.skip(process.env.MTG_LOCAL_PILOT_TEST !== "1", "Owned local fixtures; no hardware or recognition accuracy claim");
-  expect(baseURL).toBe("http://127.0.0.1:13001"); test.setTimeout(180000);
+  expect(baseURL).toBe(qualification!.baseURL); test.setTimeout(180000);
   const tag = `ui-draft-actions-${randomUUID()}`, password = randomUUID();
   const printing = { id: `${tag}-card`, name: "Draft protection fixture", setCode: "tst", collectorNumber: "1",
     lang: "en", imageUri: null, finishes: ["nonfoil", "foil"] };
@@ -55,6 +59,7 @@ test("unsaved corrections protect bulk reviews and Inventory while clean cards s
       await expect(page.getByTestId("scan-review-summary")).toContainText("14 pending review or reconciliation");
       await expect(page.getByTestId("scan-review-summary")).toContainText("0 ready to preview");
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({path:`test-results/acquisition-physical-readiness-${width}.png`});
     }
     const blockedProgress = await (await page.request.get(`/api/acquisition/${batch}`)).json();
     expect(blockedProgress.slots[13].physicalReadiness.reasons).toContain("OVERFLOW");
