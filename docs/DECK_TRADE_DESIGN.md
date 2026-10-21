@@ -1,6 +1,6 @@
 # Whole-deck trade design — decision checkpoint for #807
 
-Status: product decisions complete; implementation in progress, integrated with main3ae13d0d. Original source findings below were reviewed at b810f06a and must be reconciled before implementation. No deck-transfer implementation or migration yet. Individual-card gifts #880 are separately merged. This document preserves confirmed requirements and the remaining product boundary.
+Status: product decisions complete; implementation in progress, integrated with main3ae13d0d. Original source findings below were reviewed at b810f06a and must be reconciled before implementation. Bundle schema/migration and snapshot policy are prepared; proposal, writer fencing, completion and UI integration remain in progress. Individual-card gifts #880 are separately merged. This document preserves confirmed requirements and the remaining product boundary.
 
 ## Confirmed behavior
 
