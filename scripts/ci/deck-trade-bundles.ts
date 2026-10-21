@@ -287,7 +287,82 @@ async function run() {
   assert.deepEqual(await db.inventoryItem.findMany({ where: { locationId, quantity: { gt: 0 } }, orderBy: { id: "asc" } }), stock.filter(item => item.quantity > 0));
   assert.equal(await db.inventoryAuditLog.count(), audits.length + 1);
   assert.equal(await db.inventoryAuditLog.count({ where: { changedByUserId: users[0], changeType: "admin_cleanup_zero_quantity" } }), 1);
+  await verifyCommittedTransfer();
   console.log("PASS deck bundle foundation: real 55-lot/full-list snapshot, bundle/trade/side and positive-quantity constraints, three active reservation fences, competing owner/deck locks, stale owner denial, recipient-owned settings and Inventory/audit conservation");
+}
+async function verifyCommittedTransfer() {
+  const giftDeckId = tag + "-committed-gift", giftLocationId = tag + "-gift-location";
+  fixtureDeckIds.push(giftDeckId);
+  await db.deck.create({ data: { id: giftDeckId, ownerUserId: users[0], name: "Incomplete gift", visibility: "PRIVATE",
+    folderId: tag + "-folder-0", tags: { create: [{ tagId: tag + "-tag-0" }] },
+    cards: { create: [
+      { cardId: cards[0], cardName: "Five listed but only three committed", quantity: 5 },
+      { cardId: cards[1], cardName: "List-only Maybeboard", quantity: 2, section: "MAYBEBOARD" },
+    ] },
+  } });
+  await db.inventoryLocation.create({ data: { id: giftLocationId, ownerPlayerId: owners[0], deckId: giftDeckId,
+    name: "Deck: Incomplete gift", normalizedName: "deck: incomplete gift", kind: "DECK", systemManaged: true,
+    visibility: "PRIVATE", parentLocationId: tag + "-normal",
+  } });
+  for (const quantity of [3, 0]) await db.inventoryItem.create({ data: {
+    id: tag + "-gift-stock-" + quantity, cardId: cards[0], currentOwnerId: owners[0], originalOpenerId: owners[0],
+    quantity, condition: "NM", locationId: giftLocationId, locationSection: "Original commitment", notes: "Preserve original gift provenance",
+  } });
+  const source = await readTradeDeck(db as unknown as Prisma.TransactionClient, giftDeckId, owners[0]);
+  const originalStock = await db.inventoryItem.findMany({ where: { locationId: giftLocationId }, orderBy: { id: "asc" } });
+  const originalList = await db.deckCard.findMany({ where: { deckId: giftDeckId }, orderBy: { id: "asc" } });
+  const gift = await makeTrade();
+  await db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM "Trade" WHERE id=${gift.id} FOR UPDATE`;
+    const selected = await prepareTradeDeckBundles(tx, { actorUserId: users[0], proposerPlayerId: owners[0],
+      receiverPlayerId: owners[1], offered: [{ deckId: giftDeckId, digest: source.digest }], requested: [] });
+    await reservePreparedTradeDecks(tx, gift.id, selected);
+  });
+  const bundle = await db.tradeDeckBundle.findFirstOrThrow({ where: { tradeId: gift.id } });
+  assert.equal(await db.tradeLine.count({ where: { tradeId: gift.id } }), 1);
+  await db.trade.update({ where: { id: gift.id }, data: { status: "ACCEPTED_PENDING_EXCHANGE" } });
+  await db.$transaction(async tx => {
+    await recordTradeDeckReceipts(tx, gift.id, users[0], []);
+    await tx.trade.update({ where: { id: gift.id }, data: { proposerCommittedAt: new Date(), status: "PARTIALLY_COMMITTED" } });
+  });
+  assert.deepEqual(await db.inventoryItem.findMany({ where: { locationId: giftLocationId }, orderBy: { id: "asc" } }), originalStock);
+  assert.equal((await db.deck.findUniqueOrThrow({ where: { id: giftDeckId } })).ownerUserId, users[0]);
+  await db.$transaction(async tx => {
+    await recordTradeDeckReceipts(tx, gift.id, users[1], [{ bundleId: bundle.id, visibility: "PRIVATE",
+      folderId: tag + "-folder-1", tagIds: [tag + "-tag-1"] }]);
+    await tx.trade.update({ where: { id: gift.id }, data: { receiverCommittedAt: new Date() } });
+  });
+  await assert.rejects(db.$transaction(async tx => {
+    // Fault injection only; ordinary writers must acquire owner/deck gates
+    // before stock. No competing completion runs during this corruption probe.
+    await tx.inventoryItem.update({ where: { id: originalStock[0].id }, data: { notes: "Changed after consent" } });
+    await transferConfirmedTradeDecks(tx, gift.id, users[1]);
+  }), /traded deck changed/);
+  assert.deepEqual(await db.inventoryItem.findMany({ where: { locationId: giftLocationId }, orderBy: { id: "asc" } }), originalStock);
+  const finish = () => db.$transaction(async tx => {
+    await transferConfirmedTradeDecks(tx, gift.id, users[1]);
+    await tx.trade.update({ where: { id: gift.id }, data: { status: "COMPLETED", completedAt: new Date() } });
+  });
+  const completed = await Promise.allSettled([finish(), finish()]);
+  assert.equal(completed.filter(result => result.status === "fulfilled").length, 1);
+  const refused = completed.find(result => result.status === "rejected");
+  assert.ok(refused?.status === "rejected"); assert.match(String(refused.reason), /not awaiting physical confirmation/);
+  const moved = await db.inventoryItem.findMany({ where: { locationId: giftLocationId }, orderBy: { id: "asc" } });
+  assert.deepEqual(moved.map(({ currentOwnerId, updatedAt, ...item }) => item), originalStock.map(({ currentOwnerId, updatedAt, ...item }) => item));
+  assert.ok(moved.every(item => item.currentOwnerId === owners[1]));
+  assert.equal(moved.reduce((sum, item) => sum + item.quantity, 0), 3, "missing listed copies must never be filled during transfer");
+  assert.deepEqual(await db.deckCard.findMany({ where: { deckId: giftDeckId }, orderBy: { id: "asc" } }), originalList);
+  const received = await db.deck.findUniqueOrThrow({ where: { id: giftDeckId }, include: { tags: true } });
+  assert.equal(received.ownerUserId, users[1]); assert.equal(received.folderId, tag + "-folder-1"); assert.equal(received.visibility, "PRIVATE");
+  assert.deepEqual(received.tags.map(link => link.tagId), [tag + "-tag-1"]);
+  const location = await db.inventoryLocation.findUniqueOrThrow({ where: { id: giftLocationId } });
+  assert.equal(location.ownerPlayerId, owners[1]); assert.equal(location.deckId, giftDeckId); assert.equal(location.parentLocationId, null);
+  assert.equal(await db.inventoryAuditLog.count({ where: { tradeId: gift.id, changeType: "trade_deck_completed" } }), 2);
+  assert.equal((await db.trade.findUniqueOrThrow({ where: { id: gift.id } })).status, "COMPLETED");
+  assert.equal((await db.tradeDeckBundle.findUniqueOrThrow({ where: { id: bundle.id } })).snapshotDigest, source.digest);
+  await assert.rejects(finish(), /not awaiting physical confirmation/);
+  assert.equal(await db.inventoryAuditLog.count({ where: { tradeId: gift.id } }), 2);
+  console.log("PASS committed whole-deck gift: durable first/second confirmations, stale consent rollback, one winning concurrent completion, same deck/list/location/positive-zero rows and provenance, missing copies unfilled, sender organization detached, receiver choices and repeat-safe audits");
 }
 run().catch(error => { failure = error; }).finally(async () => {
   const failures: unknown[] = failure ? [failure] : [];
