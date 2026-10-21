@@ -32,7 +32,19 @@ const endpoint=JSON.parse(docker('context','inspect',docker('context','show'),'-
 assert.match(endpoint,/^unix:\/\//,'selected Docker context must be local');
 evidence.dockerEndpoint=endpoint;
 const baseline='f32ebffbec91d5488e7e3318510d446bdc3d80d7';
-assert.equal(run('git',['diff','--name-only',baseline,'HEAD','--','lib','prisma','package.json','package-lock.json','tsconfig.json']),'','old-action control requires unchanged helpers/schema/dependencies');
+// Both action variants execute with the same current helpers/schema/packages.
+// Bind and recheck those exact inputs instead of assuming the entire repository
+// still has the old action commit's unrelated recognition-library versions.
+function dependencySnapshot() {
+  const names=run('git',['ls-files','--','lib','prisma','package.json','package-lock.json','tsconfig.json']).split('\n').filter(Boolean);
+  return Object.fromEntries(names.map(name=>[name,crypto.createHash('sha256').update(fs.readFileSync(path.join(root,name))).digest('hex')]));
+}
+const dependencies=dependencySnapshot();
+const dependencyDigest=crypto.createHash('sha256').update(JSON.stringify(dependencies)).digest('hex');
+evidence.dependencies={files:dependencies,digest:dependencyDigest,scope:'same current inputs for old/fixed action comparison; not a historical release environment'};
+function verifyDependencies(phase) {
+  assert.equal(crypto.createHash('sha256').update(JSON.stringify(dependencySnapshot())).digest('hex'),dependencyDigest,`${phase}: comparison helpers/schema/packages changed`);
+}
 fs.writeFileSync(path.join(out,'baseline-actions.ts'),run('git',['show',`${baseline}:app/trades/actions.ts`])+'\n');
 evidence.sources = Object.fromEntries(['app/trades/actions.ts','scripts/ci/trade-concurrency.ts','scripts/ci/trade-concurrency-runner.cjs','prisma/schema.prisma'].map(name=>[name,crypto.createHash('sha256').update(fs.readFileSync(name)).digest('hex')]));
 try {
@@ -62,10 +74,12 @@ try {
     if(failure) throw failure;
   };
   runTest('baseline');
+  verifyDependencies('after baseline');
   if(process.env.TRADE_FIXED === '1') {
     // Recreate only this run's empty synthetic database; immutable owned target.
     check(pg);docker('exec',pg,'dropdb','-U','ci','trade_fixture');docker('exec',pg,'createdb','-U','ci','trade_fixture');
     runTest('fixed');
+    verifyDependencies('after fixed');
   }
   evidence.status='passed';
 }catch(error){evidence.status='failed';evidence.error=String(error);process.exitCode=1;}
