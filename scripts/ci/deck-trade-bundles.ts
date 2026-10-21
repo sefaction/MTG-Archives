@@ -349,6 +349,95 @@ async function verifyMixedCounter() {
   assert.deepEqual(await db.inventoryItem.findMany({ where: { currentOwnerId: { in: owners } }, orderBy: { id: "asc" } }), stockBefore);
   assert.deepEqual(await db.inventoryAuditLog.findMany({ orderBy: { id: "asc" } }), auditsBefore);
   console.log("PASS actual mixed counter: two decks and loose cards on each side, 55 complete bundle lots, whole-deck removal/replacement and changed card amounts, fresh acceptance, exact old/new reservation release and zero ownership/quantity/audit changes");
+  await verifyMixedCompletion(offered, requested, looseIds);
+}
+async function verifyMixedCompletion(offered: { deckId: string; digest: string }[], requested: { deckId: string; digest: string }[], looseIds: string[]) {
+  const actions = loadActual("app/trades/actions.ts");
+  for (let index = 0; index < 2; index++) await db.tradeWishlistItem.create({ data: { ownerUserId: users[index],
+    targetOwnerPlayerId: owners[1 - index], cardId: cards[0], quantity: 10 } });
+  const beforeStock = await db.inventoryItem.findMany({ where: { currentOwnerId: { in: owners } }, orderBy: { id: "asc" } });
+  const originalDeckStock = beforeStock.filter(item => item.locationId === locationId);
+  const originalList = await db.deckCard.findMany({ where: { deckId }, orderBy: { id: "asc" } });
+  actor = await db.user.findUniqueOrThrow({ where: { id: users[0] }, include: { player: true } });
+  assert.equal((await actions.createTrade({ status: "idle", message: "" }, form({ receiverPlayerId: owners[1], message: tag + " mixed final",
+    offeredDecksJson: JSON.stringify(offered), requestedDecksJson: JSON.stringify(requested),
+    offeredLinesJson: JSON.stringify([{ inventoryItemId: looseIds[0], quantity: 2 }]), requestedLinesJson: JSON.stringify([{ inventoryItemId: looseIds[1], quantity: 3 }]),
+  }))).status, "success");
+  const trade = await db.trade.findFirstOrThrow({ where: { message: tag + " mixed final" } }); trades.push(trade.id);
+  actor = await db.user.findUniqueOrThrow({ where: { id: users[1] }, include: { player: true } });
+  await actions.actOnTrade(form({ tradeId: trade.id, action: "accept" }));
+  const bundles = await db.tradeDeckBundle.findMany({ where: { tradeId: trade.id } });
+  const confirmForm = (index: number) => form({ tradeId: trade.id, destinationLocationId: index ? tag + "-normal-1" : tag + "-normal",
+    deckReceiptsJson: JSON.stringify(bundles.filter(bundle => bundle.side === (index ? "PROPOSER" : "RECEIVER")).map(bundle => ({
+      bundleId: bundle.id, visibility: index ? "PUBLIC" : "PRIVATE", folderId: tag + "-folder-" + index, tagIds: [tag + "-tag-" + index],
+    }))),
+  });
+  actor = await db.user.findUniqueOrThrow({ where: { id: users[0] }, include: { player: true } });
+  await actions.confirmPhysicalTrade(confirmForm(0));
+  assert.deepEqual(await db.inventoryItem.findMany({ where: { currentOwnerId: { in: owners } }, orderBy: { id: "asc" } }), beforeStock);
+  const graph = () => Promise.all([
+    db.deck.findMany({ where: { id: { in: fixtureDeckIds } }, orderBy: { id: "asc" }, include: { cards: { orderBy: { id: "asc" } }, tags: { orderBy: { tagId: "asc" } } } }),
+    db.inventoryLocation.findMany({ where: { ownerPlayerId: { in: owners } }, orderBy: { id: "asc" } }),
+    db.inventoryItem.findMany({ where: { currentOwnerId: { in: owners } }, orderBy: { id: "asc" } }),
+    db.inventoryAuditLog.findMany({ orderBy: { id: "asc" } }),
+    db.trade.findUnique({ where: { id: trade.id }, include: { deckBundles: { orderBy: { id: "asc" } }, events: { orderBy: { id: "asc" } } } }),
+    db.notification.findMany({ where: { recipientUserId: { in: users } }, orderBy: { id: "asc" } }),
+    db.tradeWishlistItem.findMany({ where: { ownerUserId: { in: users } }, orderBy: { id: "asc" } }),
+  ]);
+  const originalGraph = await graph();
+  actor = await db.user.findUniqueOrThrow({ where: { id: users[1] }, include: { player: true } });
+  const noDestination = confirmForm(1); noDestination.set("destinationLocationId", "");
+  await assert.rejects(actions.confirmPhysicalTrade(noDestination), /Choose a destination/);
+  assert.deepEqual(await graph(), originalGraph);
+  let injected = false;
+  const failing = new Proxy(db, { get(target, property) {
+    if (property !== "$transaction") { const value = Reflect.get(target, property); return typeof value === "function" ? value.bind(target) : value; }
+    return (callback: (tx: Prisma.TransactionClient) => Promise<unknown>, options?: { timeout?: number }) => db.$transaction(tx => callback(new Proxy(tx, {
+      get(transaction, key) {
+        if (key !== "inventoryAuditLog") { const value = Reflect.get(transaction, key); return typeof value === "function" ? value.bind(transaction) : value; }
+        return new Proxy(tx.inventoryAuditLog, { get(delegate, method) {
+          if (method === "create") return async (query: Prisma.InventoryAuditLogCreateArgs) => {
+            const audit = await tx.inventoryAuditLog.create(query);
+            if (query.data.tradeId === trade.id && query.data.changeType === "trade_completed") {
+              injected = true; throw new Error("Injected after deck transfers and actual loose-card debit/audit");
+            }
+            return audit;
+          };
+          const value = Reflect.get(delegate, method); return typeof value === "function" ? value.bind(delegate) : value;
+        } });
+      },
+    })), options);
+  } });
+  await assert.rejects(loadActual("app/trades/actions.ts", failing).confirmPhysicalTrade(confirmForm(1)), /Injected after deck transfers and actual loose-card debit/);
+  assert.ok(injected); assert.deepEqual(await graph(), originalGraph);
+  await actions.confirmPhysicalTrade(confirmForm(1));
+  assert.equal((await db.trade.findUniqueOrThrow({ where: { id: trade.id } })).status, "COMPLETED");
+  const afterStock = await db.inventoryItem.findMany({ where: { currentOwnerId: { in: owners } }, orderBy: { id: "asc" } });
+  assert.equal(afterStock.reduce((sum, item) => sum + item.quantity, 0), beforeStock.reduce((sum, item) => sum + item.quantity, 0));
+  const movedDeckStock = afterStock.filter(item => item.locationId === locationId);
+  assert.deepEqual(movedDeckStock.map(({ currentOwnerId, updatedAt, ...item }) => item), originalDeckStock.map(({ currentOwnerId, updatedAt, ...item }) => item));
+  assert.ok(movedDeckStock.every(item => item.currentOwnerId === owners[1]));
+  assert.deepEqual(await db.deckCard.findMany({ where: { deckId }, orderBy: { id: "asc" } }), originalList);
+  const newLots = afterStock.filter(item => !beforeStock.some(old => old.id === item.id));
+  assert.equal(newLots.length, 2);
+  for (let index = 0; index < 2; index++) {
+    const source = beforeStock.find(item => item.id === looseIds[index])!;
+    const quantity = index ? 3 : 2;
+    const receipt = newLots.find(item => item.notes === source.notes)!;
+    assert.ok(receipt); assert.equal(receipt.currentOwnerId, owners[1 - index]); assert.equal(receipt.quantity, quantity);
+    assert.equal(receipt.locationId, index ? tag + "-normal" : tag + "-normal-1");
+    for (const field of ["cardId", "foil", "foilStatus", "condition", "language", "sourceType", "originalOpenerId", "acquiredFromPullId", "roundId", "notes"] as const)
+      assert.deepEqual(receipt[field], source[field]);
+    assert.equal(afterStock.find(item => item.id === source.id)!.quantity, 5 - quantity);
+  }
+  assert.equal((await db.tradeWishlistItem.findFirstOrThrow({ where: { ownerUserId: users[0], cardId: cards[0] } })).quantity, 7);
+  assert.equal((await db.tradeWishlistItem.findFirstOrThrow({ where: { ownerUserId: users[1], cardId: cards[0] } })).quantity, 6);
+  assert.equal(await db.inventoryAuditLog.count({ where: { tradeId: trade.id, changeType: "trade_deck_completed" } }), 55);
+  assert.equal(await db.inventoryAuditLog.count({ where: { tradeId: trade.id, changeType: "trade_completed" } }), 4);
+  const completedGraph = await graph();
+  await assert.rejects(actions.confirmPhysicalTrade(confirmForm(1)), /not awaiting physical confirmation/);
+  assert.deepEqual(await graph(), completedGraph);
+  console.log("PASS actual mixed completion: four decks/55 physical lots plus two loose lots, distinct destinations, exact quantity/provenance and list conservation, only physical wishlist credit, full rollback after actual deck transfers and loose debit/audit, atomic second confirmation/events/notifications/receipts, replay equality");
 }
 async function verifyCommittedTransfer() {
   const giftDeckId = tag + "-committed-gift", giftLocationId = tag + "-gift-location";
@@ -459,6 +548,7 @@ run().catch(error => { failure = error; }).finally(async () => {
     await db.trade.deleteMany({ where: { id: { in: trades } } });
     await db.inventoryAuditLog.deleteMany({ where: { changedByUserId: { in: users } } });
     await db.inventoryItem.deleteMany({ where: { currentOwnerId: { in: owners } } });
+    await db.tradeWishlistItem.deleteMany({ where: { ownerUserId: { in: users } } });
     await db.deck.deleteMany({ where: { id: { in: fixtureDeckIds } } });
     await db.inventoryLocation.deleteMany({ where: { ownerPlayerId: { in: owners } } });
     await db.deckFolder.deleteMany({ where: { ownerUserId: { in: users } } });
@@ -473,6 +563,7 @@ run().catch(error => { failure = error; }).finally(async () => {
     assert.equal(await db.trade.count({ where: { id: { in: trades } } }), 0);
     assert.equal(await db.notification.count({ where: { recipientUserId: { in: users } } }), 0);
     assert.equal(await db.tradeEvent.count({ where: { tradeId: { in: trades } } }), 0);
+    assert.equal(await db.tradeWishlistItem.count({ where: { ownerUserId: { in: users } } }), 0);
     assert.equal(await db.deck.count({ where: { id: { in: fixtureDeckIds } } }), 0);
     assert.equal(await db.card.count({ where: { id: { in: cards } } }), 0);
     assert.equal(await db.player.count({ where: { id: { in: owners } } }), 0);
