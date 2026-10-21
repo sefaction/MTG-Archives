@@ -1,5 +1,47 @@
 # Work checkpoint
 
+## PR #879 integration and qualification - October 21, 2026
+
+Current main 3ae13d0d integrated with checkpoint histories retained. Readiness
+product changes remain unchanged from qualified head 3c22393b. Source CI
+39534686852 passed all three jobs (1552 core tests plus both PostgreSQL suites).
+Hosted browser run 39536777618 passed one Chromium scenario (20.72s), all seven
+qualification gates and identical before/after snapshots for 84 tables. Independent
+source, harness and artifact reviews passed. Initial run 39535778024 storage
+fixture failure remains preserved; only harness tmpfs capacity was corrected.
+Brian authorized clear bounded fixes to merge overnight via parent delegation.
+Next: final integration CI, verify head before merge, verify resulting main checks.
+Do not deploy or close broad #308/#302. Earlier entries below are preserved history.
+
+
+## Physical review readiness under #308 — October 21, 2026
+
+- Branch `fix/308-physical-readiness`, desktop worktree `E:\Codex\mtg-308`,
+  base `f32ebffbec91d5488e7e3318510d446bdc3d80d7`. Related #308 / #302;
+  this bounded repair does not complete or close either tracker.
+- Reproduced old display returning `ready` for an accepted review carrying
+  uncertainty/overflow. Progress now projects physical count/allocation,
+  capture phase and current-photo blockers. Labels say ready to preview;
+  pending explanations retain saved reviews. Bulk selection shares readiness.
+  Commit rules, STOPPING subset exception, draft/retry fences are preserved.
+- Author checks: 19 focused display/navigation/domain tests passed under approved
+  Node 22.23.3; full worktree TypeScript no-emit check passed. Independent source
+  reviewer found navigation wording, bulk-selection and two fixture issues;
+  all corrected, final review has no outstanding findings. Whitespace check passes.
+- Added persisted progress/count-confirm/review-preservation controls to the
+  existing hosted acquisition integrity suite, and synthetic browser reload,
+  blocked reason/pending total/width controls to existing draft-action coverage.
+  Neither new database nor browser test has run locally: setup owner controls
+  environment; no DB/app slot exists and Docker/WSL C: exceptions remain pending.
+  Normal PR CI is the available database/typecheck/build route. Keep PR draft.
+- Shared dependencies used read-only via matching-lockfile E: junction after
+  owner approval and generation. No independent installs/services; no D:, laptop,
+  production, #876, broad filters, ordered-section acknowledgement or 100/300
+  presentation rebuild. Foundry hub unavailable on this desktop; repository and
+  live issue/comments used. Paste owner confirms no source overlap; recognition
+  coordination send failed with AbsolutePathBuf error, and no recognition code
+  changed. Next: publish draft, inspect exact-head CI, then obtain setup-owned
+  synthetic browser slot. No merge/deployment or user-acceptance claim.
 ## Prisma pool investigation #846 - October 21, 2026
 
 Isolated branch `codex/prisma-pool-846` from live main
