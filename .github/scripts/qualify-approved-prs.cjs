@@ -95,7 +95,12 @@ function build(context,name) {
 }
 function database(body) {
   owned(report.target.web.id);owned(report.target.database.id);
-  return JSON.parse(run('docker',['exec','-i',report.target.web.id,'node'],{input:`const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().then(x=>console.log(JSON.stringify(x))).catch(e=>{console.error('Owned fixture query failed',e.constructor.name,e.code);process.exitCode=1}).finally(()=>p.$disconnect());`}));
+  return JSON.parse(run('docker',['exec','-i',report.target.web.id,'node'],{input:databaseScript(body)}));
+}
+function databaseScript(body) {
+  const script=`const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().then(x=>console.log(JSON.stringify(x))).catch(e=>{console.error('Owned fixture query failed',e.constructor.name,e.code);process.exitCode=1}).finally(()=>p.$disconnect());`;
+  new (require('node:vm').Script)(script);
+  return script;
 }
 async function startProxy(web) {
   const state=owned(web), n=inspect('network',network.id);
@@ -119,9 +124,14 @@ async function startProxy(web) {
   return {baseURL:`http://127.0.0.1:${ready.port}`,hostedProxy:{pid:proxy.pid,backendAddress,networkId:network.id,scriptSHA256:hash(fs.readFileSync(script))}};
 }
 function snapshot() {
-  return database(`const tables=await p.$queryRawUnsafe("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename");const result={};for(const {tablename} of tables){if(!/^[A-Za-z_][A-Za-z0-9_]*$/.test(tablename))throw Error('Unsafe fixture table');const rows=await p.$queryRawUnsafe('SELECT count(*)::int AS count,md5(COALESCE(string_agg(row_to_json(t)::text,chr(10) ORDER BY row_to_json(t)::text),\'\')) AS digest FROM public."'+tablename+'" t');result[tablename]=rows[0];}return result;`);
+  return database(snapshotBody());
+}
+function snapshotBody() {
+  const prefix='SELECT count(*)::int AS count,md5(COALESCE(string_agg(row_to_json(t)::text,chr(10) ORDER BY row_to_json(t)::text),\'\')) AS digest FROM public."';
+  return `const tables=await p.$queryRawUnsafe("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename");const result={};for(const {tablename} of tables){if(!/^[A-Za-z_][A-Za-z0-9_]*$/.test(tablename))throw Error('Unsafe fixture table');const rows=await p.$queryRawUnsafe(${JSON.stringify(prefix)}+tablename+${JSON.stringify('" t')});result[tablename]=rows[0];}return result;`;
 }
 async function main() {
+  databaseScript(snapshotBody()); // Parse the exact generated read-only query before costly work.
   const endpoint=JSON.parse(docker('context','inspect',docker('context','show'),'--format','{{json .Endpoints.docker.Host}}'));
   assert.match(endpoint,/^unix:\/\/\//,'Local hosted Docker daemon only');
   const info=JSON.parse(docker('info','--format','{{json .}}'));
