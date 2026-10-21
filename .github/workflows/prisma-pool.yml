@@ -1,0 +1,50 @@
+name: Prisma pool investigation
+on:
+  pull_request:
+    paths:
+      - lib/prisma.ts
+      - scripts/ci/prisma-pool*
+      - .github/workflows/prisma-pool.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: prisma-pool-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  pool:
+    if: github.repository == 'sefaction/MTG-Archives'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: docker/setup-buildx-action@v3
+        id: builder
+        with:
+          version: latest
+          driver-opts: |
+            memory=4g
+            memory-swap=4g
+            cpu-period=100000
+            cpu-quota=200000
+      - name: Canonical production web and disposable PostgreSQL pool sequence
+        env:
+          QUALIFICATION_BUILDER: ${{ steps.builder.outputs.name }}
+          EXPECTED_SOURCE: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/ci/prisma-pool.cjs
+      - name: Preserve samples, identity, cleanup and every failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prisma-pool-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .local-data/prisma-pool/
+          retention-days: 14
+          if-no-files-found: error
+
