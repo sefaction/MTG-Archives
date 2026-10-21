@@ -1,5 +1,36 @@
 # Work checkpoint
 
+## Prisma pool investigation #846 - October 21, 2026
+
+Isolated branch `codex/prisma-pool-846` from live main
+`f32ebffbec91d5488e7e3318510d446bdc3d80d7`. Scope: hosted canonical-image pool
+reproducer; no demonstrated product fix yet. Recognition #872 and pricing/resource
+owners remain independent. Trade owner `01a15c1e-1421-7106-9a8a-6a5620fe6037`
+reserves `app/trades/actions.ts` and `scripts/ci/trade-concurrency*`; no overlap.
+Reviewer `01a15bb8-1e70-7029-a9a7-b3f35691203a` contacted for hosted pattern and
+independent review. Parent app-message delivery returned thread not found.
+
+AGENTS/CODEX, Foundry hub/workflow/architecture/operations, PR template and relevant
+capacity/provenance guidance read. Auth/main/issue/open PRs reconciled. Syntax and
+two constructor-preservation/sanitization tests pass. Hosted measurements and
+independent review pending. Next publish scoped draft, follow hosted run through
+terminal evidence and fix only demonstrated narrow behavior. No merge/deploy,
+local reload/service/job/limit changes. Local active jobs and distinct five-role
+pipelines preserved; unanswered idle-review shutdown remains pending.
+
+Draft [#877](https://github.com/sefaction/MTG-Archives/pull/877) first exact head
+`f8c3f42b` completed hosted [39529697814](https://github.com/sefaction/MTG-Archives/actions/runs/39529697814)
+and all three normal CI checks. Both single-web lifetimes warmed 0 to 5 idle
+connections and remained 5 through 102 total reads; observed startup constructed
+two clients with no subsequent constructor growth. All owned cleanup passed.
+Source and runtime evidence do not reproduce the historical capacity failure;
+no product fix is proposed. Independent source reviews completed with explicit
+limits. Follow-up enforces observer/cleanup regression CI, independent removal
+after failed logs, baseline/image/source-manifest assertions, immutable PostgreSQL
+image, native build history and safe compiled callsites. Next reconcile final
+exact-head CI/artifacts and independent review, then retain #846 open for a
+covering populated-workload/CPU-topology hypothesis. No merge approval exists.
+
 ## Build provenance input coverage #842 - October 20, 2026
 
 - Published draft [PR #875](https://github.com/sefaction/MTG-Archives/pull/875),
