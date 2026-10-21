@@ -186,20 +186,31 @@ async function main() {
   docker('start',db);
   const deadline=Date.now()+60_000;
   while(true){const ready=cp.spawnSync('docker',['exec',db,'pg_isready','-U','fixture','-d',dbName],{encoding:'utf8'});if(ready.status===0)break;assert(Date.now()<deadline,'Owned PostgreSQL startup deadline');await sleep(500);}
-  const web=create(['--name',`${project}-web`,'--network',network.name,'--memory','1024m','--memory-swap','1024m','--cpus','1','--pids-limit','256','--tmpfs','/app/.local-data:rw,size=33554432','-e',`DATABASE_URL=postgresql://fixture:fixture-only@qualification-db:5432/${dbName}?connection_limit=4`,'-e','RUN_SEED_ON_START=false','-e','WIPE_DB_ON_START=false','-e','MTG_LOCAL_PILOT_TEST=1','-e',`MTG_ISOLATED_QUALIFICATION_RUN=${runId}`,'-e',`ADMIN_USERNAME=ci-admin-${short}`,'-e',`SEED_ADMIN_PASSWORD=${crypto.randomUUID()}`,...['UPLOADS','IMPORTS','EXPORTS','BACKUPS'].flatMap(n=>['-e',`${n}_DATA_PATH=/app/.local-data/${n.toLowerCase()}`]),'-e','SCRYFALL_CONTAINER_DATA_PATH=/app/.local-data/scryfall','-e','NEXT_TELEMETRY_DISABLED=1',image]);
+  const web=create(['--name',`${project}-web`,'--network',network.name,'--memory','1024m','--memory-swap','1024m','--cpus','1','--pids-limit','256','--tmpfs','/app/.local-data:rw,size=3221225472','-e',`DATABASE_URL=postgresql://fixture:fixture-only@qualification-db:5432/${dbName}?connection_limit=4`,'-e','RUN_SEED_ON_START=false','-e','WIPE_DB_ON_START=false','-e','MTG_LOCAL_PILOT_TEST=1','-e',`MTG_ISOLATED_QUALIFICATION_RUN=${runId}`,'-e',`ADMIN_USERNAME=ci-admin-${short}`,'-e',`SEED_ADMIN_PASSWORD=${crypto.randomUUID()}`,...['UPLOADS','IMPORTS','EXPORTS','BACKUPS'].flatMap(n=>['-e',`${n}_DATA_PATH=/app/.local-data/${n.toLowerCase()}`]),'-e','SCRYFALL_CONTAINER_DATA_PATH=/app/.local-data/scryfall','-e','NEXT_TELEMETRY_DISABLED=1',image]);
   docker('start',web);const transport=await startProxy(web),baseURL=transport.baseURL;
   report.target={runId,project,...transport,networkName:network.name,web:{id:web,name:`${project}-web`},database:{id:db,name:`${project}-postgres`,host:'qualification-db',databaseName:dbName}};
   const targetPath=path.join(dir,'target.json');save('target.json',report.target);
   const webDeadline=Date.now()+150_000;
   while(true){assert(owned(web).State.Running,'Owned web exited');try{const response=await fetch(`${baseURL}/login`,{signal:AbortSignal.timeout(3000)});if(response.status===200)break;}catch{}assert(Date.now()<webDeadline,'Owned web startup deadline');await sleep(1000);}
   run('node',['node_modules/tsx/dist/cli.mjs','-e',`require('./tests/ui/isolated-qualification-target').loadIsolatedQualificationTarget()`],{env:{MTG_ISOLATED_FIXTURE_MANIFEST:targetPath}});report.gates.isolatedTarget=true;
+  // tmpfs capacity is lazy; the 1 GiB cgroup memory cap remains in force.
+  // Exercise the unchanged 2 GiB photo free-space guard with tiny owned fixtures.
+  const runtime=owned(web);assert.equal(runtime.HostConfig.Memory,1024**3);assert.equal(runtime.HostConfig.MemorySwap,1024**3);assert.equal(runtime.HostConfig.Tmpfs['/app/.local-data'],'rw,size=3221225472');
+  const storage=JSON.parse(docker('exec',web,'node','-e',"const fs=require('fs');const p=process.env.UPLOADS_DATA_PATH;fs.mkdirSync(p,{recursive:true});const s=fs.statfsSync(p);console.log(JSON.stringify({path:p,bsize:s.bsize,blocks:s.blocks,bavail:s.bavail,available:s.bavail*s.bsize,total:s.blocks*s.bsize}));"));
+  assert.equal(storage.path,'/app/.local-data/uploads');assert(storage.available>2*1024**3+16*1024**2);save('photo-storage-preflight.json',storage);
   const before=snapshot();save('database-before.json',before);
   const config=path.join(dir,'playwright.config.cjs');
   fs.writeFileSync(config,`module.exports=require('@playwright/test').defineConfig({testDir:${JSON.stringify(path.join(root,'tests/ui'))},fullyParallel:false,workers:1,retries:0,forbidOnly:true,timeout:120000,expect:{timeout:10000},reporter:[['list'],['json',{outputFile:${JSON.stringify(path.join(dir,'playwright.json'))}}]],outputDir:${JSON.stringify(path.join(dir,'playwright-results'))},use:{baseURL:${JSON.stringify(baseURL)},trace:'retain-on-failure',screenshot:'only-on-failure',video:'retain-on-failure'},projects:[{name:'chromium',use:{browserName:'chromium'}}]});\n`);
-  run('node',['node_modules/@playwright/test/cli.js','test','--config',config,'tests/ui/acquisition-draft-actions.spec.ts'],{log:'actual-browser.log',timeout:9*60_000,env:{MTG_LOCAL_PILOT_TEST:'1',MTG_ISOLATED_FIXTURE_MANIFEST:targetPath,PLAYWRIGHT_BASE_URL:baseURL}});
+  let browserError;try { run('node',['node_modules/@playwright/test/cli.js','test','--config',config,'tests/ui/acquisition-draft-actions.spec.ts'],{log:'actual-browser.log',timeout:9*60_000,env:{MTG_LOCAL_PILOT_TEST:'1',MTG_ISOLATED_FIXTURE_MANIFEST:targetPath,PLAYWRIGHT_BASE_URL:baseURL}});
   const browser=JSON.parse(fs.readFileSync(path.join(dir,'playwright.json'),'utf8'));
   assert.equal(browser.stats.expected,1);assert.equal(browser.stats.unexpected,0);assert.equal(browser.stats.skipped,0);assert.equal(browser.stats.flaky,0);
-  assert.deepEqual(snapshot(),before,'Browser synthetic-data cleanup/conservation mismatch');save('database-after.json',snapshot());report.gates.actualBrowser=true;
+  report.gates.actualBrowser=true;
+  } catch(error) {browserError=error;report.browserError=error.message;} finally {
+    try {const after=snapshot();save('database-after.json',after);
+      assert.deepEqual(after,before,'Browser synthetic-data cleanup/conservation mismatch');report.gates.fixtureConservation=true;
+    } catch(error) {report.conservationError=error.message;if(!browserError)browserError=error;}
+  }
+  if(browserError)throw browserError;
 }
 main().catch(error=>{report.status='FAILED';report.error=error.message;console.error(error.message);process.exitCode=1;}).finally(async()=>{
   if(proxy && proxy.exitCode===null && proxy.signalCode===null){
