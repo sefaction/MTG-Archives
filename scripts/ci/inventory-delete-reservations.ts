@@ -29,9 +29,11 @@ const actions = loaded.exports;
 const fixtures: any[] = [];
 async function fixture(status: TradeStatus, quantity = 2, reserved = true) {
   const tag = `delete-reservation-${randomUUID()}`;
+  const f: any = { players: [], users: [], items: [], cards: [], tradeId: null }; fixtures.push(f);
   const a = await db.player.create({ data: { name: tag, displayName: tag } });
-  const b = await db.player.create({ data: { name: `${tag}-other`, displayName: "Other" } });
-  const f: any = { players: [a.id, b.id], users: [], items: [], cards: [], tradeId: null }; fixtures.push(f);
+  f.players.push(a.id);
+  const b = await db.player.create({ data: { name: `${tag}-other`, displayName: `${tag}-other` } });
+  f.players.push(b.id);
   for (const role of ["PLAYER", "ADMIN"] as const) f.users.push(await db.user.create({ data: {
     username: `${tag}-${role}`, displayName: role, role, playerId: role === "PLAYER" ? a.id : b.id, passwordHash: "disabled-fixture",
   } }));
@@ -100,6 +102,7 @@ main().catch(error => { console.error(error); process.exitCode = 1; }).finally(a
     }
     assert.equal(await db.user.count(), 0); assert.equal(await db.inventoryItem.count(), 0);
     assert.equal(await db.trade.count(), 0); assert.equal(await db.inventoryAuditLog.count(), 0);
+    assert.equal(await db.player.count(), 0); assert.equal(await db.card.count(), 0);
     console.log("PASS: exact inventory reservation fixture cleanup");
   } finally { await db.$disconnect(); }
 });
