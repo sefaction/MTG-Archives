@@ -6,17 +6,57 @@ import Module from "node:module";
 import path from "node:path";
 import ts from "typescript";
 import { PrismaClient, type TradeStatus } from "@prisma/client";
+import { writeInventoryReceipt } from "../../lib/inventory-receipt";
 
 assert.equal(process.env.GITHUB_ACTIONS, "true");
 assert.equal(process.env.RUNNER_ENVIRONMENT, "github-hosted");
 assert.equal(new URL(process.env.DATABASE_URL!).hostname, "127.0.0.1");
 assert.equal(new URL(process.env.DATABASE_URL!).pathname, "/inventory_delete_fixture");
 const db = new PrismaClient(), context = new AsyncLocalStorage<any>();
-const filename = path.resolve("app/inventory/actions.ts"), loaded = new (Module as any)(filename, module);
+function pause() {
+  let reached!: () => void, release!: () => void;
+  const observed = new Promise<void>(resolve => { reached = resolve; });
+  const resume = new Promise<void>(resolve => { release = resolve; });
+  return { observed, release, async hold() { reached(); await resume; } };
+}
+function wrap(client: any): any {
+  return new Proxy(client, { get(target, key) {
+    if (key === "$transaction") return (fn: any, options: any) => target.$transaction(
+      typeof fn === "function" ? (tx: any) => fn(wrap(tx)) : fn, options);
+    const value = target[key];
+    if (key === "$queryRaw") return async (...args: any[]) => {
+      const actor = context.getStore();
+      const sql = (Array.isArray(args[0]) ? args[0] : args[0]?.strings ?? []).join(" ");
+      if (actor?.race?.kind === "delete" && sql.includes('"InventoryItem"') && sql.includes("FOR UPDATE") && !actor.race.paused) {
+        actor.race.paused = true; actor.race.boundary = "before-row-lock"; await actor.race.pause.hold();
+      }
+      const result = await value.apply(target, args);
+      if (actor?.race && sql.includes('"InventoryItem"') && sql.includes("FOR UPDATE")) actor.race.locked = true;
+      return result;
+    };
+    if (key === "inventoryItem") return new Proxy(value, { get(model, method) {
+      const fn = model[method]; if (typeof fn !== "function") return fn;
+      return async (args: any) => {
+        const result = await fn.call(model, args), actor = context.getStore(), race = actor?.race;
+        if (race && !race.paused && !race.locked && (
+          race.kind === "delete" && method === "findUnique" && args.where?.id === race.itemId ||
+          race.kind === "cleanup" && method === "findMany" && args.where?.quantity?.lte === 0 && result.some((row: any) => row.id === race.itemId)
+        )) {
+          race.paused = true; race.boundary = race.kind === "delete" ? "after-unlocked-item-read" : "after-zero-selection";
+          await race.pause.hold();
+        }
+        return result;
+      };
+    } });
+    return typeof value === "function" ? value.bind(target) : value;
+  } });
+}
+function loadActions(relative: string) {
+const filename = path.resolve(relative), loaded = new (Module as any)(filename, module);
 loaded.filename = filename; loaded.paths = (Module as any)._nodeModulePaths(path.dirname(filename));
 const realRequire = loaded.require.bind(loaded);
 loaded.require = (name: string) => {
-  if (name === "@/lib/prisma") return { prisma: db };
+  if (name === "@/lib/prisma") return { prisma: wrap(db) };
   if (name === "@/lib/auth") return { requireLogin: async () => context.getStore(),
     getAccessScope: async (user: any) => ({ mode: user.role === "ADMIN" ? "admin" : "owner" }) };
   if (name === "next/cache") return { revalidatePath: () => {} };
@@ -25,7 +65,9 @@ loaded.require = (name: string) => {
 loaded._compile(ts.transpileModule(readFileSync(filename, "utf8"), { compilerOptions: {
   module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true,
 } }).outputText, filename);
-const actions = loaded.exports;
+return loaded.exports;
+}
+const actions = loadActions("app/inventory/actions.ts"), tradeActions = loadActions("app/trades/actions.ts");
 const fixtures: any[] = [];
 async function fixture(status: TradeStatus, quantity = 2, reserved = true) {
   const tag = `delete-reservation-${randomUUID()}`;
@@ -52,9 +94,9 @@ async function fixture(status: TradeStatus, quantity = 2, reserved = true) {
   } }); f.tradeId = trade.id;
   return f;
 }
-async function remove(f: any, admin = false, target = f.items[1].id) {
+async function remove(f: any, admin = false, target = f.items[1].id, race?: any) {
   const fd = new FormData(); fd.set("inventoryItemId", target); fd.set("deleteReason", "owned reservation fixture");
-  return context.run(f.users[admin ? 1 : 0], () => actions.deleteInventoryItem(fd));
+  return context.run({ ...f.users[admin ? 1 : 0], race }, () => actions.deleteInventoryItem(fd));
 }
 async function graph(f: any) {
   return { items: await db.inventoryItem.findMany({ where: { id: { in: f.items.map((i: any) => i.id) } }, orderBy: { id: "asc" } }),
@@ -88,13 +130,59 @@ async function main() {
   const unreserved = await fixture("PROPOSED", 0, false);
   await context.run(unreserved.users[1], () => actions.cleanupZeroQuantityInventory());
   assert.equal(await db.inventoryItem.findUnique({ where: { id: unreserved.items[1].id } }), null);
+  const races = [];
+  for (const kind of ["delete", "cleanup"] as const) {
+    const f = await fixture("CANCELLED", kind === "delete" ? 2 : 0, false), barrier = pause();
+    const race: any = { kind, itemId: f.items[1].id, pause: barrier };
+    const operation = (kind === "delete" ? remove(f, false, race.itemId, race) :
+      context.run({ ...f.users[1], race }, () => actions.cleanupZeroQuantityInventory()))
+      .then(() => "", (error: unknown) => String(error));
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([barrier.observed, operation.then(() => { throw new Error("expected live mutation observation boundary"); }),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("mutation observation timed out")), 5000); })]);
+      if (kind === "delete") {
+        const fd = new FormData(); fd.set("receiverPlayerId", f.players[1]);
+        fd.set("offeredLinesJson", JSON.stringify([{ inventoryItemId: race.itemId, quantity: 1 }])); fd.set("requestedLinesJson", "[]");
+        const proposal = await context.run(f.users[0], () => tradeActions.createTrade({ status: "idle", message: "" }, fd));
+        assert.equal(proposal.status, "success", proposal.message);
+      } else {
+        const item = f.items[1];
+        await db.$transaction(tx => writeInventoryReceipt(tx, {
+          lot: { currentOwnerId: item.currentOwnerId, originalOpenerId: item.originalOpenerId, cardId: item.cardId, quantity: 2,
+            foilStatus: item.foilStatus, sourceType: item.sourceType, condition: item.condition, language: item.language,
+            locationId: item.locationId, locationSection: item.locationSection, acquiredFromPullId: item.acquiredFromPullId,
+            roundId: item.roundId, notes: item.notes },
+          merge: { where: { id: item.id }, update: {} },
+          audit: { action: "inventory_added", actingUserId: f.users[0].id, reason: "owned concurrent receipt" },
+        }));
+        assert.equal((await db.inventoryItem.findUniqueOrThrow({ where: { id: item.id } })).quantity, 2);
+      }
+    } finally { clearTimeout(timer); barrier.release(); await operation; }
+    const error = await operation;
+    const item = await db.inventoryItem.findUnique({ where: { id: race.itemId } });
+    const lines = await db.tradeLine.findMany({ where: { trade: { proposerPlayerId: f.players[0], status: "PROPOSED" } } });
+    const deletedAudits = await db.inventoryAuditLog.count({ where: { changedByUserId: { in: f.users.map((u: any) => u.id) },
+      changeType: { in: ["user_delete_inventory", "admin_cleanup_zero_quantity"] } } });
+    const result = { kind, boundary: race.boundary, remainingQuantity: item?.quantity ?? null,
+      severedProposal: lines.some(line => line.inventoryItemId === null), deletedAudits, refused: /reserved/.test(error) };
+    races.push(result); console.log(JSON.stringify(result));
+  }
+  assert.ok(races.every(r => r.remainingQuantity === 2 && !r.severedProposal && r.deletedAudits === 0),
+    "deletion must recheck fresh reservations/zero quantity after a committed proposal or receipt");
+  console.log("PASS: committed proposal and shared receipt survive delayed Delete/zero cleanup with fresh guards and no deletion audit");
   console.log("PASS: all active statuses retain secondary TradeLine reservations for owner/admin delete and zero cleanup; legacy, terminal, unreserved and admin-mode controls pass");
 }
 main().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
   try {
     for (const f of fixtures.reverse()) {
       await db.inventoryAuditLog.deleteMany({ where: { changedByUserId: { in: f.users.map((u: any) => u.id) } } });
-      if (f.tradeId) await db.trade.delete({ where: { id: f.tradeId } });
+      const trades = await db.trade.findMany({ where: { proposerPlayerId: { in: f.players } }, select: { id: true } });
+      const tradeIds = trades.map(t => t.id);
+      await db.notificationDeliveryJob.deleteMany({ where: { sourceId: { in: tradeIds } } });
+      await db.notification.deleteMany({ where: { recipientUserId: { in: f.users.map((u: any) => u.id) } } });
+      await db.tradeEvent.deleteMany({ where: { tradeId: { in: tradeIds } } });
+      await db.trade.deleteMany({ where: { id: { in: tradeIds } } });
       await db.inventoryItem.deleteMany({ where: { cardId: { in: f.cards } } });
       await db.card.deleteMany({ where: { id: { in: f.cards } } });
       await db.user.deleteMany({ where: { id: { in: f.users.map((u: any) => u.id) } } });
@@ -103,6 +191,7 @@ main().catch(error => { console.error(error); process.exitCode = 1; }).finally(a
     assert.equal(await db.user.count(), 0); assert.equal(await db.inventoryItem.count(), 0);
     assert.equal(await db.trade.count(), 0); assert.equal(await db.inventoryAuditLog.count(), 0);
     assert.equal(await db.player.count(), 0); assert.equal(await db.card.count(), 0);
+    assert.equal(await db.tradeEvent.count(), 0); assert.equal(await db.notification.count(), 0); assert.equal(await db.notificationDeliveryJob.count(), 0);
     console.log("PASS: exact inventory reservation fixture cleanup");
   } finally { await db.$disconnect(); }
 });
