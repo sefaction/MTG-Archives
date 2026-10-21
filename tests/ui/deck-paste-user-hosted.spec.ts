@@ -37,6 +37,7 @@ function snapshot(f:any,deckId=f.deckId){return database("return {deck:await p.d
 async function login(page:Page,f:any){await page.goto("/login");await page.getByLabel(/username or email/i).fill(f.tag);await page.getByLabel(/^password$/i).fill(f.password);await page.getByRole("button",{name:/^log in$/i}).click();await page.waitForURL(/\/dashboard/);}
 async function prepare(page:Page,f:any,id:string,name:string){
   await page.goto("/decks/"+id+"/import");await page.getByLabel("Decklist text",{exact:true}).fill(source);await page.getByRole("button",{name:"Parse and review",exact:true}).click();
+  await expect(page.getByText("87 / 87 card entries checked",{exact:true})).toBeVisible({timeout:180000});
   await expect(page.getByRole("button",{name:"Parse and review",exact:true})).toBeEnabled({timeout:180000});
   let rows=JSON.parse(await page.locator("input[name=linesJson]").inputValue());save(name+"-automatic-review",rows);expect(rows).toHaveLength(87);save(name+"-alias-review",{transport:"recorded public catalog on owned-container loopback",aliases:catalog.outcomes.filter((r:any)=>r.outcome==="EXACT_FLAVOR_NAME").map((r:any)=>({raw:r.raw,publicCanonical:r.card.name,flavorName:r.card.flavor_name,automatic:Boolean(rows[r.line-1].cardId)}))});
   // Public records prove these flavor names. Select the canonical printing in
