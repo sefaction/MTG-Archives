@@ -4,9 +4,17 @@ import test from "node:test";
 import {
   asTradeProposalValidationError,
   initialTradeProposalActionState,
+  hasTradeContents,
   TradeProposalValidationError,
   tradeProposalValidationState,
 } from "../lib/trade-proposal";
+
+test("gifts may have either side empty, but an empty trade is invalid", () => {
+  assert.equal(hasTradeContents(1, 0), true);
+  assert.equal(hasTradeContents(0, 1), true);
+  assert.equal(hasTradeContents(2, 3), true);
+  assert.equal(hasTradeContents(0, 0), false);
+});
 
 test("trade proposal state starts without feedback", () => {
   assert.deepEqual(initialTradeProposalActionState, {

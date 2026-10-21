@@ -147,3 +147,42 @@ jobs:
         run: npx tsx scripts/verify-pricing-provider-currency.ts
       - name: Streamed identifier mapping and malformed-tail conservation
         run: npx tsx scripts/verify-pricing-identifier-worker.ts
+      - name: One-sided gifts retain consent and physical inventory integrity
+        env:
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/trade_gift_fixture?schema=public
+          PGPASSWORD: ci
+        run: |
+          createdb -h 127.0.0.1 -U ci trade_gift_fixture
+          npx prisma migrate deploy
+          npx tsx scripts/ci/trade-gifts.ts
+
+  trade-wishlist-integrity:
+    name: Trade wishlist PostgreSQL conservation
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: trade_wishlist_fixture
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d trade_wishlist_fixture"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/trade_wishlist_fixture?schema=public
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - run: npx tsx scripts/verify-trade-wishlist-concurrency.ts

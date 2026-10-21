@@ -299,6 +299,32 @@ export async function verifyAcquisitionOrchestration(
     "PASS: durable exact 263/37 untouched and best-effort 263/37 retained, reversed delivery and reconnect",
   );
 
+  // A finite source can end below target. COMPLETE records its terminal phase;
+  // it must not manufacture candidates or imply the target was reached.
+  const shortSource = await create("fixture", 7, true);
+  await command(shortSource.session.id, "START");
+  for (const n of [2, 0, 1])
+    await ingestAcquisitionEvent(db, actor, shortSource.session.id, event(n));
+  await command(shortSource.session.id, "COMPLETE");
+  const shortStored = await getAcquisitionSession(db, actor, shortSource.session.id);
+  const shortReconnect = new (db.constructor as typeof PrismaClient)();
+  try {
+    for (const n of [0, 1, 2])
+      assert.equal((await ingestAcquisitionEvent(shortReconnect, actor, shortSource.session.id, event(n))).replay, true);
+    const reloaded = await getAcquisitionSession(shortReconnect, actor, shortSource.session.id);
+    assert.deepEqual(reloaded, shortStored);
+    assert.equal(reloaded.session.phase, "COMPLETE");
+    assert.equal(reloaded.session.target, 7);
+    const summary = captureSummary(reloaded.session);
+    assert.equal(summary.physicalCandidates, 3);
+    assert.equal(summary.allocated.length, 3);
+    assert.equal(summary.overflow.length, 0);
+    assert.equal(summary.targetReached, false);
+  } finally {
+    await shortReconnect.$disconnect();
+  }
+  console.log("PASS: short finite source remains 3 of 7 after completion, reordered replay and reconnect");
+
   // P2's immutable evidence contract covers each declared dependency, rather
   // than inferring model/catalog/index identity from a pipeline-only variant.
   const contract = await create();

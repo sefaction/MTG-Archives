@@ -8,6 +8,10 @@ export const initialTradeProposalActionState: TradeProposalActionState = {
   message: "",
 };
 
+export function hasTradeContents(offeredCount: number, requestedCount: number) {
+  return offeredCount > 0 || requestedCount > 0;
+}
+
 export class TradeProposalValidationError extends Error {
   constructor(message: string) {
     super(message);

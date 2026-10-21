@@ -15,6 +15,7 @@ import {
 } from "@/lib/trade-pairing";
 import {
   initialTradeProposalActionState,
+  hasTradeContents,
   type TradeProposalActionState,
 } from "@/lib/trade-proposal";
 import {
@@ -433,7 +434,7 @@ export function TradeBuilder({
     return () =>
       window.removeEventListener(TRADE_PAIRING_ADD_EVENT, handlePairingAdd);
   }, []);
-  const canSubmit = offered.length > 0 && requested.length > 0;
+  const canSubmit = Boolean(receiverPlayerId) && hasTradeContents(offered.length, requested.length);
   const removeLine = (
     setter: Dispatch<SetStateAction<TradeDraftLine[]>>,
     inventoryItemId: string,
@@ -464,8 +465,8 @@ export function TradeBuilder({
     );
   const disabledReason = useMemo(() => {
     if (!receiverPlayerId) return "Choose a trade partner first.";
-    if (!offered.length || !requested.length)
-      return "Choose at least one available card on each side before proposing.";
+    if (!hasTradeContents(offered.length, requested.length))
+      return "Choose at least one available card to offer or request. You can leave the other side empty for a gift.";
     return "";
   }, [offered, receiverPlayerId, requested]);
 
@@ -543,7 +544,7 @@ export function TradeBuilder({
           </div>
           <TradeSlot
             title={`${receiverName} gives`}
-            emptyLabel="Search their inventory and add one or more cards."
+            emptyLabel="Nothing requested. Leave this side empty to give a gift."
             lines={requested}
             side="requested"
             onAdd={(item) => addTradeLine(setRequested, item)}
