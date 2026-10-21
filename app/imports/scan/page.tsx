@@ -5,6 +5,7 @@ import { AcquisitionCapture } from "@/components/AcquisitionCapture";
 import { requireLogin, getAccessScope } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStorageLocations } from "@/lib/storage-summary";
+import { scannerCapacityDestinations } from "@/lib/scanner-capacity";
 import { scannerContinuation, currentScannerContinuation, type ScannerContinuation } from "@/lib/scanner-continuation";
 export const dynamic = "force-dynamic";
 export default async function ScanPage({
@@ -33,7 +34,8 @@ export default async function ScanPage({
   const params = await searchParams;
   const photoInput = params.input === "camera" || params.input === "photos" ? params.input : undefined;
   const initialBatch = params.batch ?? "";
-  const storage = await getStorageLocations(prisma, locations);
+  const destinations = await getStorageLocations(prisma, locations);
+  const storage = !initialBatch && !photoInput ? await scannerCapacityDestinations(prisma, destinations) : destinations;
   let initialSetup: ScannerContinuation | null = null, setupMessage = "";
   if (!initialBatch && !photoInput && params.continue) {
     try {
