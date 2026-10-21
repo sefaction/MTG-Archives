@@ -38,6 +38,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -45,6 +46,25 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npx prisma migrate deploy
+      - name: Retain the pinned original hydration ordering failure
+        run: |
+          mkdir -p .local-data/acquisition-order
+          test "$(git rev-parse 3ae13d0d6237cf43bc9a8a417bad4ae5234c21a3:lib/acquisition-store.ts)" = f8ee9e137bc202914c6216895825a89d190a858c
+          git show 3ae13d0d6237cf43bc9a8a417bad4ae5234c21a3:lib/acquisition-store.ts > .local-data/acquisition-order/original-store.ts
+          set +e
+          MTG_ACQUISITION_HYDRATE_SOURCE=.local-data/acquisition-order/original-store.ts npx tsx --test --test-reporter=tap tests/acquisition-session-order.test.ts > .local-data/acquisition-order/original.log 2>&1
+          result=$?
+          set -e
+          cat .local-data/acquisition-order/original.log
+          test "$result" -eq 1
+          grep -F '"permutations":24,"incorrectCandidateOrders":23' .local-data/acquisition-order/original.log
+          grep -F '# tests 2' .local-data/acquisition-order/original.log
+          grep -F '# pass 1' .local-data/acquisition-order/original.log
+          grep -F '# fail 1' .local-data/acquisition-order/original.log
+          grep -F '# skipped 0' .local-data/acquisition-order/original.log
+          grep -F '# cancelled 0' .local-data/acquisition-order/original.log
+      - name: Current actual hydration is stable for every candidate permutation
+        run: npx tsx --test tests/acquisition-session-order.test.ts
       - name: Real acquisition database ownership, concurrency, rollback and replay
         run: npx tsx scripts/verify-acquisition-store.ts
 
