@@ -75,8 +75,11 @@ export async function checkAcquisitionCompactReview(page: Page) {
     .getByRole("button", { name: "Confirm match", exact: true })
     .click();
   await expect(card).toContainText("Review saved. Not yet added to Inventory.");
+  await expect(card).toContainText("Stop capture before continuing.");
+  await expect(page.getByTestId("scan-review-summary")).toContainText("0 ready to preview");
+  await page.getByRole("button", { name: "Stop capture", exact: true }).click();
   await expect(page.getByTestId("scan-review-summary")).toContainText(
-    "1 ready for Inventory",
+    "1 ready to preview",
   );
   await page
     .getByRole("combobox", { name: "Show cards", exact: true })
