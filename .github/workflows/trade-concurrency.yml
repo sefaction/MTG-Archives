@@ -1,0 +1,37 @@
+name: Trade concurrency
+on:
+  pull_request:
+    paths:
+      - app/trades/actions.ts
+      - scripts/ci/trade-concurrency*
+      - .github/workflows/trade-concurrency.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  trade-concurrency:
+    name: Trade action PostgreSQL concurrency
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Actual action concurrency on synthetic no-egress PostgreSQL
+        env:
+          TRADE_FIXED: '0'
+        run: node scripts/ci/trade-concurrency-runner.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trade-concurrency-evidence
+          path: .local-data/trade-concurrency/
+          retention-days: 14
+          if-no-files-found: error
