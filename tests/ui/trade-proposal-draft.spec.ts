@@ -87,7 +87,7 @@ test("proposal validation retains multiline notes until a successful retry", asy
       await submit.click();
       await expect(page.getByText("Trade proposal sent.", { exact: true })).toBeVisible();
       await expect(field).toHaveValue("");
-      const stored = database<string>(`return (await p.trade.findFirstOrThrow({where:{createdByUserId:${q(f.people[0].id)},status:'PROPOSED'},orderBy:{createdAt:'desc'}})).message;`);
+      const stored = database<string>(`return (await p.trade.findFirstOrThrow({where:{createdByUserId:${q(f.people[0].id)},status:'PROPOSED',lines:{some:{inventoryItemId:${q(f.items[index].id)}}}}})).message;`);
       expect(stored.replace(/\r\n/g, "\n")).toBe(notes);
       expect(counts()).toEqual([before[0] + 1, before[1] + 1, before[2] + 1, before[3]]);
     }
