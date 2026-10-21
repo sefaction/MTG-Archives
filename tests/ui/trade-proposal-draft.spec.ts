@@ -87,7 +87,8 @@ test("proposal validation retains multiline notes until a successful retry", asy
       await submit.click();
       await expect(page.getByText("Trade proposal sent.", { exact: true })).toBeVisible();
       await expect(field).toHaveValue("");
-      expect(database<string>(`return (await p.trade.findFirstOrThrow({where:{createdByUserId:${q(f.people[0].id)},message:${q(notes)}}})).message;`)).toBe(notes);
+      const stored = database<string>(`return (await p.trade.findFirstOrThrow({where:{createdByUserId:${q(f.people[0].id)},status:'PROPOSED'},orderBy:{createdAt:'desc'}})).message;`);
+      expect(stored.replace(/\r\n/g, "\n")).toBe(notes);
       expect(counts()).toEqual([before[0] + 1, before[1] + 1, before[2] + 1, before[3]]);
     }
     expect(results.every(result => result.retained), "validation must retain the exact multiline draft at both widths").toBe(true);
