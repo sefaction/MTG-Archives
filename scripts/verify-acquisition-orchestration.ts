@@ -310,7 +310,7 @@ export async function verifyAcquisitionOrchestration(
   for (const field of ["pipeline", "runtime", "model", "catalog", "index"] as const)
     variants.push({ ...versions, [field]: `${field}-changed` });
   variants.push({ ...versions, execution: "GPU" });
-  const admitted = [];
+  const admitted: Array<Awaited<ReturnType<typeof enqueueAcquisitionProcessing>>> = [];
   for (const specification of variants) {
     const submitted = { ...specification };
     const enqueue = (inputVersions: typeof specification) => enqueueAcquisitionProcessing(db, actor, contract.session.id, {
