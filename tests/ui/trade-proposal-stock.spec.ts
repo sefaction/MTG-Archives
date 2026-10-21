@@ -109,7 +109,7 @@ test("two real sessions propose the last copy and only the committed proposal no
       await p.tradeEvent.deleteMany({where:{tradeId:{in:tradeIds}}});await p.trade.deleteMany({where:{id:{in:tradeIds}}});
       await p.inventoryItem.deleteMany({where:{currentOwnerId:{in:owners}}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:{in:owners}}});
       await p.user.deleteMany({where:{id:{in:ids}}});await p.player.deleteMany({where:{id:{in:owners}}});
-      await p.card.deleteMany({where:{scryfallId:tag}});return true;`);
+      await p.card.deleteMany({where:{scryfallId:${q(tag)}}});return true;`);
     expect(database<number>(`return p.user.count({where:{username:{startsWith:${q(tag)}}}});`)).toBe(0);
     expect(database<number>(`return p.card.count({where:{scryfallId:${q(tag)}}});`)).toBe(0);
     } catch (error) { failures.push(error); }
