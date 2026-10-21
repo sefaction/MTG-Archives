@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { snapshotTradeDeck, parseTradeDeckIds, parseTradeDeckSelections, normalizeDeckReceipt, type DeckTradeSource } from "../lib/deck-trade-policy";
+import { tradeDeckReview } from "../lib/trade-deck-view";
 
 function source(count = 2): DeckTradeSource {
   return {
@@ -18,6 +19,20 @@ function source(count = 2): DeckTradeSource {
       condition: "NM", language: "EN", notes: "Physical note", card: { name: `Card ${index}`, scryfallId: `printing-${index}` } })),
   } as unknown as DeckTradeSource;
 }
+
+test("client review keeps the complete list and physical totals while excluding private source organization and provenance", () => {
+  const input = source(110);
+  input.cards.push({ ...input.cards[0], id: "future", cardId: null, cardName: "Future list-only card", section: "MAYBEBOARD", quantity: 3 });
+  input.stock.push({ ...input.stock[0], id: "duplicate-lot", quantity: 2 }, { ...input.stock[0], id: "zero-lot", quantity: 0 });
+  const reviewed = snapshotTradeDeck(input), view = tradeDeckReview(reviewed.snapshot, reviewed.digest);
+  assert.equal(view.cards.length, 111); assert.equal(view.commitments.length, 110);
+  assert.equal(view.committedCopies, 112); assert.equal(view.listedCopies, 220); assert.equal(view.maybeboardCopies, 3);
+  assert.equal(view.commitments.find(item => item.cardId === "card-0")?.quantity, 3);
+  assert.equal(view.digest, reviewed.digest);
+  assert.doesNotMatch(JSON.stringify(view), /sender-folder|original-opener|Physical note|List note|"notes"|"tagIds"|"stock"|"locationId"|"ownerUserId"|"roundId"|"acquiredFromPullId"/);
+  view.cards[0].name = "Changed display";
+  assert.notEqual(reviewed.snapshot.cards[0].cardName, "Changed display");
+});
 
 test("whole deck snapshot preserves more than 50 lots and complete list-only Maybeboard", () => {
   const input = source(110);

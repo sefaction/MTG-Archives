@@ -289,7 +289,47 @@ async function run() {
   assert.equal(await db.inventoryAuditLog.count({ where: { changedByUserId: users[0], changeType: "admin_cleanup_zero_quantity" } }), 1);
   await verifyMixedCounter();
   await verifyCommittedTransfer();
+  await verifyDeckReviewApi();
   console.log("PASS deck bundle foundation: real 55-lot/full-list snapshot, bundle/trade/side and positive-quantity constraints, three active reservation fences, competing owner/deck locks, stale owner denial, recipient-owned settings and Inventory/audit conservation");
+}
+async function verifyDeckReviewApi() {
+  const route = loadActual("app/api/trades/decks/route.ts");
+  const request = (values: Record<string, string>) => route.GET(new Request("http://fixture.local/api/trades/decks?" + new URLSearchParams(values)));
+  actor = await db.user.findUniqueOrThrow({ where: { id: users[0] }, include: { player: true } });
+  const listing = await request({ ownerId: owners[1], side: "requested" });
+  assert.equal(listing.status, 200);
+  const page = await listing.json();
+  assert.ok(page.items.some((item: { deckId: string }) => item.deckId === deckId));
+  assert.ok(!page.items.some((item: { deckId: string }) => [tag + "-committed-gift", tag + "-counter-replacement-1"].includes(item.deckId)));
+  const detail = await request({ ownerId: owners[1], side: "requested", deckId });
+  assert.equal(detail.status, 200);
+  const { review } = await detail.json();
+  assert.equal(review.cards.length, 56); assert.equal(review.commitments.length, 55); assert.equal(review.committedCopies, 55);
+  assert.equal(review.listedCopies, 110); assert.equal(review.maybeboardCopies, 3);
+  assert.match(review.digest, /^[a-f0-9]{64}$/);
+  assert.doesNotMatch(JSON.stringify(review), /"notes"|"folderId"|"tagIds"|"ownerUserId"|"originalOpenerId"|"acquiredFromPullId"|"roundId"|"locationId"|"stock"/);
+  fixtureAdminMode = true;
+  try { assert.equal((await request({ ownerId: owners[1], side: "offered", deckId })).status, 403); }
+  finally { fixtureAdminMode = false; }
+  actor = await db.user.findUniqueOrThrow({ where: { id: users[2] }, include: { player: true } });
+  assert.equal((await request({ ownerId: owners[0], side: "offered", deckId: tag + "-counter-replacement-0" })).status, 404);
+  actor = await db.user.findUniqueOrThrow({ where: { id: users[1] }, include: { player: true } });
+  const privateDeckId = tag + "-partner-private";
+  const hidden = await request({ ownerId: owners[0], side: "requested", deckId: privateDeckId });
+  assert.equal(hidden.status, 404); assert.doesNotMatch(JSON.stringify(await hidden.json()), /Private partner deck/);
+  actor = await db.user.findUniqueOrThrow({ where: { id: users[0] }, include: { player: true } });
+  const source = await readTradeDeck(db as unknown as Prisma.TransactionClient, privateDeckId, owners[0]);
+  const actions = loadActual("app/trades/actions.ts");
+  assert.equal((await actions.createTrade({ status: "idle", message: "" }, form({ receiverPlayerId: owners[1], message: tag + " private counter review",
+    offeredDecksJson: JSON.stringify([{ deckId: privateDeckId, digest: source.digest }]), requestedDecksJson: "[]", offeredLinesJson: "[]", requestedLinesJson: "[]",
+  }))).status, "success");
+  const parent = await db.trade.findFirstOrThrow({ where: { message: tag + " private counter review" } }); trades.push(parent.id);
+  actor = await db.user.findUniqueOrThrow({ where: { id: users[1] }, include: { player: true } });
+  const shared = await request({ ownerId: owners[0], side: "requested", deckId: privateDeckId, counterTradeId: parent.id });
+  assert.equal(shared.status, 200); assert.equal((await shared.json()).review.deckId, privateDeckId);
+  await actions.actOnTrade(form({ tradeId: parent.id, action: "decline" }));
+  assert.equal((await request({ ownerId: owners[0], side: "requested", deckId: privateDeckId, counterTradeId: parent.id })).status, 404);
+  console.log("PASS actual deck review API: complete 55-lot/public review, private uninvited deck exclusion, actual User ownership despite shared Player/admin mode, owner-consented private counter review and revoked terminal sharing, sanitized client fields");
 }
 async function verifyMixedCounter() {
   const actions = loadActual("app/trades/actions.ts");
@@ -433,7 +473,9 @@ async function verifyMixedCompletion(offered: { deckId: string; digest: string }
     assert.equal(afterStock.find(item => item.id === source.id)!.quantity, 5 - quantity);
   }
   assert.equal((await db.tradeWishlistItem.findFirstOrThrow({ where: { ownerUserId: users[0], cardId: cards[0] } })).quantity, 7);
-  assert.equal((await db.tradeWishlistItem.findFirstOrThrow({ where: { ownerUserId: users[1], cardId: cards[0] } })).quantity, 6);
+  assert.equal(originalDeckStock.find(item => item.cardId === cards[0])!.quantity, 1);
+  assert.equal(originalList.find(item => item.cardId === cards[0])!.quantity, 2);
+  assert.equal((await db.tradeWishlistItem.findFirstOrThrow({ where: { ownerUserId: users[1], cardId: cards[0] } })).quantity, 7, "credit one committed deck copy plus two loose copies, never the missing listed copy");
   assert.equal(await db.inventoryAuditLog.count({ where: { tradeId: trade.id, changeType: "trade_deck_completed" } }), 55);
   assert.equal(await db.inventoryAuditLog.count({ where: { tradeId: trade.id, changeType: "trade_completed" } }), 4);
   const completedGraph = await graph();
