@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { test, expect, type Page, type Route } from "@playwright/test";
 import { loadIsolatedQualificationTarget, type IsolatedQualificationTarget } from "./isolated-qualification-target";
 
-let target: IsolatedQualificationTarget | null;
+let target: IsolatedQualificationTarget | undefined;
 function database<T>(body: string): T {
   return JSON.parse(execFileSync("docker", ["exec", "-i", target?.web.id ?? "mtg-archives-web-1", "node"], {
     input: `const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().then(x=>console.log(JSON.stringify(x))).catch(e=>{console.error(e);process.exitCode=1}).finally(()=>p.$disconnect());`,
