@@ -42,6 +42,10 @@ function run(exe, args, options={}) {
   const result=cp.spawnSync(exe,args,{cwd:root,encoding:'utf8',windowsHide:true,timeout:options.timeout??60_000,maxBuffer:32*1024*1024,
     env:{...process.env,...options.env},input:options.input,stdio:fd===undefined?['pipe','pipe','pipe']:['ignore',fd,fd]});
   if(fd!==undefined) fs.closeSync(fd);
+  if(result.status!==0 && result.stderr) {
+    record.stderrFile=`command-${receipts.length}-stderr.log`;
+    fs.writeFileSync(path.join(dir,record.stderrFile),result.stderr.slice(-32000));
+  }
   Object.assign(record,{finishedAt:new Date().toISOString(),exitCode:result.status,signal:result.signal,errorCode:result.error?.code});
   receipts.push(record);save('command-receipts.json',receipts);
   if(result.status!==0) throw new Error(`${exe} ${args[0]} failed (${result.status ?? result.error?.code}); ${options.log??'see command receipt'}`);
@@ -77,7 +81,13 @@ function build(context,name) {
   const id=fs.readFileSync(iid,'utf8').trim();assert.match(id,/^sha256:[a-f0-9]{64}$/);
   const meta=JSON.parse(fs.readFileSync(metadata,'utf8'));
   assert(meta['buildx.build.ref'],'Native BuildKit reference required');
-  const history=JSON.parse(docker('buildx','history','inspect','--format','json',meta['buildx.build.ref']));
+  const [historyBuilder,historyNode,historyId,...extra]=meta['buildx.build.ref'].split('/');
+  assert.equal(historyBuilder,builder);assert(historyNode.startsWith(builder));assert(historyId && !extra.length);
+  const resourceArgs=meta['buildx.build.provenance']?.invocation?.parameters?.args;
+  assert.equal(resourceArgs?.memory,String(4*1024**3));assert.equal(resourceArgs?.memswap,String(4*1024**3));
+  assert.equal(resourceArgs?.cpuperiod,'100000');assert.equal(resourceArgs?.cpuquota,'200000');assert.equal(resourceArgs?.ulimit,'nproc=256:256');
+  const history=JSON.parse(docker('buildx','--builder',builder,'history','inspect','--format','json',historyId));
+  assert.equal(history.Ref,historyId);assert.equal(history.Status,'completed');
   save(`${name}-history.json`,history);
   return id;
 }
