@@ -26,14 +26,17 @@ export async function verifyAcquisitionRetentionPinRaces(db: PrismaClient, actor
   process.env.UPLOADS_DATA_PATH = root;
   const guards: Awaited<ReturnType<typeof beginCorrectionBackup>>[] = [];
   const guardIds: string[] = [];
+  const sessionIds: string[] = [];
   const staged: Awaited<ReturnType<typeof prepareCorrectionBlob>>[] = [];
   const stock = await db.inventoryItem.findMany({ orderBy: { id: "asc" } });
   const audits = await db.inventoryAuditLog.findMany({ orderBy: { id: "asc" } });
+  const account = await db.correctionLibraryAccount.findUniqueOrThrow({ where: { ownerPlayerId: base.ownerPlayerId } });
   let failure: unknown;
   try {
     // Fail clearly rather than interfere with another fixture's retained work.
     assert.equal(await db.correctionBackupGuard.count({ where: { releasedAt: null } }), 0);
     assert.equal(await db.correctionRetentionPin.count({ where: { releasedAt: null } }), 0);
+    assert.equal(await db.correctionBlob.count({ where: { ownerPlayerId: base.ownerPlayerId } }), 0);
     for (const [index, kind] of (["committed", "trash"] as const).entries()) {
       const now = new Date(), past = new Date(now.getTime() - 8 * 86400000);
       const bytes = await sharp({ create: { width: 80, height: 120, channels: 3,
@@ -41,6 +44,7 @@ export async function verifyAcquisitionRetentionPinRaces(db: PrismaClient, actor
       const session = await createAcquisitionSession(db, actor, { ...base, requestKey: randomUUID(),
         policy: { kind: "MANUAL", quantity: 1 }, run: { ...base.run, providerId: "phone-photo-v1" } });
       const id = session.session.id;
+      sessionIds.push(id);
       await executeAcquisitionCommand(db, actor, id, { requestKey: "start", revision: 0, command: "START" });
       const { slot } = await reserveAcquisitionCaptureSlot(db, actor, id, "one");
       const photo = await beginAcquisitionPhoto(db, actor, id, { slotId: slot.id, uploadKey: randomUUID(),
@@ -163,6 +167,46 @@ export async function verifyAcquisitionRetentionPinRaces(db: PrismaClient, actor
       await db.correctionBackupGuard.deleteMany({ where: { id: { in: guardIds }, releasedAt: { not: null } } });
       assert.equal(await db.correctionBackupGuard.count({ where: { id: { in: guardIds } } }), 0);
     } } catch (error) { failures.push(error); }
+    try {
+      const runs = await db.acquisitionRun.findMany({ where: { sessionId: { in: sessionIds } }, select: { id: true } });
+      const where = { runId: { in: runs.map(run => run.id) } };
+      const photos = await db.acquisitionPhoto.findMany({ where, select: { id: true } });
+      const sources = { sourcePhotoId: { in: photos.map(photo => photo.id) } };
+      const examples = await db.correctionExample.findMany({ where: sources, select: { blobId: true } });
+      const blobIds = examples.map(example => example.blobId);
+      await db.correctionReviewEvent.deleteMany({ where: sources });
+      await db.correctionEvidence.deleteMany({ where: sources });
+      await db.correctionExample.deleteMany({ where: sources });
+      await db.correctionRetentionPin.deleteMany({ where: { sessionId: { in: sessionIds } } });
+      await db.correctionCaptureOutbox.deleteMany({ where: { blobId: { in: blobIds } } });
+      await db.correctionBlob.deleteMany({ where: { id: { in: blobIds } } });
+      await db.acquisitionCommitMember.deleteMany({ where });
+      await db.acquisitionCommit.deleteMany({ where });
+      await db.acquisitionProcessingJob.deleteMany({ where });
+      await db.acquisitionCommand.deleteMany({ where });
+      await db.acquisitionPhoto.deleteMany({ where });
+      await db.acquisitionCaptureSlot.deleteMany({ where });
+      await db.acquisitionCountCorrection.deleteMany({ where });
+      await db.acquisitionObservation.deleteMany({ where });
+      await db.acquisitionEvent.deleteMany({ where });
+      await db.acquisitionCandidate.deleteMany({ where });
+      await db.acquisitionArtifact.deleteMany({ where });
+      await db.acquisitionRun.deleteMany({ where: { id: { in: runs.map(run => run.id) } } });
+      await db.acquisitionSession.deleteMany({ where: { id: { in: sessionIds } } });
+      // This serial disposable fixture began with no blobs for this owner.
+      // Restore the account's exact pre-fixture byte accounting/queue turn.
+      await db.correctionLibraryAccount.update({ where: { ownerPlayerId: base.ownerPlayerId }, data: {
+        preservedBytes: account.preservedBytes, reservedBytes: account.reservedBytes,
+        evidenceBytes: account.evidenceBytes, lastCaptureAt: account.lastCaptureAt, updatedAt: account.updatedAt,
+      } });
+      assert.deepEqual(await db.correctionLibraryAccount.findUniqueOrThrow({ where: { ownerPlayerId: base.ownerPlayerId } }), account);
+      assert.equal(await db.acquisitionSession.count({ where: { id: { in: sessionIds } } }), 0);
+      assert.equal(await db.acquisitionRun.count({ where: { id: { in: runs.map(run => run.id) } } }), 0);
+      assert.equal(await db.correctionBlob.count({ where: { id: { in: blobIds } } }), 0);
+      assert.deepEqual(await db.inventoryItem.findMany({ orderBy: { id: "asc" } }), stock);
+      assert.deepEqual(await db.inventoryAuditLog.findMany({ orderBy: { id: "asc" } }), audits);
+      console.log("PASS: retention race fixture removes only owned graph/guards/files and restores exact prior library accounting/turn, Inventory and audits");
+    } catch (error) { failures.push(error); }
     if (old === undefined) delete process.env.UPLOADS_DATA_PATH; else process.env.UPLOADS_DATA_PATH = old;
     try {
       if (path.dirname(root) !== parent || !path.basename(root).startsWith("acq-retention-pin-races-")) throw new Error("Unsafe retention fixture cleanup");
