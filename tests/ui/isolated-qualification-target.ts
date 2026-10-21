@@ -105,7 +105,7 @@ export function verifyIsolatedQualificationTarget(
   requireGuard(peers.length === 2 && peers.includes(target.web.id) && peers.includes(target.database.id), "private network contains unexpected containers");
   requireGuard(web.NetworkSettings.Networks[target.networkName].NetworkID === network.Id && database.NetworkSettings.Networks[target.networkName].NetworkID === network.Id, "network identity changed");
   if (target.hostedProxy) {
-    requireGuard(process.platform === "linux" && process.env.GITHUB_ACTIONS === "true" && process.env.RUNNER_ENVIRONMENT === "github-hosted" && process.env.GITHUB_REPOSITORY === "sefaction/MTG-Archives" && process.env.GITHUB_REF === "refs/heads/codex/qualification-873874875-ci", "proxy requires the dedicated hosted qualification branch");
+    requireGuard(process.platform === "linux" && process.env.GITHUB_ACTIONS === "true" && process.env.RUNNER_ENVIRONMENT === "github-hosted" && process.env.GITHUB_REPOSITORY === "sefaction/MTG-Archives" && process.env.GITHUB_REF === "refs/heads/codex/qualification-gifts-880", "proxy requires the dedicated hosted qualification branch");
     const proxy = target.hostedProxy;
     requireGuard(proxy.networkId === network.Id && proxy.backendAddress === web.NetworkSettings.Networks[target.networkName].IPAddress, "proxy backend is not the owned web endpoint");
     requireGuard(Object.values(web.NetworkSettings.Ports ?? {}).every((entries: any) => !entries?.length), "proxy mode forbids Docker published ports");

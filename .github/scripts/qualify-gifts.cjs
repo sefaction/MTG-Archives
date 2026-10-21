@@ -148,7 +148,12 @@ async function main() {
   const harnessOnly=git('diff','--name-only',product,'HEAD').split('\n').filter(Boolean);
   assert(harnessOnly.length>0 && harnessOnly.every(f=>f.startsWith('.github/') || transportFiles.includes(f)),'qualification may change only temporary GitHub harness files and the two explicitly pinned host transport guards');
   assert.equal(git('status','--porcelain'),'','clean source required');
-  for(const file of Object.keys(expected.files)) assert.equal(git('hash-object',file),git('rev-parse',`${transportFiles.includes(file)?transportHead:product}:${file}`),file);
+  for(const file of Object.keys(expected.files)) {
+    if(transportFiles.includes(file)) {
+      const original=git('show',`${transportHead}:${file}`).replaceAll('refs/heads/codex/qualification-873874875-ci','refs/heads/codex/qualification-gifts-880');
+      assert.equal(fs.readFileSync(file,'utf8').replace(/\r\n/g,'\n').trim(),original,file+' must equal pinned transport with only the dedicated branch renamed');
+    } else assert.equal(git('hash-object',file),git('rev-parse',`${product}:${file}`),file);
+  }
   save('source-manifest.json',expected);
   save('product-source-proof.json',{productHead:product,harnessHead:git('rev-parse','HEAD'),harnessOnly,transportHead,transportFiles,digest:expected.digest,count:Object.keys(expected.files).length});
   report.gates.source=true;
