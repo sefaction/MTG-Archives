@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { snapshotTradeDeck, parseTradeDeckIds, normalizeDeckReceipt, type DeckTradeSource } from "../lib/deck-trade-policy";
+import { snapshotTradeDeck, parseTradeDeckIds, parseTradeDeckSelections, normalizeDeckReceipt, type DeckTradeSource } from "../lib/deck-trade-policy";
 
 function source(count = 2): DeckTradeSource {
   return {
@@ -95,4 +95,13 @@ test("multiple whole-deck selections and explicit recipient settings reject malf
   assert.throws(() => normalizeDeckReceipt({ visibility: "INHERIT" }), /confirm visibility/);
   assert.throws(() => normalizeDeckReceipt({ visibility: "PRIVATE", folderId: 42 }), /folder/);
   assert.throws(() => normalizeDeckReceipt({ visibility: "PRIVATE", tagIds: ["a", "a"] }), /tag selections/);
+});
+
+test("each proposed deck carries the exact displayed server review digest", () => {
+  const selections = [{ deckId: "deck-a", digest: "a".repeat(64) }, { deckId: "deck-b", digest: "b".repeat(64) }];
+  assert.deepEqual(parseTradeDeckSelections(JSON.stringify(selections)), selections);
+  assert.deepEqual(parseTradeDeckSelections(null), []);
+  for (const value of ['["deck-a"]', '[{"deckId":"deck-a"}]', '[{"deckId":"deck-a","digest":"stale"}]', '{}'])
+    assert.throws(() => parseTradeDeckSelections(value));
+  assert.throws(() => parseTradeDeckSelections(JSON.stringify([selections[0], selections[0]])), /only once/);
 });

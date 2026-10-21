@@ -5,7 +5,8 @@ import Module, { createRequire } from "node:module";
 import path from "node:path";
 import ts from "typescript";
 import { Prisma, PrismaClient } from "@prisma/client";
-import { readTradeDeck, lockTradeDeckSources, assertDeckUnreserved, lockWritableDeck, validateDeckReceipt } from "../../lib/deck-trade-store";
+import { readTradeDeck, lockTradeDeckSources, assertDeckUnreserved, lockWritableDeck, validateDeckReceipt,
+  prepareTradeDeckBundles, revalidatePreparedTradeDecks } from "../../lib/deck-trade-store";
 
 assert.equal(process.env.GITHUB_ACTIONS, "true");
 assert.equal(process.env.RUNNER_ENVIRONMENT, "github-hosted");
@@ -15,6 +16,7 @@ assert.equal(url.pathname, "/trade_stock_fixture");
 const db = new PrismaClient(), tag = `deck-bundle-${randomUUID()}`;
 const users = [tag + "-user-a", tag + "-user-b"], owners = [tag + "-owner-a", tag + "-owner-b"];
 const deckId = tag + "-deck", locationId = tag + "-location";
+const fixtureDeckIds = [deckId];
 const cards = Array.from({ length: 55 }, (_, index) => tag + "-card-" + index);
 let failure: unknown;
 const trades: string[] = [];
@@ -164,6 +166,52 @@ async function run() {
   await assert.rejects(db.$transaction(tx => validateDeckReceipt(tx, users[0], owners[1], receipt)), /receiving deck owner/);
   await assert.rejects(db.$transaction(tx => validateDeckReceipt(tx, users[1], owners[1], { ...receipt, folderId: tag + "-folder-0" })), /own deck library/);
   await assert.rejects(db.$transaction(tx => validateDeckReceipt(tx, users[1], owners[1], { ...receipt, tagIds: [tag + "-tag-0"] })), /own deck library/);
+  const currentSource = await readTradeDeck(db as unknown as Prisma.TransactionClient, deckId, owners[0]);
+  const selection = { deckId, digest: currentSource.digest };
+  const proposal = { actorUserId: users[0], proposerPlayerId: owners[0], receiverPlayerId: owners[1], offered: [selection], requested: [] };
+  assert.equal((await db.$transaction(tx => prepareTradeDeckBundles(tx, proposal))).length, 1);
+  await assert.rejects(db.$transaction(tx => prepareTradeDeckBundles(tx, { ...proposal, offered: [{ ...selection, digest: "0".repeat(64) }] })), /deck changed/);
+  const sharedUser = tag + "-shared-player-user"; users.push(sharedUser);
+  await db.user.create({ data: { id: sharedUser, username: sharedUser, displayName: sharedUser, playerId: owners[0], passwordHash: "not-a-login-hash" } });
+  await assert.rejects(db.$transaction(tx => prepareTradeDeckBundles(tx, { ...proposal, actorUserId: sharedUser })), /actual deck owner/);
+  const partnerDeckId = tag + "-partner-private"; fixtureDeckIds.push(partnerDeckId);
+  await db.deck.create({ data: { id: partnerDeckId, ownerUserId: users[1], name: "Private partner deck", visibility: "PRIVATE" } });
+  await db.deckCard.create({ data: { deckId: partnerDeckId, cardId: cards[0], cardName: "Private list entry", quantity: 1 } });
+  const partnerSource = await readTradeDeck(db as unknown as Prisma.TransactionClient, partnerDeckId, owners[1]);
+  const partnerSelection = { deckId: partnerDeckId, digest: partnerSource.digest };
+  await assert.rejects(db.$transaction(tx => prepareTradeDeckBundles(tx, { ...proposal, offered: [], requested: [partnerSelection] })), /unavailable to request/);
+  const parent = await db.trade.create({ data: { proposerPlayerId: owners[1], receiverPlayerId: owners[0], createdByUserId: users[1], status: "PROPOSED" } });
+  trades.push(parent.id);
+  await db.tradeDeckBundle.create({ data: { tradeId: parent.id, deckId: partnerDeckId, side: "PROPOSER",
+    snapshotJson: partnerSource.snapshot, snapshotDigest: partnerSource.digest } });
+  assert.equal((await db.$transaction(tx => prepareTradeDeckBundles(tx, {
+    ...proposal, offered: [], requested: [partnerSelection], counterTradeId: parent.id,
+  }))).length, 1, "a deck explicitly offered by its owner remains available as an indivisible private counter bundle");
+  await db.trade.update({ where: { id: parent.id }, data: { createdByUserId: users[0] } });
+  await assert.rejects(db.$transaction(tx => prepareTradeDeckBundles(tx, {
+    ...proposal, offered: [], requested: [partnerSelection], counterTradeId: parent.id,
+  })), /unavailable to request/);
+  await db.trade.update({ where: { id: parent.id }, data: { status: "CANCELLED" } });
+  await db.deck.update({ where: { id: partnerDeckId }, data: { visibility: "PUBLIC" } });
+  const publicPartner = await readTradeDeck(db as unknown as Prisma.TransactionClient, partnerDeckId, owners[1]);
+  const extraSelections = [];
+  for (let index = 0; index < 2; index++) {
+    const id = tag + "-extra-deck-" + index; fixtureDeckIds.push(id);
+    await db.deck.create({ data: { id, ownerUserId: users[index], name: "Another complete deck", visibility: index ? "PUBLIC" : "PRIVATE" } });
+    const extra = await readTradeDeck(db as unknown as Prisma.TransactionClient, id, owners[index]);
+    extraSelections.push({ deckId: id, digest: extra.digest });
+  }
+  const mixed = await db.$transaction(tx => prepareTradeDeckBundles(tx, { ...proposal,
+    offered: [selection, extraSelections[0]], requested: [{ deckId: partnerDeckId, digest: publicPartner.digest }, extraSelections[1]],
+  }));
+  assert.equal(mixed.length, 4); assert.equal(mixed.filter(bundle => bundle.side === "PROPOSER").length, 2);
+  assert.equal(mixed.filter(bundle => bundle.side === "RECEIVER").length, 2);
+  await assert.rejects(db.$transaction(async tx => {
+    const prepared = await prepareTradeDeckBundles(tx, proposal);
+    await tx.inventoryItem.update({ where: { id: stock.find(item => item.quantity > 0)!.id }, data: { notes: "Changed after the displayed review" } });
+    await revalidatePreparedTradeDecks(tx, prepared);
+  }), /deck changed/);
+  console.log("PASS deck source preparation: exact displayed digests, two decks per side, actual User authority despite shared Player, private request denial/owner-consented counter, recipient settings and stale-source rollback");
   assert.deepEqual(await db.inventoryItem.findMany({ where: { locationId }, orderBy: { id: "asc" } }), stock);
   assert.deepEqual(await db.inventoryAuditLog.findMany({ orderBy: { id: "asc" } }), audits);
   fixtureAdminMode = true;
@@ -181,7 +229,7 @@ run().catch(error => { failure = error; }).finally(async () => {
     await db.trade.deleteMany({ where: { id: { in: trades } } });
     await db.inventoryAuditLog.deleteMany({ where: { changedByUserId: { in: users } } });
     await db.inventoryItem.deleteMany({ where: { currentOwnerId: { in: owners } } });
-    await db.deck.deleteMany({ where: { id: deckId } });
+    await db.deck.deleteMany({ where: { id: { in: fixtureDeckIds } } });
     await db.inventoryLocation.deleteMany({ where: { ownerPlayerId: { in: owners } } });
     await db.deckFolder.deleteMany({ where: { ownerUserId: { in: users } } });
     await db.deckTag.deleteMany({ where: { ownerUserId: { in: users } } });
@@ -193,7 +241,7 @@ run().catch(error => { failure = error; }).finally(async () => {
     assert.equal(await db.user.count({ where: { id: { in: users } } }), 0);
     assert.equal(await db.inventoryLocation.count({ where: { id: locationId } }), 0);
     assert.equal(await db.trade.count({ where: { id: { in: trades } } }), 0);
-    assert.equal(await db.deck.count({ where: { id: deckId } }), 0);
+    assert.equal(await db.deck.count({ where: { id: { in: fixtureDeckIds } } }), 0);
     assert.equal(await db.card.count({ where: { id: { in: cards } } }), 0);
     assert.equal(await db.player.count({ where: { id: { in: owners } } }), 0);
     assert.equal(await db.deckFolder.count({ where: { ownerUserId: { in: users } } }), 0);
