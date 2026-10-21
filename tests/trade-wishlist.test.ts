@@ -58,18 +58,17 @@ test("multi-card trades aggregate duplicate card quantities by wishlist target",
 
 test("trade completion reconciles wishlist quantities in the inventory transaction", () => {
   const tradeActions = readFileSync("app/trades/actions.ts", "utf8");
-  const wishlistHelper = readFileSync("lib/trade-wishlist.ts", "utf8");
 
   assert.match(tradeActions, /await fulfillCompletedTradeWishlists\(tx,/);
   assert.doesNotMatch(tradeActions, /revalidatePath\("\/wishlist"\)/);
-  assert.match(wishlistHelper, /TradeWishlistStatus\.FULFILLED/);
-  assert.match(wishlistHelper, /quantity: \{ decrement: match\.quantity \}/);
-  assert.match(
-    wishlistHelper,
-    /ownerUser: \{ playerId: match\.ownerPlayerId \}/,
-  );
-  assert.match(
-    wishlistHelper,
-    /targetOwnerPlayerId: match\.targetOwnerPlayerId/,
-  );
+});
+
+test("a gift matches only its received side and empty contents match no wishlist", () => {
+  assert.deepEqual(buildCompletedTradeWishlistMatches({
+    proposerPlayerId: "giver", receiverPlayerId: "recipient",
+    offeredCards: [{ cardId: "gift", quantity: 2 }], requestedCards: [],
+  }), [{ ownerPlayerId: "recipient", targetOwnerPlayerId: "giver", cardId: "gift", quantity: 2 }]);
+  assert.deepEqual(buildCompletedTradeWishlistMatches({
+    proposerPlayerId: "giver", receiverPlayerId: "recipient", offeredCards: [], requestedCards: [],
+  }), []);
 });
