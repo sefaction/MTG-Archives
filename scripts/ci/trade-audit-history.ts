@@ -13,7 +13,7 @@ const url = new URL(process.env.DATABASE_URL!);
 assert.equal(url.hostname, "127.0.0.1");
 assert.equal(url.pathname, "/trade_audit_fixture");
 const p = new PrismaClient(), actor = new AsyncLocalStorage<User>();
-const users: string[] = [], owners: string[] = [], cards: string[] = [], trades: string[] = [];
+const users: string[] = [], owners: string[] = [], cards: string[] = [], trades: string[] = [], legacyIds: string[] = [];
 
 function loadActions(source: string) {
   const filename = path.resolve("app/trades/actions.ts");
@@ -30,7 +30,7 @@ function loadActions(source: string) {
   return loaded.exports;
 }
 
-async function profile(label: string, source: string) {
+async function profile(label: string, source: string, legacySnapshot?: any) {
   const tag = `trade-history-${randomUUID()}`, actions = loadActions(source);
   const people: Array<User & { locationId: string }> = [], printings: Card[] = [], items: InventoryItem[] = [];
   for (const index of [0, 1]) {
@@ -42,6 +42,11 @@ async function profile(label: string, source: string) {
     items.push(await p.inventoryItem.create({ data: { cardId: card.id, currentOwnerId: player.id, originalOpenerId: player.id, quantity: 20, condition: "NM", foil: true, foilStatus: "FOIL", language: "JA", sourceType: "MANUAL", notes: `${tag}-source-${index}`, locationId: location.id } }));
   }
   const resident = await p.inventoryItem.create({ data: { cardId: printings[0].id, currentOwnerId: people[1].playerId!, originalOpenerId: people[1].playerId!, quantity: 7, condition: "NM", sourceType: "MANUAL", notes: "resident must stay untouched", locationId: people[1].locationId } });
+  const legacy = legacySnapshot ? await p.inventoryAuditLog.create({ data: {
+    inventoryItemId: items[0].id, changedByUserId: people[0].id, changeType: "fixture_existing_history",
+    reason: "Preserved existing history fixture", beforeJson: legacySnapshot, afterJson: { preserved: true },
+  } }) : undefined;
+  if (legacy) legacyIds.push(legacy.id);
   const completed: string[] = [], bytes: number[] = [];
   let firstAudit: InventoryAuditLog | undefined, latestBefore: any;
   const complete = async (quantity: number) => {
@@ -84,7 +89,7 @@ async function profile(label: string, source: string) {
     assert(report.ratio > 8, "old source must demonstrate material recursive amplification");
     assert(oldestReferences >= 8, "oldest canonical row is redundantly embedded many times");
     console.log("BASELINE REPRODUCED: repeated partial transfers recursively duplicate prior audit rows");
-    return;
+    return latestBefore;
   }
   assert.equal(bytes.length, 8);
   assert(Math.max(...bytes) < 2 * bytes[0], "fixed metadata must remain bounded as transfer history grows");
@@ -95,12 +100,19 @@ async function profile(label: string, source: string) {
   assert.equal(await p.inventoryItem.findUnique({ where: { id: items[1].id } }), null);
   const retained = await p.inventoryAuditLog.findUniqueOrThrow({ where: { id: firstAudit.id } });
   assert.deepEqual(retained.beforeJson, firstAudit.beforeJson); assert.deepEqual(retained.afterJson, firstAudit.afterJson);
+  if (legacy) {
+    const preserved = await p.inventoryAuditLog.findUniqueOrThrow({ where: { id: legacy.id } });
+    assert.deepEqual(preserved.beforeJson, legacy.beforeJson); assert.deepEqual(preserved.afterJson, legacy.afterJson);
+  }
   assert.equal(await p.inventoryAuditLog.count({ where: { tradeId: { in: completed } } }), 36);
   assert.deepEqual(await p.inventoryItem.findUniqueOrThrow({ where: { id: resident.id } }), resident);
   for (const [index, quantity] of [27, 20].entries()) assert.equal((await p.inventoryItem.aggregate({ where: { cardId: printings[index].id }, _sum: { quantity: true } }))._sum.quantity, quantity);
   const incoming = await p.inventoryItem.findMany({ where: { cardId: printings[0].id, sourceType: "TRADE", currentOwnerId: people[1].playerId! } });
   assert.equal(incoming.length, 9); assert.equal(incoming.reduce((sum, item) => sum + item.quantity, 0), 20);
-  for (const item of incoming) for (const field of ["originalOpenerId", "foil", "foilStatus", "condition", "language", "notes", "roundId", "acquiredFromPullId"] as const) assert.deepEqual(item[field], items[0][field]);
+  for (const item of incoming) {
+    assert.equal(item.locationId, people[1].locationId);
+    for (const field of ["originalOpenerId", "foil", "foilStatus", "condition", "language", "notes", "roundId", "acquiredFromPullId"] as const) assert.deepEqual(item[field], items[0][field]);
+  }
   console.log("PASS: bounded partial/full transfer snapshots, preserved canonical history, copies, lots, attributes and resident stock");
 }
 
@@ -108,13 +120,13 @@ async function main() {
   assert.equal(await p.user.count(), 0, "empty hosted disposable database required");
   const baseline = readFileSync(".local-data/trade-audit/baseline-actions.ts", "utf8").replace(/\r\n/g, "\n");
   assert.equal(createHash("sha256").update(baseline).digest("hex"), "579b117f569141e0dba93a356cde099121c61aa0a4d14df95cd591b859aac70b");
-  await profile("baseline-b810", baseline);
-  await profile("current", readFileSync("app/trades/actions.ts", "utf8"));
+  const legacySnapshot = await profile("baseline-b810", baseline);
+  await profile("current", readFileSync("app/trades/actions.ts", "utf8"), legacySnapshot);
 }
 main().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
   try {
     await p.notificationDeliveryJob.deleteMany({ where: { sourceType: "trade.completed", sourceId: { in: trades } } });
-    await p.inventoryAuditLog.deleteMany({ where: { tradeId: { in: trades } } });
+    await p.inventoryAuditLog.deleteMany({ where: { OR: [{ tradeId: { in: trades } }, { id: { in: legacyIds } }] } });
     await p.tradeEvent.deleteMany({ where: { tradeId: { in: trades } } });
     await p.trade.deleteMany({ where: { id: { in: trades } } });
     await p.inventoryItem.deleteMany({ where: { currentOwnerId: { in: owners } } });
