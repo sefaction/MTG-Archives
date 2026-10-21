@@ -78,7 +78,7 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
     process.env.MTG_LOCAL_PILOT_TEST !== "1",
     "Requires disposable local snapshot opt-in",
   );
-  test.setTimeout(180_000);
+  test.setTimeout(240_000);
   test.info().annotations.push({
     type: "scope",
     description: "Local synthetic accounts only; no real outbound endpoints",
@@ -449,6 +449,36 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
       .getByText("completed", { exact: true });
     await expect(completedSummary).toHaveCount(1);
     await expect(completedSummary).toBeVisible();
+    // Exercise gifts through real browser controls in both orientations. The
+    // original two-sided history/provenance assertions above remain unchanged.
+    for (const requestOnly of [false, true]) {
+      const proposer = requestOnly ? bob : alice;
+      const recipient = requestOnly ? alice : bob;
+      const proposerIndex = requestOnly ? 1 : 0;
+      const recipientIndex = 1 - proposerIndex;
+      await proposer.setViewportSize({ width: requestOnly ? 320 : 1366, height: 844 });
+      await proposer.goto(`/trades?receiverId=${f.people[recipientIndex].playerId}`);
+      await expect(proposer.getByRole('button', { name: 'Submit Proposal', exact: true })).toBeDisabled();
+      await proposer.goto(`/trades?receiverId=${f.people[recipientIndex].playerId}&${requestOnly ? 'requested' : 'offered'}InventoryItemId=${f.items[0].id}`);
+      await expect(proposer.getByRole('button', { name: 'Submit Proposal', exact: true })).toBeEnabled();
+      expect(await proposer.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      const message = requestOnly ? 'Request-only gift fixture' : 'Offer-only gift fixture';
+      await proposer.getByText('Add message or notes', { exact: true }).click();
+      await proposer.getByLabel('Message / notes').fill(message);
+      await proposer.getByRole('button', { name: 'Submit Proposal', exact: true }).click();
+      await expect(proposer.getByText('Trade proposal sent.', { exact: true })).toBeVisible();
+      const gift = database<string>(`return (await p.trade.findFirstOrThrow({where:{createdByUserId:${quote(f.people[proposerIndex].id)},message:${quote(message)}}})).id;`);
+      await (await openTrade(recipient, gift)).getByRole('button', { name: 'Accept', exact: true }).click();
+      for (const [index, person] of [[proposerIndex, proposer], [recipientIndex, recipient]] as const) {
+        const confirm = (await openTrade(person, gift)).locator('form').filter({ has: person.getByRole('button', { name: 'Confirm Physical Trade' }) });
+        await confirm.getByRole('combobox').selectOption(f.people[index].destinationId);
+        await confirm.getByRole('button', { name: 'Confirm Physical Trade' }).click();
+        await expect.poll(() => state(gift).status).toBe(index === proposerIndex ? 'PARTIALLY_COMMITTED' : 'COMPLETED');
+        expect(total()).toBe(16);
+        expect(database<number>(`return p.inventoryAuditLog.count({where:{tradeId:${quote(gift)}}});`)).toBe(index === proposerIndex ? 0 : 2);
+      }
+      expect(database<number>(`return p.tradeEvent.count({where:{tradeId:${quote(gift)},eventType:'completed'}});`)).toBe(1);
+    }
   } finally {
     await Promise.allSettled(contexts.map((c) => c.close()));
     // Resolve exact fixture identities by a unique UUID tag, even if setup failed.
