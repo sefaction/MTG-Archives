@@ -25,6 +25,7 @@ import {
   saveAcquisitionReview,
   getAcquisitionCardReview,
   getAcquisitionProgress,
+  correctAcquisitionCount,
   reviewAcquisitionCandidate,
   type AcquisitionActor,
   type CreateAcquisitionInput,
@@ -34,6 +35,7 @@ import {
   previewAcquisitionCommit,
 } from "../lib/acquisition-commit-service";
 import { candidateKey } from "../lib/acquisition-domain";
+import { acquisitionReviewCounts, acquisitionSlotReviewState } from "../lib/acquisition-review-display";
 
 export async function verifyAcquisitionCommit(
   db: PrismaClient,
@@ -156,6 +158,38 @@ export async function verifyAcquisitionCommit(
     });
   }
   try {
+    // Persisted progress must not advertise accepted-but-uncertain or overflow
+    // copies as ready. These are owned synthetic physical-state controls.
+    const physicalDestination = await location(3);
+    const physical = await capture(physicalDestination, 2);
+    for (const photo of physical.photos) await review(physical.id, photo.id);
+    let physicalProgress = await getAcquisitionProgress(db, actor, physical.id);
+    assert.equal(acquisitionReviewCounts(physicalProgress.slots).ready, 0);
+    assert.ok(physicalProgress.slots[0].physicalReadiness.reasons.includes("ACQUISITION_NOT_SETTLED"));
+    await stop(physical.id);
+    const physicalRun = await db.acquisitionRun.findUniqueOrThrow({ where: { sessionId: physical.id } });
+    await db.acquisitionCandidate.updateMany({ where: { runId: physicalRun.id, physicalId: physicalProgress.slots[0].id },
+      data: { uncertainty: ["MULTIFEED"], countConfirmed: false } });
+    await db.acquisitionSession.update({ where: { id: physical.id }, data: { target: 1 } });
+    physicalProgress = await getAcquisitionProgress(db, actor, physical.id);
+    const savedReview = physicalProgress.slots[0].review;
+    assert.ok(physicalProgress.slots[0].physicalReadiness.reasons.includes("COUNT_UNCERTAIN"));
+    assert.ok(physicalProgress.slots[1].physicalReadiness.reasons.includes("OVERFLOW"));
+    assert.deepEqual(acquisitionReviewCounts(physicalProgress.slots), { all: 2, awaiting: 2, ready: 0, added: 0 });
+    const physicalSelection = { locationId: physicalDestination, section: "A", photoIds: [physical.photos[0].id] };
+    await assert.rejects(previewAcquisitionCommit(db, actor, physical.id, physicalSelection), /confirmed physical count/);
+    await assert.rejects(previewAcquisitionCommit(db, actor, physical.id, { ...physicalSelection, photoIds: [physical.photos[1].id] }), /confirmed physical count/);
+    assert.equal(await db.inventoryItem.count({ where: { locationId: physicalDestination } }), 0);
+    const uncertain = physicalProgress.session.candidates.find(c => c.input.id === physicalProgress.slots[0].id)!;
+    await correctAcquisitionCount(db, actor, physical.id, physicalProgress.revision, {
+      candidateKey: uncertain.key, revision: uncertain.revision, action: "CONFIRM_COUNT", reason: "Owned physical readiness test",
+    });
+    physicalProgress = await getAcquisitionProgress(db, actor, physical.id);
+    assert.deepEqual(physicalProgress.slots[0].review, savedReview);
+    assert.equal(acquisitionSlotReviewState(physicalProgress.slots[0]), "ready");
+    assert.equal(acquisitionSlotReviewState(physicalProgress.slots[1]), "awaiting");
+    assert.equal((await previewAcquisitionCommit(db, actor, physical.id, physicalSelection)).count, 1);
+    assert.equal(await db.inventoryItem.count({ where: { locationId: physicalDestination } }), 0);
     const destination = await location(3),
       first = await capture(destination, 3, true);
     await review(first.id, first.photos[0].id);

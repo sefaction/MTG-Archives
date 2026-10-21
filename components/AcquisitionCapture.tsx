@@ -30,6 +30,7 @@ import type { acquisitionProgressDto } from "@/lib/acquisition-api";
 import {
   acquisitionReviewCounts,
   acquisitionSlotReviewState,
+  acquisitionSlotBlockedReason,
   nextAwaitingAcquisitionSlot,
   type AcquisitionReviewMode,
   type AcquisitionReviewFilter,
@@ -852,8 +853,8 @@ export function AcquisitionCapture({
               {readyPhotos} {readyPhotos === 1 ? "photo" : "photos"} saved · {prepared} {prepared === 1 ? "photo" : "photos"} prepared
             </p>
             <p className="text-sm">
-              {reviewCounts.ready} ready for Inventory ·{" "}
-              {reviewCounts.awaiting} awaiting review · {reviewCounts.added} added
+              {reviewCounts.ready} ready to preview ·{" "}
+              {reviewCounts.awaiting} pending review or reconciliation · {reviewCounts.added} added
             </p>
             <div className="flex flex-wrap items-center gap-2 mt-2" aria-label="Batch actions">
             <a className={button} href={`/imports/batches?q=${progress.batchNumber}&view=all`}>Manage batch</a>
@@ -1122,10 +1123,10 @@ export function AcquisitionCapture({
                   >
                     <option value="all">All ({reviewCounts.all})</option>
                     <option value="awaiting">
-                      Awaiting review ({reviewCounts.awaiting})
+                      Pending ({reviewCounts.awaiting})
                     </option>
                     <option value="ready">
-                      Ready for Inventory ({reviewCounts.ready})
+                      Ready to preview ({reviewCounts.ready})
                     </option>
                     <option value="added">
                       Added to Inventory ({reviewCounts.added})
@@ -1139,8 +1140,8 @@ export function AcquisitionCapture({
                 </a>
               )}
               <p className="text-sm mb-3" data-testid="scan-review-summary">
-                {reviewCounts.awaiting} awaiting review · {reviewCounts.ready}{" "}
-                ready for Inventory · {reviewCounts.added} added.
+                {reviewCounts.awaiting} pending review or reconciliation · {reviewCounts.ready}{" "}
+                ready to preview · {reviewCounts.added} added.
                 {reviewMode === "simple"
                   ? " Compare the images, confirm or correct. Advanced shows recognition evidence."
                   : " Full recognition evidence and correction tools are shown."}{" "}
@@ -1242,7 +1243,7 @@ export function AcquisitionCapture({
                         >Continue to Inventory</button>
                         {!cachedDrafts.ready && <p className="text-sm">Allow browser draft access before continuing.</p>}
                         {photo.purgedAt && <p className="text-sm">Photo retention ended; this copy cannot be added.</p>}
-                        {cachedDrafts.ready && !photo.purgedAt && !hasDraft(slot) && acquisitionSlotReviewState(slot) !== "ready" && <p className="text-sm">Complete the printing, finish, condition and language before continuing.</p>}
+                        {cachedDrafts.ready && !photo.purgedAt && !hasDraft(slot) && acquisitionSlotReviewState(slot) !== "ready" && <p className="text-sm">{acquisitionSlotBlockedReason(slot)}</p>}
                         </div>
                       )}
                       {progress.providerId !== SCANNER_CAPTURE_PROVIDER && <button
