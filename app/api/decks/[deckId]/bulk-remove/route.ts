@@ -1,3 +1,4 @@
+import { lockWritableDeck, DeckTradeWriteError } from "@/lib/deck-write-fence";
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getAccessScope, requireLogin } from "@/lib/auth";
@@ -48,6 +49,7 @@ export async function POST(
     let deletedQuantity = 0;
     let deletedRows = 0;
     await prisma.$transaction(async (tx) => {
+      await lockWritableDeck(tx, deckId, policy.deck!.ownerUserId);
       const rows = await tx.deckCard.findMany({
         where: { deckId, id: { in: rowIds } },
         select: { id: true, quantity: true, cardId: true },
@@ -94,7 +96,7 @@ export async function POST(
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "Bulk remove failed." },
-      { status: 400 },
+      { status: error instanceof DeckTradeWriteError ? 409 : 400 },
     );
   }
 }

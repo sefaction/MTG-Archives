@@ -9,6 +9,7 @@ export type DeckTradeSource = {
   tagIds: string[];
   ownerPlayerId: string;
   leagueLinked: boolean;
+  effectiveVisibility: "PRIVATE" | "PUBLIC";
 };
 
 // Explicit scalar projections prevent included user/account/catalog/audit
@@ -62,6 +63,8 @@ export function snapshotTradeDeck(source: DeckTradeSource) {
   if (source.leagueLinked) throw new Error("League-linked decks cannot be traded.");
   if (!source.deck.id || !source.deck.ownerUserId || !source.ownerPlayerId)
     throw new Error("The deck owner is unavailable.");
+  if (source.effectiveVisibility !== "PRIVATE" && source.effectiveVisibility !== "PUBLIC")
+    throw new Error("The deck visibility is unavailable.");
   const ids = new Set<string>();
   for (const card of source.cards) {
     if (card.deckId !== source.deck.id || ids.has(card.id) || !Number.isInteger(card.quantity) || card.quantity < 1)
@@ -87,12 +90,12 @@ export function snapshotTradeDeck(source: DeckTradeSource) {
   }
   // JSON cloning normalizes dates and prevents later caller mutation changing
   // the reviewed payload. Zero rows remain bound: location ownership moves too.
-  const snapshot = JSON.parse(JSON.stringify({ version: 1, ownerPlayerId: source.ownerPlayerId,
+  const snapshot = JSON.parse(JSON.stringify({ version: 1, ownerPlayerId: source.ownerPlayerId, effectiveVisibility: source.effectiveVisibility,
     deck: project(source.deck, deckFields), cards: ordered(source.cards).map(card => project(card, cardFields)),
     location: source.location ? project(source.location, locationFields) : null,
     stock: ordered(source.stock).map(item => project(item, stockFields)), tagIds: [...new Set(source.tagIds)].sort(),
   })) as {
-    version: number; ownerPlayerId: string; deck: Prisma.JsonObject; cards: Prisma.JsonObject[];
+    version: number; ownerPlayerId: string; effectiveVisibility: "PRIVATE" | "PUBLIC"; deck: Prisma.JsonObject; cards: Prisma.JsonObject[];
     location: Prisma.JsonObject | null; stock: Prisma.JsonObject[]; tagIds: string[];
   };
   return { snapshot, digest: createHash("sha256").update(canonical(snapshot)).digest("hex") };

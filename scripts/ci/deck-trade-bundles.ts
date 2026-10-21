@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import Module, { createRequire } from "node:module";
+import path from "node:path";
+import ts from "typescript";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { readTradeDeck, lockTradeDeckSources, assertDeckUnreserved, lockWritableDeck, validateDeckReceipt } from "../../lib/deck-trade-store";
 
@@ -14,6 +18,31 @@ const deckId = tag + "-deck", locationId = tag + "-location";
 const cards = Array.from({ length: 55 }, (_, index) => tag + "-card-" + index);
 let failure: unknown;
 const trades: string[] = [];
+let actor: any;
+function loadActual(relative: string, client: PrismaClient = db, extra = ""): any {
+  const filename = path.resolve(relative), realRequire = createRequire(filename), loaded = new (Module as any)(filename);
+  loaded.filename = filename; loaded.paths = (Module as any)._nodeModulePaths(path.dirname(filename));
+  loaded.require = (name: string) => {
+    if (name === "@/lib/prisma") return { prisma: client };
+    if (name === "@/lib/auth") return { requireLogin: async () => actor, getCurrentUser: async () => actor,
+      getAccessScope: async () => ({ mode: "user", userId: actor.id, playerId: actor.playerId, isAdminUser: false }) };
+    if (name === "next/cache") return { revalidatePath: () => {} };
+    if (name === "next/navigation") return { redirect: () => { throw new Error("Unexpected fixture redirect"); } };
+    if (name === "@/lib/deck-management-policy") return loadActual("lib/deck-management-policy.ts", client);
+    if (name.startsWith("@/")) return realRequire(path.resolve(name.slice(2)));
+    return realRequire(name);
+  };
+  loaded._compile(ts.transpileModule(readFileSync(filename, "utf8") + "\n" + extra, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true }, fileName: filename,
+  }).outputText, filename);
+  return loaded.exports;
+}
+function form(values: Record<string, string> = {}) {
+  const data = new FormData();
+  for (const [key, value] of Object.entries({ deckId, name: "Forbidden while reserved", format: "CASUAL", visibility: "PRIVATE",
+    folderId: tag + "-folder-0", tags: "Owned tag", destinationLocationId: tag + "-normal", strongConfirmation: "DELETE", ...values })) data.set(key, value);
+  return data;
+}
 async function makeTrade() {
   const trade = await db.trade.create({ data: { proposerPlayerId: owners[0], receiverPlayerId: owners[1], createdByUserId: users[0], status: "PROPOSED" } });
   trades.push(trade.id); return trade;
@@ -33,6 +62,7 @@ async function run() {
   await db.deckCard.create({ data: { deckId, cardName: "Uncommitted list-only Maybeboard", quantity: 3, section: "MAYBEBOARD" } });
   await db.inventoryLocation.create({ data: { id: locationId, ownerPlayerId: owners[0], deckId, kind: "DECK", systemManaged: true,
     name: "Deck fixture", normalizedName: tag, active: true } });
+  await db.inventoryLocation.create({ data: { id: tag + "-normal", ownerPlayerId: owners[0], name: "Normal destination", normalizedName: tag + "-normal" } });
   await db.inventoryItem.createMany({ data: cards.map(cardId => ({ currentOwnerId: owners[0], originalOpenerId: owners[1],
     cardId, quantity: 1, locationId, sourceType: "MANUAL", condition: "NM", notes: "Preserve physical provenance" })) });
   const stock = await db.inventoryItem.findMany({ where: { locationId }, orderBy: { id: "asc" } });
@@ -48,6 +78,23 @@ async function run() {
   await db.tradeLine.createMany({ data: stock.map((item, position) => ({ tradeId: first.id, side: "PROPOSER", deckBundleId: bundle.id,
     inventoryItemId: item.id, quantity: item.quantity, position, snapshotJson: { sourceId: item.id, quantity: item.quantity } })) });
   assert.equal(await db.tradeLine.count({ where: { deckBundleId: bundle.id } }), 55);
+  actor = await db.user.findUniqueOrThrow({ where: { id: users[0] }, include: { player: true } });
+  const actions = loadActual("app/decks/actions.ts");
+  const wishlist = loadActual("app/wishlist/actions.ts", db, "exports.fixturePrintingChange=applyDeckCardPrintingChange;");
+  const deckCard = await db.deckCard.findFirstOrThrow({ where: { deckId, cardId: cards[0] } });
+  const graph = () => Promise.all([
+    db.deck.findUnique({ where: { id: deckId }, include: { cards: { orderBy: { id: "asc" } }, tags: { orderBy: { tagId: "asc" } } } }),
+    db.inventoryLocation.findMany({ where: { ownerPlayerId: { in: owners } }, orderBy: { id: "asc" } }),
+    db.inventoryItem.findMany({ where: { currentOwnerId: { in: owners } }, orderBy: { id: "asc" } }),
+    db.inventoryAuditLog.findMany({ orderBy: { id: "asc" } }),
+  ]);
+  const routes = [
+    ["app/api/decks/[deckId]/bulk-remove/route.ts", { rowIds: [deckCard.id], destinationLocationId: tag + "-normal" }],
+    ["app/api/decks/[deckId]/bulk-move/route.ts", { rowIds: [deckCard.id], section: "MAYBEBOARD", maybeboardCommittedMode: "keep" }],
+    ["app/api/decks/[deckId]/optimize-apply/route.ts", { changes: [{ deckCardId: deckCard.id, proposedCardId: cards[1], include: true }] }],
+    ["app/api/decks/[deckId]/cards/[deckCardId]/change-printing/route.ts", { cardId: cards[1] }],
+    ["app/api/decks/[deckId]/return-committed/route.ts", { rowIds: [deckCard.id], destinationLocationId: tag + "-normal", quantity: 1 }],
+  ] as const;
   await assert.rejects(db.$executeRaw`INSERT INTO "TradeLine"
     (id,"tradeId",side,"deckBundleId",quantity,"snapshotJson","updatedAt")
     VALUES (${randomUUID()},${first.id},'RECEIVER',${bundle.id},1,'{}',clock_timestamp())`,
@@ -60,9 +107,29 @@ async function run() {
     await db.trade.update({ where: { id: first.id }, data: { status } });
     await assert.rejects(db.$transaction(tx => lockWritableDeck(tx, deckId, users[0])), /reserved in an active trade/);
     await db.$transaction(tx => assertDeckUnreserved(tx, deckId, first.id));
+    const before = await graph();
+    for (const [action, data] of [
+      [actions.updateDeck, form()], [actions.moveDeckToFolder, form({ folderId: "" })],
+      [actions.addDeckCard, form({ cardId: cards[0], quantity: "1", section: "MAINBOARD" })],
+      [actions.removeDeckCard, form({ deckCardId: deckCard.id })], [actions.returnAllCommittedDeckInventory, form()],
+      [actions.deleteDeck, form()], [actions.deleteDeckFolder, form({ folderId: tag + "-folder-0" })],
+    ] as const) await assert.rejects(action(data), /reserved in an active trade/);
+    await assert.rejects(wishlist.fixturePrintingChange({ deckId, deckCardId: deckCard.id, proposedCardId: cards[1], expectedOwnerUserId: users[0] }), /reserved in an active trade/);
+    for (const [route, data] of routes) {
+      const response = await loadActual(route).POST(new Request("http://fixture.local/api/decks/fixture", {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(data),
+      }), { params: Promise.resolve({ deckId, deckCardId: deckCard.id }) });
+      assert.equal(response.status, 409, route);
+      assert.match((await response.json()).error, /reserved in an active trade/, route);
+    }
+    assert.deepEqual(await graph(), before, `${status} real writer refusals must preserve the complete deck/location/stock/audit graph`);
   }
   await db.trade.update({ where: { id: first.id }, data: { status: "CANCELLED" } });
   await db.$transaction(tx => lockWritableDeck(tx, deckId, users[0]));
+  await actions.updateDeck(form({ name: "Renamed Deck" }));
+  assert.equal((await db.deck.findUniqueOrThrow({ where: { id: deckId } })).name, "Renamed Deck");
+  assert.equal((await db.inventoryLocation.findUniqueOrThrow({ where: { id: locationId } })).name, "Deck: Renamed Deck");
+  console.log("PASS deck writer integration: 13 actual metadata/list/folder/printing/return/delete action-route paths refuse all three active statuses with full graph equality; terminal metadata/location update still works");
   const contenders = await Promise.all([makeTrade(), makeTrade()]);
   const results = await Promise.allSettled(contenders.map(trade => db.$transaction(async tx => {
     await lockTradeDeckSources(tx, [deckId]); await assertDeckUnreserved(tx, deckId);
@@ -92,8 +159,9 @@ run().catch(error => { failure = error; }).finally(async () => {
   const failures: unknown[] = failure ? [failure] : [];
   try {
     await db.trade.deleteMany({ where: { id: { in: trades } } });
-    await db.inventoryItem.deleteMany({ where: { locationId } });
+    await db.inventoryItem.deleteMany({ where: { currentOwnerId: { in: owners } } });
     await db.deck.deleteMany({ where: { id: deckId } });
+    await db.inventoryLocation.deleteMany({ where: { ownerPlayerId: { in: owners } } });
     await db.deckFolder.deleteMany({ where: { ownerUserId: { in: users } } });
     await db.deckTag.deleteMany({ where: { ownerUserId: { in: users } } });
     await db.user.deleteMany({ where: { id: { in: users } } });

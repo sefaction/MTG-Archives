@@ -7,7 +7,7 @@ function source(count = 2): DeckTradeSource {
     deck: { id: "deck", ownerUserId: "user", name: "Original deck", description: "Keep the list",
       format: "COMMANDER", visibility: "PRIVATE", folderId: "sender-folder", bannerZoom: 100,
       createdAt: new Date("2026-01-01"), updatedAt: new Date("2026-01-02") },
-    ownerPlayerId: "owner", leagueLinked: false, tagIds: ["tag-b", "tag-a"],
+    ownerPlayerId: "owner", leagueLinked: false, effectiveVisibility: "PRIVATE", tagIds: ["tag-b", "tag-a"],
     location: { id: "location", ownerPlayerId: "owner", deckId: "deck", kind: "DECK", systemManaged: true,
       active: true, normalizedName: "deck:deck", name: "Deck: Original deck" },
     cards: Array.from({ length: count }, (_, index) => ({ id: `entry-${index}`, deckId: "deck", cardId: `card-${index}`,
@@ -51,6 +51,7 @@ test("review digest binds list, stock, location, organization and original metad
   const original = snapshotTradeDeck(source()).digest;
   const edits: ((input: DeckTradeSource) => void)[] = [
     input => { input.deck.name = "Changed"; }, input => { input.deck.visibility = "PUBLIC"; },
+    input => { input.effectiveVisibility = "PUBLIC"; },
     input => { input.cards[0].quantity++; }, input => { input.cards[0].notes = "new note"; },
     input => { input.stock[0].quantity++; }, input => { input.stock[0].condition = "LP"; },
     input => { input.stock[0].language = "FR"; }, input => { input.stock[0].notes = "new physical note"; },
