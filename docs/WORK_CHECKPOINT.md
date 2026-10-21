@@ -9454,3 +9454,12 @@ Branch codex/acquisition-reconnect-304 from main b810f06a. Existing controls map
 ## Independent current-main P2 integration PR#882 - 2026-10-21T04:45:20.681Z
 
 Original qualified test/docs head 939fbaf82b5996d2483462ec1c33050417e188df, actual main 0a24eb9c76482623ab74e6011dc4e3fd2bdb5748. Preserve all currentmain changes and both checkpoint histories. Both exact original short-source/scanner-replay assertion files retained. No application/library/schema/runtime or hardware change. Original exacthead actualPostgreSQL/core evidence independently reviewed; refreshed integrated-head required checks pending before approved merge. #304/#302 and broader stage/helper/recognition/resource acceptance remain open; no deployment.
+
+## P2 persisted version-contract qualification batch, October20Central
+
+Branch codex/acquisition-version-contract-304 from main b810f06a. Adds seven descriptor identities covering pipeline/runtime/model/catalog/index/execution, equivalent-field-order replay, caller mutation isolation, fresh-client claim/complete input-output binding and whole-session/Inventory conservation to existing guarded hosted acquisition fixtures. Distinct coherent test-only scope from ready #882. No real GPU/native inference or independent stage/hardware/accuracy claim. Source reviewed; CI pending. Next publish labeled draft and require real database/core results, repairing demonstrated test/product defects without relaxing assertions. No local Docker/shared-data change, merge or production action.
+
+
+## Independent current-main P2 integration PR#884 - 2026-10-21T04:50:49.390Z
+
+Original qualified test/docs head c8a3891daed62fa72f3c5a94f52a8517aeea85a6, actual main 36861c0cedd2275a6693058a788800fb613cd3cc. Preserve all currentmain changes and both checkpoint histories. Orchestration file contains exact original882 and884 assertion blocks in sequence, with base function unchanged. No application/library/schema/runtime or hardware change. Original exacthead actualPostgreSQL/core evidence independently reviewed; refreshed integrated-head required checks pending before approved merge. #304/#302 and broader stage/helper/recognition/resource acceptance remain open; no deployment.

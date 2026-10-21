@@ -1,0 +1,7 @@
+# P2 processing-version contract (#304)
+
+This test-only batch isolates the remaining generic persisted-version contract from PR #882's source-exhaustion/reconnect controls. At current main b810f06a, the existing orchestration test changes the pipeline field only. New real PostgreSQL coverage independently changes pipeline, runtime, model, catalog, index and CPU/GPU execution descriptors, requiring seven distinct durable job IDs and keys at one candidate revision.
+
+For each descriptor, reversed object field order must replay the same job; mutating the caller object after enqueue must not alter saved input. A fresh Prisma client claims each exact job, reads its saved artifact digest/versions and completes it with bound fixture evidence; persisted input/output must remain associated. Complete domain session and owned Inventory rows must remain identical. Seven tiny fixtures run through the existing guarded acquisition database runner and cleanup. No native inference or actual GPU is invoked, and no recognition accuracy, installed-helper binary provenance, model loading, real CPU/GPU parity, resource acceptance or broad P2 completion is inferred.
+
+Execution evidence is pending exact-head Acquisition PostgreSQL integrity. No product code, schema, processing rules, local shared runtime, production, hardware or merge changes. Keep #304 open; link actual stage-specific source/catalog/model/index evidence separately before any broader acceptance disposition.
