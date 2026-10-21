@@ -106,6 +106,55 @@ export async function verifyScannerRuns(db: PrismaClient) {
     assert.equal(stored.inputKind, "CARD_SCAN");
     assert.equal((stored.sourceMetadata as { backend: string }).backend, "fixture");
     assert.equal(await db.acquisitionProcessingJob.count({ where: { run: { sessionId: run.sessionId }, stage: "photo-canonical-v1" } }), 2);
+    // P2/#304: equal bytes from two physical transfers must retain distinct
+    // lineage. A fresh client must replay that exact graph, while conflicting
+    // bytes for an existing transfer must leave it untouched.
+    async function provenance(client: PrismaClient) {
+      const acquisitionRunId = stored.runId;
+      return {
+        photos: await client.acquisitionPhoto.findMany({ where: { runId: acquisitionRunId }, orderBy: { id: "asc" } }),
+        slots: await client.acquisitionCaptureSlot.findMany({ where: { runId: acquisitionRunId }, orderBy: { id: "asc" } }),
+        artifacts: await client.acquisitionArtifact.findMany({ where: { runId: acquisitionRunId }, orderBy: { id: "asc" } }),
+        candidates: await client.acquisitionCandidate.findMany({ where: { runId: acquisitionRunId }, orderBy: { id: "asc" } }),
+        observations: await client.acquisitionObservation.findMany({ where: { runId: acquisitionRunId }, orderBy: { id: "asc" } }),
+        jobs: await client.acquisitionProcessingJob.findMany({ where: { runId: acquisitionRunId }, orderBy: { id: "asc" } }),
+      };
+    }
+    const captured = await provenance(db);
+    for (const rows of Object.values(captured)) assert.equal(rows.length, 2);
+    assert.notEqual(ack1.photoId, ack2.photoId);
+    for (const [transferInput, ack] of [[t1, ack1], [t2, ack2]] as const) {
+      const photo = captured.photos.find(p => p.id === ack.photoId)!;
+      const slot = captured.slots.find(s => s.id === photo.slotId)!;
+      const artifact = captured.artifacts.find(a => a.sourceId === photo.id)!;
+      const candidate = captured.candidates.find(c => c.physicalId === slot.id)!;
+      const observation = captured.observations.find(o => o.artifactId === artifact.id)!;
+      const job = captured.jobs.find(j => j.artifactId === artifact.id)!;
+      assert.equal(slot.requestKey, transferInput.artifactId);
+      assert.equal(slot.position, transferInput.sequence - 1);
+      assert.equal(photo.uploadKey, transferInput.artifactId);
+      assert.equal(photo.digest, ack.digest);
+      assert.equal(artifact.digest, photo.digest);
+      assert.equal(observation.candidateId, candidate.id);
+      assert.equal(job.candidateId, candidate.id);
+      assert.equal(job.candidateRevision, candidate.revision);
+      assert.equal(job.stage, "photo-canonical-v1");
+      assert.equal(job.versionKey, "sharp-0.35.4-orient-1600-v1");
+      assert.deepEqual(job.input, { version: 1, photoId: photo.id, digest: photo.digest, inputKind: "CARD_SCAN",
+        versions: { pipeline: "orient-1600-v1", runtime: "sharp-0.35.4", model: "none", catalog: "none", index: "none", execution: "CPU" } });
+      assert.deepEqual(photo.sourceMetadata, { ...transferInput, backend: source.backend, device: source,
+        requestedSettings: settings, negotiatedSettings: "UNKNOWN" });
+    }
+    const lineageClient = new (db.constructor as typeof PrismaClient)();
+    try {
+      assert.deepEqual(await receiveScannerImage(lineageClient, first.token, t1, epoch, bytes, "image/png"), ack1);
+      const changedBytes = await sharp({ create: { width: 75, height: 105, channels: 3, background: "black" } }).png().toBuffer();
+      await assert.rejects(receiveScannerImage(lineageClient, first.token, t1, epoch, changedBytes, "image/png"), /identity conflict/);
+      assert.deepEqual(await provenance(lineageClient), captured);
+      assert.deepEqual(await readAcquisitionPhotoBytes(ack1.photoId, "raw", ack1.digest), bytes);
+      assert.equal(await lineageClient.inventoryItem.count({ where: { currentOwnerId: tag } }), 0);
+    } finally { await lineageClient.$disconnect(); }
+    console.log("PASS: scanner transfer/photo/artifact/candidate/canonical job lineage, identical-byte physical identities and fresh-client conflicting replay conservation");
     const outcome = { outcome: "COMPLETED", imageCount: 2, elapsedMs: 1000, knownPhysicalItems: null,
       sourceExhausted: "UNKNOWN", nativeError: null };
     await assert.rejects(finishScannerRun(db, first.token, { ...claim, outcome: { ...outcome, imageCount: 3 } }, epoch));

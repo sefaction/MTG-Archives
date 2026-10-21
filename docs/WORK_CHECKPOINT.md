@@ -9477,6 +9477,38 @@ Externalreadiness note:885andlater880becamenon-draft through ready_for_review ev
 
 Original c1d57c76987ecb9e207132d73bc5e2d0bc098470 combined with current main cd536f2e93bfb73ed389ab356df8cd28e8012d43. Exact sorted-stock-lock edit preserves current gifts, wishlist fix, trade fence and unchanged transaction options. Original source/dependency and real PostgreSQL evidence reviewed. Fresh exact-head six checks and canonical hosted cumulative browser/image/conservation qualification pending. #888 narrow; #309 broader remains open. No local runtime or deployment.
 
+## Bounded audit-history measurement and prevention batch — October 21, 2026 Central
+
+New branch codex/trade-audit-history-bounds starts from live main cd536f2e, after separate-review merges #885/#880/#882/#884. GitHub remains authoritative; earlier awaiting-merge notes are historical, and no other PR merge approval is inferred. #886 is closed by that review path; #887/#888 remain open. Runtime a99 remains retained and unchanged.
+
+Draft #889 / new own-created bug #890: actual pinned b810 and current cd536 action measurement at bdfe05c8,39548446852/job119051882572, produces source snapshot bytes2328,5690,12415,25865,52765,106565,214165,429365 in eight ordinary one-copy transfers,184.4times initial size and64embedded copies of the oldest audit row. Current bounded assertion fails; canonical row/copy/resident checks and exact cleanup pass. No historical resource cause or real data rewrite claimed. Receipt for own issue890 saved under goal-private directory.
+
+Narrow prevention removes four unused auditLogs relation loads, retaining all scalar attributes and canonical rows/JSON. Fixed profile seeds the actual old large snapshot as existing canonical history, then checks eight bounded partials plus a final full transfer, unchanged old JSON,36new audit rows, copy totals27/20, received attributes/destinations/resident and owned cleanup.31focused trade checks pass. Positive current CI and existing old/fixed trade safeguards pending. No laptop Docker/data/native/hardware, production or merge action. Next publish fix and inspect bounded positive/old-negative plus all exact-head checks; preserve all historical artifacts and unresolved scope.
+
+
+## Independent PR889 integration - 2026-10-21T06:01:02.757Z
+
+Original 4854f465582bad7fb5c73ee3b600c6d3be28b409 combined with main e133ddd8ab910092de7126f62f4d5f5b5b0a6775; exact four unused audit relation removals compose with sorted source-stock locks, gift/wishlist fixes and Trade fence. No historical data rewrite or schema/transaction/UI change. Original actual PG growth/bounded/history/conservation evidence reviewed; fresh seven exact-head and cumulative hosted canonical browser gates pending. Narrow890/broader309 remain distinct; no local runtime or deployment.
+
+## P2 scanner lineage control — October 21, 2026
+Branch codex/scanner-provenance-304 from main cd536f2e. Adds joined scanner transfer/slot/photo/artifact/observation/candidate/canonical-job input checks for two equal-byte physical transfers, fresh-client ACK replay and conflicting-byte conservation. No runtime/schema changes. Exact hosted checks pending; local heavy qualification remains reserved by owner. Protocol/device metadata does not prove installed helper binary provenance; stage/native/release acceptance remains separate. Next: push draft, inspect actual execution and exact cleanup before claiming pass. Parent #304/#302 remain open; no merge authority.
+
+
+## Independent PR891 integration - 2026-10-21T06:32:01.569Z
+
+Original 9571d957e17bd9802dfea954d5454a4e59c75e5f combined with current main cf732d262702b1c330858a259b4a2cbbb26c9f40. Exact original scanner lineage assertion bytes retained; source map only replaces stale pending-CI text with actual original terminal evidence and current PR pointers. Production app/library/components/schema/dependencies/Docker/workflow are byte-identical to current main. Original four checks and actual scanner lineage/replay PASS independently inspected. Refreshed cumulative six-check Verify required before approved merge; no local heavy runtime. #304/#302 remain open for helper/native/stage/release acceptance; no deployment.
+
+## P3 deterministic upload storage boundaries — October 21, 2026
+Branch codex/upload-storage-boundaries-305 from cd536f2e. Actual upload route/file/store PostgreSQL tests inject four selected filesystem failures with real partial writes/publication; assert non-READY/no derived jobs, exact temporary cleanup, same-identity recovery and ACK replay, bytes/Inventory conservation. No product/schema or host pressure operation. Exact hosted execution pending. Natural exhaustion/power loss/backup-retention races/restore/mobile acceptance remain separate; local runtime reservation preserved. Next push draft and inspect actual test outcomes before claiming success.
+
+## Expanded P3 storage qualification — October21,2026
+Same draft892/coherent storage failure batch now covers actual partial Trash deletion: original removed/preview unlink EACCES, non-marked purge, expired access/restore denial, unchanged canonical evidence, exact retry/replay and protected active equal-byte original/preview. Existing receipt-age/Trash-selection races and DBmarking faults already covered; no duplicate newissue or broader acceptance claim. Prior069b098c all4checks39550874596 retained; expanded head checks pending. Next inspect real expanded execution and exact owned cleanup; no product/schema/runtime change or merge.
+
+
+## Independent PR892 integration - 2026-10-21T06:56:39.766Z
+
+Original 2952c3eb1e025bba2f13bd7bf6b4db182905d2cd combined with main c2c65102032b1e3da595da670c5310b3ae6c7f37; both exact original test files retained, including the actual route/file/store four-failure and partial-purge controls. Source map replaces two stale pending-CI sentences with terminal original evidence and PR pointers. Production/library/schema/dependency/Docker/workflow files remain byte-identical to current main. Original four checks and actual five storage boundary PASS receipts independently reviewed. Refreshed cumulative six checks required before approved merge. No local heavy runtime or deployment; broad #305/#302/#310 remain open, #304 limits unchanged.
+
 ## P7 Inventory deletion reservation measurement — October21,2026
 Branch codex/inventory-delete-reservations-309 from main e133ddd8. Static source: owner/admin deletion and zero-quantity cleanup inspect only legacy offered/requested IDs, while multi-card TradeLine references use onDelete SetNull. Added actual-action PostgreSQL measurement across all three active statuses, secondary lines and cleanup, with legacy/terminal/unreserved/admin controls and exact owned cleanup. No product repair or new defect claim before execution. Duplicate213 concerns storage moves, not this Delete/admin-cleanup path. Next run hosted fixture, inspect actual source/line/audit effects, then catalogue/repair only if reproduced. Local shared runtime reservation remains; no merge.
 
@@ -9488,3 +9520,8 @@ Same draft893 now measures two remaining timing windows separately from894's seq
 
 ## Stale deletion guards proved and repaired — October21,2026
 New897creationreceipt saved atcreation. a4cfc19d39556724802/job119078105142 passes9sequential controls then reproduces bothcommittedwriter windows: proposalafterunlockedDelete→sourcegone/null line/audit1; sharedreceipt2copiesafterzeroSelection→sourcegone/audit1. Exactusers/players/cards/stock/trades/events/notifications/auditscleanup passes. Product893 now locks singleDelete source thenfreshguards/owner/source/audit/delete inoneTx; cleanupinitialIDsonly then sorted500rowlockchunks, freshzero/reservationfilter/audit/delete inoneTx. Added actualaudit/FKrollback andowner-mode denial controls. Positiveheadpending; no arbitrarywriter/allorderings/historical/localacceptance claim. Samecoherent893 resolves894and897, notnewPR. No localruntime/merge.
+
+
+## Independent PR893 integration - 2026-10-21T07:25:44.746Z
+
+Original 5960933aa77ba90ff0e4a5ed3e2efec945874d44 combined with current main 26d35d7f6561943b83e51ec6c3e9abaa35c01b76. Exact product and fixture bytes retained; actual deletion job is inserted into the full current six-job workflow without dropping any existing checks. Both checkpoint histories retained. Original actual failed/current sequential, committed proposal/receipt and rollback/permission/cleanup controls independently reviewed. Refreshed seven-job CI plus bounded hosted canonical image/app/browser qualification pending before approved merge. Narrow894/897 remain distinct from broad309/302; no895 proposal patch copied, no local runtime or deployment.
