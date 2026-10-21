@@ -25,6 +25,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Observer forwarding, privacy and independent cleanup regression checks
+        run: node --test scripts/ci/prisma-pool-*.test.cjs
       - uses: docker/setup-buildx-action@v3
         id: builder
         with:
@@ -47,4 +49,3 @@ jobs:
           path: .local-data/prisma-pool/
           retention-days: 14
           if-no-files-found: error
-
