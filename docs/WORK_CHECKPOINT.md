@@ -9464,5 +9464,36 @@ Branch codex/acquisition-version-contract-304 from main b810f06a. Adds seven des
 
 Original qualified test/docs head c8a3891daed62fa72f3c5a94f52a8517aeea85a6, actual main 36861c0cedd2275a6693058a788800fb613cd3cc. Preserve all currentmain changes and both checkpoint histories. Orchestration file contains exact original882 and884 assertion blocks in sequence, with base function unchanged. No application/library/schema/runtime or hardware change. Original exacthead actualPostgreSQL/core evidence independently reviewed; refreshed integrated-head required checks pending before approved merge. #304/#302 and broader stage/helper/recognition/resource acceptance remain open; no deployment.
 
+## Independent shared-stock audit race reproduced, narrow repair pending — October20Central
+
+Branch codex/trade-shared-stock-audit, draft887, new own-created bug888 (creation receipt under .local-data/goal-20261020). Pinned/current b810actualactions at4d9886d6 reproduce two valid distinct trades consuming2+2of4copies: actualsource reads4/4 on2connections, source rowquantity0persists and sourceaudits[[4,2],[4,0]]; desireddeletionfails. Negative39545279302/job119041949692; exactcleanup andother3checks pass. This is a zero-lot/stale-audit bug, not duplicatephysicalcopies, wishlist886or allwriters.
+
+Narrow action patch locks sorted unique InventoryItem IDs insideexistingtradecompletion transaction beforefreshquantity/ownerread. Tradefence, validation, destination/lot/provenance/rollback/confirmation policies unchanged. Realcurrentfixture preserves actualSQLand adaptsonlyauth/cache/post-queryobservation; a real lock passesnaturally, unlockedsourcefailsdeterministically. PositiveCIandexistingold/fixedtradeconcurrency pending. No localruntime/data/hardware/production/merge action. Next publishcurrentrepair, inspectactualnewstock/sourceaudit/conservation andexistingrollback/duplicate/corecontrols; no sourcehypothesisclaimedfixedbeforeevidence.
+
+Externalreadiness note:885andlater880becamenon-draft through ready_for_review events underthesharedGitHubaccount; thisworker didnotissue those transitions and doesnotinferhumanapproval/independentreviewfromthem. ExistingauthorCIandhostedcumulative39543224014/artifact12320214088nowfullyassessedPASS:1215sourceinputs,pinned880@8d0f6efe+885@e2907ca0,canonicalimage/source/resourceguards,1browsercase31.6s/no skips/retries/flakes,8complete backendrejections,84tableconservation,visualdesktop/320pxgiftinspectionandownedcleanup. Localreviewstillpendinga99owner; readinessstatepreservedratherthanoverwritten. No mergeauthorityinferred.
+
+
+## Independent PR887 integration - 2026-10-21T05:31:00.357Z
+
+Original c1d57c76987ecb9e207132d73bc5e2d0bc098470 combined with current main cd536f2e93bfb73ed389ab356df8cd28e8012d43. Exact sorted-stock-lock edit preserves current gifts, wishlist fix, trade fence and unchanged transaction options. Original source/dependency and real PostgreSQL evidence reviewed. Fresh exact-head six checks and canonical hosted cumulative browser/image/conservation qualification pending. #888 narrow; #309 broader remains open. No local runtime or deployment.
+
+## Bounded audit-history measurement and prevention batch — October 21, 2026 Central
+
+New branch codex/trade-audit-history-bounds starts from live main cd536f2e, after separate-review merges #885/#880/#882/#884. GitHub remains authoritative; earlier awaiting-merge notes are historical, and no other PR merge approval is inferred. #886 is closed by that review path; #887/#888 remain open. Runtime a99 remains retained and unchanged.
+
+Draft #889 / new own-created bug #890: actual pinned b810 and current cd536 action measurement at bdfe05c8,39548446852/job119051882572, produces source snapshot bytes2328,5690,12415,25865,52765,106565,214165,429365 in eight ordinary one-copy transfers,184.4times initial size and64embedded copies of the oldest audit row. Current bounded assertion fails; canonical row/copy/resident checks and exact cleanup pass. No historical resource cause or real data rewrite claimed. Receipt for own issue890 saved under goal-private directory.
+
+Narrow prevention removes four unused auditLogs relation loads, retaining all scalar attributes and canonical rows/JSON. Fixed profile seeds the actual old large snapshot as existing canonical history, then checks eight bounded partials plus a final full transfer, unchanged old JSON,36new audit rows, copy totals27/20, received attributes/destinations/resident and owned cleanup.31focused trade checks pass. Positive current CI and existing old/fixed trade safeguards pending. No laptop Docker/data/native/hardware, production or merge action. Next publish fix and inspect bounded positive/old-negative plus all exact-head checks; preserve all historical artifacts and unresolved scope.
+
+
+## Independent PR889 integration - 2026-10-21T06:01:02.757Z
+
+Original 4854f465582bad7fb5c73ee3b600c6d3be28b409 combined with main e133ddd8ab910092de7126f62f4d5f5b5b0a6775; exact four unused audit relation removals compose with sorted source-stock locks, gift/wishlist fixes and Trade fence. No historical data rewrite or schema/transaction/UI change. Original actual PG growth/bounded/history/conservation evidence reviewed; fresh seven exact-head and cumulative hosted canonical browser gates pending. Narrow890/broader309 remain distinct; no local runtime or deployment.
+
 ## P2 scanner lineage control — October 21, 2026
 Branch codex/scanner-provenance-304 from main cd536f2e. Adds joined scanner transfer/slot/photo/artifact/observation/candidate/canonical-job input checks for two equal-byte physical transfers, fresh-client ACK replay and conflicting-byte conservation. No runtime/schema changes. Exact hosted checks pending; local heavy qualification remains reserved by owner. Protocol/device metadata does not prove installed helper binary provenance; stage/native/release acceptance remains separate. Next: push draft, inspect actual execution and exact cleanup before claiming pass. Parent #304/#302 remain open; no merge authority.
+
+
+## Independent PR891 integration - 2026-10-21T06:32:01.569Z
+
+Original 9571d957e17bd9802dfea954d5454a4e59c75e5f combined with current main cf732d262702b1c330858a259b4a2cbbb26c9f40. Exact original scanner lineage assertion bytes retained; source map only replaces stale pending-CI text with actual original terminal evidence and current PR pointers. Production app/library/components/schema/dependencies/Docker/workflow are byte-identical to current main. Original four checks and actual scanner lineage/replay PASS independently inspected. Refreshed cumulative six-check Verify required before approved merge; no local heavy runtime. #304/#302 remain open for helper/native/stage/release acceptance; no deployment.
