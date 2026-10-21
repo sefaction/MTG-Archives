@@ -1,7 +1,7 @@
 import { acquisitionCollectorKey, acquisitionFooterObservations, type FooterSpatialReading } from "./acquisition-footer";
 import { acquisitionNameKey, acquisitionExactNameKeyEligible } from "./acquisition-name";
 export { acquisitionCollectorKey } from "./acquisition-footer";
-export const ACQUISITION_TEXT_RESOLVER_VERSION = "scanner-collector-alternatives-v19";
+export const ACQUISITION_TEXT_RESOLVER_VERSION = "scanner-positioned-footer-v20";
 
 // OCR similarity is not calibrated confidence. Strong exact metadata can confirm
 // a printing; it never establishes physical count, finish, condition or receipt.
