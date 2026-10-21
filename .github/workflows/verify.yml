@@ -156,6 +156,37 @@ jobs:
           npx prisma migrate deploy
           npx tsx scripts/ci/trade-gifts.ts
 
+  inventory-delete-reservations:
+    name: Inventory deletion reservation integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: inventory_delete_fixture
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d inventory_delete_fixture"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/inventory_delete_fixture?schema=public
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - run: npx tsx scripts/ci/inventory-delete-reservations.ts
+
   trade-wishlist-integrity:
     name: Trade wishlist PostgreSQL conservation
     runs-on: ubuntu-latest
