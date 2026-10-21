@@ -299,6 +299,53 @@ export async function verifyAcquisitionOrchestration(
     "PASS: durable exact 263/37 untouched and best-effort 263/37 retained, reversed delivery and reconnect",
   );
 
+  // P2's immutable evidence contract covers each declared dependency, rather
+  // than inferring model/catalog/index identity from a pipeline-only variant.
+  const contract = await create();
+  await command(contract.session.id, "START");
+  await ingestAcquisitionEvent(db, actor, contract.session.id, event(0));
+  const contractBefore = await getAcquisitionSession(db, actor, contract.session.id);
+  const stockBefore = await db.inventoryItem.findMany({ where: { currentOwnerId: base.ownerPlayerId }, orderBy: { id: "asc" } });
+  const variants: Array<Parameters<typeof enqueueAcquisitionProcessing>[3]["versions"]> = [{ ...versions }];
+  for (const field of ["pipeline", "runtime", "model", "catalog", "index"] as const)
+    variants.push({ ...versions, [field]: `${field}-changed` });
+  variants.push({ ...versions, execution: "GPU" });
+  const admitted = [];
+  for (const specification of variants) {
+    const submitted = { ...specification };
+    const enqueue = (inputVersions: typeof specification) => enqueueAcquisitionProcessing(db, actor, contract.session.id, {
+      artifactSourceId: "a0", physicalId: "c0", stage: "version-contract", versions: inputVersions,
+    });
+    const job = await enqueue(submitted);
+    submitted.model = "caller-mutated-after-enqueue";
+    const replay = await enqueue(Object.fromEntries(Object.entries(specification).reverse()) as typeof specification);
+    assert.equal(replay.id, job.id, "equivalent input field ordering must not create a different job");
+    assert.deepEqual(job.input, { version: 1, digest: "same-bytes-do-not-deduplicate-copies", versions: specification });
+    admitted.push(job);
+  }
+  assert.equal(new Set(admitted.map(job => job.id)).size, 7, "every declared dependency variant gets a distinct durable job");
+  assert.equal(new Set(admitted.map(job => job.versionKey)).size, 7);
+  assert.equal(new Set(admitted.map(job => job.candidateRevision)).size, 1);
+  const contractReconnect = new (db.constructor as typeof PrismaClient)();
+  try {
+    const claimed = await claimAcquisitionJobs(contractReconnect, { workerId: "version-contract-reconnect", stages: ["version-contract"], limit: 7 }, new Date(Date.now() + 1000));
+    assert.equal(claimed.length, 7);
+    for (const job of claimed) {
+      const original = admitted.find(item => item.id === job.id)!;
+      assert.deepEqual(job.input, original.input, "fresh worker reads the admitted immutable input, not the caller's later mutation");
+      const output = { fixture: "version-contract", boundInput: job.input as any };
+      assert.equal(await completeAcquisitionJob(contractReconnect, job, output), "COMPLETE");
+      const saved = await contractReconnect.acquisitionProcessingJob.findUniqueOrThrow({ where: { id: job.id } });
+      assert.deepEqual(saved.output, output);
+      assert.deepEqual(saved.input, original.input);
+    }
+    assert.deepEqual(await getAcquisitionSession(contractReconnect, actor, contract.session.id), contractBefore, "generic evidence completion does not change human decisions or physical candidates");
+    assert.deepEqual(await contractReconnect.inventoryItem.findMany({ where: { currentOwnerId: base.ownerPlayerId }, orderBy: { id: "asc" } }), stockBefore);
+  } finally {
+    await contractReconnect.$disconnect();
+  }
+  console.log("PASS: pipeline/runtime/model/catalog/index/execution job identities, immutable input and bound output survive reconnect without Inventory writes");
+
   const work = await create();
   await command(work.session.id, "START");
   await ingestAcquisitionEvent(db, actor, work.session.id, event(147));
