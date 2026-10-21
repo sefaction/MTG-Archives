@@ -1105,6 +1105,7 @@ export default async function TradesPage({
                 proposerOwnerId={proposerId}
                 receiverPlayerId={receiverId}
                 counterTradeId={params.counterTradeId}
+                allowWholeDecks={proposerId === user.playerId}
                 proposerName={
                   players.find((player) => player.id === proposerId)
                     ?.displayName || "You"

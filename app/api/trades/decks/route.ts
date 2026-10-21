@@ -40,7 +40,7 @@ export async function GET(request: Request) {
       const review = await prisma.$transaction(async tx => {
         await assertDeckUnreserved(tx, deckId, counterId);
         const source = await readTradeDeck(tx, deckId, ownerId);
-        return tradeDeckReview(source.snapshot, source.digest);
+        return tradeDeckReview(source.snapshot, source.digest, source.stock.map(item => item.card));
       });
       return NextResponse.json({ review });
     } catch (error) {

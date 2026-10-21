@@ -3,7 +3,7 @@ import type { TradeDeckSnapshot } from "./deck-trade-policy";
 export type TradeDeckReview = {
   deckId: string; digest: string; name: string; format: string; description: string | null;
   cards: { cardId: string | null; scryfallId: string | null; name: string; section: string; quantity: number; isCommander: boolean }[];
-  commitments: { cardId: string; foilStatus: string; condition: string; language: string; quantity: number }[];
+  commitments: { cardId: string; name: string; printingLabel: string | null; scryfallId: string | null; foilStatus: string; condition: string; language: string; quantity: number }[];
   committedCopies: number; listedCopies: number; maybeboardCopies: number;
 };
 export type TradeDeckSearchItem = { deckId: string; name: string; format: string; listEntries: number; blockedReason: string | null };
@@ -11,15 +11,20 @@ export type TradeDeckSearchItem = { deckId: string; name: string; format: string
 /** Only display fields cross the client boundary. The opaque review digest
  * still binds the complete source, without exposing stock IDs, private notes,
  * provenance identities, folders/tags or storage organization. */
-export function tradeDeckReview(snapshot: TradeDeckSnapshot, digest: string): TradeDeckReview {
+export function tradeDeckReview(snapshot: TradeDeckSnapshot, digest: string,
+  publicCatalog: readonly { id: string; name: string; setCode: string; collectorNumber: string; scryfallId: string }[] = []): TradeDeckReview {
   const cards = snapshot.cards.map(card => ({ cardId: typeof card.cardId === "string" ? card.cardId : null,
     scryfallId: typeof card.scryfallId === "string" ? card.scryfallId : null,
     name: String(card.cardName), section: String(card.section), quantity: Number(card.quantity), isCommander: card.isCommander === true,
   }));
   const grouped = new Map<string, TradeDeckReview["commitments"][number]>();
+  const catalog = new Map(publicCatalog.map(card => [card.id, card]));
   for (const item of snapshot.stock) {
     if (Number(item.quantity) <= 0) continue;
-    const physical = { cardId: String(item.cardId), foilStatus: String(item.foilStatus), condition: String(item.condition),
+    const cardId = String(item.cardId), printed = catalog.get(cardId);
+    const physical = { cardId, name: printed?.name ?? cards.find(card => card.cardId === cardId)?.name ?? "Unlisted committed printing",
+      printingLabel: printed ? `${printed.setCode.toUpperCase()} #${printed.collectorNumber}` : null, scryfallId: printed?.scryfallId ?? null,
+      foilStatus: String(item.foilStatus), condition: String(item.condition),
       language: String(item.language), quantity: Number(item.quantity) };
     const key = JSON.stringify([physical.cardId, physical.foilStatus, physical.condition, physical.language]);
     const current = grouped.get(key);
