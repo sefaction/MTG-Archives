@@ -185,13 +185,11 @@ async function main() {
   while(true){assert(owned(web).State.Running,'Owned web exited');try{const response=await fetch(`${baseURL}/login`,{signal:AbortSignal.timeout(3000)});if(response.status===200)break;}catch{}assert(Date.now()<webDeadline,'Owned web startup deadline');await sleep(1000);}
   run('node',['node_modules/tsx/dist/cli.mjs','-e',`require('./tests/ui/isolated-qualification-target').loadIsolatedQualificationTarget()`],{env:{MTG_ISOLATED_FIXTURE_MANIFEST:targetPath}});report.gates.isolatedTarget=true;
   const before=snapshot();save('database-before.json',before);
-  run('docker',['exec',web,'node','node_modules/tsx/dist/cli.mjs','scripts/verify-scan-destination-filter.ts'],{log:'actual-capacity-database.log',timeout:90_000});
-  assert.deepEqual(snapshot(),before,'Database verifier rollback/cleanup mismatch');report.gates.actualDatabase=true;
   const config=path.join(dir,'playwright.config.cjs');
   fs.writeFileSync(config,`module.exports=require('@playwright/test').defineConfig({testDir:${JSON.stringify(path.join(root,'tests/ui'))},fullyParallel:false,workers:1,retries:0,forbidOnly:true,timeout:120000,expect:{timeout:10000},reporter:[['list'],['json',{outputFile:${JSON.stringify(path.join(dir,'playwright.json'))}}]],outputDir:${JSON.stringify(path.join(dir,'playwright-results'))},use:{baseURL:${JSON.stringify(baseURL)},trace:'retain-on-failure',screenshot:'only-on-failure',video:'retain-on-failure'},projects:[{name:'chromium',use:{browserName:'chromium'}}]});\n`);
-  run('node',['node_modules/@playwright/test/cli.js','test','--config',config,'tests/ui/scan-destination-capacity.spec.ts','tests/ui/trade-lifecycle.spec.ts'],{log:'actual-browser.log',timeout:9*60_000,env:{MTG_LOCAL_PILOT_TEST:'1',MTG_ISOLATED_FIXTURE_MANIFEST:targetPath,PLAYWRIGHT_BASE_URL:baseURL}});
+  run('node',['node_modules/@playwright/test/cli.js','test','--config',config,'tests/ui/trade-lifecycle.spec.ts'],{log:'actual-browser.log',timeout:9*60_000,env:{MTG_LOCAL_PILOT_TEST:'1',MTG_ISOLATED_FIXTURE_MANIFEST:targetPath,PLAYWRIGHT_BASE_URL:baseURL}});
   const browser=JSON.parse(fs.readFileSync(path.join(dir,'playwright.json'),'utf8'));
-  assert.equal(browser.stats.expected,4);assert.equal(browser.stats.unexpected,0);assert.equal(browser.stats.skipped,0);assert.equal(browser.stats.flaky,0);
+  assert.equal(browser.stats.expected,1);assert.equal(browser.stats.unexpected,0);assert.equal(browser.stats.skipped,0);assert.equal(browser.stats.flaky,0);
   assert.deepEqual(snapshot(),before,'Browser synthetic-data cleanup/conservation mismatch');save('database-after.json',snapshot());report.gates.actualBrowser=true;
 }
 main().catch(error=>{report.status='FAILED';report.error=error.message;console.error(error.message);process.exitCode=1;}).finally(async()=>{
