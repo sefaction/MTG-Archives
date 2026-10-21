@@ -1,6 +1,6 @@
 import { assertCanCounterTrade } from "./trade-policy";
 import { randomUUID } from "node:crypto";
-import { TradeLineSide, type Prisma } from "@prisma/client";
+import { Prisma, TradeLineSide } from "@prisma/client";
 import { snapshotTradeDeck, normalizeDeckReceipt, DeckTradeValidationError, type TradeDeckSelection } from "./deck-trade-policy";
 import { findSystemDeckLocation } from "./deck-inventory";
 import { resolveDeckVisibility } from "./visibility";
@@ -8,6 +8,8 @@ import { resolveDeckVisibility } from "./visibility";
 type Tx = Prisma.TransactionClient;
 export { activeDeckTradeStatuses, lockDeckOwners, lockDeckRows, assertDeckUnreserved, lockWritableDeck } from "./deck-write-fence";
 import { lockDeckOwners, lockDeckRows, assertDeckUnreserved, DeckTradeWriteError } from "./deck-write-fence";
+import { buildReservedInventoryQuantities } from "./trade-lines";
+import { activeDeckTradeStatuses } from "./deck-write-fence";
 export async function readTradeDeck(tx: Tx, deckId: string, expectedOwnerPlayerId: string) {
   const deck = await tx.deck.findUnique({ where: { id: deckId }, include: {
     cards: true, tags: { select: { tagId: true } }, deckLocation: true,
@@ -138,4 +140,47 @@ export async function revalidatePreparedTradeDecks(tx: Tx, bundles: PreparedTrad
       throw new DeckTradeValidationError("A selected deck changed. Refresh and review its complete contents before proposing it.");
     return { ...bundle, source: current };
   }));
+}
+
+/** The caller holds the Trade lock (or created it in this transaction), then
+ * prepares sources under owner/deck gates. Reserve complete positive lots only
+ * after locking every source row, including zero metadata rows. This helper is
+ * deliberately not an action: proposal/event/counter writes must share its tx. */
+export async function reservePreparedTradeDecks(tx: Tx, tradeId: string, prepared: PreparedTradeDeck[], ignoredTradeId?: string) {
+  if (!prepared.length) return [];
+  const ids = [...new Set(prepared.flatMap(bundle => bundle.source.stock.map(item => item.id)))].sort();
+  for (let offset = 0; offset < ids.length; offset += 500) {
+    await tx.$queryRaw(Prisma.sql`SELECT id FROM "InventoryItem" WHERE id IN (${Prisma.join(ids.slice(offset, offset + 500))}) ORDER BY id FOR UPDATE`);
+  }
+  const bundles = await revalidatePreparedTradeDecks(tx, prepared);
+  const trade = await tx.trade.findUnique({ where: { id: tradeId }, select: {
+    proposerPlayerId: true, receiverPlayerId: true, createdByUserId: true, status: true,
+  } });
+  if (!trade || trade.status !== "PROPOSED" || bundles.some(bundle =>
+    bundle.source.snapshot.ownerPlayerId !== (bundle.side === "PROPOSER" ? trade.proposerPlayerId : trade.receiverPlayerId) ||
+    (bundle.side === "PROPOSER" && bundle.source.deck.ownerUserId !== trade.createdByUserId)))
+    throw new DeckTradeValidationError("The whole-deck offer no longer matches its participants.");
+  const [lines, legacy] = await Promise.all([
+    tx.tradeLine.findMany({ where: { inventoryItemId: { in: ids }, trade: {
+      status: { in: activeDeckTradeStatuses }, ...(ignoredTradeId ? { id: { not: ignoredTradeId } } : {}),
+    } }, select: { inventoryItemId: true, quantity: true } }),
+    tx.trade.findMany({ where: { status: { in: activeDeckTradeStatuses }, lines: { none: {} },
+      ...(ignoredTradeId ? { id: { not: ignoredTradeId } } : {}),
+      OR: [{ offeredInventoryItemId: { in: ids } }, { requestedInventoryItemId: { in: ids } }],
+    }, select: { offeredInventoryItemId: true, requestedInventoryItemId: true } }),
+  ]);
+  const reserved = buildReservedInventoryQuantities(lines, legacy);
+  if (bundles.some(bundle => bundle.source.stock.some(item => item.quantity > 0 && (reserved.get(item.id) ?? 0) > 0)))
+    throw new DeckTradeValidationError("One or more whole-deck copies are already reserved or unavailable.");
+  for (const bundle of bundles) {
+    await assertDeckUnreserved(tx, bundle.deckId, ignoredTradeId);
+    await tx.tradeDeckBundle.create({ data: { id: bundle.id, tradeId, deckId: bundle.deckId,
+      side: bundle.side, position: bundle.position, snapshotJson: bundle.source.snapshot, snapshotDigest: bundle.source.digest } });
+    const lots = bundle.source.stock.filter(item => item.quantity > 0);
+    if (lots.length) await tx.tradeLine.createMany({ data: lots.map((item, position) => ({
+      tradeId, side: bundle.side, deckBundleId: bundle.id, inventoryItemId: item.id,
+      quantity: item.quantity, position, snapshotJson: bundle.source.snapshot.stock.find(row => row.id === item.id)!,
+    })) });
+  }
+  return bundles;
 }

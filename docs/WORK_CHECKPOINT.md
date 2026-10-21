@@ -9592,3 +9592,6 @@ Next full feature stages still required: audit remaining overlapping storage/Lea
 ## Reviewed source preparation — October21,2026
 1603fb55 Verify39615580177 all7PASS, actual stock fixture logs inspected: active positive/zero Delete and admin cleanup preserve complete deck graph, terminal cleanup works, exact fixture removal. New prepared-source helper binds displayed digest, enforces actual User authority despite shared Player, multiple decks both sides, private owner consent in counters, and stale-source rollback. Seven focused policy tests PASS; new PostgreSQL controls pending qualification. Proposal/completion/UI remain unwired;881 stays draft/in progress. No local runtime change or merge.
 
+
+Prepared-source b30c9b28 Verify39618012969: real PostgreSQL stock controls PASS; Core failed TS7034/TS7005 in new fixture extraSelections inference. Explicit typed selection array fixes this without expectation changes. Added internal complete-bundle reservation helper (not an enabled action), real four-deck/55-lot writes, injected post-write rollback, replay refusal, zero/list-only no-lot coverage and exact stock/audit conservation controls. Fresh qualification pending; full feature proposal/completion/UI still required.
+

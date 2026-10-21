@@ -6,7 +6,7 @@ import path from "node:path";
 import ts from "typescript";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { readTradeDeck, lockTradeDeckSources, assertDeckUnreserved, lockWritableDeck, validateDeckReceipt,
-  prepareTradeDeckBundles, revalidatePreparedTradeDecks } from "../../lib/deck-trade-store";
+  prepareTradeDeckBundles, revalidatePreparedTradeDecks, reservePreparedTradeDecks } from "../../lib/deck-trade-store";
 
 assert.equal(process.env.GITHUB_ACTIONS, "true");
 assert.equal(process.env.RUNNER_ENVIRONMENT, "github-hosted");
@@ -194,7 +194,7 @@ async function run() {
   await db.trade.update({ where: { id: parent.id }, data: { status: "CANCELLED" } });
   await db.deck.update({ where: { id: partnerDeckId }, data: { visibility: "PUBLIC" } });
   const publicPartner = await readTradeDeck(db as unknown as Prisma.TransactionClient, partnerDeckId, owners[1]);
-  const extraSelections = [];
+  const extraSelections: { deckId: string; digest: string }[] = [];
   for (let index = 0; index < 2; index++) {
     const id = tag + "-extra-deck-" + index; fixtureDeckIds.push(id);
     await db.deck.create({ data: { id, ownerUserId: users[index], name: "Another complete deck", visibility: index ? "PUBLIC" : "PRIVATE" } });
@@ -214,6 +214,29 @@ async function run() {
   console.log("PASS deck source preparation: exact displayed digests, two decks per side, actual User authority despite shared Player, private request denial/owner-consented counter, recipient settings and stale-source rollback");
   assert.deepEqual(await db.inventoryItem.findMany({ where: { locationId }, orderBy: { id: "asc" } }), stock);
   assert.deepEqual(await db.inventoryAuditLog.findMany({ orderBy: { id: "asc" } }), audits);
+  const reservation = await makeTrade();
+  const reserve = async (tx: Prisma.TransactionClient) => {
+    await tx.$queryRaw`SELECT id FROM "Trade" WHERE id=${reservation.id} FOR UPDATE`;
+    const selected = await prepareTradeDeckBundles(tx, { ...proposal,
+      offered: [selection, extraSelections[0]], requested: [{ deckId: partnerDeckId, digest: publicPartner.digest }, extraSelections[1]],
+    });
+    return reservePreparedTradeDecks(tx, reservation.id, selected);
+  };
+  await assert.rejects(db.$transaction(async tx => { await reserve(tx); throw new Error("Injected after real bundle writes"); }), /Injected after real bundle writes/);
+  assert.equal(await db.tradeDeckBundle.count({ where: { tradeId: reservation.id } }), 0);
+  assert.equal(await db.tradeLine.count({ where: { tradeId: reservation.id } }), 0);
+  await db.$transaction(reserve);
+  assert.equal(await db.tradeDeckBundle.count({ where: { tradeId: reservation.id } }), 4);
+  const reservedLots = await db.tradeLine.findMany({ where: { tradeId: reservation.id }, orderBy: { inventoryItemId: "asc" } });
+  assert.equal(reservedLots.length, 55, "list-only and zero rows create no physical lot claims; all 55 positive lots remain indivisible");
+  assert.deepEqual(reservedLots.map(line => [line.inventoryItemId, line.quantity]), stock.filter(item => item.quantity > 0).map(item => [item.id, item.quantity]));
+  assert.ok(reservedLots.every(line => line.deckBundleId));
+  await assert.rejects(db.$transaction(reserve), /reserved in an active trade/);
+  assert.equal(await db.tradeDeckBundle.count({ where: { tradeId: reservation.id } }), 4);
+  await db.trade.update({ where: { id: reservation.id }, data: { status: "CANCELLED" } });
+  assert.deepEqual(await db.inventoryItem.findMany({ where: { locationId }, orderBy: { id: "asc" } }), stock);
+  assert.deepEqual(await db.inventoryAuditLog.findMany({ orderBy: { id: "asc" } }), audits);
+  console.log("PASS real bundle admission: four complete decks, all 55 positive lots beyond loose-card limits, zero/list-only preservation, actual write rollback and replay refusal without Inventory/audit mutation");
   fixtureAdminMode = true;
   try { await inventoryActions.cleanupZeroQuantityInventory(form({ reason: "Terminal deck cleanup positive control" })); }
   finally { fixtureAdminMode = false; }
