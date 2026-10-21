@@ -12,7 +12,7 @@ assert(!process.env.DOCKER_HOST || process.env.DOCKER_HOST.startsWith('unix://')
 const root = process.cwd(), out = path.join(root,'.local-data/trade-concurrency');
 fs.mkdirSync(out,{recursive:true});
 const runId = crypto.randomUUID(), label = `mtg-trade-concurrency=${runId}`;
-const owned = [], evidence = {runId,head:process.env.GITHUB_SHA,commands:[],cleanup:[],status:'running'};
+const owned = [], evidence = {runId,head:process.env.EXPECTED_SOURCE_SHA,eventSha:process.env.GITHUB_SHA,commands:[],cleanup:[],status:'running'};
 let network;
 function run(exe,args,options={}) {
   const r = cp.spawnSync(exe,args,{encoding:'utf8',timeout:options.timeout ?? 120000,maxBuffer:16*1024*1024,...options});
@@ -26,7 +26,7 @@ function inspect(kind,id) {return JSON.parse(docker(kind,'inspect',id))[0];}
 function check(id) {const value=inspect('container',id);assert.equal(value.Id,id);assert.equal(value.Config.Labels['mtg-trade-concurrency'],runId);return value;}
 function create(args) {const id=docker('create','--label',label,...args);assert.match(id,/^[a-f0-9]{64}$/);owned.push(id);check(id);return id;}
 const sourceSha=run('git',['rev-parse','HEAD']);
-assert.equal(sourceSha,process.env.GITHUB_SHA);
+assert.equal(sourceSha,process.env.EXPECTED_SOURCE_SHA);
 const baseline='f32ebffbec91d5488e7e3318510d446bdc3d80d7';
 fs.writeFileSync(path.join(out,'baseline-actions.ts'),run('git',['show',`${baseline}:app/trades/actions.ts`])+'\n');
 evidence.sources = Object.fromEntries(['app/trades/actions.ts','scripts/ci/trade-concurrency.ts','scripts/ci/trade-concurrency-runner.cjs','prisma/schema.prisma'].map(name=>[name,crypto.createHash('sha256').update(fs.readFileSync(name)).digest('hex')]));
@@ -47,7 +47,12 @@ try {
     const value=check(id); assert.equal(value.HostConfig.NetworkMode,network);assert(value.Mounts.every(m=>m.Type!=='bind'||m.RW===false));assert.deepEqual(value.HostConfig.PortBindings,{});
     let failure;
     try {docker('start','--attach',id);assert.equal(check(id).State.ExitCode,0);}catch(error){failure=error;}
-    try {docker('cp',`${id}:/tmp/report.json`,path.join(out,`${mode}-report.json`));}catch(error){failure ??=error;}
+    try {
+      const logs=docker('logs',id);
+      const report=logs.split('\n').find(line=>line.startsWith('TRADE_REPORT='));
+      assert(report,'action report required');
+      fs.writeFileSync(path.join(out,`${mode}-report.json`),JSON.stringify(JSON.parse(report.slice('TRADE_REPORT='.length)),null,2));
+    }catch(error){failure ??=error;}
     evidence[mode]={container:id,exit:check(id).State.ExitCode};
     if(failure) throw failure;
   };

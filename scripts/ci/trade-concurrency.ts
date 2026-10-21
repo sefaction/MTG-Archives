@@ -116,6 +116,7 @@ function assertOnce(f: Awaited<ReturnType<typeof fixture>>, s: Awaited<ReturnTyp
   }
 }
 const results: any[] = [];
+async function main() {
 try {
   assert.equal(await p.user.count(),0,'empty synthetic database required');
   for (const mode of ['duplicate','simultaneous','admin-overlap']) {
@@ -149,6 +150,8 @@ try {
   await assert.rejects(call(denial,2),/Only trade participants/);
   results.push({mode:'authorization-and-destination',passed:true});
 } finally {
-  writeFileSync(process.env.TRADE_REPORT ?? '/tmp/trade-report.json',JSON.stringify({head:process.env.SOURCE_SHA,actionSha256:createHash('sha256').update(source).digest('hex'),adapters:['auth request identity','next cache invalidation'],results,observations},null,2));
+  console.log('TRADE_REPORT='+JSON.stringify({head:process.env.SOURCE_SHA,actionSha256:createHash('sha256').update(source).digest('hex'),adapters:['auth request identity','next cache invalidation'],results,observations}));
   await p.$disconnect();
 }
+}
+main().catch(error=>{console.error(error);process.exitCode=1;});
