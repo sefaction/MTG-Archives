@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { scannerCapacityDestinations, readScannerCapacity } from "../lib/scanner-capacity";
 import { getStorageLocations } from "../lib/storage-summary";
@@ -48,9 +48,6 @@ async function verify() {
       await tx.acquisitionSession.create({ data: { createdByUserId: tag, ownerPlayerId: foreignOwner,
         locationId: foreign.id, section: "", requestKey: randomUUID(), requestPayload: "fixture",
         placement: {}, policy: {}, scannerReserved: 100 } });
-      const agent = await tx.scannerAgent.create({ data: { id: tag, userId: tag,
-        tokenHash: tag, credentialHash: "fixture-only", name: tag, expiresAt: new Date(Date.now() + 60000) } });
-
       async function session(input: { section: string; reserved: number; candidates?: number;
         slots?: number; committed?: number; trashed?: boolean; deleted?: boolean; status?: string }) {
         const created = await tx.acquisitionSession.create({ data: {
@@ -79,9 +76,18 @@ async function verify() {
               commitId: receipt.id, inventoryItemId: stock.id, snapshot: {} } });
           }
         }
-        if (input.status) await tx.scannerRun.create({ data: { id: randomUUID(), agentId: agent.id,
-          acquisitionRunId: runId, epoch: randomUUID(), requestPayload: "fixture", deviceId: "fixture",
-          device: {}, settings: {}, status: input.status } });
+        if (input.status) {
+          // Each unresolved run needs a distinct agent under the real partial
+          // unique index. Tokens and execution IDs must satisfy SQL constraints.
+          const agentId = randomUUID();
+          const agent = await tx.scannerAgent.create({ data: { id: agentId, userId: tag,
+            tokenHash: createHash("sha256").update(agentId).digest("hex"),
+            credentialHash: "fixture-only", name: tag, expiresAt: new Date(Date.now() + 60000) } });
+          await tx.scannerRun.create({ data: { id: randomUUID(), agentId: agent.id,
+            acquisitionRunId: runId, epoch: randomUUID(), requestPayload: "fixture", deviceId: "fixture",
+            device: {}, settings: {}, loadedCount: 1, status: input.status,
+            executionId: input.status === "QUEUED" ? null : randomUUID() } });
+        }
       }
 
       await session({ section: " A ", reserved: 5, candidates: 3, slots: 4, committed: 1 }); // 4 held
