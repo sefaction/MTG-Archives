@@ -31,7 +31,10 @@ function barrier(name: string) {
 }
 function wrap(client: any, transaction = false): any {
   return new Proxy(client, {get(target, key) {
-    if (key === '$transaction') return (fn: any) => target.$transaction((tx: any) => fn(wrap(tx, true)), {maxWait:10000, timeout:20000});
+    if (key === '$transaction') return (fn: any, options: any) => {
+      observations.push({transactionOptions:options ?? null});
+      return target.$transaction(typeof fn === 'function' ? (tx: any) => fn(wrap(tx, true)) : fn, options);
+    };
     const value = target[key];
     if (typeof key === 'string' && ['trade','inventoryItem'].includes(key)) return new Proxy(value, {get(model, method) {
       const fn = model[method];

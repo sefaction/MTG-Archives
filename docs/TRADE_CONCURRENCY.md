@@ -27,5 +27,31 @@ exact run labels before removing only owned containers and anonymous volumes.
 No local or server service, production data, external credential or paid resource
 is used. Reports record source SHA/hashes, scenario outcomes, barriers and cleanup.
 
-Initial publication is reproduction-only, with no product edit. Hosted results,
-failed attempts and any supported fix will be recorded here before readiness.
+## Reproduction and bounded repair
+
+Run [39529514059](https://github.com/sefaction/MTG-Archives/actions/runs/39529514059)
+on exact `669e31bdcab2b79b4fca108e253975ba7a25e342` reproduced duplicate
+completion for duplicate final confirmations and admin/participant overlap:
+two events, four received lots, eight audits, source quantities 6/6 instead of
+8/9. The simultaneous-participant control transferred once. Inventory rollback
+and destination/authorization denials passed, as did exact-owned cleanup.
+This initial harness explicitly extended transaction timeout to 20 seconds;
+the final harness forwards the application's transaction options/defaults
+unchanged and reruns the old-source failure control alongside the repair.
+Narrow bug [#878](https://github.com/sefaction/MTG-Archives/issues/878) records it.
+
+Completion now locks the trade row within its transaction before loading fresh
+status, confirmations, destinations and source references. A participant's
+confirmation is conditional on physical-exchange status and that participant's
+timestamp remaining null. A stale request cannot overwrite a completed trade
+or emit another confirmation event. Existing explicit destination validation,
+admin reason/authority, provenance and receipt services remain in place.
+Transfer failure retains the preexisting separately saved confirmation; the
+inventory/receipt/completion transaction rolls back. This is not a new guarantee
+that confirmation and transfer are one transaction.
+
+The first run39529269677 failed before action execution because the fixture used
+top-level await under CommonJS. Its cleanup passed. The repaired harness wraps
+async execution and explicitly checks out the PR head rather than GitHub's
+synthetic merge commit. Failed artifacts remain retained. The fixed-head hosted
+run, exact-head normal CI and independent review remain required.

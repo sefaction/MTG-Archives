@@ -7,6 +7,7 @@ import {
   TradeLineSide,
   TradeStatus,
   TradeWishlistStatus,
+  type Prisma,
 } from "@prisma/client";
 import { ensureDefaultLocation } from "@/lib/inventory-locations";
 import { revalidatePath } from "next/cache";
@@ -208,8 +209,11 @@ function tradeLinesFromForm(fd: FormData) {
   }
 }
 
-async function loadTradeForAction(tradeId: string) {
-  const trade = await prisma.trade.findUnique({
+async function loadTradeForAction(
+  tradeId: string,
+  store: Pick<Prisma.TransactionClient, "trade"> = prisma,
+) {
+  const trade = await store.trade.findUnique({
     where: { id: tradeId },
     include: {
       proposerPlayer: true,
@@ -698,36 +702,39 @@ async function completeTradeIfReady(
   actorUserId: string,
   force = false,
 ) {
-  const trade = await loadTradeForAction(tradeId);
-  if (isTerminalTradeStatus(trade.status)) return;
-  if (!force && (!trade.proposerCommittedAt || !trade.receiverCommittedAt))
-    return;
-  const lines = trade.lines.length
-    ? trade.lines.map((line) => ({
-        side: line.side,
-        inventoryItem: line.inventoryItem,
-        quantity: line.quantity,
-      }))
-    : [
-        {
-          side: TradeLineSide.PROPOSER,
-          inventoryItem: trade.offeredInventoryItem,
-          quantity: 1,
-        },
-        {
-          side: TradeLineSide.RECEIVER,
-          inventoryItem: trade.requestedInventoryItem,
-          quantity: 1,
-        },
-      ];
-  if (
-    !lines.length ||
-    lines.some((line) => !line.inventoryItem || line.quantity < 1)
-  ) {
-    throw new Error("One or more traded cards are no longer available.");
-  }
-  const reason = `Completed trade between ${trade.proposerPlayer.displayName} and ${trade.receiverPlayer.displayName}`;
   await prisma.$transaction(async (tx) => {
+    // Serialize every completion of this trade, including admin overrides. Read
+    // readiness, destinations and stock only after the previous completer commits.
+    await tx.$queryRaw`SELECT "id" FROM "Trade" WHERE "id" = ${tradeId} FOR UPDATE`;
+    const trade = await loadTradeForAction(tradeId, tx);
+    if (isTerminalTradeStatus(trade.status)) return;
+    if (!force && (!trade.proposerCommittedAt || !trade.receiverCommittedAt))
+      return;
+    const lines = trade.lines.length
+      ? trade.lines.map((line) => ({
+          side: line.side,
+          inventoryItem: line.inventoryItem,
+          quantity: line.quantity,
+        }))
+      : [
+          {
+            side: TradeLineSide.PROPOSER,
+            inventoryItem: trade.offeredInventoryItem,
+            quantity: 1,
+          },
+          {
+            side: TradeLineSide.RECEIVER,
+            inventoryItem: trade.requestedInventoryItem,
+            quantity: 1,
+          },
+        ];
+    if (
+      !lines.length ||
+      lines.some((line) => !line.inventoryItem || line.quantity < 1)
+    ) {
+      throw new Error("One or more traded cards are no longer available.");
+    }
+    const reason = `Completed trade between ${trade.proposerPlayer.displayName} and ${trade.receiverPlayer.displayName}`;
     const itemIds = lines.map((line) => line.inventoryItem!.id);
     const currentItems = await tx.inventoryItem.findMany({
       where: { id: { in: itemIds } },
@@ -737,11 +744,6 @@ async function completeTradeIfReady(
         auditLogs: true,
       },
     });
-    const currentTrade = await tx.trade.findUnique({
-      where: { id: tradeId },
-      select: { status: true },
-    });
-    if (!currentTrade || isTerminalTradeStatus(currentTrade.status)) return;
     const currentById = new Map(currentItems.map((item) => [item.id, item]));
     const resolvedLines = lines.map((line) => {
       const item = currentById.get(line.inventoryItem!.id);
@@ -952,10 +954,19 @@ export async function confirmPhysicalTrade(fd: FormData) {
     );
   }
   await prisma.$transaction(async (tx) => {
-    await tx.trade.update({
-      where: { id: trade.id },
+    const confirmed = await tx.trade.updateMany({
+      where: {
+        id: trade.id,
+        status: { in: physicalStatuses },
+        ...(actor.playerId === trade.proposerPlayerId
+          ? { proposerCommittedAt: null }
+          : { receiverCommittedAt: null }),
+      },
       data,
     });
+    if (confirmed.count !== 1) {
+      throw new Error("This physical exchange was already confirmed or is no longer awaiting confirmation.");
+    }
     await recordTradeEvent(tx, {
       tradeId: trade.id,
       eventType,

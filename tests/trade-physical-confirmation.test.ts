@@ -21,7 +21,7 @@ const code = ts.transpileModule(
   { compilerOptions: { target: ts.ScriptTarget.ES2022 } },
 ).outputText;
 
-function fixture(side = "proposer", overrides: Record<string, unknown> = {}) {
+function fixture(side = "proposer", overrides: Record<string, unknown> = {}, confirmationCount = 1) {
   const trade = {
     id: "trade",
     status: TradeStatus.ACCEPTED_PENDING_EXCHANGE,
@@ -43,7 +43,7 @@ function fixture(side = "proposer", overrides: Record<string, unknown> = {}) {
   ];
   const updates: any[] = [], events: any[] = [], completions: any[] = [], queries: any[] = [];
   let transactions = 0;
-  const tx = { trade: { update: async (query: any) => { updates.push(query); } } };
+  const tx = { trade: { updateMany: async (query: any) => { updates.push(query); return { count: confirmationCount }; } } };
   const context = vm.createContext({
     FormData, Date, TradeStatus, InventoryLocationKind,
     physicalStatuses: [TradeStatus.ACCEPTED_PENDING_EXCHANGE, TradeStatus.PARTIALLY_COMMITTED],
@@ -97,6 +97,8 @@ for (const side of ["proposer", "receiver"]) {
       assert.equal(f.updates[0].data[`${side}DestinationLocationId`], "chosen");
       assert.ok(f.updates[0].data[`${side}CommittedAt`] instanceof Date);
       assert.equal(f.updates[0].data.status, TradeStatus.PARTIALLY_COMMITTED);
+      assert.deepEqual(Array.from(f.updates[0].where.status.in), [TradeStatus.ACCEPTED_PENDING_EXCHANGE, TradeStatus.PARTIALLY_COMMITTED]);
+      assert.equal(f.updates[0].where[`${side}CommittedAt`], null);
       assert.equal(f.events[0].eventType, `${side}_confirmed_physical_exchange`);
       assert.equal(Boolean(f.events[0].notification), !otherConfirmed);
       assert.deepEqual(f.completions[0], ["trade", "actor"]);
@@ -107,6 +109,12 @@ for (const side of ["proposer", "receiver"]) {
     const f = fixture(side, { [`${side}CommittedAt`]: new Date() });
     await assert.rejects(f.submit("chosen"), /already confirmed/);
     assert.equal(f.transactions, 0);
+    assert.equal(f.completions.length, 0);
+  });
+  test(`${side} rejects a stale confirmation without an event or completion`, async () => {
+    const f = fixture(side, {}, 0);
+    await assert.rejects(f.submit("chosen"), /already confirmed or is no longer awaiting/);
+    assert.equal(f.events.length, 0);
     assert.equal(f.completions.length, 0);
   });
 }
