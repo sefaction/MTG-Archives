@@ -222,3 +222,5 @@ jobs:
           mkdir -p .local-data/trade-stock
           git show b810f06a18f1e358b970bccf8093e4b1026eeb66:app/trades/actions.ts > .local-data/trade-stock/baseline-actions.ts
       - run: npx tsx scripts/ci/trade-shared-stock.ts
+      - name: Concurrent proposals respect available physical stock
+        run: npx tsx scripts/ci/trade-proposal-reservations.ts
