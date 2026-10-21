@@ -9476,3 +9476,16 @@ Externalreadiness note:885andlater880becamenon-draft through ready_for_review ev
 ## Independent PR887 integration - 2026-10-21T05:31:00.357Z
 
 Original c1d57c76987ecb9e207132d73bc5e2d0bc098470 combined with current main cd536f2e93bfb73ed389ab356df8cd28e8012d43. Exact sorted-stock-lock edit preserves current gifts, wishlist fix, trade fence and unchanged transaction options. Original source/dependency and real PostgreSQL evidence reviewed. Fresh exact-head six checks and canonical hosted cumulative browser/image/conservation qualification pending. #888 narrow; #309 broader remains open. No local runtime or deployment.
+
+## Bounded audit-history measurement and prevention batch — October 21, 2026 Central
+
+New branch codex/trade-audit-history-bounds starts from live main cd536f2e, after separate-review merges #885/#880/#882/#884. GitHub remains authoritative; earlier awaiting-merge notes are historical, and no other PR merge approval is inferred. #886 is closed by that review path; #887/#888 remain open. Runtime a99 remains retained and unchanged.
+
+Draft #889 / new own-created bug #890: actual pinned b810 and current cd536 action measurement at bdfe05c8,39548446852/job119051882572, produces source snapshot bytes2328,5690,12415,25865,52765,106565,214165,429365 in eight ordinary one-copy transfers,184.4times initial size and64embedded copies of the oldest audit row. Current bounded assertion fails; canonical row/copy/resident checks and exact cleanup pass. No historical resource cause or real data rewrite claimed. Receipt for own issue890 saved under goal-private directory.
+
+Narrow prevention removes four unused auditLogs relation loads, retaining all scalar attributes and canonical rows/JSON. Fixed profile seeds the actual old large snapshot as existing canonical history, then checks eight bounded partials plus a final full transfer, unchanged old JSON,36new audit rows, copy totals27/20, received attributes/destinations/resident and owned cleanup.31focused trade checks pass. Positive current CI and existing old/fixed trade safeguards pending. No laptop Docker/data/native/hardware, production or merge action. Next publish fix and inspect bounded positive/old-negative plus all exact-head checks; preserve all historical artifacts and unresolved scope.
+
+
+## Independent PR889 integration - 2026-10-21T06:01:02.757Z
+
+Original 4854f465582bad7fb5c73ee3b600c6d3be28b409 combined with main e133ddd8ab910092de7126f62f4d5f5b5b0a6775; exact four unused audit relation removals compose with sorted source-stock locks, gift/wishlist fixes and Trade fence. No historical data rewrite or schema/transaction/UI change. Original actual PG growth/bounded/history/conservation evidence reviewed; fresh seven exact-head and cumulative hosted canonical browser gates pending. Narrow890/broader309 remain distinct; no local runtime or deployment.
