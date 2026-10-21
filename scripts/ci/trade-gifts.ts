@@ -11,7 +11,7 @@ import { PrismaClient } from '@prisma/client';
 // cache boundary are adapted; all transfers, audits and notifications execute.
 assert.equal(process.env.GITHUB_ACTIONS, 'true');
 assert.equal(process.env.RUNNER_ENVIRONMENT, 'github-hosted');
-assert.equal(new URL(process.env.DATABASE_URL!).searchParams.get('schema'), 'trade_gift_fixture');
+assert.equal(new URL(process.env.DATABASE_URL!).pathname, '/trade_gift_fixture');
 assert.equal(new URL(process.env.DATABASE_URL!).hostname, '127.0.0.1');
 const p = new PrismaClient();
 const context = new AsyncLocalStorage<any>();
@@ -61,7 +61,7 @@ async function state(f: Awaited<ReturnType<typeof fixture>>) {
   return {trade:await p.trade.findUniqueOrThrow({where:{id:f.trade.id}}), items:await p.inventoryItem.findMany({where:{cardId:{in:f.items.map(i=>i.cardId)}},orderBy:{id:'asc'}}), audits:await p.inventoryAuditLog.findMany({where:{tradeId:f.trade.id},orderBy:{id:'asc'}}), events:await p.tradeEvent.findMany({where:{tradeId:f.trade.id},orderBy:{id:'asc'}})};
 }
 async function main() {
-  assert.equal(await p.user.count(),0,'empty hosted disposable schema required');
+  assert.equal(await p.user.count(),0,'empty hosted disposable database required');
   for (const side of ['offered','requested']) {
     const f = await fixture('gift');
     await p.trade.delete({where:{id:f.trade.id}});
