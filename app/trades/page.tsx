@@ -1181,7 +1181,7 @@ export default async function TradesPage({
               const requestedLines = trade.lines.filter(
                 (line) => line.side === TradeLineSide.RECEIVER,
               );
-              const offeredCards = offeredLines.length
+              const offeredCards = trade.lines.length
                 ? offeredLines.map((line) =>
                     toTradeCardSummary({
                       id: line.id,
@@ -1204,7 +1204,7 @@ export default async function TradesPage({
                       preferredPriceProvider: user.preferredPriceProvider,
                     }),
                   ];
-              const requestedCards = requestedLines.length
+              const requestedCards = trade.lines.length
                 ? requestedLines.map((line) =>
                     toTradeCardSummary({
                       id: line.id,
@@ -1251,9 +1251,10 @@ export default async function TradesPage({
                 trade.requestedInventoryItemId ??
                 "";
               const canUseExactTemplate =
-                offeredCards.length === 1 &&
-                requestedCards.length === 1 &&
-                Boolean(templateOfferedId && templateRequestedId);
+                offeredCards.length <= 1 &&
+                requestedCards.length <= 1 &&
+                (offeredCards.length === 0 || Boolean(templateOfferedId)) &&
+                (requestedCards.length === 0 || Boolean(templateRequestedId));
               return (
                 <details
                   key={trade.id}
@@ -1354,6 +1355,7 @@ export default async function TradesPage({
                         {displayLeftCards.map((card) => (
                           <TradeCardPreview key={card.id} card={card} />
                         ))}
+                        {!displayLeftCards.length && <p className="text-sm text-zinc-400">Nothing offered.</p>}
                       </section>
                       <section className="space-y-2">
                         <h4 className="text-xs font-semibold uppercase text-zinc-500">
@@ -1362,6 +1364,7 @@ export default async function TradesPage({
                         {displayRightCards.map((card) => (
                           <TradeCardPreview key={card.id} card={card} />
                         ))}
+                        {!displayRightCards.length && <p className="text-sm text-zinc-400">Nothing offered.</p>}
                       </section>
                     </div>
                     <details className="text-sm">

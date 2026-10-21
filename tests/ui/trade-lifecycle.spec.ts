@@ -468,7 +468,10 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
       await proposer.getByRole('button', { name: 'Submit Proposal', exact: true }).click();
       await expect(proposer.getByText('Trade proposal sent.', { exact: true })).toBeVisible();
       const gift = database<string>(`return (await p.trade.findFirstOrThrow({where:{createdByUserId:${quote(f.people[proposerIndex].id)},message:${quote(message)}}})).id;`);
-      await (await openTrade(recipient, gift)).getByRole('button', { name: 'Accept', exact: true }).click();
+      const giftPanel = await openTrade(recipient, gift);
+      await expect(giftPanel.getByText('Nothing offered.', { exact: true })).toHaveCount(1);
+      await expect(giftPanel.getByRole('link', { name: 'Counter From This', exact: true })).toHaveAttribute('href', new RegExp(`counterTradeId=${gift}`));
+      await giftPanel.getByRole('button', { name: 'Accept', exact: true }).click();
       for (const [index, person] of [[proposerIndex, proposer], [recipientIndex, recipient]] as const) {
         const confirm = (await openTrade(person, gift)).locator('form').filter({ has: person.getByRole('button', { name: 'Confirm Physical Trade' }) });
         await confirm.getByRole('combobox').selectOption(f.people[index].destinationId);
