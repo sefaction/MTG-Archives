@@ -147,3 +147,9 @@ jobs:
         run: npx tsx scripts/verify-pricing-provider-currency.ts
       - name: Streamed identifier mapping and malformed-tail conservation
         run: npx tsx scripts/verify-pricing-identifier-worker.ts
+      - name: One-sided gifts retain consent and physical inventory integrity
+        env:
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/import_integrity?schema=trade_gift_fixture
+        run: |
+          npx prisma migrate deploy
+          npx tsx scripts/ci/trade-gifts.ts

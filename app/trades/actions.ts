@@ -28,6 +28,7 @@ import { selectTradeCardPrice } from "@/lib/trade-value";
 import { recordTradeEvent } from "@/lib/trade-notifications";
 import {
   asTradeProposalValidationError,
+  hasTradeContents,
   tradeProposalValidationState,
   TradeProposalValidationError,
   type TradeProposalActionState,
@@ -101,9 +102,9 @@ async function validateProposedTrade(
     throw new TradeProposalValidationError(
       "Proposer and recipient must be different users.",
     );
-  if (!data.offeredLines.length || !data.requestedLines.length) {
+  if (!hasTradeContents(data.offeredLines.length, data.requestedLines.length)) {
     throw new TradeProposalValidationError(
-      "Choose at least one card on each side of the trade.",
+      "Choose at least one card to offer or request. Both sides cannot be empty.",
     );
   }
   const selections = [...data.offeredLines, ...data.requestedLines];
