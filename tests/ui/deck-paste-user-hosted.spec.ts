@@ -38,7 +38,7 @@ async function login(page:Page,f:any){await page.goto("/login");await page.getBy
 async function prepare(page:Page,f:any,id:string,name:string){
   await page.goto("/decks/"+id+"/import");await page.getByLabel("Decklist text",{exact:true}).fill(source);await page.getByRole("button",{name:"Parse and review",exact:true}).click();
   await expect(page.getByRole("button",{name:"Parse and review",exact:true})).toBeEnabled({timeout:180000});
-  let rows=JSON.parse(await page.locator("input[name=linesJson]").inputValue());save(name+"-automatic-review",rows);expect(rows).toHaveLength(87);
+  let rows=JSON.parse(await page.locator("input[name=linesJson]").inputValue());save(name+"-automatic-review",rows);expect(rows).toHaveLength(87);save(name+"-alias-review",{transport:"recorded public catalog on owned-container loopback",aliases:catalog.outcomes.filter((r:any)=>r.outcome==="EXACT_FLAVOR_NAME").map((r:any)=>({raw:r.raw,publicCanonical:r.card.name,flavorName:r.card.flavor_name,automatic:Boolean(rows[r.line-1].cardId)}))});
   // Public records prove these flavor names. Select the canonical printing in
   // actual review without modifying rawLine, parsed name, or supplied text.
   for(const alias of catalog.outcomes.filter((r:any)=>r.outcome==="EXACT_FLAVOR_NAME")){
@@ -72,7 +72,7 @@ test("#808 ordinary supplied list and all physical copies",async({page,baseURL})
     await apply(page,button,f.deckId,"808-physical");const after=snapshot(f);save("808-after",after);checkList(after,f);
     expect(after.inventory.reduce((n:number,r:any)=>n+r.quantity,0)).toBe(100);expect(after.inventory.filter((r:any)=>r.foilStatus==="FOIL").reduce((n:number,r:any)=>n+r.quantity,0)).toBe(1);expect(after.audits).toHaveLength(174);
     for(const r of catalog.outcomes){const c=f.cards.find((c:any)=>c.scryfallId===r.card.id),stock=after.inventory.filter((v:any)=>v.cardId===c.id&&v.quantity>0);expect(stock).toHaveLength(1);expect(stock[0].quantity).toBe(r.quantity);expect(stock[0].foilStatus).toBe(r.foil?"FOIL":"NONFOIL");expect(stock[0].condition).toBe("NM");expect(stock[0].language).toBe("EN");expect(stock[0].location.kind).toBe("DECK");expect(stock[0].location.deckId).toBe(f.deckId);}
-    save("808-result",{status:"PASS",rows:87,copies:100,foilCopies:1,aliasesManuallyReviewed:true,historicalCauseUnknown:true});
+    save("808-result",{status:"PASS",rows:87,copies:100,foilCopies:1,publicAliasIdentitiesExplicitlyReviewed:true,recordedCatalogTransport:true,historicalCauseUnknown:true});
   }finally{clean(f);}
 });
 test("#844 League supplied full list final apply preserves pool",async({page,baseURL})=>{
@@ -81,6 +81,6 @@ test("#844 League supplied full list final apply preserves pool",async({page,bas
     await login(page,f);const before=snapshot(f);save("844-before",before);const button=await prepare(page,f,f.deckId,"844-league");await expect(page.getByLabel("Create and commit inventory",{exact:true})).toHaveCount(0);
     await page.setViewportSize({width:1366,height:900});await button.scrollIntoViewIfNeeded();await page.screenshot({path:evidence+"/844-desktop-before-apply.png"});await apply(page,button,f.deckId,"844-league");
     const after=snapshot(f);save("844-after",after);checkList(after,f);expect(after.inventory).toEqual(before.inventory);expect(after.audits).toEqual(before.audits);expect(after.pool).toEqual(before.pool);expect(after.games).toBe(0);expect(after.submissions).toBe(0);
-    save("844-result",{status:"PASS",rows:87,copies:100,poolInventoryAuditUnchanged:true,aliasesManuallyReviewed:true,historicalCauseUnknown:true});
+    save("844-result",{status:"PASS",rows:87,copies:100,poolInventoryAuditUnchanged:true,publicAliasIdentitiesExplicitlyReviewed:true,recordedCatalogTransport:true,historicalCauseUnknown:true});
   }finally{clean(f);}
 });

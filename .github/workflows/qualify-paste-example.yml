@@ -31,6 +31,7 @@ jobs:
             cpu-period=100000
             cpu-quota=200000
       - run: npm ci
+      - run: node --test .github/scripts/recorded-catalog-fixture.test.cjs
       - run: npx prisma generate
       - run: npx tsx --test tests/isolated-qualification-target.test.ts tests/deck-paste-user-example.test.ts tests/deck-paste-user-fixture.test.mjs
       - run: npx playwright install --with-deps chromium

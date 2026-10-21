@@ -129,6 +129,36 @@ function snapshotBody() {
   const prefix='SELECT count(*)::int AS count,md5(COALESCE(string_agg(row_to_json(t)::text,chr(10) ORDER BY row_to_json(t)::text),\'\')) AS digest FROM public."';
   return `const tables=await p.$queryRawUnsafe("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename");const result={};for(const {tablename} of tables){if(!/^[A-Za-z_][A-Za-z0-9_]*$/.test(tablename))throw Error('Unsafe fixture table');const rows=await p.$queryRawUnsafe(${JSON.stringify(prefix)}+tablename+${JSON.stringify('" t')});result[tablename]=rows[0];}return result;`;
 }
+
+async function startRecordedCatalog(web) {
+  assert(owned(web).Config.Env.includes('SCRYFALL_API_BASE_URL=http://127.0.0.1:43127'));
+  const script=fs.readFileSync(path.join(root,'.github/scripts/recorded-catalog-fixture.cjs'),'utf8');
+  const data=fs.readFileSync(path.join(root,'tests/fixtures/deck-paste-public-catalog.json'),'utf8');
+  require('./recorded-catalog-fixture.cjs').verifyCatalog(JSON.parse(data));
+  const scriptSHA256=hash(script),inputSHA256=hash(data);
+  const scriptPath='/app/.local-data/recorded-catalog-fixture.cjs',dataPath='/app/.local-data/catalog-fixture.json';
+  owned(web);
+  run('docker',['exec','-i',web,'node','-e',"const fs=require('fs');const {script,data}=JSON.parse(fs.readFileSync(0,'utf8'));fs.writeFileSync('/app/.local-data/recorded-catalog-fixture.cjs',script);fs.writeFileSync('/app/.local-data/catalog-fixture.json',data);"],{input:JSON.stringify({script,data})});
+  owned(web);docker('exec','-d',web,'node',scriptPath,runId,dataPath,scriptSHA256);
+  const deadline=Date.now()+10000;let ready;
+  while(Date.now()<deadline) {
+    owned(web);
+    const r=cp.spawnSync('docker',['exec',web,'node','-e',"const fs=require('fs');if(!fs.existsSync('/app/.local-data/catalog-fixture-ready.json'))process.exit(2);process.stdout.write(fs.readFileSync('/app/.local-data/catalog-fixture-ready.json','utf8'));"],{encoding:'utf8',timeout:2000});
+    if(r.status===0){ready=JSON.parse(r.stdout);break;}await sleep(250);
+  }
+  assert(ready,'Recorded catalog startup deadline');assert.equal(ready.runId,runId);
+  assert.equal(ready.scriptSHA256,scriptSHA256);assert.equal(ready.inputSHA256,inputSHA256);
+  assert.equal(ready.address.address,'127.0.0.1');assert.equal(ready.address.port,43127);assert.equal(ready.records,87);
+  const health=JSON.parse(run('docker',['exec',web,'node','-e',"fetch('http://127.0.0.1:43127/__fixture_health',{signal:AbortSignal.timeout(2000)}).then(async r=>{if(!r.ok)throw Error('Fixture unhealthy');console.log(JSON.stringify(await r.json()))}).catch(e=>{console.error(e.message);process.exitCode=1});"]));
+  assert.equal(health.records,87);save('recorded-catalog-startup.json',ready);report.catalogReady=ready;report.gates.recordedCatalog=true;
+}
+function captureRecordedCatalog() {
+  const web=report.target.web.id;owned(web);
+  const state=JSON.parse(run('docker',['exec',web,'node','-e',"const fs=require('fs'),assert=require('assert/strict'),ready=JSON.parse(fs.readFileSync('/app/.local-data/catalog-fixture-ready.json','utf8'));const args=fs.readFileSync('/proc/'+ready.pid+'/cmdline','utf8').split('\\0');assert.equal(args[1],'/app/.local-data/recorded-catalog-fixture.cjs');assert.equal(args[2],process.env.MTG_ISOLATED_QUALIFICATION_RUN);assert.equal(args[3],'/app/.local-data/catalog-fixture.json');assert.equal(args[4],ready.scriptSHA256);const requests=fs.existsSync('/app/.local-data/catalog-fixture-requests.jsonl')?fs.readFileSync('/app/.local-data/catalog-fixture-requests.jsonl','utf8').trim().split('\\n').filter(Boolean).map(x=>JSON.parse(x)):[];process.kill(ready.pid,'SIGTERM');console.log(JSON.stringify({ready,requests,stopSignal:'SIGTERM'}));"]));
+  assert.equal(state.ready.runId,runId);assert.deepEqual(state.ready,report.catalogReady);save('recorded-catalog-requests-and-stop.json',state);
+  return state.requests;
+}
+
 async function main() {
   databaseScript(snapshotBody()); // Parse the exact generated read-only query before costly work.
   const endpoint=JSON.parse(docker('context','inspect',docker('context','show'),'--format','{{json .Endpoints.docker.Host}}'));
@@ -143,7 +173,7 @@ async function main() {
   assert.equal(git('rev-parse',source+'^{tree}'),'53f83fd8b165e0846dbfde1d6e13c4596b7413fb');
   const allowed = new Set(['.github/workflows/qualify-paste-example.yml','.github/scripts/qualify-paste-example.cjs',
     '.github/scripts/qualification-loopback-proxy.cjs','tests/ui/isolated-qualification-target.ts',
-    'tests/isolated-qualification-target.test.ts','tests/ui/deck-paste-user-hosted.spec.ts','tests/fixtures/deck-paste-public-catalog.json','tests/fixtures/deck-paste-user-2026-10-21.txt','tests/fixtures/deck-paste-user-2026-10-21.README.md','tests/deck-paste-user-example.test.ts','tests/deck-paste-user-fixture.test.mjs','.gitattributes']);
+    'tests/isolated-qualification-target.test.ts','tests/ui/deck-paste-user-hosted.spec.ts','tests/fixtures/deck-paste-public-catalog.json','tests/fixtures/deck-paste-user-2026-10-21.txt','tests/fixtures/deck-paste-user-2026-10-21.README.md','tests/deck-paste-user-example.test.ts','tests/deck-paste-user-fixture.test.mjs','.gitattributes','.github/scripts/recorded-catalog-fixture.cjs','.github/scripts/recorded-catalog-fixture.test.cjs']);
   const changed=git('diff','--name-only',source,'HEAD').split('\n').filter(Boolean);
   assert(changed.every(file=>allowed.has(file)),'Unexpected qualification change');
   const context=path.join(dir,'product-source');fs.mkdirSync(context);
@@ -186,22 +216,25 @@ async function main() {
   docker('start',db);
   const deadline=Date.now()+60_000;
   while(true){const ready=cp.spawnSync('docker',['exec',db,'pg_isready','-U','fixture','-d',dbName],{encoding:'utf8'});if(ready.status===0)break;assert(Date.now()<deadline,'Owned PostgreSQL startup deadline');await sleep(500);}
-  const web=create(['--name',`${project}-web`,'--network',network.name,'--memory','1024m','--memory-swap','1024m','--cpus','1','--pids-limit','256','--tmpfs','/app/.local-data:rw,size=33554432','-e',`DATABASE_URL=postgresql://fixture:fixture-only@qualification-db:5432/${dbName}?connection_limit=4`,'-e','RUN_SEED_ON_START=false','-e','WIPE_DB_ON_START=false','-e','MTG_LOCAL_PILOT_TEST=1','-e',`MTG_ISOLATED_QUALIFICATION_RUN=${runId}`,'-e',`ADMIN_USERNAME=ci-admin-${short}`,'-e',`SEED_ADMIN_PASSWORD=${crypto.randomUUID()}`,...['UPLOADS','IMPORTS','EXPORTS','BACKUPS'].flatMap(n=>['-e',`${n}_DATA_PATH=/app/.local-data/${n.toLowerCase()}`]),'-e','SCRYFALL_CONTAINER_DATA_PATH=/app/.local-data/scryfall','-e','NEXT_TELEMETRY_DISABLED=1',image]);
+  const web=create(['--name',`${project}-web`,'--network',network.name,'--memory','1024m','--memory-swap','1024m','--cpus','1','--pids-limit','256','--tmpfs','/app/.local-data:rw,size=33554432','-e',`DATABASE_URL=postgresql://fixture:fixture-only@qualification-db:5432/${dbName}?connection_limit=4`,'-e','RUN_SEED_ON_START=false','-e','WIPE_DB_ON_START=false','-e','MTG_LOCAL_PILOT_TEST=1','-e',`MTG_ISOLATED_QUALIFICATION_RUN=${runId}`,'-e',`ADMIN_USERNAME=ci-admin-${short}`,'-e',`SEED_ADMIN_PASSWORD=${crypto.randomUUID()}`,...['UPLOADS','IMPORTS','EXPORTS','BACKUPS'].flatMap(n=>['-e',`${n}_DATA_PATH=/app/.local-data/${n.toLowerCase()}`]),'-e','SCRYFALL_CONTAINER_DATA_PATH=/app/.local-data/scryfall','-e','NEXT_TELEMETRY_DISABLED=1','-e','SCRYFALL_API_BASE_URL=http://127.0.0.1:43127',image]);
   docker('start',web);const transport=await startProxy(web),baseURL=transport.baseURL;
   report.target={runId,project,...transport,networkName:network.name,web:{id:web,name:`${project}-web`},database:{id:db,name:`${project}-postgres`,host:'qualification-db',databaseName:dbName}};
   const targetPath=path.join(dir,'target.json');save('target.json',report.target);
   const webDeadline=Date.now()+150_000;
   while(true){assert(owned(web).State.Running,'Owned web exited');try{const response=await fetch(`${baseURL}/login`,{signal:AbortSignal.timeout(3000)});if(response.status===200)break;}catch{}assert(Date.now()<webDeadline,'Owned web startup deadline');await sleep(1000);}
   run('node',['node_modules/tsx/dist/cli.mjs','-e',`require('./tests/ui/isolated-qualification-target').loadIsolatedQualificationTarget()`],{env:{MTG_ISOLATED_FIXTURE_MANIFEST:targetPath}});report.gates.isolatedTarget=true;
-  const before=snapshot();save('database-before.json',before);
+  await startRecordedCatalog(web);
+  const before=snapshot();report.databaseBefore=before;save('database-before.json',before);
   const config=path.join(dir,'playwright.config.cjs');
   fs.writeFileSync(config,`module.exports=require('@playwright/test').defineConfig({testDir:${JSON.stringify(path.join(root,'tests/ui'))},fullyParallel:false,workers:1,retries:0,forbidOnly:true,timeout:120000,expect:{timeout:10000},reporter:[['list'],['json',{outputFile:${JSON.stringify(path.join(dir,'playwright.json'))}}]],outputDir:${JSON.stringify(path.join(dir,'playwright-results'))},use:{baseURL:${JSON.stringify(baseURL)},trace:'retain-on-failure',screenshot:'only-on-failure',video:'retain-on-failure'},projects:[{name:'chromium',use:{browserName:'chromium'}}]});\n`);
   run('node',['node_modules/@playwright/test/cli.js','test','--config',config,'tests/ui/deck-paste-user-hosted.spec.ts'],{log:'actual-browser.log',timeout:12*60_000,env:{MTG_LOCAL_PILOT_TEST:'1',MTG_ISOLATED_FIXTURE_MANIFEST:targetPath,PLAYWRIGHT_BASE_URL:baseURL}});
   const browser=JSON.parse(fs.readFileSync(path.join(dir,'playwright.json'),'utf8'));
   assert.equal(browser.stats.expected,2);assert.equal(browser.stats.unexpected,0);assert.equal(browser.stats.skipped,0);assert.equal(browser.stats.flaky,0);
-  assert.deepEqual(snapshot(),before,'Browser synthetic-data cleanup/conservation mismatch');save('database-after.json',snapshot());report.gates.actualBrowser=true;
+  assert.deepEqual(snapshot(),before,'Browser synthetic-data cleanup/conservation mismatch');save('database-after.json',snapshot());report.databaseCompared=true;report.gates.databaseConservation=true;report.gates.actualBrowser=true;
 }
 main().catch(error=>{report.status='FAILED';report.error=error.message;console.error(error.message);process.exitCode=1;}).finally(async()=>{
+  if(report.databaseBefore&&!report.databaseCompared){try{const after=snapshot();save('database-after-failed-browser.json',after);assert.deepEqual(after,report.databaseBefore,'Browser cleanup/conservation mismatch');report.gates.databaseConservation=true;}catch(error){report.conservationError=error.message;process.exitCode=1;}}
+  if(report.catalogReady){try{const requests=captureRecordedCatalog();assert(requests.every(r=>r.status===200),'Recorded catalog request outside exact fixture');if(report.gates.actualBrowser)for(const id of ['24b2833e-6c08-4f33-8481-f65f2a063c60','f36f237f-6b44-4513-ba5d-fe6b4936f78e'])assert(requests.some(r=>r.ids.includes(id)),'Missing recorded alias receipt');report.gates.recordedCatalogReceipts=true;}catch(error){report.catalogError=error.message;process.exitCode=1;}}
   if(proxy && proxy.exitCode===null && proxy.signalCode===null){
     const stopped=new Promise(resolve=>proxy.once('exit',resolve));proxy.kill('SIGTERM');
     await Promise.race([stopped,sleep(5000)]);
