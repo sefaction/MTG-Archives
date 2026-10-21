@@ -472,9 +472,11 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
       await expect(giftPanel.getByText('Nothing offered.', { exact: true })).toHaveCount(1);
       await expect(giftPanel.getByRole('link', { name: 'Counter From This', exact: true })).toHaveAttribute('href', new RegExp(`counterTradeId=${gift}`));
       await giftPanel.getByRole('button', { name: 'Accept', exact: true }).click();
+      await expect.poll(() => state(gift).status).toBe('ACCEPTED_PENDING_EXCHANGE');
       for (const [index, person] of [[proposerIndex, proposer], [recipientIndex, recipient]] as const) {
         const confirm = (await openTrade(person, gift)).locator('form').filter({ has: person.getByRole('button', { name: 'Confirm Physical Trade' }) });
         await confirm.getByRole('combobox').selectOption(f.people[index].destinationId);
+        if (index === proposerIndex) await person.screenshot({ path: test.info().outputPath(requestOnly ? 'gift-request-phone.png' : 'gift-offer-desktop.png'), fullPage: true });
         await confirm.getByRole('button', { name: 'Confirm Physical Trade' }).click();
         await expect.poll(() => state(gift).status).toBe(index === proposerIndex ? 'PARTIALLY_COMMITTED' : 'COMPLETED');
         expect(total()).toBe(16);
