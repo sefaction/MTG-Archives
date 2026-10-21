@@ -311,16 +311,20 @@ async function verifyCommittedTransfer() {
   const source = await readTradeDeck(db as unknown as Prisma.TransactionClient, giftDeckId, owners[0]);
   const originalStock = await db.inventoryItem.findMany({ where: { locationId: giftLocationId }, orderBy: { id: "asc" } });
   const originalList = await db.deckCard.findMany({ where: { deckId: giftDeckId }, orderBy: { id: "asc" } });
-  const gift = await makeTrade();
-  await db.$transaction(async tx => {
-    await tx.$queryRaw`SELECT id FROM "Trade" WHERE id=${gift.id} FOR UPDATE`;
-    const selected = await prepareTradeDeckBundles(tx, { actorUserId: users[0], proposerPlayerId: owners[0],
-      receiverPlayerId: owners[1], offered: [{ deckId: giftDeckId, digest: source.digest }], requested: [] });
-    await reservePreparedTradeDecks(tx, gift.id, selected);
-  });
+  const actions = loadActual("app/trades/actions.ts");
+  actor = await db.user.findUniqueOrThrow({ where: { id: users[0] }, include: { player: true } });
+  const proposal = (digest = source.digest) => form({ receiverPlayerId: owners[1], offeredLinesJson: "[]", requestedLinesJson: "[]",
+    offeredDecksJson: JSON.stringify([{ deckId: giftDeckId, digest }]), requestedDecksJson: "[]", message: "The complete existing deck, with missing cards left missing." });
+  const beforeProposals = await db.trade.count();
+  const invalid = await actions.createTrade({ status: "idle", message: "" }, proposal("0".repeat(64)));
+  assert.equal(invalid.status, "error"); assert.match(invalid.message, /deck changed/);
+  assert.equal(await db.trade.count(), beforeProposals);
+  const created = await actions.createTrade({ status: "idle", message: "" }, proposal());
+  assert.equal(created.status, "success");
+  const gift = await db.trade.findFirstOrThrow({ where: { deckBundles: { some: { deckId: giftDeckId } } } });
+  trades.push(gift.id);
   const bundle = await db.tradeDeckBundle.findFirstOrThrow({ where: { tradeId: gift.id } });
   assert.equal(await db.tradeLine.count({ where: { tradeId: gift.id } }), 1);
-  const actions = loadActual("app/trades/actions.ts");
   actor = await db.user.findUniqueOrThrow({ where: { id: users[1] }, include: { player: true } });
   await actions.actOnTrade(form({ tradeId: gift.id, action: "accept" }));
   actor = await db.user.findUniqueOrThrow({ where: { id: users[0] }, include: { player: true } });

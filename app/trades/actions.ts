@@ -36,7 +36,8 @@ import {
 import { normalizeTradeActionNote } from "@/lib/trade-notes";
 import { receivedTradeInventoryData } from "@/lib/trade-inventory";
 import { enqueueTradeAnnouncementDeliveries } from "@/lib/webhook-delivery";
-import { lockTradeDeckSources, readTradeDeck } from "@/lib/deck-trade-store";
+import { lockTradeDeckSources, readTradeDeck, prepareTradeDeckBundles, reservePreparedTradeDecks, isDeckTradeUserError } from "@/lib/deck-trade-store";
+import { parseTradeDeckSelections, type TradeDeckSelection } from "@/lib/deck-trade-policy";
 import { assertDeckUnreserved } from "@/lib/deck-write-fence";
 import { parseTradeDeckReceipts, recordTradeDeckReceipts, transferConfirmedTradeDecks } from "@/lib/deck-trade-transfer";
 
@@ -55,6 +56,8 @@ type ProposedTradeData = {
   receiverPlayerId: string;
   offeredLines: TradeLineSelection[];
   requestedLines: TradeLineSelection[];
+  offeredDecks?: TradeDeckSelection[];
+  requestedDecks?: TradeDeckSelection[];
 };
 type InventoryForSnapshot = Awaited<
   ReturnType<typeof validateProposedTrade>
@@ -106,7 +109,7 @@ async function validateProposedTrade(
     throw new TradeProposalValidationError(
       "Proposer and recipient must be different users.",
     );
-  if (!hasTradeContents(data.offeredLines.length, data.requestedLines.length)) {
+  if (!hasTradeContents(data.offeredLines.length + (data.offeredDecks?.length ?? 0), data.requestedLines.length + (data.requestedDecks?.length ?? 0))) {
     throw new TradeProposalValidationError(
       "Choose at least one card to offer or request. Both sides cannot be empty.",
     );
@@ -208,6 +211,8 @@ function tradeLinesFromForm(fd: FormData) {
         fd.get("requestedLinesJson"),
         legacyRequestedId || undefined,
       ),
+      offeredDecks: parseTradeDeckSelections(fd.get("offeredDecksJson")),
+      requestedDecks: parseTradeDeckSelections(fd.get("requestedDecksJson")),
     };
   } catch (error) {
     throw asTradeProposalValidationError(error);
@@ -306,12 +311,16 @@ async function createTradeMutation(fd: FormData) {
     if (counterSource) {
       await tx.$queryRaw`SELECT "id" FROM "Trade" WHERE "id" = ${counterSource.id} FOR UPDATE`;
     }
-    const reservationItemIds = Array.from(new Set(
-      [...data.offeredLines, ...data.requestedLines].map(line => line.inventoryItemId),
-    )).sort();
-    if (reservationItemIds.length) {
+    const bundles = await prepareTradeDeckBundles(tx, { actorUserId: actor.id,
+      proposerPlayerId: data.proposerPlayerId, receiverPlayerId: data.receiverPlayerId,
+      offered: data.offeredDecks, requested: data.requestedDecks, counterTradeId: counterSource?.id });
+    const reservationItemIds = Array.from(new Set([
+      ...[...data.offeredLines, ...data.requestedLines].map(line => line.inventoryItemId),
+      ...bundles.flatMap(bundle => bundle.source.stock.map(item => item.id)),
+    ])).sort();
+    for (let offset = 0; offset < reservationItemIds.length; offset += 500) {
       await tx.$queryRaw`SELECT "id" FROM "InventoryItem"
-        WHERE "id" IN (${Prisma.join(reservationItemIds)}) ORDER BY "id" FOR UPDATE`;
+        WHERE "id" IN (${Prisma.join(reservationItemIds.slice(offset, offset + 500))}) ORDER BY "id" FOR UPDATE`;
     }
     const { offered, requested } = await validateProposedTrade(
       data,
@@ -369,6 +378,7 @@ async function createTradeMutation(fd: FormData) {
         );
       }
       const counter = await tx.trade.create({ data: createData });
+      await reservePreparedTradeDecks(tx, counter.id, bundles, counterSource.id);
       await recordTradeEvent(tx, {
         tradeId: counterSource.id,
         eventType: "countered",
@@ -381,31 +391,32 @@ async function createTradeMutation(fd: FormData) {
         eventType: "counter_proposed",
         actorUserId: actor.id,
         actorPlayerId: actor.playerId,
-        message: `Counter proposed with ${offered.length} offered and ${requested.length} requested card lines.`,
+        message: `Counter proposed with ${offered.length} offered and ${requested.length} requested card lines${bundles.length ? ` and ${bundles.length} whole decks` : ""}.`,
         notification: {
           type: "trade.countered",
           title: `${actor.displayName} countered your trade`,
-          message: "Review the updated card exchange in Active Trades.",
+          message: bundles.length ? "Review the updated whole decks and cards in Active Trades." : "Review the updated card exchange in Active Trades.",
           recipientPlayerIds: [data.receiverPlayerId],
         },
       });
       return;
     }
     const trade = await tx.trade.create({ data: createData });
+    await reservePreparedTradeDecks(tx, trade.id, bundles);
     await recordTradeEvent(tx, {
       tradeId: trade.id,
       eventType: "proposed",
       actorUserId: actor.id,
       actorPlayerId: actor.playerId,
-      message: `Trade proposed with ${offered.length} offered and ${requested.length} requested card lines.`,
+      message: `Trade proposed with ${offered.length} offered and ${requested.length} requested card lines${bundles.length ? ` and ${bundles.length} whole decks` : ""}.`,
       notification: {
         type: "trade.proposed",
         title: `${actor.displayName} sent you a trade proposal`,
-        message: "Review the offered and requested cards in Active Trades.",
+        message: bundles.length ? "Review the offered and requested whole decks and cards in Active Trades." : "Review the offered and requested cards in Active Trades.",
         recipientPlayerIds: [data.receiverPlayerId],
       },
     });
-  });
+  }, data.offeredDecks.length || data.requestedDecks.length ? { timeout: 30000 } : undefined);
   revalidatePath("/trades");
   revalidatePath("/notifications");
 }
@@ -421,7 +432,7 @@ export async function createTrade(
       message: "Trade proposal sent.",
     };
   } catch (error) {
-    const validationState = tradeProposalValidationState(error);
+    const validationState = tradeProposalValidationState(isDeckTradeUserError(error) ? asTradeProposalValidationError(error) : error);
     if (validationState) return validationState;
     throw error;
   }
