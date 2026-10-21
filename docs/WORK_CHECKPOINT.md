@@ -1,5 +1,76 @@
 # Work checkpoint
 
+## Build provenance input coverage #842 - October 20, 2026
+
+- Published draft [PR #875](https://github.com/sefaction/MTG-Archives/pull/875),
+  source commit `b8f9940f` preserved, authentication/coordination follow-up
+  `81bda04e`. No additional human approval is required for draft publication
+  under AGENTS/CODEX; normal host authentication already works. The earlier
+  uncommitted/local-only/publication-blocked descriptions below are retained
+  as dated preparation evidence and are superseded for this batch.
+- Owner coordination record `coordination-before-build.json` now acknowledges
+  #842 and explicitly records it deferred while the recognition worker's
+  fixed-bound Next build is active; no owner handoff or separate local runner
+  route has been granted. Do not launch a competing local Docker build/test.
+  The lock and all shared services remain untouched by this worker.
+- Safe separate route: existing PR CI uses Ubuntu/Node 22 workers, independent
+  of the laptop engine. A new test compiles the actual library/writer, copies
+  all captured source input bytes into an owned temporary fixture, runs the
+  compiled writer and checks complete equality/count/digest with source.
+  Host suite now passes 15/15, including this equality proof with 1,194 entries.
+  Linux execution and full Next build are pending exact-head CI; full Dockerfile
+  image qualification remains a separate local resource gate, not implied by CI.
+- Follow-up reconciliation: the restricted-sandbox `gh auth status` failure below
+  is not a broken host login. An approved read-only host invocation succeeds for
+  the existing `sefaction` keyring account and HTTPS protocol. No credential,
+  login or security-setting change occurred. Repository policy already permits
+  draft publication; individual merge approval remains separate. A successful
+  coordination request was sent to the exact local shared-lock owner thread,
+  `01a10d58-d8a9-7432-8882-8aecd418b615`, requesting a bounded isolated Linux
+  route/window. Its current full Next build remains active; owner response is
+  pending and no conflicting runner/build has started. The reviewed source
+  commit `b8f9940f03cf20be0248c97a299621db41c337fd` is preserved.
+- Isolated branch `codex/review-build-provenance-842`, worktree
+  `.local-data/worktrees/review-build-provenance-842-20261020`, base main
+  `8ad7cd949b034226a10a2b21f2a3cdbd9abdd155`. Primary dirty checkpoint/manual
+  files and other workers' branches are untouched. Initial live GitHub read has
+  #842 open/backlog with no assignee/comments or open PR; complete open PR list
+  is empty. No dependent change covers the defect.
+- Scope: bind middleware, root declarations, Prisma/ESLint/Playwright settings,
+  `.dockerignore`, and TypeScript test/tool/support inputs in the existing
+  manifest. Ignore Docker-excluded native output and Python caches. No schema,
+  service/resource setting, Inventory, credentials or runtime mutation.
+- Host author checks pass: 14 focused tests, focused TypeScript no-emit, compiled
+  CommonJS writer/source equality and whitespace review. Current host capture:
+  1,194 manifest entries; 882 TypeScript inputs; digest
+  `602dab38f761c5151575a65ea218c2eb7aad3ff1074e591e85715f220d4dbeb2`;
+  Windows Node 24.16.0/TypeScript 5.9.3. Raw CRLF/LF bytes are intentionally
+  distinct from Git-normalized or Linux inputs. A saved old-main negative run
+  has 12 failures/2 passes; fixed source has 14 passes/zero failures.
+- Independent review caught and reproduced a false mismatch from newly covered
+  native/Python generated output, fixed before delivery with nested exclusion
+  controls. Final independent review is recorded in private delivery evidence.
+- Linux tests (including actual file symlinks), isolated Linux compiled identity,
+  full Docker build and exact-head CI remain pending. Shared issue-worker lock
+  `8254e476-0ce7-4832-971f-dbd5f54611b7` belongs to recognition qualification;
+  it was read, never acquired/stolen/released by this worker. No Docker services
+  were changed or shared fixture tests run. A sandbox Docker read was denied;
+  no mutation was attempted. Full runtime/source equivalence is not claimed.
+- Publication is pending: `gh auth status` reports invalid normal CLI
+  authentication; no credentials were changed and no push/remote mutation was
+  attempted. Isolated worktree creation succeeded via approved escalation after
+  sandbox Git metadata access failed. No PR, merge, deployment or issue closure
+  occurred. Parent owns individual publication/merge coordination.
+- Delivery evidence: repository-private
+  `.local-data/deliverables/review-build-provenance-842/` contains old/fixed test
+  logs, exact host source manifest, compiled writer and validation/patch files.
+  The patch and local commit preserve reviewable work without publication.
+  Next safe step: coordinate a bounded isolated Linux runner through the owner
+  lock, reconcile exact input counts/line endings, then authenticate using the
+  approved normal CLI flow and publish one draft PR. Keep #842 and parent #310
+  open until their respective acceptance criteria and individual merge gates
+  are met. No product question blocks this source repair.
+
 ## Issue 855 isolated implementation - October 20, 2026
 
 - Active branch `codex/issue-855-capacity-filter`, worktree `.local-data/worktrees/issue-855-capacity-filter`, base main `8ad7cd949b034226a10a2b21f2a3cdbd9abdd155`.
@@ -9305,3 +9376,10 @@ Branch `codex/issue-834-trade-destination`, base `8ad7cd949b034226a10a2b21f2a3cd
 ## Issue #834 isolated full-application preparation - October 20, 2026
 
 Draft #874 implementation head `6e8ffe4d8d1720a4472411279a34441a5671ed65` has all three required CI checks successful. Combined #87329c9397a+#8746e8ffe4d source-only proof passes 100 Node/9 browser/current-schema typechecks with no product-file overlap. Parent explicitly authorizes a properly coordinated isolated app/empty-database route while shared services stay untouched. #855 worker owns ONE combined build/disposable fixture and cleanup; runtime-owner route/resource-window/lock response is pending, no resource started here and no lock taken. This test-only follow-up adds the UUID/exact-ID/label/network/loopback/mount/database target guard and prepares real phone/desktop two-party missing/stale/inactive/foreign submission checks plus provenance/conservation/cleanup assertions. One hundred eight Node tests (75 trade +33 guard) and typecheck pass; the actual new lifecycle assertions remain unexecuted until the fixture exists. Product source remains the implementation head's exact source. Next: freeze/publish the test-only follow-up, provide exact blobs/API to the resource owner, then execute only against its validated owned manifest once the runtime owner coordinates the window. Keep #874 draft; no merge/deployment/shared-data change.
+
+
+## Approved batch qualification and sequential integration (2026-10-21)
+
+User approval covers only #873/#874/#875. Canonical unchanged Dockerfile and exact product sources passed hosted isolated image, real PostgreSQL capacity rollback/parity, three actual scan-page widths and two-party trade lifecycle/conservation checks. Qualification run: https://github.com/sefaction/MTG-Archives/actions/runs/39526436253; image: sha256:27472d18c8dbfa379f3d12284bd5260a938cf90ede969176180f8ee02075433a; 1206-input temporary qualification digest: 2be63cda028b2f2c6068dc3f423c77d07cec9d9951fa15757b46c1e756272fd4. Four declared qualification-only fixture/transport inputs differ from original frozen context; those temporary harness changes do not enter these PRs. Independent source/harness/runtime review passed. Negative invalid submissions buffer actual backend responses; unmodified negative browser response consumption remains outside this qualification, and the generic Next error behavior predates874. Positive actual two-party completion passed. Earlier laptop heap exhaustion and five-peer restart interval remain unresolved; hosted success does not establish laptop installation, user acceptance or deployment.
+
+Earlier approved merges recorded before this integration: #873 at https://github.com/sefaction/MTG-Archives/commit/d1ee40586d5d75d72eea4dfc92896dd1089608f4; #874 at https://github.com/sefaction/MTG-Archives/commit/a0d744f220e35963e337ea7f6452c7920ecb58a7. This #875 integration preserves actual main a0d744f220e35963e337ea7f6452c7920ecb58a7, exact approved noncheckpoint file identities, and both checkpoint histories. Next safe step is exact-integrated-head CI, expected-head merge, full merged-tree proof, narrow issue disposition and final main publication verification. No production deployment or local topology change is authorized here.
