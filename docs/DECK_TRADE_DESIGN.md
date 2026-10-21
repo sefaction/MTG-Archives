@@ -6,6 +6,14 @@ Status: draft; source reviewed at main b810f06a. No deck-transfer implementation
 
 Transfer the existing Deck identity and complete list, including list-only Maybeboard, to the recipient on the same installation. Transfer exactly its eligible committed physical copies; do not fill missing cards, create assumed basic lands, copy the deck instead of transferring it, or include uncommitted stock. Any physical Maybeboard commitments block the trade until the sender explicitly returns them to storage. Gifts may have an empty return side; both sides empty remain invalid. Acceptance, counters, decline, cancellation and both physical confirmations retain their existing authority. No ownership changes before completion.
 
+## Confirmed follow-up decisions — October 21, 2026
+
+Brian explicitly confirmed in this chat:
+
+- An offer supports multiple whole decks and individual cards on either side. A single-deck-only first version is not the agreed scope. Each deck remains indivisible.
+- Every League-linked deck is excluded from transfer, including unsubmitted decks. No League membership or submission reassignment is introduced.
+
+The remaining counter, recipient organization/visibility, ambiguous Maybeboard allocation and received-storage choices below still require explicit resolution. These decisions supersede the corresponding questions and narrower suggested first-delivery boundary in the preserved design history below; they do not authorize merge or deployment.
 ## Source findings and consequences
 
 - `prisma/schema.prisma`: Deck ownership is `ownerUserId`; physical ownership is InventoryItem.currentOwnerId, linked through User.playerId. InventoryLocation has a unique deckId and its own ownerPlayerId. Changing only Deck.ownerUserId would leave physical storage/ownership inconsistent.
