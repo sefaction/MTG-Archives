@@ -66,7 +66,7 @@ async function main() {
     const f = await fixture('gift');
     await p.trade.delete({where:{id:f.trade.id}});
     const proposer = side === 'offered' ? 0 : 1, recipient = 1-proposer;
-    const asActor = (i: number, action: any, fd: FormData) => context.run({actor:f.people[i],reads:0,callId:randomUUID()},()=>action(fd));
+    const asActor = (i: number, action: any, fd: FormData) => context.run({actor:f.people[i],reads:0,callId:randomUUID()},()=>action === createTrade ? action({status:"idle",message:""},fd) : action(fd));
     const fd = new FormData();
     fd.set('receiverPlayerId',f.people[recipient].playerId!);
     fd.set('offeredLinesJson',JSON.stringify(side === 'offered' ? [{inventoryItemId:f.items[0].id,quantity:2}] : []));
