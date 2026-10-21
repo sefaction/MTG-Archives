@@ -25,9 +25,11 @@ const runId = crypto.randomUUID();
 const short = runId.slice(0,8);
 const project = `mtg-ci-${short}`;
 const builder = process.env.QUALIFICATION_BUILDER;
+const transportHashes = {"tests/ui/isolated-qualification-target.ts":"8f940d130e237dcdd76c878bf655a7ac8e658445d9588ee643feb2e976be5f58","tests/isolated-qualification-target.test.ts":"3e48e078051ed7a2a4433901498379bb0c2335d7e6c950861c107eaf20927158"};
 const label = `mtg-isolated-qualification=${runId}`;
 const containers = [];
 let network;
+let proxy;
 let initialContainers = [];
 const receipts = [];
 const report = {runId, branch, startedAt:new Date().toISOString(), gates:{}, status:'RUNNING', localFailureUnresolved:true};
@@ -95,6 +97,27 @@ function database(body) {
   owned(report.target.web.id);owned(report.target.database.id);
   return JSON.parse(run('docker',['exec','-i',report.target.web.id,'node'],{input:`const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().then(x=>console.log(JSON.stringify(x))).catch(e=>{console.error('Owned fixture query failed',e.constructor.name,e.code);process.exitCode=1}).finally(()=>p.$disconnect());`}));
 }
+async function startProxy(web) {
+  const state=owned(web), n=inspect('network',network.id);
+  const backendAddress=state.NetworkSettings.Networks[network.name]?.IPAddress;
+  save('web-network-startup.json',{id:state.Id,state:state.State,ports:state.NetworkSettings.Ports,portBindings:state.HostConfig.PortBindings,networks:state.NetworkSettings.Networks,network:{id:n.Id,internal:n.Internal,driver:n.Driver,peers:Object.keys(n.Containers??{})}});
+  assert.equal(n.Internal,true);assert.equal(n.Id,network.id);assert.equal(n.Labels['mtg-isolated-qualification'],runId);
+  assert(state.State.Running);assert.equal(Object.keys(state.NetworkSettings.Networks).length,1);
+  assert.equal(state.NetworkSettings.Networks[network.name].NetworkID,network.id);
+  assert.equal(require('node:net').isIP(backendAddress),4);
+  const script=path.join(root,'.github/scripts/qualification-loopback-proxy.cjs');
+  proxy=cp.spawn(process.execPath,[script,runId,web,backendAddress,network.id],{cwd:root,stdio:['ignore','pipe','pipe']});
+  let stderr='';proxy.stderr.on('data',chunk=>{stderr=(stderr+chunk).slice(-16000);fs.writeFileSync(path.join(dir,'proxy-stderr.log'),stderr);});
+  const ready=await new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>reject(Error('Owned proxy startup deadline')),10000);
+    proxy.once('error',error=>{clearTimeout(timer);reject(error);});
+    proxy.once('exit',code=>{clearTimeout(timer);reject(Error(`Owned proxy exited ${code}: ${stderr}`));});
+    let output='';proxy.stdout.on('data',chunk=>{output+=chunk;assert(output.length<16000);if(output.includes('\n')){clearTimeout(timer);try{resolve(JSON.parse(output.split('\n')[0]));}catch(error){reject(error);}}});
+  });
+  assert.equal(ready.pid,proxy.pid);assert.equal(ready.address,'127.0.0.1');assert.equal(ready.webId,web);assert.equal(ready.networkId,network.id);assert.equal(ready.backendAddress,backendAddress);assert.equal(ready.runId,runId);assert(ready.port>0 && ![13001,13011].includes(ready.port));
+  save('proxy-startup.json',ready);
+  return {baseURL:`http://127.0.0.1:${ready.port}`,hostedProxy:{pid:proxy.pid,backendAddress,networkId:network.id,scriptSHA256:hash(fs.readFileSync(script))}};
+}
 function snapshot() {
   return database(`const tables=await p.$queryRawUnsafe("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename");const result={};for(const {tablename} of tables){if(!/^[A-Za-z_][A-Za-z0-9_]*$/.test(tablename))throw Error('Unsafe fixture table');const rows=await p.$queryRawUnsafe('SELECT count(*)::int AS count,md5(COALESCE(string_agg(row_to_json(t)::text,chr(10) ORDER BY row_to_json(t)::text),\'\')) AS digest FROM public."'+tablename+'" t');result[tablename]=rows[0];}return result;`);
 }
@@ -108,13 +131,18 @@ async function main() {
   save('hosted-environment.json',{node:process.version,runnerEnvironment:process.env.RUNNER_ENVIRONMENT,runnerImage:process.env.ImageOS,runnerImageVersion:process.env.ImageVersion,dockerVersion:info.ServerVersion,cpus:info.NCPU,memoryBytes:info.MemTotal,freeBytes:os.freemem(),builder,buildxVersion:docker('buildx','version'),initialContainers:initialContainers.map(c=>({id:c.Id,name:c.Name,image:c.Image}))});
   assert(docker('buildx','build','--help').includes('--resource'),'Buildx must support RUN resource constraints');
   const expected=JSON.parse(run('node',['node_modules/tsx/dist/cli.mjs','-e',"process.stdout.write(JSON.stringify(require('./lib/review-build-provenance').reviewBuildManifest()))"]));
-  assert.equal(Object.keys(expected.files).length,1206);assert.equal(expected.digest,'d9342ecface5136428d63279890fb71567fade57b8a36bd8bf2d11df72e8271e');
+  assert.equal(Object.keys(expected.files).length,1206);assert.equal(expected.digest,'dc424f54eb615c6da4795ba176563d1c28f3b563fa01336a1160eb886c4f8d49');
   assert.equal(git('rev-parse','HEAD:Dockerfile'),git('rev-parse','fb143e6cd1076a5b87a68043b0e65c007cfb90e8:Dockerfile'));
   assert.equal(git('rev-parse','HEAD:.dockerignore'),git('rev-parse','fb143e6cd1076a5b87a68043b0e65c007cfb90e8:.dockerignore'));
   const heads=['29c9397a4be3eb7f97f07fa9cd98ab17e1418d4b','9582694e71c879d186cd3768f39b1ff61f6e0d22','7ec381f739f80f35139aa81a64f92239237a359a'];
   const checked=[];
   for(const head of heads) for(const file of git('diff','--name-only','8ad7cd949b034226a10a2b21f2a3cdbd9abdd155',head).split('\n').filter(f=>f&&!f.startsWith('docs/'))) {
-    const blob=git('rev-parse',`${head}:${file}`);assert.equal(git('rev-parse',`HEAD:${file}`),blob,file);checked.push({head,file,blob});
+    const blob=git('rev-parse',`${head}:${file}`);
+    if(['tests/ui/isolated-qualification-target.ts','tests/isolated-qualification-target.test.ts'].includes(file)) {
+      assert.equal(git('rev-parse',`fb143e6cd1076a5b87a68043b0e65c007cfb90e8:${file}`),blob);
+      assert.equal(expected.files[file],transportHashes[file],`${file} qualification-only transport patch`);
+    } else assert.equal(git('rev-parse',`HEAD:${file}`),blob,file);
+    checked.push({head,file,blob, ...(transportHashes[file]?{qualificationOnlySHA256:expected.files[file]}:{})});
   }
   save('source-manifest.json',expected);save('approved-source-proof.json',{head:git('rev-parse','HEAD'),tree:git('rev-parse','HEAD^{tree}'),heads,checked});report.gates.source=true;
   const probeDir=path.join(dir,'probe');fs.mkdirSync(probeDir,{recursive:true});
@@ -137,9 +165,9 @@ async function main() {
   docker('start',db);
   const deadline=Date.now()+60_000;
   while(true){const ready=cp.spawnSync('docker',['exec',db,'pg_isready','-U','fixture','-d',dbName],{encoding:'utf8'});if(ready.status===0)break;assert(Date.now()<deadline,'Owned PostgreSQL startup deadline');await sleep(500);}
-  const web=create(['--name',`${project}-web`,'--network',network.name,'--memory','1024m','--memory-swap','1024m','--cpus','1','--pids-limit','256','--tmpfs','/app/.local-data:rw,size=33554432','-p','127.0.0.1::3000','-e',`DATABASE_URL=postgresql://fixture:fixture-only@qualification-db:5432/${dbName}?connection_limit=4`,'-e','RUN_SEED_ON_START=false','-e','WIPE_DB_ON_START=false','-e','MTG_LOCAL_PILOT_TEST=1','-e',`MTG_ISOLATED_QUALIFICATION_RUN=${runId}`,'-e',`ADMIN_USERNAME=ci-admin-${short}`,'-e',`SEED_ADMIN_PASSWORD=${crypto.randomUUID()}`,...['UPLOADS','IMPORTS','EXPORTS','BACKUPS'].flatMap(n=>['-e',`${n}_DATA_PATH=/app/.local-data/${n.toLowerCase()}`]),'-e','SCRYFALL_CONTAINER_DATA_PATH=/app/.local-data/scryfall','-e','NEXT_TELEMETRY_DISABLED=1',image]);
-  docker('start',web);const port=owned(web).NetworkSettings.Ports['3000/tcp'][0].HostPort;const baseURL=`http://127.0.0.1:${port}`;
-  report.target={runId,project,baseURL,networkName:network.name,web:{id:web,name:`${project}-web`},database:{id:db,name:`${project}-postgres`,host:'qualification-db',databaseName:dbName}};
+  const web=create(['--name',`${project}-web`,'--network',network.name,'--memory','1024m','--memory-swap','1024m','--cpus','1','--pids-limit','256','--tmpfs','/app/.local-data:rw,size=33554432','-e',`DATABASE_URL=postgresql://fixture:fixture-only@qualification-db:5432/${dbName}?connection_limit=4`,'-e','RUN_SEED_ON_START=false','-e','WIPE_DB_ON_START=false','-e','MTG_LOCAL_PILOT_TEST=1','-e',`MTG_ISOLATED_QUALIFICATION_RUN=${runId}`,'-e',`ADMIN_USERNAME=ci-admin-${short}`,'-e',`SEED_ADMIN_PASSWORD=${crypto.randomUUID()}`,...['UPLOADS','IMPORTS','EXPORTS','BACKUPS'].flatMap(n=>['-e',`${n}_DATA_PATH=/app/.local-data/${n.toLowerCase()}`]),'-e','SCRYFALL_CONTAINER_DATA_PATH=/app/.local-data/scryfall','-e','NEXT_TELEMETRY_DISABLED=1',image]);
+  docker('start',web);const transport=await startProxy(web),baseURL=transport.baseURL;
+  report.target={runId,project,...transport,networkName:network.name,web:{id:web,name:`${project}-web`},database:{id:db,name:`${project}-postgres`,host:'qualification-db',databaseName:dbName}};
   const targetPath=path.join(dir,'target.json');save('target.json',report.target);
   const webDeadline=Date.now()+150_000;
   while(true){assert(owned(web).State.Running,'Owned web exited');try{const response=await fetch(`${baseURL}/login`,{signal:AbortSignal.timeout(3000)});if(response.status===200)break;}catch{}assert(Date.now()<webDeadline,'Owned web startup deadline');await sleep(1000);}
@@ -154,7 +182,14 @@ async function main() {
   assert.equal(browser.stats.expected,4);assert.equal(browser.stats.unexpected,0);assert.equal(browser.stats.skipped,0);assert.equal(browser.stats.flaky,0);
   assert.deepEqual(snapshot(),before,'Browser synthetic-data cleanup/conservation mismatch');save('database-after.json',snapshot());report.gates.actualBrowser=true;
 }
-main().catch(error=>{report.status='FAILED';report.error=error.message;console.error(error.message);process.exitCode=1;}).finally(()=>{
+main().catch(error=>{report.status='FAILED';report.error=error.message;console.error(error.message);process.exitCode=1;}).finally(async()=>{
+  if(proxy && proxy.exitCode===null && proxy.signalCode===null){
+    const stopped=new Promise(resolve=>proxy.once('exit',resolve));proxy.kill('SIGTERM');
+    await Promise.race([stopped,sleep(5000)]);
+    if(proxy.exitCode===null && proxy.signalCode===null){proxy.kill('SIGKILL');await stopped;}
+    save('proxy-cleanup.json',{pid:proxy.pid,exitCode:proxy.exitCode,signal:proxy.signalCode});
+    if(proxy.exitCode!==0){report.cleanupError='Owned proxy did not exit cleanly';process.exitCode=1;}
+  }
   if(fs.existsSync(path.join(root,'test-results')))fs.cpSync(path.join(root,'test-results'),path.join(dir,'scan-page-screenshots'),{recursive:true});
   for(const id of [...containers].reverse()){
     try{const c=owned(id);run('docker',['logs',id],{log:`owned-${c.Name.slice(1)}.log`});remove(id);}catch(error){report.cleanupError=error.message;process.exitCode=1;}
