@@ -186,3 +186,39 @@ jobs:
       - run: npx prisma generate
       - run: npx prisma migrate deploy
       - run: npx tsx scripts/verify-trade-wishlist-concurrency.ts
+
+  trade-audit-integrity:
+    name: Trade audit PostgreSQL history bounds
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: trade_audit_fixture
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d trade_audit_fixture"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/trade_audit_fixture?schema=public
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - name: Pin pre-repair source
+        run: |
+          mkdir -p .local-data/trade-audit
+          git show b810f06a18f1e358b970bccf8093e4b1026eeb66:app/trades/actions.ts > .local-data/trade-audit/baseline-actions.ts
+      - run: npx tsx scripts/ci/trade-audit-history.ts
