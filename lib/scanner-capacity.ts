@@ -1,4 +1,5 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
+import type { StorageLocation } from "./storage-sections";
 import { lockAndReadInventoryCapacity } from "./inventory-capacity";
 import { normalizeLocationSection } from "./inventory-locations";
 import { getStorageLocations } from "./storage-summary";
@@ -11,6 +12,43 @@ export function scannerReservedSpace(input: { reserved: number | null; candidate
   // review candidate does not prove that the physical card left the destination.
   // The unconsumed part of an unfinished scanner target also stays allocated.
   return Math.max(0, Math.max(input.reserved ?? 0, input.candidateCount, input.slotCount) - input.committedCount);
+}
+
+/** Advisory list snapshot only. Start and commit still lock and recheck capacity.
+ * The caller must constrain destinations to the viewer's existing access scope. */
+export async function scannerCapacityDestinations(db: Pick<PrismaClient, "acquisitionSession" | "acquisitionCandidate">,
+  destinations: StorageLocation[]) {
+  if (!destinations.length) return destinations;
+  const sessions = await db.acquisitionSession.findMany({ where: {
+    locationId: { in: destinations.map(location => location.id) },
+    OR: [{trashedAt: null, deletedAt: null}, {run: {scannerRuns: {some: {NOT: settledScannerTransfer}}}}],
+  }, select: { locationId: true, section: true, scannerReserved: true, run: { select: { id: true,
+    _count: { select: { candidates: true, slots: true } },
+  } } } });
+  const runIds = sessions.flatMap(session => session.run ? [session.run.id] : []);
+  const receipts = runIds.length ? await db.acquisitionCandidate.groupBy({ by: ["runId"],
+    where: { runId: { in: runIds }, receipt: { isNot: null } }, _count: { _all: true } }) : [];
+  const committed = new Map(receipts.map(row => [row.runId, row._count._all]));
+  const pending = new Map<string, Map<string | null, number>>();
+  for (const session of sessions) {
+    if (!session.locationId) continue;
+    const quantity = scannerReservedSpace({ reserved: session.scannerReserved,
+      candidateCount: session.run?._count.candidates ?? 0, slotCount: session.run?._count.slots ?? 0,
+      committedCount: session.run ? committed.get(session.run.id) ?? 0 : 0 });
+    const sections = pending.get(session.locationId) ?? new Map<string | null, number>();
+    const section = normalizeLocationSection(session.section);
+    sections.set(section, (sections.get(section) ?? 0) + quantity);
+    pending.set(session.locationId, sections);
+  }
+  return destinations.map(destination => {
+    const sections = [...(pending.get(destination.id) ?? [])].map(([section, quantity]) => ({ section, quantity }));
+    const snapshot = scannerCapacityDestination(destination, sections, sections.reduce((sum, section) => sum + section.quantity, 0));
+    // Pending-only custom names still consume parent room, but must not add new
+    // ordinary options when the filter is off. Selected counted snapshots retain
+    // their existing pending-only display behavior through the capacity endpoint.
+    const names = new Set(destination.sections.map(section => section.name));
+    return { ...snapshot, sections: snapshot.sections.filter(section => names.has(section.name)) };
+  });
 }
 /** Location lock shared with stock writes. Count both sections when the parent
  * has a tighter total limit; never substitute a stale placement snapshot. */

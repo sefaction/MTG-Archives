@@ -1,5 +1,15 @@
 # Work checkpoint
 
+## Issue 855 isolated implementation - October 20, 2026
+
+- Active branch `codex/issue-855-capacity-filter`, worktree `.local-data/worktrees/issue-855-capacity-filter`, base main `8ad7cd949b034226a10a2b21f2a3cdbd9abdd155`.
+- Latest agreed #855 scope read from live GitHub: default off; configured destinations with any positive free space; pending quantity need not fit; retain selected destinations and existing admission safeguards. Related #597 delivered foundation, #308/#302/#309 broader scope.
+- Implemented scan-only optional filter for location and section choices, bounded parent/section/held-space predicates, retained hidden selections, clear empty state and grouped receipt-count list snapshots. Ordinary picker callers preserve their mode. Shared picker is a potential integration overlap with active #834; trade/import files are untouched.
+- Completed: 12 focused tests plus 13 existing Start/continuation/admission safeguards, isolated real-component keyboard/desktop1366/phone390/phone320 browser checks (3/3), full typecheck, whitespace check, independent source review and follow-up oracle. See `docs/SCAN_DESTINATION_FILTER.md` for initial failures, interpretation and exact limits.
+- Shared issue-worker lock belongs to another active worker. No shared runtime/database/Inventory/settings changes, merge or deploy were attempted. Root checkout and its unrelated WIP remain untouched.
+- Published draft [PR #873](https://github.com/sefaction/MTG-Archives/pull/873), tested implementation `8bdf5dd99ae60bef5ae71f66b7638ca4f7a8b39d`. Push and PR creation succeeded under standing repository authorization. Patch retained at this worktree's ignored `.local-data/issue-855.patch` (SHA256 `5ED052E1166B83723AA3722DEBF16B6DE624B21813A38D7E48736E2E97361EE1`).
+- Next safe step: coordinator reconciles shared-picker overlap with #834; separate application/database qualification when the shared owner permits it, plus exact-final-head CI. Keep draft until qualification is complete; individual Brian approval remains required for any merge. No publication approval blocker occurred.
+
 ## Public issue intake draft publication - October 19, 2026
 
 - Brian explicitly approved publishing the prepared simplified-forms patch as a draft PR, including necessary readiness-label setup. This supersedes the earlier local-only publication restriction for this batch; no merge/deployment approval or bulk issue mutation is included. Earlier local-only checkpoint and source artifacts remain preserved below.
