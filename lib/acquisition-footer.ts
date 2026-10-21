@@ -1,6 +1,6 @@
 // This interprets saved OCR text; it neither changes pixels nor proves printing.
 import { collectorOcrAlternatives } from "./acquisition-collector-alternatives";
-export const ACQUISITION_FOOTER_PARSER_VERSION = "footer-observations-v6";
+export const ACQUISITION_FOOTER_PARSER_VERSION = "footer-observations-v7";
 
 // Zero padding is typography. Identity suffixes/prefixes must remain intact.
 export function acquisitionCollectorKey(value: string) {

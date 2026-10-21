@@ -166,9 +166,17 @@ export function combineAcquisitionPhotoText(index: Index, base: Proposals, raw?:
   const located = [...all.values()].filter(p => locatedNames.has(acquisitionPhotoNameKey(p.card.name)) &&
     !p.reasons.some(r => r.endsWith("_CONTRADICTION"))).sort((a,b) =>
       (rank.get(a.card.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.card.id) ?? Number.MAX_SAFE_INTEGER));
+  // A bounded footer alternative already tied to one contained-title family
+  // remains ahead of unlocated body/face names. This preserves its uncertainty
+  // and cannot confer exact-title, literal-footer or automatic authority.
+  const footerAlternatives = base.proposals.filter(p =>
+    p.reasons.includes("COLLECTOR_OCR_ALTERNATIVE") &&
+    !p.reasons.some(reason => reason.endsWith("_CONTRADICTION"))).sort((a,b) =>
+      (rank.get(a.card.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.card.id) ?? Number.MAX_SAFE_INTEGER));
   const order = [...base.proposals.filter(p => p.reasons.includes("SET_AND_COLLECTOR_TEXT")).map(p => p.card.id),
     ...hinted.filter(id => supported.has(id)), ...hinted.filter(id => alternatives.has(id)),
-    ...located.map(p => p.card.id), ...hinted, ...base.proposals.map(p => p.card.id)];
+    ...located.map(p => p.card.id), ...footerAlternatives.map(p => p.card.id),
+    ...hinted, ...base.proposals.map(p => p.card.id)];
   const proposals = [...new Set(order)].map(id => all.get(id)!);
   return { ...base, status: base.status === "CONFLICT" ? "CONFLICT" : "REVIEW_REQUIRED",
     automaticAcceptance: false, totalProposals: Math.max(base.totalProposals, proposals.length),

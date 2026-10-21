@@ -7,6 +7,7 @@ import {
   TradeLineSide,
   TradeStatus,
   TradeWishlistStatus,
+  Prisma,
 } from "@prisma/client";
 import { ensureDefaultLocation } from "@/lib/inventory-locations";
 import { revalidatePath } from "next/cache";
@@ -27,6 +28,7 @@ import { selectTradeCardPrice } from "@/lib/trade-value";
 import { recordTradeEvent } from "@/lib/trade-notifications";
 import {
   asTradeProposalValidationError,
+  hasTradeContents,
   tradeProposalValidationState,
   TradeProposalValidationError,
   type TradeProposalActionState,
@@ -94,22 +96,23 @@ function inventorySnapshot(
 
 async function validateProposedTrade(
   data: ProposedTradeData,
-  ignoredReservationTradeId?: string,
+  ignoredReservationTradeId: string | undefined,
+  tx: Prisma.TransactionClient,
 ) {
   if (data.proposerPlayerId === data.receiverPlayerId)
     throw new TradeProposalValidationError(
       "Proposer and recipient must be different users.",
     );
-  if (!data.offeredLines.length || !data.requestedLines.length) {
+  if (!hasTradeContents(data.offeredLines.length, data.requestedLines.length)) {
     throw new TradeProposalValidationError(
-      "Choose at least one card on each side of the trade.",
+      "Choose at least one card to offer or request. Both sides cannot be empty.",
     );
   }
   const selections = [...data.offeredLines, ...data.requestedLines];
   const itemIds = Array.from(
     new Set(selections.map((line) => line.inventoryItemId)),
   );
-  const items = await prisma.inventoryItem.findMany({
+  const items = await tx.inventoryItem.findMany({
     where: { id: { in: itemIds } },
     include: { currentOwner: true, card: true, location: true },
   });
@@ -142,7 +145,7 @@ async function validateProposedTrade(
     "You can only request cards from the selected trade partner.",
   );
   const [reservationLines, legacyReservations] = await Promise.all([
-    prisma.tradeLine.findMany({
+    tx.tradeLine.findMany({
       where: {
         inventoryItemId: { in: itemIds },
         trade: {
@@ -154,7 +157,7 @@ async function validateProposedTrade(
       },
       select: { inventoryItemId: true, quantity: true },
     }),
-    prisma.trade.findMany({
+    tx.trade.findMany({
       where: {
         status: { in: activeStatuses },
         ...(ignoredReservationTradeId
@@ -208,8 +211,11 @@ function tradeLinesFromForm(fd: FormData) {
   }
 }
 
-async function loadTradeForAction(tradeId: string) {
-  const trade = await prisma.trade.findUnique({
+async function loadTradeForAction(
+  tradeId: string,
+  store: Pick<Prisma.TransactionClient, "trade"> = prisma,
+) {
+  const trade = await store.trade.findUnique({
     where: { id: tradeId },
     include: {
       proposerPlayer: true,
@@ -221,7 +227,6 @@ async function loadTradeForAction(tradeId: string) {
             include: {
               card: true,
               currentOwner: true,
-              auditLogs: true,
             },
           },
         },
@@ -230,14 +235,12 @@ async function loadTradeForAction(tradeId: string) {
         include: {
           card: true,
           currentOwner: true,
-          auditLogs: true,
         },
       },
       requestedInventoryItem: {
         include: {
           card: true,
           currentOwner: true,
-          auditLogs: true,
         },
       },
     },
@@ -293,44 +296,58 @@ async function createTradeMutation(fd: FormData) {
       throw asTradeProposalValidationError(error);
     }
   }
-  const { offered, requested } = await validateProposedTrade(
-    data,
-    counterSource?.id,
-  );
-  const createData = {
-    proposerPlayerId: data.proposerPlayerId,
-    receiverPlayerId: data.receiverPlayerId,
-    status: TradeStatus.PROPOSED,
-    message: String(fd.get("message") || "") || null,
-    createdByUserId: actor.id,
-    lines: {
-      create: [
-        ...offered.map((line, position) => ({
-          side: TradeLineSide.PROPOSER,
-          inventoryItemId: line.item.id,
-          quantity: line.quantity,
-          position,
-          snapshotJson: inventorySnapshot(
-            line.item,
-            line.quantity,
-            actor.preferredPriceProvider,
-          ),
-        })),
-        ...requested.map((line, position) => ({
-          side: TradeLineSide.RECEIVER,
-          inventoryItemId: line.item.id,
-          quantity: line.quantity,
-          position,
-          snapshotJson: inventorySnapshot(
-            line.item,
-            line.quantity,
-            actor.preferredPriceProvider,
-          ),
-        })),
-      ],
-    },
-  };
   await prisma.$transaction(async (tx) => {
+    // Match completion's Trade-before-Inventory lock order for counters, then
+    // serialize overlapping reservation creation before reading current stock.
+    if (counterSource) {
+      await tx.$queryRaw`SELECT "id" FROM "Trade" WHERE "id" = ${counterSource.id} FOR UPDATE`;
+    }
+    const reservationItemIds = Array.from(new Set(
+      [...data.offeredLines, ...data.requestedLines].map(line => line.inventoryItemId),
+    )).sort();
+    if (reservationItemIds.length) {
+      await tx.$queryRaw`SELECT "id" FROM "InventoryItem"
+        WHERE "id" IN (${Prisma.join(reservationItemIds)}) ORDER BY "id" FOR UPDATE`;
+    }
+    const { offered, requested } = await validateProposedTrade(
+      data,
+      counterSource?.id,
+      tx,
+    );
+    const createData = {
+      proposerPlayerId: data.proposerPlayerId,
+      receiverPlayerId: data.receiverPlayerId,
+      status: TradeStatus.PROPOSED,
+      message: String(fd.get("message") || "") || null,
+      createdByUserId: actor.id,
+      lines: {
+        create: [
+          ...offered.map((line, position) => ({
+            side: TradeLineSide.PROPOSER,
+            inventoryItemId: line.item.id,
+            quantity: line.quantity,
+            position,
+            snapshotJson: inventorySnapshot(
+              line.item,
+              line.quantity,
+              actor.preferredPriceProvider,
+            ),
+          })),
+          ...requested.map((line, position) => ({
+            side: TradeLineSide.RECEIVER,
+            inventoryItemId: line.item.id,
+            quantity: line.quantity,
+            position,
+            snapshotJson: inventorySnapshot(
+              line.item,
+              line.quantity,
+              actor.preferredPriceProvider,
+            ),
+          })),
+        ],
+      },
+    };
+
     if (counterSource) {
       const replaced = await tx.trade.updateMany({
         where: {
@@ -586,6 +603,8 @@ async function removeFromSource(
   actorUserId: string,
   reason: string,
 ) {
+  // Item reads exclude prior audit rows: spreading that history here would
+  // recursively duplicate old snapshots instead of keeping canonical records.
   const beforeJson = {
     ...item,
     previousOwnerId: item.currentOwnerId,
@@ -698,50 +717,54 @@ async function completeTradeIfReady(
   actorUserId: string,
   force = false,
 ) {
-  const trade = await loadTradeForAction(tradeId);
-  if (isTerminalTradeStatus(trade.status)) return;
-  if (!force && (!trade.proposerCommittedAt || !trade.receiverCommittedAt))
-    return;
-  const lines = trade.lines.length
-    ? trade.lines.map((line) => ({
-        side: line.side,
-        inventoryItem: line.inventoryItem,
-        quantity: line.quantity,
-      }))
-    : [
-        {
-          side: TradeLineSide.PROPOSER,
-          inventoryItem: trade.offeredInventoryItem,
-          quantity: 1,
-        },
-        {
-          side: TradeLineSide.RECEIVER,
-          inventoryItem: trade.requestedInventoryItem,
-          quantity: 1,
-        },
-      ];
-  if (
-    !lines.length ||
-    lines.some((line) => !line.inventoryItem || line.quantity < 1)
-  ) {
-    throw new Error("One or more traded cards are no longer available.");
-  }
-  const reason = `Completed trade between ${trade.proposerPlayer.displayName} and ${trade.receiverPlayer.displayName}`;
   await prisma.$transaction(async (tx) => {
-    const itemIds = lines.map((line) => line.inventoryItem!.id);
+    // Serialize every completion of this trade, including admin overrides. Read
+    // readiness, destinations and stock only after the previous completer commits.
+    await tx.$queryRaw`SELECT "id" FROM "Trade" WHERE "id" = ${tradeId} FOR UPDATE`;
+    const trade = await loadTradeForAction(tradeId, tx);
+    if (isTerminalTradeStatus(trade.status)) return;
+    if (!force && (!trade.proposerCommittedAt || !trade.receiverCommittedAt))
+      return;
+    const lines = trade.lines.length
+      ? trade.lines.map((line) => ({
+          side: line.side,
+          inventoryItem: line.inventoryItem,
+          quantity: line.quantity,
+        }))
+      : [
+          {
+            side: TradeLineSide.PROPOSER,
+            inventoryItem: trade.offeredInventoryItem,
+            quantity: 1,
+          },
+          {
+            side: TradeLineSide.RECEIVER,
+            inventoryItem: trade.requestedInventoryItem,
+            quantity: 1,
+          },
+        ];
+    if (
+      !lines.length ||
+      lines.some((line) => !line.inventoryItem || line.quantity < 1)
+    ) {
+      throw new Error("One or more traded cards are no longer available.");
+    }
+    const reason = `Completed trade between ${trade.proposerPlayer.displayName} and ${trade.receiverPlayer.displayName}`;
+    const itemIds = Array.from(new Set(lines.map((line) => line.inventoryItem!.id))).sort();
+    // Distinct trades can consume one lot. Serialize the fresh stock read so
+    // audit quantities and full-versus-partial removal use its current state.
+    // Lock in a common order across all trade completions.
+    await tx.$queryRaw`
+      SELECT "id" FROM "InventoryItem"
+      WHERE "id" IN (${Prisma.join(itemIds)}) ORDER BY "id" FOR UPDATE
+    `;
     const currentItems = await tx.inventoryItem.findMany({
       where: { id: { in: itemIds } },
       include: {
         card: true,
         currentOwner: true,
-        auditLogs: true,
       },
     });
-    const currentTrade = await tx.trade.findUnique({
-      where: { id: tradeId },
-      select: { status: true },
-    });
-    if (!currentTrade || isTerminalTradeStatus(currentTrade.status)) return;
     const currentById = new Map(currentItems.map((item) => [item.id, item]));
     const resolvedLines = lines.map((line) => {
       const item = currentById.get(line.inventoryItem!.id);
@@ -952,10 +975,19 @@ export async function confirmPhysicalTrade(fd: FormData) {
     );
   }
   await prisma.$transaction(async (tx) => {
-    await tx.trade.update({
-      where: { id: trade.id },
+    const confirmed = await tx.trade.updateMany({
+      where: {
+        id: trade.id,
+        status: { in: physicalStatuses },
+        ...(actor.playerId === trade.proposerPlayerId
+          ? { proposerCommittedAt: null }
+          : { receiverCommittedAt: null }),
+      },
       data,
     });
+    if (confirmed.count !== 1) {
+      throw new Error("This physical exchange was already confirmed or is no longer awaiting confirmation.");
+    }
     await recordTradeEvent(tx, {
       tradeId: trade.id,
       eventType,

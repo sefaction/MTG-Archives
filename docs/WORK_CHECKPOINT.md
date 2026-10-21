@@ -1,5 +1,19 @@
 # Work checkpoint
 
+## PR #879 integration and qualification - October 21, 2026
+
+Current main 3ae13d0d integrated with checkpoint histories retained. Readiness
+product changes remain unchanged from qualified head 3c22393b. Source CI
+39534686852 passed all three jobs (1552 core tests plus both PostgreSQL suites).
+Hosted browser run 39536777618 passed one Chromium scenario (20.72s), all seven
+qualification gates and identical before/after snapshots for 84 tables. Independent
+source, harness and artifact reviews passed. Initial run 39535778024 storage
+fixture failure remains preserved; only harness tmpfs capacity was corrected.
+Brian authorized clear bounded fixes to merge overnight via parent delegation.
+Next: final integration CI, verify head before merge, verify resulting main checks.
+Do not deploy or close broad #308/#302. Earlier entries below are preserved history.
+
+
 ## Physical review readiness under #308 — October 21, 2026
 
 - Branch `fix/308-physical-readiness`, desktop worktree `E:\Codex\mtg-308`,
@@ -28,6 +42,36 @@
   coordination send failed with AbsolutePathBuf error, and no recognition code
   changed. Next: publish draft, inspect exact-head CI, then obtain setup-owned
   synthetic browser slot. No merge/deployment or user-acceptance claim.
+## Prisma pool investigation #846 - October 21, 2026
+
+Isolated branch `codex/prisma-pool-846` from live main
+`f32ebffbec91d5488e7e3318510d446bdc3d80d7`. Scope: hosted canonical-image pool
+reproducer; no demonstrated product fix yet. Recognition #872 and pricing/resource
+owners remain independent. Trade owner `01a15c1e-1421-7106-9a8a-6a5620fe6037`
+reserves `app/trades/actions.ts` and `scripts/ci/trade-concurrency*`; no overlap.
+Reviewer `01a15bb8-1e70-7029-a9a7-b3f35691203a` contacted for hosted pattern and
+independent review. Parent app-message delivery returned thread not found.
+
+AGENTS/CODEX, Foundry hub/workflow/architecture/operations, PR template and relevant
+capacity/provenance guidance read. Auth/main/issue/open PRs reconciled. Syntax and
+two constructor-preservation/sanitization tests pass. Hosted measurements and
+independent review pending. Next publish scoped draft, follow hosted run through
+terminal evidence and fix only demonstrated narrow behavior. No merge/deploy,
+local reload/service/job/limit changes. Local active jobs and distinct five-role
+pipelines preserved; unanswered idle-review shutdown remains pending.
+
+Draft [#877](https://github.com/sefaction/MTG-Archives/pull/877) first exact head
+`f8c3f42b` completed hosted [39529697814](https://github.com/sefaction/MTG-Archives/actions/runs/39529697814)
+and all three normal CI checks. Both single-web lifetimes warmed 0 to 5 idle
+connections and remained 5 through 102 total reads; observed startup constructed
+two clients with no subsequent constructor growth. All owned cleanup passed.
+Source and runtime evidence do not reproduce the historical capacity failure;
+no product fix is proposed. Independent source reviews completed with explicit
+limits. Follow-up enforces observer/cleanup regression CI, independent removal
+after failed logs, baseline/image/source-manifest assertions, immutable PostgreSQL
+image, native build history and safe compiled callsites. Next reconcile final
+exact-head CI/artifacts and independent review, then retain #846 open for a
+covering populated-workload/CPU-topology hypothesis. No merge approval exists.
 
 ## Build provenance input coverage #842 - October 20, 2026
 
@@ -9412,3 +9456,139 @@ Draft #874 implementation head `6e8ffe4d8d1720a4472411279a34441a5671ed65` has al
 User approval covers only #873/#874/#875. Canonical unchanged Dockerfile and exact product sources passed hosted isolated image, real PostgreSQL capacity rollback/parity, three actual scan-page widths and two-party trade lifecycle/conservation checks. Qualification run: https://github.com/sefaction/MTG-Archives/actions/runs/39526436253; image: sha256:27472d18c8dbfa379f3d12284bd5260a938cf90ede969176180f8ee02075433a; 1206-input temporary qualification digest: 2be63cda028b2f2c6068dc3f423c77d07cec9d9951fa15757b46c1e756272fd4. Four declared qualification-only fixture/transport inputs differ from original frozen context; those temporary harness changes do not enter these PRs. Independent source/harness/runtime review passed. Negative invalid submissions buffer actual backend responses; unmodified negative browser response consumption remains outside this qualification, and the generic Next error behavior predates874. Positive actual two-party completion passed. Earlier laptop heap exhaustion and five-peer restart interval remain unresolved; hosted success does not establish laptop installation, user acceptance or deployment.
 
 Earlier approved merges recorded before this integration: #873 at https://github.com/sefaction/MTG-Archives/commit/d1ee40586d5d75d72eea4dfc92896dd1089608f4; #874 at https://github.com/sefaction/MTG-Archives/commit/a0d744f220e35963e337ea7f6452c7920ecb58a7. This #875 integration preserves actual main a0d744f220e35963e337ea7f6452c7920ecb58a7, exact approved noncheckpoint file identities, and both checkpoint histories. Next safe step is exact-integrated-head CI, expected-head merge, full merged-tree proof, narrow issue disposition and final main publication verification. No production deployment or local topology change is authorized here.
+# #309 trade completion concurrency investigation - October 21, 2026
+
+- Branch/worktree: `codex/trade-concurrency-309`, isolated `.local-data/worktrees/trade-concurrency-309`; base verified latest main `f32ebffbec91d5488e7e3318510d446bdc3d80d7`.
+- Draft PR #876. Related #309; preserves merged #874 explicit destination/auth checks. Prior #834 owner explicitly released all trade action edits/processes. No recognition/pricing/resource scope taken; #846 owner separately owns Prisma pool investigation.
+- Test-only harness calls actual `confirmPhysicalTrade` through request identity/cache adapters with real Prisma/transfer/audit/notification services. Barrier cases: duplicate final confirmation, simultaneous participants, admin overlap; partial source lots, provenance/resident/total conservation, rollback and authorization checks.
+- Standard GitHub-hosted Docker only: labeled internal no-egress network, immutable container/image IDs, synthetic empty PostgreSQL, read-only hosted source, exact-owner cleanup. No local/server service, jobs, limits or production data touched; heavy local hold remains.
+- Attempt `39529269677` on `54e8e5b1` failed at CommonJS transform before action execution. Migrations and owned cleanup passed. Artifact retained under ignored `.local-data/attempt-54e8e5b1`. It checked GitHub's synthetic merge commit `b1a7fb67`; subsequent repair explicitly pins PR head and records event/source separately. No race proven yet.
+- Follow-up `669e31bd` fixes async startup and captures JSON from stopped-container logs. CJS transform and runner syntax pass. Initial follow-up commit failed writing index; staged changes were inspected, disk space was available, and retry committed/pushed successfully. No failed operation is treated as executed.
+- Pending: hosted actual-action baseline evidence, then only a demonstrated bounded fix/regression; independent source/artifact review and exact-head CI. No merge approval or deployment. Next safe step: collect retry artifact and inspect actual completion counts before editing product code.
+
+Candidate79246410 hosted39529988169 passed old-source+fixed with production transaction defaults: old duplicate/admin each2 completions,source6/6,4receipts,8audits; fixed all3cases1completion,source8/9,2receipts,4audits; provenance/totals/resident/rollback/destination/auth pass. Exact-owned3container+network cleanup passed. Independent sibling source review found no blocking product issue; final harness adds selected Unix Docker-context/clean-source fences, exact audit quantities and second-receipt failure rollback. Issue878 created with ignored worker receipt.54focused tests pass. Normal CI and independent final artifact review pending; no merge/deployment. Prior first-CJS failure preserved.
+
+Hosted39530317142 onb2ac5181 passes stronger exact audit and second-receipt rollback assertions. Final reviewer follow-up adds truthful Prisma instrumentation metadata, per-call/read/scenario gate receipts, enforced actual two-read baseline overlap, unchanged baseline dependency context, local bridge guards and tmpfs-only bounded PostgreSQL. Product source remains579b117f569141e0dba93a356cde099121c61aa0a4d14df95cd591b859aac70b. Earlier normal CI on79246410 was automatically superseded/cancelled by the repository Verify workflow when the follow-up pushed; its two database jobs had passed. Preserve cancelled status; no manual job cancellation or runtime-job mutation occurred. Final exact-head run still required.
+
+## Independently reproduced trade wishlist race — October20Central
+
+Branch codex/trade-wishlist-atomic from mainb810f06a, draft885, new own-created bug886 (creation receipt .local-data/goal-20261020/issue-886-creation-receipt.json). Actual old/current helper2connections/first-real-query barrier deterministically leavesOPENqty1 after2one-copy receipts againstqty2; negative39541951161/job119031468491 at a36b6175 fails expectedFULFILLED and exactcleanup passes. Duplicate search found no narrow issue;309 explicitly retains wishlistconservation after876. No physicaltransfer/historicalincident attribution.
+
+Narrow fix is one parameterized locked-row UPDATE inside passed trade transaction; owner/target/card/active-status/fulfilledquantity semantics preserved. Pinnednegative, deterministic split-regression adapter, current exact/partial/IN_TRADE/terminal/unrelatedscope, whole-row rollback and zeroInventory/audit controls added.13focused source/unit checks pass. PositiveCI pending. No localDocker/shareddata/hardware/production action. Next pushfix, inspect realDB/core, retain allfailedintervals and keep885draft until qualificationscomplete;886/309stayopen untilproper disposition.
+## One-sided card gifts (#807), October 20, 2026 Central
+
+Branch codex/trade-gifts-807 starts from main b810f06a in isolated .local-data/worktrees/trade-gifts-807. The proposal form and server permit an empty offered or requested side and reject both empty. Existing acceptance, two physical confirmations, destination validation and completion code remain authoritative. This delivers only individual-card gifts, not deck ownership transfer.
+
+32 focused policy, proposal, line and UI source checks pass. Full TypeScript check and hosted real PostgreSQL gift controls pending. New hosted controls invoke real server actions with adapted request identity/cache only, using a separate empty trade_gift_fixture schema. They cover both directions, empty rejection, participant consent, two confirmations, once-only transfer, provenance, resident isolation, quantities, cancellation and decline. Browser and local Docker qualification remain pending; shared runtime lock a99d0b6a belongs to another chat and was preserved. Existing root manual/checkpoint files remain untouched by this feature checkout.
+
+Whole-deck scope still requires a bounded design and decisions on mixing bundles/cards and multiple bundles. #808/#844 require actual failing request/list/error evidence; existing synthetic passes do not establish incident resolution. No merge or production change authorized/performed. Next: inspect exact-head CI, qualify gift browser workflow and cumulative local Docker after runtime ownership becomes available, and keep PR draft until qualification is complete.
+
+
+## Independently qualified gift integration - 2026-10-21T04:37:13.455Z
+
+Reviewer integrates actual main 08d90ea3cadf18ec8cb95b366023b7aceabe2b37 (#885 atomic wishlist) into original gift head 8d0f6efed95caf23a52cd615a3d2b7e58b12cab4. Exact cumulative677/run39543224014 passed both gift directions/desktop320px,8 real negative backend responses, ordinary trade/wishlist/provenance,84 public-table conservation and owned cleanup; raw1215 mixed inputs/image/resource proofs independently checked. Preserve failures/cancelled attempts and unmodified negative-response-consumption limitation. Persist the exact qualified complete-response helper in this PR's browser test; accepted-state poll/screenshots retained. App product unchanged. Physical-concurrency harness helper anchor advances from b810 to actual currentmain 08d90ea3cadf18ec8cb95b366023b7aceabe2b37; frozen old actionf32 and every old/fixed quantity/event/audit/rollback guard remain unchanged and must rerun against the same current helpers. No library/schema/client/permission relaxation. #807 whole-deck scope and #881 unresolved decisions remain open. Required refreshed exacthead checks pending before approved merge; no local runtime/production action.
+
+## P2 durable reconnect acceptance batch (#304), October 20, 2026 Central
+
+Branch codex/acquisition-reconnect-304 from main b810f06a. Existing controls mapped in docs/ACQUISITION_P2_ACCEPTANCE.md. Added a finite short-source 3-of-7 completion/reordered replay/fresh-client reconstruction control and explicit scanner SOURCE_EXHAUSTED final-ACK replay control preserving complete session, derived counts, outcome and zero Inventory. Uses only existing hosted disposable fixture ownership/cleanup. Source review complete; database CI pending; no local shared runtime mutation, hardware operation or product code change. #304 remains open for version-binding/stage integration; #310 broader release/recovery and #307/#463 independent accuracy remain separate. Next: publish labeled draft, inspect exact-head CI, retain failed evidence, then continue mapping actual missing integration cases. Shared a99 runtime lock and unrelated root manual files remain untouched.
+
+
+## Independent current-main P2 integration PR#882 - 2026-10-21T04:45:20.681Z
+
+Original qualified test/docs head 939fbaf82b5996d2483462ec1c33050417e188df, actual main 0a24eb9c76482623ab74e6011dc4e3fd2bdb5748. Preserve all currentmain changes and both checkpoint histories. Both exact original short-source/scanner-replay assertion files retained. No application/library/schema/runtime or hardware change. Original exacthead actualPostgreSQL/core evidence independently reviewed; refreshed integrated-head required checks pending before approved merge. #304/#302 and broader stage/helper/recognition/resource acceptance remain open; no deployment.
+
+## P2 persisted version-contract qualification batch, October20Central
+
+Branch codex/acquisition-version-contract-304 from main b810f06a. Adds seven descriptor identities covering pipeline/runtime/model/catalog/index/execution, equivalent-field-order replay, caller mutation isolation, fresh-client claim/complete input-output binding and whole-session/Inventory conservation to existing guarded hosted acquisition fixtures. Distinct coherent test-only scope from ready #882. No real GPU/native inference or independent stage/hardware/accuracy claim. Source reviewed; CI pending. Next publish labeled draft and require real database/core results, repairing demonstrated test/product defects without relaxing assertions. No local Docker/shared-data change, merge or production action.
+
+
+## Independent current-main P2 integration PR#884 - 2026-10-21T04:50:49.390Z
+
+Original qualified test/docs head c8a3891daed62fa72f3c5a94f52a8517aeea85a6, actual main 36861c0cedd2275a6693058a788800fb613cd3cc. Preserve all currentmain changes and both checkpoint histories. Orchestration file contains exact original882 and884 assertion blocks in sequence, with base function unchanged. No application/library/schema/runtime or hardware change. Original exacthead actualPostgreSQL/core evidence independently reviewed; refreshed integrated-head required checks pending before approved merge. #304/#302 and broader stage/helper/recognition/resource acceptance remain open; no deployment.
+
+## Independent shared-stock audit race reproduced, narrow repair pending — October20Central
+
+Branch codex/trade-shared-stock-audit, draft887, new own-created bug888 (creation receipt under .local-data/goal-20261020). Pinned/current b810actualactions at4d9886d6 reproduce two valid distinct trades consuming2+2of4copies: actualsource reads4/4 on2connections, source rowquantity0persists and sourceaudits[[4,2],[4,0]]; desireddeletionfails. Negative39545279302/job119041949692; exactcleanup andother3checks pass. This is a zero-lot/stale-audit bug, not duplicatephysicalcopies, wishlist886or allwriters.
+
+Narrow action patch locks sorted unique InventoryItem IDs insideexistingtradecompletion transaction beforefreshquantity/ownerread. Tradefence, validation, destination/lot/provenance/rollback/confirmation policies unchanged. Realcurrentfixture preserves actualSQLand adaptsonlyauth/cache/post-queryobservation; a real lock passesnaturally, unlockedsourcefailsdeterministically. PositiveCIandexistingold/fixedtradeconcurrency pending. No localruntime/data/hardware/production/merge action. Next publishcurrentrepair, inspectactualnewstock/sourceaudit/conservation andexistingrollback/duplicate/corecontrols; no sourcehypothesisclaimedfixedbeforeevidence.
+
+Externalreadiness note:885andlater880becamenon-draft through ready_for_review events underthesharedGitHubaccount; thisworker didnotissue those transitions and doesnotinferhumanapproval/independentreviewfromthem. ExistingauthorCIandhostedcumulative39543224014/artifact12320214088nowfullyassessedPASS:1215sourceinputs,pinned880@8d0f6efe+885@e2907ca0,canonicalimage/source/resourceguards,1browsercase31.6s/no skips/retries/flakes,8complete backendrejections,84tableconservation,visualdesktop/320pxgiftinspectionandownedcleanup. Localreviewstillpendinga99owner; readinessstatepreservedratherthanoverwritten. No mergeauthorityinferred.
+
+
+## Independent PR887 integration - 2026-10-21T05:31:00.357Z
+
+Original c1d57c76987ecb9e207132d73bc5e2d0bc098470 combined with current main cd536f2e93bfb73ed389ab356df8cd28e8012d43. Exact sorted-stock-lock edit preserves current gifts, wishlist fix, trade fence and unchanged transaction options. Original source/dependency and real PostgreSQL evidence reviewed. Fresh exact-head six checks and canonical hosted cumulative browser/image/conservation qualification pending. #888 narrow; #309 broader remains open. No local runtime or deployment.
+
+## Bounded audit-history measurement and prevention batch — October 21, 2026 Central
+
+New branch codex/trade-audit-history-bounds starts from live main cd536f2e, after separate-review merges #885/#880/#882/#884. GitHub remains authoritative; earlier awaiting-merge notes are historical, and no other PR merge approval is inferred. #886 is closed by that review path; #887/#888 remain open. Runtime a99 remains retained and unchanged.
+
+Draft #889 / new own-created bug #890: actual pinned b810 and current cd536 action measurement at bdfe05c8,39548446852/job119051882572, produces source snapshot bytes2328,5690,12415,25865,52765,106565,214165,429365 in eight ordinary one-copy transfers,184.4times initial size and64embedded copies of the oldest audit row. Current bounded assertion fails; canonical row/copy/resident checks and exact cleanup pass. No historical resource cause or real data rewrite claimed. Receipt for own issue890 saved under goal-private directory.
+
+Narrow prevention removes four unused auditLogs relation loads, retaining all scalar attributes and canonical rows/JSON. Fixed profile seeds the actual old large snapshot as existing canonical history, then checks eight bounded partials plus a final full transfer, unchanged old JSON,36new audit rows, copy totals27/20, received attributes/destinations/resident and owned cleanup.31focused trade checks pass. Positive current CI and existing old/fixed trade safeguards pending. No laptop Docker/data/native/hardware, production or merge action. Next publish fix and inspect bounded positive/old-negative plus all exact-head checks; preserve all historical artifacts and unresolved scope.
+
+
+## Independent PR889 integration - 2026-10-21T06:01:02.757Z
+
+Original 4854f465582bad7fb5c73ee3b600c6d3be28b409 combined with main e133ddd8ab910092de7126f62f4d5f5b5b0a6775; exact four unused audit relation removals compose with sorted source-stock locks, gift/wishlist fixes and Trade fence. No historical data rewrite or schema/transaction/UI change. Original actual PG growth/bounded/history/conservation evidence reviewed; fresh seven exact-head and cumulative hosted canonical browser gates pending. Narrow890/broader309 remain distinct; no local runtime or deployment.
+
+## P2 scanner lineage control — October 21, 2026
+Branch codex/scanner-provenance-304 from main cd536f2e. Adds joined scanner transfer/slot/photo/artifact/observation/candidate/canonical-job input checks for two equal-byte physical transfers, fresh-client ACK replay and conflicting-byte conservation. No runtime/schema changes. Exact hosted checks pending; local heavy qualification remains reserved by owner. Protocol/device metadata does not prove installed helper binary provenance; stage/native/release acceptance remains separate. Next: push draft, inspect actual execution and exact cleanup before claiming pass. Parent #304/#302 remain open; no merge authority.
+
+
+## Independent PR891 integration - 2026-10-21T06:32:01.569Z
+
+Original 9571d957e17bd9802dfea954d5454a4e59c75e5f combined with current main cf732d262702b1c330858a259b4a2cbbb26c9f40. Exact original scanner lineage assertion bytes retained; source map only replaces stale pending-CI text with actual original terminal evidence and current PR pointers. Production app/library/components/schema/dependencies/Docker/workflow are byte-identical to current main. Original four checks and actual scanner lineage/replay PASS independently inspected. Refreshed cumulative six-check Verify required before approved merge; no local heavy runtime. #304/#302 remain open for helper/native/stage/release acceptance; no deployment.
+
+## P3 deterministic upload storage boundaries — October 21, 2026
+Branch codex/upload-storage-boundaries-305 from cd536f2e. Actual upload route/file/store PostgreSQL tests inject four selected filesystem failures with real partial writes/publication; assert non-READY/no derived jobs, exact temporary cleanup, same-identity recovery and ACK replay, bytes/Inventory conservation. No product/schema or host pressure operation. Exact hosted execution pending. Natural exhaustion/power loss/backup-retention races/restore/mobile acceptance remain separate; local runtime reservation preserved. Next push draft and inspect actual test outcomes before claiming success.
+
+## Expanded P3 storage qualification — October21,2026
+Same draft892/coherent storage failure batch now covers actual partial Trash deletion: original removed/preview unlink EACCES, non-marked purge, expired access/restore denial, unchanged canonical evidence, exact retry/replay and protected active equal-byte original/preview. Existing receipt-age/Trash-selection races and DBmarking faults already covered; no duplicate newissue or broader acceptance claim. Prior069b098c all4checks39550874596 retained; expanded head checks pending. Next inspect real expanded execution and exact owned cleanup; no product/schema/runtime change or merge.
+
+
+## Independent PR892 integration - 2026-10-21T06:56:39.766Z
+
+Original 2952c3eb1e025bba2f13bd7bf6b4db182905d2cd combined with main c2c65102032b1e3da595da670c5310b3ae6c7f37; both exact original test files retained, including the actual route/file/store four-failure and partial-purge controls. Source map replaces two stale pending-CI sentences with terminal original evidence and PR pointers. Production/library/schema/dependency/Docker/workflow files remain byte-identical to current main. Original four checks and actual five storage boundary PASS receipts independently reviewed. Refreshed cumulative six checks required before approved merge. No local heavy runtime or deployment; broad #305/#302/#310 remain open, #304 limits unchanged.
+
+## P7 Inventory deletion reservation measurement — October21,2026
+Branch codex/inventory-delete-reservations-309 from main e133ddd8. Static source: owner/admin deletion and zero-quantity cleanup inspect only legacy offered/requested IDs, while multi-card TradeLine references use onDelete SetNull. Added actual-action PostgreSQL measurement across all three active statuses, secondary lines and cleanup, with legacy/terminal/unreserved/admin controls and exact owned cleanup. No product repair or new defect claim before execution. Duplicate213 concerns storage moves, not this Delete/admin-cleanup path. Next run hosted fixture, inspect actual source/line/audit effects, then catalogue/repair only if reproduced. Local shared runtime reservation remains; no merge.
+
+## P7 deletion gap reproduced and narrow repair — October21,2026
+Issue894 newly created with triage/internal summary and immutable creation receipt in root private goal journal. Draft893 actual ca772fbd measurement39552675837/job119065446002 proves all9active-status/delete/admincleanup cases remove secondary stock/null trade line/writeaudit; exact graph cleanup passes. Earlier d95 first-case proof then display-name collision retained, corrected unique names/setup tracking. Repair adds TradeLine membership to existing Deleteguard and active-line IDs to zero exclusions; no concurrency/schema/historical rewrite claim. Positive exact-head checks pending. Next inspect real graph controls and all CI before updating readiness; runtime reservation/no merge preserved.
+
+## Delayed Delete/cleanup cross-writer measurement — October21,2026
+Same draft893 now measures two remaining timing windows separately from894's sequential TradeLine omission: a real proposal commits afterDelete's unlocked guards, and a real shared Inventory receipt adds2copies afterzero cleanup selection. Only an observation wait is adapted, actual action/receipt/SQL/audit/notification code executes. Requiredfreshguard invariant: source remains2, newproposalreferenceintact, no deletionaudit. No newdefectclaim/issue beforeactualexecution. Existing9sequential controls retained; exactcleanup extended for actual proposal events/notifications and release/terminalizationonfailure. Counterpart proposal usescurrentbranch's actualcode (not895), no pendingpatch copied. Next inspect metricsbeforechangingproduct orcataloguingbug. Localruntime retained; no merge.
+
+## Stale deletion guards proved and repaired — October21,2026
+New897creationreceipt saved atcreation. a4cfc19d39556724802/job119078105142 passes9sequential controls then reproduces bothcommittedwriter windows: proposalafterunlockedDelete→sourcegone/null line/audit1; sharedreceipt2copiesafterzeroSelection→sourcegone/audit1. Exactusers/players/cards/stock/trades/events/notifications/auditscleanup passes. Product893 now locks singleDelete source thenfreshguards/owner/source/audit/delete inoneTx; cleanupinitialIDsonly then sorted500rowlockchunks, freshzero/reservationfilter/audit/delete inoneTx. Added actualaudit/FKrollback andowner-mode denial controls. Positiveheadpending; no arbitrarywriter/allorderings/historical/localacceptance claim. Samecoherent893 resolves894and897, notnewPR. No localruntime/merge.
+
+
+## Independent PR893 integration - 2026-10-21T07:25:44.746Z
+
+Original 5960933aa77ba90ff0e4a5ed3e2efec945874d44 combined with current main 26d35d7f6561943b83e51ec6c3e9abaa35c01b76. Exact product and fixture bytes retained; actual deletion job is inserted into the full current six-job workflow without dropping any existing checks. Both checkpoint histories retained. Original actual failed/current sequential, committed proposal/receipt and rollback/permission/cleanup controls independently reviewed. Refreshed seven-job CI plus bounded hosted canonical image/app/browser qualification pending before approved merge. Narrow894/897 remain distinct from broad309/302; no895 proposal patch copied, no local runtime or deployment.
+
+## P7 proposal reservation concurrency measurement — October21,2026
+Branch codex/trade-proposal-reservations-309 from e133ddd8. validateProposedTrade reads stock/reservations before creation transaction. Added actual-action two-call gate only after real unlocked reservation queries; offered/requested gift orientations test one final copy versus two available copies, physical Inventory conservation and committed event/notification counts. Actual row locks, if introduced, serialize naturally and do not enter artificial gate. No product change/bugclaim before hosted measurement. Same empty trade_stock_fixture follows its existing exact shared-stock cleanup; own identities cleaned afterward. Next run, inspect all real metrics/cleanup, catalogue only demonstrated failure. Not a duplicate of sequential Delete894, completion888 or storage213. No local/shared runtime/merge.
+
+## Proposal admission race reproduced and repaired — October21,2026
+Issue896 created with immutablecreationreceipt in private goaljournal.895test39beb3bd39554083114 terminal fails only newproposal assertion: bothorientations onecopy→2success/reserved2, actualunlockedreads0/0; twoavailablecontrol2success, Inventory/audits/events/notifications and exactcleanup pass. Other4Verifyjobs pass. Repair validates inwrite transaction aftersortedunique Inventoryrow locks, countersTrade lockfirst, sameexistingrules andconditionalreplacement. Added opposingtwo-sided sources, simultaneouscounterpreflights and actualwrites rollback/retry controls. Positiveheadchecks pending; no arbitrarywriter/Delete/historicalrepair/browser/local claim.889separatereviewer merged cf732d26; leave thatsource/historyalone. Next inspect newactualcontrols/allCI and retained failures; no merges bygoal or sharedruntime changes.
+
+## Proposal product pass and deterministic negative refinement — October21,2026
+895product5f7f311b all6checks39554862699/39554865777PASS. Actual lockedreads0/1 yieldonecopy1success/twocopies2; opposingtwo-sided/counterpreflights/afterrealwritesrollback/retry/exactcleanup pass. Refining testonlygate towaitbothactualPromise.all reservation reads, onceperaction, independent of completionorder. Added pinned source-hashed e133negative in same empty DB/currentdeps beforecurrent control. Sourcehash6d8dd68363500fc04efd7f3c0ba8ebbdec71e8b71c78dddf87355fef531be318. This prevents timing-dependent regression evidence; no new product change. Next run refinedhead and inspect actual negative+positive logs/core/existingconcurrency. Preserve5f pass and39bebfail; no broaderclaims/local/merge.
+
+## P7 real-session browser follow-through prepared — October21,2026
+Same895product app unchanged; added realdesktop+320px dual-session last-copy UI case and recipientNotifications page assertion. Exact request network rendezvous, one success/one domain error, one committed reservation/event/notice, unchanged source/no audits and owned cleanup. It is not a substitute for backendcontrolledoverlap. Browserexecutionpending on canonical combined main+893+895 isolatedhosted image, with source/compiled proofs and full public-table conservation. No localDocker use or merge. Next publishtesthead, integrateownqualificationbranch preservingmain889/891, pinallproductfiles/transportexceptions, run bounded hosted build/browser.
+
+
+## Independent PR895 current-main integration - 2026-10-21T08:08:18.353Z
+
+Original 8f41495f511dfcceebf59cfd170d1bf94cfefcbc combines with main 494f2ea18b8c23eb62ac3c2973c7154446a050a4. Exact proposal validation/locking and original actual PostgreSQL/browser fixture bytes retained, with main889 audit snapshot fix and893 deletion guard unchanged. All seven current Verify jobs retained; pinned old/current proposal controls appended to shared-stock job. Both checkpoint histories preserved. Parent explicitly applies Brian's overnight clear-fix merge authority only after independent review and all refreshed source/action/browser/conservation/cleanup gates. Broad309/302 remain open; narrow896 only after verified merge. No laptop runtime, new product decision, deployment or unrelated approval action.
+
+## Proposal note-retention measurement prepared — October21,2026
+Branch codex/trade-proposal-draft-309 from main494f2ea1. Observed successful prior canonical screenshot: typednotes become blank after returned reservation error; source TradeBuilder textarea is uncontrolled. Duplicate searches find no matching issue; no newdefectclaim before directDOMmeasurement. Added realdesktop/320px stale-desk case: prepare notes, another realdesk successfully reservescopy, originalgetsactualvalidationerror andDOMvalue recorded. Sameownedfixture isfreed forsuccessfulretry, verifying storedmultilinenotes andsuccessclear plusstock/failedwriteconservation andexactcleanup. Continuebothwidths beforefinalretentionassert sooldbehavior canbemeasured. No dependencyonpending895 atomicproposal change; no apprepairyet. Next publishdraft, qualifyownedcanonicalbrowsernegative, then catalogueonlyreproducedbehavior. Runtimeowner retained/no PRmainmerge.
+
+
+## Independent PR898 integration - 2026-10-21T08:41:12.460Z
+
+Original b555a4001c805ec55e7d46545c68fad72346cf45 combines with main 1e89eb083c74c5cee1721b04468c7fcc674d2949; exact controlled textarea/success callback and two-width real browser fixture retained. Original905eb old-source canonical comparison loses all76/75 characters and fails intended final assertion only; originalb555 succeeds with exact retry/storage/clear and84-table parity. Old expected-failing run has no final global snapshot and is not counted as a parity pass. Author clean/frozen, interrupted by model capacity on read-only follow-up; no duplicate implementation or environment switch. Existing main895 admission,893 deletion and889 audit fixes preserved. Fresh seven-job CI and canonical cumulative notes/ordinary-gift/last-copy proposal browser qualification pending before authorized merge. Narrow899 only after verified merge; broad309/302 and prior local incident remain open. No laptop resources or deployment.
