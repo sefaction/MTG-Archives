@@ -22,13 +22,13 @@ const observations: any[] = [];
 let scenario = 'startup';
 function barrier(name: string) {
   const mode = scenario;
-  let arrivals = 0, release!: () => void;
+  let arrivals = 0, timedOut = false, release!: () => void;
   const ready = new Promise<void>(r => release = r);
   let timer: ReturnType<typeof setTimeout>;
   return async () => {
     arrivals++;
-    if (arrivals === 1) timer = setTimeout(() => { observations.push({mode,gate:name, arrivals, timeout:true}); release(); }, 1500);
-    if (arrivals === 2) { clearTimeout(timer); observations.push({mode,gate:name, arrivals, timeout:false}); release(); }
+    if (arrivals === 1) timer = setTimeout(() => { timedOut = true; observations.push({mode,gate:name, arrivals, timeout:true}); release(); }, 1500);
+    if (arrivals === 2) { clearTimeout(timer); observations.push({mode,gate:name, arrivals, timeout:timedOut}); release(); }
     await ready;
   };
 }

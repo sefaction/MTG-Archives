@@ -25,6 +25,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx prisma generate
+      - name: Barrier overlap evidence regression checks
+        run: node --test scripts/ci/trade-concurrency-barrier.test.cjs
       - name: Actual action concurrency on synthetic no-egress PostgreSQL
         env:
           TRADE_FIXED: '1'
