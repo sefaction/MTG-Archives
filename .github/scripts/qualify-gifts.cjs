@@ -25,7 +25,9 @@ const runId = crypto.randomUUID();
 const short = runId.slice(0,8);
 const project = `mtg-ci-${short}`;
 const builder = process.env.QUALIFICATION_BUILDER;
-const productHead='d425c8c7';
+const productHead='8d0f6efed95caf23a52cd615a3d2b7e58b12cab4';
+const wishlistHead='e2907ca0c29aef8c70135711c2bec5072470d41d';
+const wishlistFiles=['lib/trade-wishlist.ts','tests/trade-wishlist.test.ts','scripts/verify-trade-wishlist-concurrency.ts'];
 const transportHead='7d8b4329898611122c6d9899330a08d14704af5f';
 const transportFiles=['tests/ui/isolated-qualification-target.ts','tests/isolated-qualification-target.test.ts'];
 const negativeTransportFile='tests/ui/trade-lifecycle.spec.ts';
@@ -145,9 +147,9 @@ async function main() {
   assert(docker('buildx','build','--help').includes('--resource'),'Buildx must support RUN resource constraints');
   const expected=JSON.parse(run('node',['node_modules/tsx/dist/cli.mjs','-e',"process.stdout.write(JSON.stringify(require('./lib/review-build-provenance').reviewBuildManifest()))"]));
   const product=git('rev-parse',productHead);
-  assert.equal(Object.keys(expected.files).length,1214);
-  const harnessOnly=git('diff','--name-only',product,'HEAD').split('\n').filter(Boolean);
-  assert(harnessOnly.length>0 && harnessOnly.every(f=>f.startsWith('.github/') || transportFiles.includes(f) || f===negativeTransportFile),'qualification may change only temporary GitHub harness files and the two explicitly pinned host transport guards');
+  assert.equal(Object.keys(expected.files).length,1215);
+  const sourceDifferences=git('diff','--name-only',product,'HEAD').split('\n').filter(Boolean);
+  assert(sourceDifferences.length>0 && sourceDifferences.every(f=>f.startsWith('.github/') || transportFiles.includes(f) || f===negativeTransportFile || wishlistFiles.includes(f)),'qualification may change only temporary GitHub harness files and the two explicitly pinned host transport guards');
   assert.equal(git('status','--porcelain'),'','clean source required');
   for(const file of Object.keys(expected.files)) {
     if(transportFiles.includes(file)) {
@@ -159,10 +161,10 @@ async function main() {
       const productTest=git('show',`${product}:${file}`);
       const adapted=productTest.replace(helper,()=>pinned).replace('type Page }','type Page, type Route }');
       assert.equal(fs.readFileSync(file,'utf8').replace(/\r\n/g,'\n').trim(),adapted,file+' only the previously qualified negative-response buffering helper may differ');
-    } else assert.equal(git('hash-object',file),git('rev-parse',`${product}:${file}`),file);
+    } else assert.equal(git('hash-object',file),git('rev-parse',`${wishlistFiles.includes(file)?wishlistHead:product}:${file}`),file);
   }
   save('source-manifest.json',expected);
-  save('product-source-proof.json',{productHead:product,harnessHead:git('rev-parse','HEAD'),harnessOnly,transportHead,transportFiles,negativeTransportFile,digest:expected.digest,count:Object.keys(expected.files).length});
+  save('product-source-proof.json',{productHead:product,harnessHead:git('rev-parse','HEAD'),sourceDifferences,wishlistHead,wishlistFiles,transportHead,transportFiles,negativeTransportFile,digest:expected.digest,count:Object.keys(expected.files).length});
   report.gates.source=true;
   const probeDir=path.join(dir,'probe');fs.mkdirSync(probeDir,{recursive:true});
   fs.writeFileSync(path.join(probeDir,'Dockerfile'),'FROM node:22-alpine\nCOPY probe.cjs /probe.cjs\nRUN node /probe.cjs > /probe.json\n');
@@ -172,7 +174,7 @@ async function main() {
   assert.equal(probe.memory,String(4*1024**3));assert.equal(probe.swap,'0');assert.equal(probe.cpu,'200000 100000');assert(probe.heap>=1536*1024**2 && probe.heap<4*1024**3);assert.equal(probe.nodeOptions,null);
   save('effective-build-resources.json',probe);report.gates.resources=true;
   const image=build(root,'canonical-final');report.image=image;save('qualification-progress.json',report);
-  const outputScript=`const fs=require('fs'),crypto=require('crypto'),path=require('path');const files={};const h=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');function visit(p){for(const e of fs.readdirSync(p,{withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name))){const n=path.join(p,e.name);if(e.isDirectory())visit(n);else if(e.isFile())files[n]=h(n);else throw Error('Unexpected compiled symlink');}}visit('.next');const changed={};for(const f of ['lib/scanner-capacity.ts','lib/scan-destination-filter.ts','lib/review-build-provenance.ts'])changed[f]=h(f);console.log(JSON.stringify({manifest:JSON.parse(fs.readFileSync('build-source-manifest.json','utf8')),buildId:fs.readFileSync('.next/BUILD_ID','utf8').trim(),files,changed}));`;
+  const outputScript=`const fs=require('fs'),crypto=require('crypto'),path=require('path');const files={};const h=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');function visit(p){for(const e of fs.readdirSync(p,{withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name))){const n=path.join(p,e.name);if(e.isDirectory())visit(n);else if(e.isFile())files[n]=h(n);else throw Error('Unexpected compiled symlink');}}visit('.next');const changed={};for(const f of ['lib/scanner-capacity.ts','lib/scan-destination-filter.ts','lib/review-build-provenance.ts','lib/trade-wishlist.ts'])changed[f]=h(f);console.log(JSON.stringify({manifest:JSON.parse(fs.readFileSync('build-source-manifest.json','utf8')),buildId:fs.readFileSync('.next/BUILD_ID','utf8').trim(),files,changed}));`;
   const compiled=JSON.parse(capture(image,['node','-e',outputScript],'image-proof'));
   assert.deepEqual(compiled.manifest,expected);assert(compiled.buildId);assert(compiled.files['.next/server/middleware.js']);assert(compiled.files['.next/server/middleware-manifest.json']);
   for(const [file,digest] of Object.entries(compiled.changed))assert.equal(digest,expected.files[file]);
