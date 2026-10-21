@@ -18,6 +18,7 @@ async function assertNotReserved(inventoryItemId: string) {
       OR: [
         { offeredInventoryItemId: inventoryItemId },
         { requestedInventoryItemId: inventoryItemId },
+        { lines: { some: { inventoryItemId } } },
       ],
     },
     select: { id: true, status: true },
@@ -83,13 +84,18 @@ export async function cleanupZeroQuantityInventory(fd?: FormData) {
   );
   const activeTrades = await prisma.trade.findMany({
     where: { status: { in: activeTradeStatuses } },
-    select: { offeredInventoryItemId: true, requestedInventoryItemId: true },
+    select: {
+      offeredInventoryItemId: true,
+      requestedInventoryItemId: true,
+      lines: { select: { inventoryItemId: true } },
+    },
   });
   const reserved = new Set(
     activeTrades
       .flatMap((trade) => [
         trade.offeredInventoryItemId,
         trade.requestedInventoryItemId,
+        ...trade.lines.map((line) => line.inventoryItemId),
       ])
       .filter((id): id is string => Boolean(id)),
   );
