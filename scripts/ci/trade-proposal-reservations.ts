@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import Module from "node:module";
 import path from "node:path";
@@ -44,10 +44,14 @@ function wrap(client: any, transaction = false): any {
         }
         if (ctx && method === "findMany" && key === "tradeLine" && args.select?.quantity) {
           ctx.reads.push({ lines: result.length, reserved: result.reduce((sum: number, line: any) => sum + line.quantity, 0), locked: ctx.locked });
+          ctx.linesRead = true;
         }
-        // Wait only after the actual last reservation query returns. Real row
-        // locks serialize naturally; never force a lock holder to wait here.
-        if (ctx && method === "findMany" && key === "trade" && args.where?.lines?.none && !ctx.locked) await ctx.gate.wait();
+        if (ctx && method === "findMany" && key === "trade" && args.where?.lines?.none) ctx.legacyRead = true;
+        // Both Promise.all reads must finish before this action enters the
+        // gate, regardless of query completion order. Count one arrival/action.
+        if (ctx?.linesRead && ctx.legacyRead && !ctx.locked && !ctx.gated) {
+          ctx.gated = true; await ctx.gate.wait();
+        }
         return result;
       };
     } });
@@ -63,7 +67,10 @@ loaded.require = (name: string) => {
   if (name === "next/cache") return { revalidatePath: () => {} };
   return realRequire(name);
 };
-loaded._compile(ts.transpileModule(readFileSync(filename, "utf8"), { compilerOptions: {
+const baseline = process.env.TRADE_PROPOSAL_BASELINE === "1";
+const source = readFileSync(baseline ? ".local-data/trade-stock/proposal-baseline-actions.ts" : filename, "utf8").replace(/\r\n/g, "\n");
+if (baseline) assert.equal(createHash("sha256").update(source).digest("hex"), "6d8dd68363500fc04efd7f3c0ba8ebbdec71e8b71c78dddf87355fef531be318");
+loaded._compile(ts.transpileModule(source, { compilerOptions: {
   module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true,
 } }).outputText, filename);
 async function fixture(quantity: number) {
@@ -103,6 +110,12 @@ async function main() {
       assert.equal(await db.notification.count({ where: { recipientUserId: { in: f.people.map((u: any) => u.id) } } }), success);
       for (const response of responses.filter(r => r.status !== "success")) assert.match(response.message, /reserved|unavailable/);
     } finally { overlap.close(); }
+  }
+  if (baseline) {
+    assert.ok(results.every(r => r.success === 2 && r.reserved === 2 && r.arrivals === 2 &&
+      r.reads.length === 2 && r.reads.every((read: any) => read.reserved === 0 && !read.locked)));
+    console.log("PASS: pinned old source reproduces both one-copy over-reservations after both actual reservation queries finish; two-copy controls conserve stock");
+    return;
   }
   assert.ok(results.every(r => r.reserved <= r.quantity && r.success === r.quantity), "two proposals must not reserve the same final physical copy");
   const exchange = await fixture(1), exchangeGate = gate(), exchangeReads: any[] = [];
