@@ -432,7 +432,8 @@ export async function createTrade(
       message: "Trade proposal sent.",
     };
   } catch (error) {
-    const validationState = tradeProposalValidationState(isDeckTradeUserError(error) ? asTradeProposalValidationError(error) : error);
+    if (isDeckTradeUserError(error)) error = asTradeProposalValidationError(error);
+    const validationState = tradeProposalValidationState(error);
     if (validationState) return validationState;
     throw error;
   }

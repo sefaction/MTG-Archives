@@ -287,8 +287,68 @@ async function run() {
   assert.deepEqual(await db.inventoryItem.findMany({ where: { locationId, quantity: { gt: 0 } }, orderBy: { id: "asc" } }), stock.filter(item => item.quantity > 0));
   assert.equal(await db.inventoryAuditLog.count(), audits.length + 1);
   assert.equal(await db.inventoryAuditLog.count({ where: { changedByUserId: users[0], changeType: "admin_cleanup_zero_quantity" } }), 1);
+  await verifyMixedCounter();
   await verifyCommittedTransfer();
   console.log("PASS deck bundle foundation: real 55-lot/full-list snapshot, bundle/trade/side and positive-quantity constraints, three active reservation fences, competing owner/deck locks, stale owner denial, recipient-owned settings and Inventory/audit conservation");
+}
+async function verifyMixedCounter() {
+  const actions = loadActual("app/trades/actions.ts");
+  const replacements: { deckId: string; digest: string }[] = [];
+  for (let index = 0; index < 2; index++) {
+    const id = tag + "-counter-replacement-" + index; fixtureDeckIds.push(id);
+    await db.deck.create({ data: { id, ownerUserId: users[index], name: "Replacement whole deck", visibility: index ? "PRIVATE" : "PUBLIC",
+      cards: { create: [{ cardId: cards[0], cardName: "List-only replacement", quantity: 1 }] } } });
+    replacements.push({ deckId: id, digest: (await readTradeDeck(db as unknown as Prisma.TransactionClient, id, owners[index])).digest });
+  }
+  await db.inventoryLocation.create({ data: { id: tag + "-normal-1", ownerPlayerId: owners[1], name: "Counter loose stock", normalizedName: "counter loose stock" } });
+  const looseIds = [] as string[];
+  for (let index = 0; index < 2; index++) {
+    const item = await db.inventoryItem.create({ data: { cardId: cards[0], quantity: 5, condition: "NM", currentOwnerId: owners[index],
+      locationId: index ? tag + "-normal-1" : tag + "-normal", notes: "Counter loose stock " + index } });
+    looseIds.push(item.id);
+  }
+  const select = async (id: string, owner: number) => ({ deckId: id,
+    digest: (await readTradeDeck(db as unknown as Prisma.TransactionClient, id, owners[owner])).digest });
+  const offered = await Promise.all([select(deckId, 0), select(tag + "-extra-deck-0", 0)]);
+  const requested = await Promise.all([select(tag + "-partner-private", 1), select(tag + "-extra-deck-1", 1)]);
+  const stockBefore = await db.inventoryItem.findMany({ where: { currentOwnerId: { in: owners } }, orderBy: { id: "asc" } });
+  const auditsBefore = await db.inventoryAuditLog.findMany({ orderBy: { id: "asc" } });
+  actor = await db.user.findUniqueOrThrow({ where: { id: users[0] }, include: { player: true } });
+  const initial = await actions.createTrade({ status: "idle", message: "" }, form({ receiverPlayerId: owners[1], message: tag + " mixed original",
+    offeredDecksJson: JSON.stringify(offered), requestedDecksJson: JSON.stringify(requested),
+    offeredLinesJson: JSON.stringify([{ inventoryItemId: looseIds[0], quantity: 2 }]), requestedLinesJson: JSON.stringify([{ inventoryItemId: looseIds[1], quantity: 3 }]),
+  }));
+  assert.equal(initial.status, "success");
+  const parent = await db.trade.findFirstOrThrow({ where: { message: tag + " mixed original" } }); trades.push(parent.id);
+  assert.equal(await db.tradeDeckBundle.count({ where: { tradeId: parent.id } }), 4);
+  assert.equal(await db.tradeLine.count({ where: { tradeId: parent.id, deckBundleId: { not: null } } }), 55);
+  assert.equal(await db.tradeLine.count({ where: { tradeId: parent.id, deckBundleId: null } }), 2);
+  actor = await db.user.findUniqueOrThrow({ where: { id: users[1] }, include: { player: true } });
+  const counterForm = () => form({ receiverPlayerId: owners[0], counterTradeId: parent.id, message: tag + " mixed replacement",
+    offeredDecksJson: JSON.stringify([replacements[1]]), requestedDecksJson: JSON.stringify([replacements[0]]),
+    offeredLinesJson: JSON.stringify([{ inventoryItemId: looseIds[1], quantity: 1 }]), requestedLinesJson: JSON.stringify([{ inventoryItemId: looseIds[0], quantity: 1 }]),
+  });
+  assert.equal((await actions.createTrade({ status: "idle", message: "" }, counterForm())).status, "success");
+  const counter = await db.trade.findFirstOrThrow({ where: { message: tag + " mixed replacement" } }); trades.push(counter.id);
+  assert.equal((await db.trade.findUniqueOrThrow({ where: { id: parent.id } })).status, "DECLINED");
+  assert.equal(counter.status, "PROPOSED");
+  assert.deepEqual((await db.tradeDeckBundle.findMany({ where: { tradeId: counter.id }, orderBy: { side: "asc" } })).map(bundle => bundle.deckId),
+    [replacements[1].deckId, replacements[0].deckId]);
+  assert.equal(await db.tradeLine.count({ where: { tradeId: counter.id, deckBundleId: null, quantity: 1 } }), 2);
+  for (const selection of [...offered, ...requested]) await db.$transaction(tx => lockWritableDeck(tx, selection.deckId, users[offered.includes(selection) ? 0 : 1]));
+  for (const selection of replacements) await assert.rejects(db.$transaction(tx => assertDeckUnreserved(tx, selection.deckId)), /reserved in an active trade/);
+  for (const id of looseIds) assert.equal((await db.tradeLine.aggregate({ where: { inventoryItemId: id,
+    trade: { status: { in: ["PROPOSED", "ACCEPTED_PENDING_EXCHANGE", "PARTIALLY_COMMITTED"] } } }, _sum: { quantity: true } }))._sum.quantity, 1);
+  actor = await db.user.findUniqueOrThrow({ where: { id: users[0] }, include: { player: true } });
+  await actions.actOnTrade(form({ tradeId: counter.id, action: "accept" }));
+  assert.equal((await db.trade.findUniqueOrThrow({ where: { id: counter.id } })).status, "ACCEPTED_PENDING_EXCHANGE");
+  fixtureAdminMode = true;
+  try { await actions.actOnTrade(form({ tradeId: counter.id, action: "cancel", reason: "Owned mixed-counter fixture cleanup" })); }
+  finally { fixtureAdminMode = false; }
+  for (const selection of replacements) await db.$transaction(tx => assertDeckUnreserved(tx, selection.deckId));
+  assert.deepEqual(await db.inventoryItem.findMany({ where: { currentOwnerId: { in: owners } }, orderBy: { id: "asc" } }), stockBefore);
+  assert.deepEqual(await db.inventoryAuditLog.findMany({ orderBy: { id: "asc" } }), auditsBefore);
+  console.log("PASS actual mixed counter: two decks and loose cards on each side, 55 complete bundle lots, whole-deck removal/replacement and changed card amounts, fresh acceptance, exact old/new reservation release and zero ownership/quantity/audit changes");
 }
 async function verifyCommittedTransfer() {
   const giftDeckId = tag + "-committed-gift", giftLocationId = tag + "-gift-location";
