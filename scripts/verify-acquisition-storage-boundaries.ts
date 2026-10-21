@@ -8,8 +8,11 @@ import ts from "typescript";
 import sharp from "sharp";
 import type { PrismaClient } from "@prisma/client";
 import { createAcquisitionSession, executeAcquisitionCommand, reserveAcquisitionCaptureSlot,
+  beginAcquisitionPhoto, finalizeAcquisitionPhoto, getAcquisitionPhoto,
   getAcquisitionProgress, type AcquisitionActor, type CreateAcquisitionInput } from "../lib/acquisition-store";
-import { photoDigest, readAcquisitionPhotoBytes } from "../lib/acquisition-files";
+import { photoDigest, readAcquisitionPhotoBytes, inspectAcquisitionPhoto,
+  writeAcquisitionPhotoBytes, canonicalizeAcquisitionPhoto } from "../lib/acquisition-files";
+import { manageAcquisitionBatch } from "../lib/acquisition-batch-lifecycle";
 
 // Existing disposable acquisition runner owns the database fixture. Only auth
 // and the selected filesystem failure are adapted; route/store/SQL remain real.
@@ -129,6 +132,71 @@ export async function verifyAcquisitionStorageBoundaries(db: PrismaClient, actor
       const progress = await getAcquisitionProgress(db, actor, sessionId);
       await executeAcquisitionCommand(db, actor, sessionId, { requestKey: "fixture-finished", revision: progress.revision, command: "CANCEL" });
     }
+    // Existing controls cover database marking failure after both unlinks. This
+    // adds an actual partial unlink: original gone, preview still present.
+    async function prepared() {
+      const capture = await createAcquisitionSession(db, actor, { ...base, requestKey: randomUUID(),
+        policy: { kind: "MANUAL", quantity: 1 }, run: { ...base.run, providerId: "phone-photo-v1" } });
+      const sessionId = capture.session.id;
+      await executeAcquisitionCommand(db, actor, sessionId, { requestKey: "start", revision: 0, command: "START" });
+      const { slot } = await reserveAcquisitionCaptureSlot(db, actor, sessionId, "one");
+      const photo = await beginAcquisitionPhoto(db, actor, sessionId, { slotId: slot.id, uploadKey: randomUUID(),
+        generation: 0, metadata: await inspectAcquisitionPhoto(bytes, "image/png") });
+      await writeAcquisitionPhotoBytes(photo.id, bytes, "raw", photo.digest);
+      await finalizeAcquisitionPhoto(db, actor, sessionId, photo.id);
+      const preview = await canonicalizeAcquisitionPhoto(photo.id, photo.digest, new AbortController().signal);
+      return { sessionId, photo, preview };
+    }
+    const expired = await prepared(), active = await prepared();
+    const activePreview = await readAcquisitionPhotoBytes(active.photo.id, "preview", active.preview.previewDigest);
+    const expiredPreview = await readAcquisitionPhotoBytes(expired.photo.id, "preview", expired.preview.previewDigest);
+    const now = new Date();
+    await manageAcquisitionBatch(db, actor, expired.sessionId, "trash", new Date(now.getTime() - 8 * 86400000));
+    assert.equal(await db.correctionRetentionPin.count({ where: { sessionId: expired.sessionId, releasedAt: null } }), 0);
+    const evidence = () => Promise.all([
+      db.acquisitionArtifact.findMany({ where: { runId: expired.photo.runId }, orderBy: { id: "asc" } }),
+      db.acquisitionCandidate.findMany({ where: { runId: expired.photo.runId }, orderBy: { id: "asc" } }),
+      db.acquisitionProcessingJob.findMany({ where: { runId: expired.photo.runId }, orderBy: { id: "asc" } }),
+      db.acquisitionCommit.findMany({ where: { runId: expired.photo.runId }, orderBy: { id: "asc" } }),
+    ]);
+    const immutable = await evidence();
+    let failedUnlinks = 0, successfulPreviewUnlinks = 0;
+    const files = loadActual("lib/acquisition-files.ts", name => name === "node:fs/promises" ? { ...fs,
+      unlink: async (file: Parameters<typeof fs.unlink>[0]) => {
+        if (String(file) === path.join(root, "acquisition-v1", `${expired.photo.id}.preview.jpg`)) {
+          if (!failedUnlinks) { failedUnlinks++; throw Object.assign(new Error("owned preview unlink fault"), { code: "EACCES" }); }
+          await fs.unlink(file); successfulPreviewUnlinks++; return;
+        }
+        return fs.unlink(file);
+      },
+    } : undefined);
+    const retention = loadActual("lib/acquisition-photo-retention.ts", name => name === "./acquisition-files" ? files : undefined);
+    const interrupted = await retention.purgeTrashedAcquisitionPhotos(db, now);
+    assert.equal(interrupted.failed, 1);
+    assert.equal(failedUnlinks, 1);
+    assert.equal(successfulPreviewUnlinks, 0);
+    assert.equal((await db.acquisitionPhoto.findUniqueOrThrow({ where: { id: expired.photo.id } })).purgedAt, null);
+    assert.ok((await db.acquisitionSession.findUniqueOrThrow({ where: { id: expired.sessionId } })).deletedAt);
+    await assert.rejects(readAcquisitionPhotoBytes(expired.photo.id, "raw"), { code: "ENOENT" });
+    assert.deepEqual(await readAcquisitionPhotoBytes(expired.photo.id, "preview", expired.preview.previewDigest), expiredPreview);
+    await assert.rejects(getAcquisitionPhoto(db, actor, expired.sessionId, expired.photo.id));
+    await assert.rejects(manageAcquisitionBatch(db, actor, expired.sessionId, "restore", now), /expired/);
+    assert.deepEqual(await evidence(), immutable);
+    const retried = await retention.purgeTrashedAcquisitionPhotos(db, now);
+    assert.equal(retried.failed, 0);
+    assert.ok(retried.purged >= 1);
+    assert.equal(successfulPreviewUnlinks, 1);
+    const purged = await db.acquisitionPhoto.findUniqueOrThrow({ where: { id: expired.photo.id } });
+    assert.deepEqual(purged.purgedAt, now);
+    await assert.rejects(readAcquisitionPhotoBytes(expired.photo.id, "preview"), { code: "ENOENT" });
+    await retention.purgeTrashedAcquisitionPhotos(db, now);
+    assert.equal(successfulPreviewUnlinks, 1);
+    assert.deepEqual(await evidence(), immutable);
+    assert.deepEqual(await readAcquisitionPhotoBytes(active.photo.id, "raw", active.photo.digest), bytes);
+    assert.deepEqual(await readAcquisitionPhotoBytes(active.photo.id, "preview", active.preview.previewDigest), activePreview);
+    assert.equal((await getAcquisitionPhoto(db, actor, active.sessionId, active.photo.id)).purgedAt, null);
+    await manageAcquisitionBatch(db, actor, active.sessionId, "cancel");
+    console.log("PASS: real original-unlinked/preview-retained purge failure preserves expiry and canonical evidence; retry/replay removes only expired bytes, active equal-byte neighbor and Inventory conserved");
     assert.deepEqual(await db.inventoryItem.findMany({ where: { currentOwnerId: base.ownerPlayerId }, orderBy: { id: "asc" } }), inventoryBefore);
   } finally {
     if (prior === undefined) delete process.env.UPLOADS_DATA_PATH; else process.env.UPLOADS_DATA_PATH = prior;
