@@ -6,6 +6,21 @@ import { assertDeckUnreserved } from "./deck-write-fence";
 type Tx = Prisma.TransactionClient;
 export type TradeDeckReceiptSelection = { bundleId: string } & Parameters<typeof normalizeDeckReceipt>[0];
 
+export function parseTradeDeckReceipts(value: FormDataEntryValue | null): TradeDeckReceiptSelection[] {
+  let input: unknown;
+  try { input = value ? JSON.parse(String(value)) : []; }
+  catch { throw new DeckTradeValidationError("Received deck settings are invalid."); }
+  if (!Array.isArray(input)) throw new DeckTradeValidationError("Received deck settings are invalid.");
+  const result = input.map(choice => {
+    if (!choice || typeof choice !== "object" || typeof choice.bundleId !== "string" || !choice.bundleId.trim())
+      throw new DeckTradeValidationError("Choose settings for every received deck.");
+    return { bundleId: choice.bundleId.trim(), ...normalizeDeckReceipt(choice) };
+  });
+  if (new Set(result.map(choice => choice.bundleId)).size !== result.length)
+    throw new DeckTradeValidationError("Choose settings once for every received deck.");
+  return result;
+}
+
 async function lockedTrade(tx: Tx, tradeId: string) {
   await tx.$queryRaw`SELECT id FROM "Trade" WHERE id=${tradeId} FOR UPDATE`;
   const trade = await tx.trade.findUnique({ where: { id: tradeId }, include: {
