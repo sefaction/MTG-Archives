@@ -426,7 +426,9 @@ async function verifyMixedCompletion(offered: { deckId: string; digest: string }
     const receipt = newLots.find(item => item.notes === source.notes)!;
     assert.ok(receipt); assert.equal(receipt.currentOwnerId, owners[1 - index]); assert.equal(receipt.quantity, quantity);
     assert.equal(receipt.locationId, index ? tag + "-normal" : tag + "-normal-1");
-    for (const field of ["cardId", "foil", "foilStatus", "condition", "language", "sourceType", "originalOpenerId", "acquiredFromPullId", "roundId", "notes"] as const)
+    assert.equal(receipt.sourceType, "TRADE", "ordinary received loose lots retain their established trade-acquisition classification");
+    assert.equal(receipt.locationSection, null);
+    for (const field of ["cardId", "foil", "foilStatus", "condition", "language", "originalOpenerId", "acquiredFromPullId", "roundId", "notes"] as const)
       assert.deepEqual(receipt[field], source[field]);
     assert.equal(afterStock.find(item => item.id === source.id)!.quantity, 5 - quantity);
   }
