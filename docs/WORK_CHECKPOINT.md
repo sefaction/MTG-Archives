@@ -9489,3 +9489,11 @@ Narrow prevention removes four unused auditLogs relation loads, retaining all sc
 ## Independent PR889 integration - 2026-10-21T06:01:02.757Z
 
 Original 4854f465582bad7fb5c73ee3b600c6d3be28b409 combined with main e133ddd8ab910092de7126f62f4d5f5b5b0a6775; exact four unused audit relation removals compose with sorted source-stock locks, gift/wishlist fixes and Trade fence. No historical data rewrite or schema/transaction/UI change. Original actual PG growth/bounded/history/conservation evidence reviewed; fresh seven exact-head and cumulative hosted canonical browser gates pending. Narrow890/broader309 remain distinct; no local runtime or deployment.
+
+## P2 scanner lineage control — October 21, 2026
+Branch codex/scanner-provenance-304 from main cd536f2e. Adds joined scanner transfer/slot/photo/artifact/observation/candidate/canonical-job input checks for two equal-byte physical transfers, fresh-client ACK replay and conflicting-byte conservation. No runtime/schema changes. Exact hosted checks pending; local heavy qualification remains reserved by owner. Protocol/device metadata does not prove installed helper binary provenance; stage/native/release acceptance remains separate. Next: push draft, inspect actual execution and exact cleanup before claiming pass. Parent #304/#302 remain open; no merge authority.
+
+
+## Independent PR891 integration - 2026-10-21T06:32:01.569Z
+
+Original 9571d957e17bd9802dfea954d5454a4e59c75e5f combined with current main cf732d262702b1c330858a259b4a2cbbb26c9f40. Exact original scanner lineage assertion bytes retained; source map only replaces stale pending-CI text with actual original terminal evidence and current PR pointers. Production app/library/components/schema/dependencies/Docker/workflow are byte-identical to current main. Original four checks and actual scanner lineage/replay PASS independently inspected. Refreshed cumulative six-check Verify required before approved merge; no local heavy runtime. #304/#302 remain open for helper/native/stage/release acceptance; no deployment.
