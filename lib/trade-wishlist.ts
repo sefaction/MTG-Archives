@@ -59,28 +59,25 @@ export async function fulfillCompletedTradeWishlists(
   tx: Prisma.TransactionClient,
   input: CompletedTradeWishlistInput,
 ) {
-  const activeStatuses = [
-    TradeWishlistStatus.OPEN,
-    TradeWishlistStatus.IN_TRADE,
-  ];
-
   await Promise.all(
     buildCompletedTradeWishlistMatches(input).map(async (match) => {
-      const where = {
-        ownerUser: { playerId: match.ownerPlayerId },
-        targetOwnerPlayerId: match.targetOwnerPlayerId,
-        cardId: match.cardId,
-        status: { in: activeStatuses },
-      };
-
-      await tx.tradeWishlistItem.updateMany({
-        where: { ...where, quantity: { lte: match.quantity } },
-        data: { status: TradeWishlistStatus.FULFILLED },
-      });
-      await tx.tradeWishlistItem.updateMany({
-        where: { ...where, quantity: { gt: match.quantity } },
-        data: { quantity: { decrement: match.quantity } },
-      });
+      // Decide fulfillment and remaining quantity from the same locked row.
+      // Separate conditional updates can both miss fulfillment before either
+      // transaction decrements the row, losing one concurrent receipt.
+      await tx.$executeRaw`
+        UPDATE "TradeWishlistItem" w
+        SET status = CASE WHEN w.quantity <= ${match.quantity}
+              THEN ${TradeWishlistStatus.FULFILLED}::"TradeWishlistStatus" ELSE w.status END,
+            quantity = CASE WHEN w.quantity > ${match.quantity}
+              THEN w.quantity - ${match.quantity} ELSE w.quantity END,
+            "updatedAt" = clock_timestamp()
+        FROM "User" u
+        WHERE u.id = w."ownerUserId" AND u."playerId" = ${match.ownerPlayerId}
+          AND w."targetOwnerPlayerId" = ${match.targetOwnerPlayerId}
+          AND w."cardId" = ${match.cardId}
+          AND w.status IN (${TradeWishlistStatus.OPEN}::"TradeWishlistStatus",
+            ${TradeWishlistStatus.IN_TRADE}::"TradeWishlistStatus")
+      `;
     }),
   );
 }

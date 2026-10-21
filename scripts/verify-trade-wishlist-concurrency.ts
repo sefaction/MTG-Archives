@@ -82,7 +82,33 @@ async function main() {
     [2, "FULFILLED", "FULFILLED", 2],
   ] as const) {
     await p.tradeWishlistItem.update({ where: { id: wanted.id }, data: { quantity, status } });
-    await Promise.all([0, 1].map(() => p.$transaction((tx: Prisma.TransactionClient) => fulfillCompletedTradeWishlists(tx, input))));
+    // Deterministically catch a future split-write regression too. The fixed
+    // single statement passes through unchanged and needs no timing adapter.
+    const observeLegacy = quantity > 1 && (status === "OPEN" || status === "IN_TRADE");
+    let legacyArrivals = 0;
+    let releaseLegacy!: () => void;
+    let failLegacy!: (error: Error) => void;
+    let legacyTimer: ReturnType<typeof setTimeout> | undefined;
+    const legacyGate = new Promise<void>((resolve, reject) => { releaseLegacy = resolve; failLegacy = reject; });
+    try {
+      await Promise.all([0, 1].map(() => p.$transaction((tx: Prisma.TransactionClient) => {
+        const current = new Proxy(tx, { get(target, key) {
+          if (observeLegacy && key === "tradeWishlistItem") return { updateMany: async (args: any) => {
+            const result = await target.tradeWishlistItem.updateMany(args);
+            if (args.data.status === "FULFILLED") {
+              assert.equal(result.count, 0);
+              if (++legacyArrivals === 1) legacyTimer = setTimeout(() => failLegacy(new Error("split-write regression did not reach both first updates")), 5000);
+              if (legacyArrivals === 2) releaseLegacy();
+              await legacyGate;
+            }
+            return result;
+          } };
+          const value = (target as any)[key];
+          return typeof value === "function" ? value.bind(target) : value;
+        } });
+        return fulfillCompletedTradeWishlists(current, input);
+      }, { timeout: 10000 })));
+    } finally { clearTimeout(legacyTimer); }
     const result = await p.tradeWishlistItem.findUniqueOrThrow({ where: { id: wanted.id } });
     assert.equal(result.status, expectedStatus, `two completions from ${status}/${quantity}`);
     assert.equal(result.quantity, expectedQuantity);
@@ -90,6 +116,13 @@ async function main() {
   }
   assert.equal(await p.inventoryItem.count(), 0);
   assert.equal(await p.inventoryAuditLog.count(), 0);
+  await p.tradeWishlistItem.update({ where: { id: wanted.id }, data: { quantity: 3, status: "OPEN" } });
+  const beforeRollback = await p.tradeWishlistItem.findUniqueOrThrow({ where: { id: wanted.id } });
+  await assert.rejects(p.$transaction(async tx => {
+    await fulfillCompletedTradeWishlists(tx, input);
+    throw new Error("fixture completion rollback");
+  }), /fixture completion rollback/);
+  assert.deepEqual(await p.tradeWishlistItem.findUniqueOrThrow({ where: { id: wanted.id } }), beforeRollback);
   console.log("PASS: atomic exact/partial/in-trade fulfillment, terminal exclusion, unrelated scope and zero Inventory writes");
 }
 main().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
