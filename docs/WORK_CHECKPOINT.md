@@ -9497,3 +9497,14 @@ Branch codex/scanner-provenance-304 from main cd536f2e. Adds joined scanner tran
 ## Independent PR891 integration - 2026-10-21T06:32:01.569Z
 
 Original 9571d957e17bd9802dfea954d5454a4e59c75e5f combined with current main cf732d262702b1c330858a259b4a2cbbb26c9f40. Exact original scanner lineage assertion bytes retained; source map only replaces stale pending-CI text with actual original terminal evidence and current PR pointers. Production app/library/components/schema/dependencies/Docker/workflow are byte-identical to current main. Original four checks and actual scanner lineage/replay PASS independently inspected. Refreshed cumulative six-check Verify required before approved merge; no local heavy runtime. #304/#302 remain open for helper/native/stage/release acceptance; no deployment.
+
+## P3 deterministic upload storage boundaries — October 21, 2026
+Branch codex/upload-storage-boundaries-305 from cd536f2e. Actual upload route/file/store PostgreSQL tests inject four selected filesystem failures with real partial writes/publication; assert non-READY/no derived jobs, exact temporary cleanup, same-identity recovery and ACK replay, bytes/Inventory conservation. No product/schema or host pressure operation. Exact hosted execution pending. Natural exhaustion/power loss/backup-retention races/restore/mobile acceptance remain separate; local runtime reservation preserved. Next push draft and inspect actual test outcomes before claiming success.
+
+## Expanded P3 storage qualification — October21,2026
+Same draft892/coherent storage failure batch now covers actual partial Trash deletion: original removed/preview unlink EACCES, non-marked purge, expired access/restore denial, unchanged canonical evidence, exact retry/replay and protected active equal-byte original/preview. Existing receipt-age/Trash-selection races and DBmarking faults already covered; no duplicate newissue or broader acceptance claim. Prior069b098c all4checks39550874596 retained; expanded head checks pending. Next inspect real expanded execution and exact owned cleanup; no product/schema/runtime change or merge.
+
+
+## Independent PR892 integration - 2026-10-21T06:56:39.766Z
+
+Original 2952c3eb1e025bba2f13bd7bf6b4db182905d2cd combined with main c2c65102032b1e3da595da670c5310b3ae6c7f37; both exact original test files retained, including the actual route/file/store four-failure and partial-purge controls. Source map replaces two stale pending-CI sentences with terminal original evidence and PR pointers. Production/library/schema/dependency/Docker/workflow files remain byte-identical to current main. Original four checks and actual five storage boundary PASS receipts independently reviewed. Refreshed cumulative six checks required before approved merge. No local heavy runtime or deployment; broad #305/#302/#310 remain open, #304 limits unchanged.
