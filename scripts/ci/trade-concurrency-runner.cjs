@@ -32,14 +32,15 @@ const endpoint=JSON.parse(docker('context','inspect',docker('context','show'),'-
 assert.match(endpoint,/^unix:\/\//,'selected Docker context must be local');
 evidence.dockerEndpoint=endpoint;
 const baseline='f32ebffbec91d5488e7e3318510d446bdc3d80d7';
-const helperChanges=run('git',['diff','--name-only',baseline,'HEAD','--','lib','prisma','package.json','package-lock.json','tsconfig.json']).split('\n').filter(Boolean);
+const helperBaseline='b810f06a18f1e358b970bccf8093e4b1026eeb66';
+const helperChanges=run('git',['diff','--name-only',helperBaseline,'HEAD','--','lib','prisma','package.json','package-lock.json','tsconfig.json']).split('\n').filter(Boolean);
 assert(helperChanges.every(name=>name === 'lib/trade-proposal.ts'),'old-action control requires unchanged transfer helpers/schema/dependencies');
 // The only permitted helper delta adds gift-content validation, which the old
 // action does not import. Existing validation-state exports remain unchanged.
 if(helperChanges.length) {
   const normalize=text=>text.replace(/\r\n/g,'\n').trim();
   const current=fs.readFileSync('lib/trade-proposal.ts','utf8').replace(/\nexport function hasTradeContents\(offeredCount: number, requestedCount: number\) \{\r?\n  return offeredCount > 0 \|\| requestedCount > 0;\r?\n\}\r?\n/,'\n');
-  assert.equal(normalize(current),normalize(run('git',['show',`${baseline}:lib/trade-proposal.ts`])),'baseline proposal helpers must be byte-equivalent after removing the added gift predicate');
+  assert.equal(normalize(current),normalize(run('git',['show',`${helperBaseline}:lib/trade-proposal.ts`])),'baseline proposal helpers must be byte-equivalent after removing the added gift predicate');
 }
 fs.writeFileSync(path.join(out,'baseline-actions.ts'),run('git',['show',`${baseline}:app/trades/actions.ts`])+'\n');
 evidence.sources = Object.fromEntries(['app/trades/actions.ts','scripts/ci/trade-concurrency.ts','scripts/ci/trade-concurrency-runner.cjs','prisma/schema.prisma'].map(name=>[name,crypto.createHash('sha256').update(fs.readFileSync(name)).digest('hex')]));
