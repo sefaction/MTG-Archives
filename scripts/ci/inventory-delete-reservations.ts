@@ -22,7 +22,11 @@ function pause() {
 function wrap(client: any): any {
   return new Proxy(client, { get(target, key) {
     if (key === "$transaction") return (fn: any, options: any) => target.$transaction(
-      typeof fn === "function" ? (tx: any) => fn(wrap(tx)) : fn, options);
+      typeof fn === "function" ? async (tx: any) => {
+        const result = await fn(wrap(tx));
+        if (context.getStore()?.rollback) throw new Error("owned failure after actual deletion/audit writes");
+        return result;
+      } : fn, options);
     const value = target[key];
     if (key === "$queryRaw") return async (...args: any[]) => {
       const actor = context.getStore();
@@ -58,7 +62,7 @@ const realRequire = loaded.require.bind(loaded);
 loaded.require = (name: string) => {
   if (name === "@/lib/prisma") return { prisma: wrap(db) };
   if (name === "@/lib/auth") return { requireLogin: async () => context.getStore(),
-    getAccessScope: async (user: any) => ({ mode: user.role === "ADMIN" ? "admin" : "owner" }) };
+    getAccessScope: async (user: any) => ({ mode: user.scopeMode ?? (user.role === "ADMIN" ? "admin" : "owner") }) };
   if (name === "next/cache") return { revalidatePath: () => {} };
   return realRequire(name);
 };
@@ -171,6 +175,18 @@ async function main() {
   assert.ok(races.every(r => r.remainingQuantity === 2 && !r.severedProposal && r.deletedAudits === 0),
     "deletion must recheck fresh reservations/zero quantity after a committed proposal or receipt");
   console.log("PASS: committed proposal and shared receipt survive delayed Delete/zero cleanup with fresh guards and no deletion audit");
+  for (const kind of ["delete", "cleanup"] as const) {
+    const f = await fixture("CANCELLED", kind === "delete" ? 2 : 0, false), before = await graph(f);
+    const fd = new FormData(); fd.set("inventoryItemId", f.items[1].id); fd.set("deleteReason", "owned rollback fixture");
+    await assert.rejects(context.run({ ...f.users[kind === "delete" ? 0 : 1], rollback: true }, () =>
+      kind === "delete" ? actions.deleteInventoryItem(fd) : actions.cleanupZeroQuantityInventory()), /owned failure after actual deletion/);
+    assert.deepEqual(await graph(f), before);
+    if (kind === "delete") {
+      await assert.rejects(context.run({ ...f.users[1], scopeMode: "owner" }, () => actions.deleteInventoryItem(fd)), /only delete inventory you own/);
+      assert.deepEqual(await graph(f), before);
+    }
+  }
+  console.log("PASS: actual Delete/zero-cleanup audit and FK writes roll back with stock; owner scope still refuses another owner's row");
   console.log("PASS: all active statuses retain secondary TradeLine reservations for owner/admin delete and zero cleanup; legacy, terminal, unreserved and admin-mode controls pass");
 }
 main().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
