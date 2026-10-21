@@ -25,7 +25,7 @@ const runId = crypto.randomUUID();
 const short = runId.slice(0,8);
 const project = `mtg-ci-${short}`;
 const builder = process.env.QUALIFICATION_BUILDER;
-const qualificationHashes = {"tests/ui/isolated-qualification-target.ts":"8f940d130e237dcdd76c878bf655a7ac8e658445d9588ee643feb2e976be5f58","tests/isolated-qualification-target.test.ts":"3e48e078051ed7a2a4433901498379bb0c2335d7e6c950861c107eaf20927158","scripts/verify-scan-destination-filter.ts":"ca2e2557417b6df6b55f9e8347ad1f764f4e59c8cbff3e7d3b2717218d4f4eae"};
+const qualificationHashes = {"tests/ui/isolated-qualification-target.ts":"8f940d130e237dcdd76c878bf655a7ac8e658445d9588ee643feb2e976be5f58","tests/isolated-qualification-target.test.ts":"3e48e078051ed7a2a4433901498379bb0c2335d7e6c950861c107eaf20927158","scripts/verify-scan-destination-filter.ts":"ca2e2557417b6df6b55f9e8347ad1f764f4e59c8cbff3e7d3b2717218d4f4eae","tests/ui/trade-lifecycle.spec.ts":"fe8f8fbaea79483f36480b2ce41644a2754c9a9485403c60d29cca53418276db"};
 const label = `mtg-isolated-qualification=${runId}`;
 const containers = [];
 let network;
@@ -141,14 +141,14 @@ async function main() {
   save('hosted-environment.json',{node:process.version,runnerEnvironment:process.env.RUNNER_ENVIRONMENT,runnerImage:process.env.ImageOS,runnerImageVersion:process.env.ImageVersion,dockerVersion:info.ServerVersion,cpus:info.NCPU,memoryBytes:info.MemTotal,freeBytes:os.freemem(),builder,buildxVersion:docker('buildx','version'),initialContainers:initialContainers.map(c=>({id:c.Id,name:c.Name,image:c.Image}))});
   assert(docker('buildx','build','--help').includes('--resource'),'Buildx must support RUN resource constraints');
   const expected=JSON.parse(run('node',['node_modules/tsx/dist/cli.mjs','-e',"process.stdout.write(JSON.stringify(require('./lib/review-build-provenance').reviewBuildManifest()))"]));
-  assert.equal(Object.keys(expected.files).length,1206);assert.equal(expected.digest,'9d350a0bd71e3100edba83cbe9a0eea2362eedaf15c7e40d4926f2309b1595d4');
+  assert.equal(Object.keys(expected.files).length,1206);assert.equal(expected.digest,'2be63cda028b2f2c6068dc3f423c77d07cec9d9951fa15757b46c1e756272fd4');
   assert.equal(git('rev-parse','HEAD:Dockerfile'),git('rev-parse','fb143e6cd1076a5b87a68043b0e65c007cfb90e8:Dockerfile'));
   assert.equal(git('rev-parse','HEAD:.dockerignore'),git('rev-parse','fb143e6cd1076a5b87a68043b0e65c007cfb90e8:.dockerignore'));
   const heads=['29c9397a4be3eb7f97f07fa9cd98ab17e1418d4b','9582694e71c879d186cd3768f39b1ff61f6e0d22','7ec381f739f80f35139aa81a64f92239237a359a'];
   const checked=[];
   for(const head of heads) for(const file of git('diff','--name-only','8ad7cd949b034226a10a2b21f2a3cdbd9abdd155',head).split('\n').filter(f=>f&&!f.startsWith('docs/'))) {
     const blob=git('rev-parse',`${head}:${file}`);
-    if(['tests/ui/isolated-qualification-target.ts','tests/isolated-qualification-target.test.ts'].includes(file)) {
+    if(qualificationHashes[file]) {
       assert.equal(git('rev-parse',`fb143e6cd1076a5b87a68043b0e65c007cfb90e8:${file}`),blob);
       assert.equal(expected.files[file],qualificationHashes[file],`${file} qualification-only transport patch`);
     } else assert.equal(git('rev-parse',`HEAD:${file}`),blob,file);
