@@ -7,7 +7,7 @@ import {
   TradeLineSide,
   TradeStatus,
   TradeWishlistStatus,
-  type Prisma,
+  Prisma,
 } from "@prisma/client";
 import { ensureDefaultLocation } from "@/lib/inventory-locations";
 import { revalidatePath } from "next/cache";
@@ -736,7 +736,14 @@ async function completeTradeIfReady(
       throw new Error("One or more traded cards are no longer available.");
     }
     const reason = `Completed trade between ${trade.proposerPlayer.displayName} and ${trade.receiverPlayer.displayName}`;
-    const itemIds = lines.map((line) => line.inventoryItem!.id);
+    const itemIds = Array.from(new Set(lines.map((line) => line.inventoryItem!.id))).sort();
+    // Distinct trades can consume one lot. Serialize the fresh stock read so
+    // audit quantities and full-versus-partial removal use its current state.
+    // Lock in a common order across all trade completions.
+    await tx.$queryRaw`
+      SELECT "id" FROM "InventoryItem"
+      WHERE "id" IN (${Prisma.join(itemIds)}) ORDER BY "id" FOR UPDATE
+    `;
     const currentItems = await tx.inventoryItem.findMany({
       where: { id: { in: itemIds } },
       include: {
