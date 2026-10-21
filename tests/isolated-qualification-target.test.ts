@@ -98,3 +98,21 @@ test("matching owned volume is allowed", () => {
   f.database.Mounts.push({ Type: "volume", Name: "owned-volume" });
   assert.doesNotThrow(() => verifyIsolatedQualificationTarget(f.target, f.run, ""));
 });
+
+test("hosted proxy cannot bypass target checks from an ordinary test process", () => {
+  const f = fixture();
+  f.web.NetworkSettings.Ports = {};
+  const target = { ...f.target, hostedProxy: {pid:1, backendAddress:"172.20.0.2", networkId:"d".repeat(64), scriptSHA256:"e".repeat(64)} };
+  const previous = process.env.RUNNER_ENVIRONMENT;
+  process.env.RUNNER_ENVIRONMENT = "ordinary-test-process";
+  try { assert.throws(() => verifyIsolatedQualificationTarget(target, f.run, ""), /dedicated hosted qualification branch/); }
+  finally { if (previous === undefined) delete process.env.RUNNER_ENVIRONMENT; else process.env.RUNNER_ENVIRONMENT = previous; }
+});
+
+test("hosted proxy rejects malformed process and endpoint identities", () => {
+  const target = fixture().target;
+  const proxy = {pid:1, backendAddress:"172.20.0.2", networkId:"d".repeat(64), scriptSHA256:"e".repeat(64)};
+  for (const bad of [{pid:0}, {backendAddress:"example.com"}, {networkId:"shared"}, {scriptSHA256:"unbound"}]) {
+    assert.throws(() => parseIsolatedQualificationTarget({...target,hostedProxy:{...proxy,...bad}}));
+  }
+});
