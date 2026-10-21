@@ -7,7 +7,7 @@ assert.equal(process.platform,'linux');
 assert.equal(process.env.GITHUB_ACTIONS,'true');
 assert.equal(process.env.RUNNER_ENVIRONMENT,'github-hosted');
 assert.equal(process.env.GITHUB_REPOSITORY,'sefaction/MTG-Archives');
-assert(!process.env.DATABASE_URL);
+assert(!process.env.DATABASE_URL && !process.env.PRICING_DATABASE_URL);
 assert(!process.env.DOCKER_HOST || process.env.DOCKER_HOST.startsWith('unix://'));
 const root = process.cwd(), out = path.join(root,'.local-data/trade-concurrency');
 fs.mkdirSync(out,{recursive:true});
@@ -27,6 +27,10 @@ function check(id) {const value=inspect('container',id);assert.equal(value.Id,id
 function create(args) {const id=docker('create','--label',label,...args);assert.match(id,/^[a-f0-9]{64}$/);owned.push(id);check(id);return id;}
 const sourceSha=run('git',['rev-parse','HEAD']);
 assert.equal(sourceSha,process.env.EXPECTED_SOURCE_SHA);
+assert.equal(run('git',['status','--porcelain']),'','clean source checkout required');
+const endpoint=JSON.parse(docker('context','inspect',docker('context','show'),'--format','{{json .Endpoints.docker.Host}}'));
+assert.match(endpoint,/^unix:\/\//,'selected Docker context must be local');
+evidence.dockerEndpoint=endpoint;
 const baseline='f32ebffbec91d5488e7e3318510d446bdc3d80d7';
 fs.writeFileSync(path.join(out,'baseline-actions.ts'),run('git',['show',`${baseline}:app/trades/actions.ts`])+'\n');
 evidence.sources = Object.fromEntries(['app/trades/actions.ts','scripts/ci/trade-concurrency.ts','scripts/ci/trade-concurrency-runner.cjs','prisma/schema.prisma'].map(name=>[name,crypto.createHash('sha256').update(fs.readFileSync(name)).digest('hex')]));

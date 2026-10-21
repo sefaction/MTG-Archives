@@ -55,3 +55,19 @@ top-level await under CommonJS. Its cleanup passed. The repaired harness wraps
 async execution and explicitly checks out the PR head rather than GitHub's
 synthetic merge commit. Failed artifacts remain retained. The fixed-head hosted
 run, exact-head normal CI and independent review remain required.
+
+Run [39529988169](https://github.com/sefaction/MTG-Archives/actions/runs/39529988169)
+on exact `79246410780f7a7c74ad735fb8548119221924ae` reruns the old-source
+failure and candidate with unchanged production transaction defaults. The old
+source again duplicates final/admin transfers (6/6, four receipts, eight audits).
+All three fixed cases finish once (8/9, two receipts, four audits), with exact
+attribute/provenance/resident/total conservation. Rollback and denial controls
+pass; three owned containers and the internal network are removed. Independent
+source review found no blocking product issue. Its suggested selected-context
+and clean-checkout fences are added for the final run; that run also strengthens
+audit quantity assertions and injects failure on the second receipt after the
+first receipt and audit have executed.
+
+The remaining #309 all-writer/phase acceptance is broader: this does not qualify
+arbitrary unrelated Inventory writers, nonphysical trade actions, browser/session
+transport, historical data repair, deployment or user acceptance.

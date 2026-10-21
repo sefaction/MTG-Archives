@@ -17,6 +17,7 @@ const p = new PrismaClient();
 const context = new AsyncLocalStorage<any>();
 let gates: Record<string, ReturnType<typeof barrier>> = {};
 let injectRollback = false;
+let receiptCreates = 0;
 const observations: any[] = [];
 function barrier(name: string) {
   let arrivals = 0, release!: () => void;
@@ -40,7 +41,7 @@ function wrap(client: any, transaction = false): any {
       const fn = model[method];
       if (typeof fn !== 'function') return fn;
       return async (args: any) => {
-        if (injectRollback && transaction && key === 'inventoryItem' && method === 'create') throw new Error('fixture receipt rollback');
+        if (injectRollback && transaction && key === 'inventoryItem' && method === 'create' && ++receiptCreates === 2) throw new Error('fixture receipt rollback');
         const result = await fn.call(model, args);
         const ctx = context.getStore();
         if (ctx && key === 'trade' && method === 'findUnique' && args.include) {
@@ -115,6 +116,12 @@ function assertOnce(f: Awaited<ReturnType<typeof fixture>>, s: Awaited<ReturnTyp
     assert.equal(item.locationId,f.people[1-i].locationId);
     assert.equal(item.locationSection,null);
     for (const key of ['cardId','foil','foilStatus','condition','language','notes','originalOpenerId','roundId','acquiredFromPullId'] as const) assert.equal(item[key],original[key],key);
+    const sourceAudit = s.audits.find(a=>a.inventoryItemId === original.id)!;
+    const receiptAudit = s.audits.find(a=>a.inventoryItemId === item.id)!;
+    assert.equal((sourceAudit.beforeJson as any).quantity,original.quantity);
+    assert.equal((sourceAudit.afterJson as any).quantity,original.quantity-quantity);
+    assert.equal((receiptAudit.afterJson as any).quantity,quantity);
+    assert.equal((receiptAudit.beforeJson as any).quantityTransferred,quantity);
     assert.equal(s.items.filter(item=>item.cardId === original.cardId).reduce((sum,item)=>sum+item.quantity,0),original.quantity+(i === 0 ? 7 : 0),'physical copy conservation');
   }
 }
@@ -133,7 +140,15 @@ try {
     results.push({mode,settled:settled.map(r=>r.status === 'fulfilled' ? {status:r.status} : {status:r.status,error:String(r.reason)}),completionEvents:s.events.filter(e=>e.eventType === 'completed').length,sourceQuantities:f.items.map(i=>s.items.find(x=>x.id === i.id)?.quantity),receivedLots:s.items.filter(i=>i.sourceType === 'TRADE').length,audits:s.audits.length,violation});
     if (process.env.EXPECT_TRADE_DEFECT !== '1') assert.equal(violation,null,`${mode}: ${violation}`);
   }
-  if (process.env.EXPECT_TRADE_DEFECT === '1') assert(results.some(r=>r.completionEvents > 1),'baseline must demonstrate actual duplicate transfer, not a timeout');
+  if (process.env.EXPECT_TRADE_DEFECT === '1') {
+    for (const mode of ['duplicate','admin-overlap']) {
+      const result = results.find(r=>r.mode === mode);
+      assert.equal(result.completionEvents,2,`${mode}: baseline must demonstrate actual duplicate transfer, not a timeout`);
+      assert.deepEqual(result.sourceQuantities,[6,6]);
+      assert.equal(result.receivedLots,4);
+      assert.equal(result.audits,8);
+    }
+  }
   // Real transactional failure after the first source decrements must roll back.
   const f = await fixture('rollback');
   const before = await state(f);
@@ -145,7 +160,8 @@ try {
   assert.equal(after.audits.length,0);
   assert.equal(after.events.filter(e=>e.eventType === 'completed').length,0);
   assert.notEqual(after.trade.status,'COMPLETED');
-  results.push({mode:'rollback',passed:true,confirmationAtomic:after.events.length === 0});
+  assert.equal(receiptCreates,2,'failure injected only after one real receipt and audit');
+  results.push({mode:'rollback',passed:true,receiptCreatesBeforeFailure:receiptCreates,confirmationAtomic:after.events.length === 0});
   // Destination and participant authority remain real action checks.
   const denial = await fixture('denial');
   await assert.rejects(call(denial,1,false,''),/Choose a destination/);
