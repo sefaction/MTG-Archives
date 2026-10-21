@@ -22,8 +22,13 @@ Module._load = function(request, parent, isMain) {
     const wrapped = new Proxy(Constructor, {
       construct(target, args, newTarget) {
         const client = Reflect.construct(target, args, newTarget === wrapped ? target : newTarget);
-        write({event: 'client', ordinal: ++constructions, argumentCount: args.length,
-          callerHash: crypto.createHash('sha256').update(new Error().stack.split('\n').slice(2).join('\n')).digest('hex')});
+        const stack = new Error().stack.split('\n').slice(2);
+        const modules = stack.flatMap(frame => {
+          const match = /\/app\/(\.next\/server\/[^\s:)]+\.js):(\d+):(\d+)/.exec(frame);
+          return match ? [{file:match[1],line:Number(match[2]),column:Number(match[3])}] : [];
+        }).slice(0,5);
+        write({event: 'client', ordinal: ++constructions, argumentCount: args.length, modules,
+          callerHash: crypto.createHash('sha256').update(stack.join('\n')).digest('hex')});
         return client;
       },
     });

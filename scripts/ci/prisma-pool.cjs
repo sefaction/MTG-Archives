@@ -4,6 +4,7 @@ const path = require('node:path');
 const cp = require('node:child_process');
 const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
+const cleanupOwnedContainers = require('./prisma-pool-cleanup.cjs');
 const root = process.cwd();
 assert.equal(process.platform, 'linux');
 assert.equal(process.env.GITHUB_ACTIONS, 'true');
@@ -137,6 +138,7 @@ async function phase(image, observed, name) {
     assert.equal(git('status', '--porcelain'), '');
     report.source = {head, tree: git('rev-parse','HEAD^{tree}'), prismaBlob: git('rev-parse','HEAD:lib/prisma.ts'),
       baseline: 'f32ebffbec91d5488e7e3318510d446bdc3d80d7', dockerfile: git('rev-parse','HEAD:Dockerfile')};
+    assert.equal(report.source.prismaBlob, git('rev-parse', `${report.source.baseline}:lib/prisma.ts`), 'Unchanged-source control');
     assert.equal(report.source.dockerfile, git('rev-parse', `${report.source.baseline}:Dockerfile`));
     const endpoint = JSON.parse(docker('context','inspect',docker('context','show'),'--format','{{json .Endpoints.docker.Host}}'));
     assert.match(endpoint, /^unix:\/\//);
@@ -150,18 +152,34 @@ async function phase(image, observed, name) {
       {log:'build.log',timeout:20*60_000});
     const image = fs.readFileSync(path.join(dir,'image.iid'),'utf8').trim(); images.push(image);
     assert.match(image,/^sha256:[a-f0-9]{64}$/); assert.equal(inspect('image',image).Config.Labels[labelKey],runId);
+    const buildMetadata=JSON.parse(fs.readFileSync(path.join(dir,'build-metadata.json'),'utf8'));
+    const [historyBuilder,historyNode,historyId,...extra]=buildMetadata['buildx.build.ref'].split('/');
+    assert.equal(historyBuilder,builder);assert(historyNode.startsWith(builder));assert(historyId && extra.length===0);
+    const resourceArgs=buildMetadata['buildx.build.provenance']?.invocation?.parameters?.args;
+    assert.equal(resourceArgs?.memory,String(4*1024**3));assert.equal(resourceArgs?.memswap,String(4*1024**3));
+    assert.equal(resourceArgs?.cpuperiod,'100000');assert.equal(resourceArgs?.cpuquota,'200000');assert.equal(resourceArgs?.ulimit,'nproc=256:256');
+    const history=JSON.parse(docker('buildx','--builder',builder,'history','inspect','--format','json',historyId));
+    assert.equal(history.Ref,historyId);assert.equal(history.Status,'completed');save('build-history.json',history);
     report.image = image;
     // Save all compiled server file hashes and constructor-bearing chunks, never compiled source.
-    const proof = create(['--network','none','--entrypoint','node',image,'-e', `const fs=require('fs'),c=require('crypto'),p=require('path');const hashes={},constructors=[];function walk(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){const f=p.join(d,e.name);if(e.isDirectory())walk(f);else if(e.isFile()){const b=fs.readFileSync(f);hashes[f]=c.createHash('sha256').update(b).digest('hex');if(f.endsWith('.js')&&/new [^;\\n]{0,60}PrismaClient/.test(b.toString()))constructors.push(f)}}}walk('.next/server');console.log(JSON.stringify({hashes,constructors,buildId:fs.readFileSync('.next/BUILD_ID','utf8').trim(),prismaHash:c.createHash('sha256').update(fs.readFileSync('lib/prisma.ts')).digest('hex'),versions:{next:require('next/package.json').version,prisma:require('@prisma/client/package.json').version}}));`]);
+    const proof = create(['--network','none','--entrypoint','node',image,'-e', `const fs=require('fs'),c=require('crypto'),p=require('path');const hashes={},constructors=[];function walk(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){const f=p.join(d,e.name);if(e.isDirectory())walk(f);else if(e.isFile()){const b=fs.readFileSync(f);hashes[f]=c.createHash('sha256').update(b).digest('hex');if(f.endsWith('.js')&&/new [^;\\n]{0,60}PrismaClient/.test(b.toString()))constructors.push(f)}}}walk('.next/server');console.log(JSON.stringify({hashes,constructors,manifest:JSON.parse(fs.readFileSync('build-source-manifest.json','utf8')),buildId:fs.readFileSync('.next/BUILD_ID','utf8').trim(),prismaHash:c.createHash('sha256').update(fs.readFileSync('lib/prisma.ts')).digest('hex'),versions:{next:require('next/package.json').version,prisma:require('@prisma/client/package.json').version}}));`]);
     const output = docker('start','-a',proof); assert.equal(owned(proof).State.ExitCode,0); remove(proof);
-    save('compiled-proof.json',JSON.parse(output));
+    const compiledProof = JSON.parse(output);
+    assert.equal(compiledProof.prismaHash, crypto.createHash('sha256').update(fs.readFileSync('lib/prisma.ts')).digest('hex'), 'Image Prisma source equals exact checkout');
+    for(const [name,digest] of Object.entries(compiledProof.manifest.files)) {
+      assert(!path.isAbsolute(name) && !name.split('/').includes('..'));
+      assert.equal(crypto.createHash('sha256').update(fs.readFileSync(name)).digest('hex'),digest,`Build input ${name}`);
+    }
+    save('compiled-proof.json',compiledProof);
     network = docker('network','create','--internal','--label',label,`${project}-private`);
     docker('pull','postgres:16-alpine');
+    const postgresImage = inspect('image','postgres:16-alpine').Id;
     database = create(['--name',`${project}-db`,'--network',`${project}-private`,'--network-alias','pool-db',
       '--memory','384m','--memory-swap','384m','--cpus','1','--pids-limit','128',
       '--tmpfs','/var/lib/postgresql/data:rw,size=268435456','-e','POSTGRES_USER=fixture',
-      '-e','POSTGRES_PASSWORD=fixture-only','-e','POSTGRES_DB=pool846','postgres:16-alpine']);
+      '-e','POSTGRES_PASSWORD=fixture-only','-e','POSTGRES_DB=pool846',postgresImage]);
     docker('start',database);
+    assert.equal(owned(database).Image, postgresImage);
     const deadline=Date.now()+60_000;
     while(cp.spawnSync('docker',['exec',database,'pg_isready','-U','fixture','-d','pool846']).status!==0){assert(Date.now()<deadline);await sleep(500);}
     report.database={id:database,image:owned(database).Image,maxConnections:Number(sql('SHOW max_connections'))};
@@ -171,7 +189,11 @@ async function phase(image, observed, name) {
     report.status='MEASURED';
   } catch(e) {report.status='FAILED';report.failures.push({name:e.name,message:e.message});process.exitCode=1;}
   finally {
-    for(const id of [...containers].reverse())try{run('docker',['logs',id],{log:`cleanup-${id.slice(0,12)}.log`});remove(id);}catch(e){report.failures.push({cleanup:e.message});process.exitCode=1;}
+    cleanupOwnedContainers(containers, {
+      collect:id=>{owned(id);run('docker',['logs',id],{log:`cleanup-${id.slice(0,12)}.log`});},
+      remove,
+      failed:(error,phase,id)=>{report.failures.push({cleanup:error.message,phase,id});process.exitCode=1;},
+    });
     if(network)try{const n=inspect('network',network);assert.equal(n.Id,network);assert.equal(n.Labels[labelKey],runId);assert.equal(Object.keys(n.Containers).length,0);docker('network','rm',network);}catch(e){report.failures.push({cleanup:e.message});process.exitCode=1;}
     for(const id of images)try{assert.equal(inspect('image',id).Config.Labels[labelKey],runId);docker('image','rm',id);}catch(e){report.failures.push({cleanup:e.message});process.exitCode=1;}
     try{assert.deepEqual(docker('ps','-aq').split('\n').filter(Boolean).map(id=>inspect('container',id).Id).sort(),initial.sort());report.cleanup=true;}catch(e){report.failures.push({cleanup:e.message});process.exitCode=1;}

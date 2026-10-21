@@ -18,6 +18,19 @@ terminal evidence and fix only demonstrated narrow behavior. No merge/deploy,
 local reload/service/job/limit changes. Local active jobs and distinct five-role
 pipelines preserved; unanswered idle-review shutdown remains pending.
 
+Draft [#877](https://github.com/sefaction/MTG-Archives/pull/877) first exact head
+`f8c3f42b` completed hosted [39529697814](https://github.com/sefaction/MTG-Archives/actions/runs/39529697814)
+and all three normal CI checks. Both single-web lifetimes warmed 0 to 5 idle
+connections and remained 5 through 102 total reads; observed startup constructed
+two clients with no subsequent constructor growth. All owned cleanup passed.
+Source and runtime evidence do not reproduce the historical capacity failure;
+no product fix is proposed. Independent source reviews completed with explicit
+limits. Follow-up enforces observer/cleanup regression CI, independent removal
+after failed logs, baseline/image/source-manifest assertions, immutable PostgreSQL
+image, native build history and safe compiled callsites. Next reconcile final
+exact-head CI/artifacts and independent review, then retain #846 open for a
+covering populated-workload/CPU-topology hypothesis. No merge approval exists.
+
 ## Build provenance input coverage #842 - October 20, 2026
 
 - Published draft [PR #875](https://github.com/sefaction/MTG-Archives/pull/875),
