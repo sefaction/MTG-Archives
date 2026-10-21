@@ -261,6 +261,8 @@ jobs:
           npx tsx scripts/ci/trade-proposal-reservations.ts
       - name: Concurrent proposals respect available physical stock
         run: npx tsx scripts/ci/trade-proposal-reservations.ts
+      - name: Whole-deck bundle schema, reservation fences and recipient ownership
+        run: npx tsx scripts/ci/deck-trade-bundles.ts
 
   trade-audit-integrity:
     name: Trade audit PostgreSQL history bounds

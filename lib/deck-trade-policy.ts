@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { Deck, DeckCard, InventoryItem, InventoryLocation } from "@prisma/client";
+import type { Deck, DeckCard, InventoryItem, InventoryLocation, Prisma } from "@prisma/client";
 
 export type DeckTradeSource = {
   deck: Deck;
@@ -92,8 +92,8 @@ export function snapshotTradeDeck(source: DeckTradeSource) {
     location: source.location ? project(source.location, locationFields) : null,
     stock: ordered(source.stock).map(item => project(item, stockFields)), tagIds: [...new Set(source.tagIds)].sort(),
   })) as {
-    version: number; ownerPlayerId: string; deck: Record<string, unknown>; cards: Record<string, unknown>[];
-    location: Record<string, unknown> | null; stock: Record<string, unknown>[]; tagIds: string[];
+    version: number; ownerPlayerId: string; deck: Prisma.JsonObject; cards: Prisma.JsonObject[];
+    location: Prisma.JsonObject | null; stock: Prisma.JsonObject[]; tagIds: string[];
   };
   return { snapshot, digest: createHash("sha256").update(canonical(snapshot)).digest("hex") };
 }
