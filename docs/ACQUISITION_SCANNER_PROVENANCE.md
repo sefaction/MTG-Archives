@@ -1,0 +1,15 @@
+# Scanner-to-processing provenance controls (#304)
+
+Source base: main cd536f2e. This bounded test batch follows the generic version persistence and source-exhaustion controls in #882/#884. It changes no capture or processing behavior.
+
+The scanner-run integration previously checked retained raw bytes, backend metadata and the number of canonical jobs. It now joins both out-of-order scanner transfers through their capture slots, photos, immutable artifacts, observations, physical candidates and canonical job input. Two distinct physical transfers deliberately have identical bytes: they must retain different photos/candidates/jobs rather than collapse by digest. Each job must bind the original digest, CARD_SCAN input kind, candidate revision and actual canonical pipeline/runtime/model/catalog/index/execution descriptor. A fresh Prisma client repeats an ACK-lost upload, rejects different bytes under the same transfer identity and requires the full saved six-table lineage graph to remain identical. Raw bytes and zero owned Inventory are checked afterward. The existing fixture owns cleanup and disconnects the extra client in finally.
+
+| Layer | Current source/control | Boundary |
+| --- | --- | --- |
+| Scanner identity | scanner-runs binds authenticated agent, epoch, execution, source sequence, device and requested settings; verify-scanner-runs covers claim conflicts and the new joined lineage | Protocol version is not installed binary provenance. ScannerAgent.agentVersion is latest pulse state; source metadata does not preserve a historical helper binary digest. No binary identity is inferred. |
+| Canonical preparation | finalizeAcquisitionPhoto persists immutable photo digest and canonical version descriptors; new scanner assertions cover actual emitted input | This control stops at queued canonical input; existing photo verifier runs preparation/recognition separately. |
+| Generic durable processing | verify-acquisition-orchestration covers leases, version identity, fresh workers and human precedence; #884 adds independent descriptor variations | Opaque descriptors alone do not prove actual model loading or GPU parity. |
+| Recognition/catalog | recognition worker binds photo digest/model and uses a catalog snapshot; photo verifier covers enqueue/replacement/recovery | Native accuracy and held-out catalog/reference coverage remain #307/#463 acceptance. Do not substitute generic fixture output. |
+| Printing | printing worker binds source catalog job, photo digest, model and interpretation policy; verify-acquisition-printing rejects obsolete model/policy/source | Real reference quality and independent shared-art discrimination remain open. |
+
+Exact-head execution is pending the guarded hosted Acquisition PostgreSQL integrity job. No scanner motor, local shared database, production installation, extra provider or native model invocation is added. Installed-helper binary provenance is an explicit remaining boundary, not a newly guessed requirement or broad hardware retest. Broader P2/#304 and release/recovery #310 remain open.
