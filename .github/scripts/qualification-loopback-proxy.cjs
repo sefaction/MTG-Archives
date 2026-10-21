@@ -7,7 +7,7 @@ assert.equal(process.platform, 'linux');
 assert.equal(process.env.GITHUB_ACTIONS, 'true');
 assert.equal(process.env.RUNNER_ENVIRONMENT, 'github-hosted');
 assert.equal(process.env.GITHUB_REPOSITORY, 'sefaction/MTG-Archives');
-assert.equal(process.env.GITHUB_REF, 'refs/heads/codex/qualification-writers-309');
+assert.equal(process.env.GITHUB_REF, 'refs/heads/codex/qualification-proposal-draft');
 assert.match(runId, /^[a-f0-9-]{36}$/);
 assert.match(webId, /^[a-f0-9]{64}$/);
 assert.match(networkId, /^[a-f0-9]{64}$/);
