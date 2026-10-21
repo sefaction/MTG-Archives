@@ -28,6 +28,7 @@ const builder = process.env.QUALIFICATION_BUILDER;
 const productHead='d425c8c7';
 const transportHead='7d8b4329898611122c6d9899330a08d14704af5f';
 const transportFiles=['tests/ui/isolated-qualification-target.ts','tests/isolated-qualification-target.test.ts'];
+const negativeTransportFile='tests/ui/trade-lifecycle.spec.ts';
 const label = `mtg-isolated-qualification=${runId}`;
 const containers = [];
 let network;
@@ -146,16 +147,22 @@ async function main() {
   const product=git('rev-parse',productHead);
   assert.equal(Object.keys(expected.files).length,1214);
   const harnessOnly=git('diff','--name-only',product,'HEAD').split('\n').filter(Boolean);
-  assert(harnessOnly.length>0 && harnessOnly.every(f=>f.startsWith('.github/') || transportFiles.includes(f)),'qualification may change only temporary GitHub harness files and the two explicitly pinned host transport guards');
+  assert(harnessOnly.length>0 && harnessOnly.every(f=>f.startsWith('.github/') || transportFiles.includes(f) || f===negativeTransportFile),'qualification may change only temporary GitHub harness files and the two explicitly pinned host transport guards');
   assert.equal(git('status','--porcelain'),'','clean source required');
   for(const file of Object.keys(expected.files)) {
     if(transportFiles.includes(file)) {
       const original=git('show',`${transportHead}:${file}`).replaceAll('refs/heads/codex/qualification-873874875-ci','refs/heads/codex/qualification-gifts-880');
       assert.equal(fs.readFileSync(file,'utf8').replace(/\r\n/g,'\n').trim(),original,file+' must equal pinned transport with only the dedicated branch renamed');
+    } else if(file===negativeTransportFile) {
+      const helper=/    async function rejectPhysicalSubmission[\s\S]*?\n    }\n/;
+      const pinned=git('show',`${transportHead}:${file}`).match(helper)[0].replace('caseName: string)','caseName: string = "gift-qualification")');
+      const productTest=git('show',`${product}:${file}`);
+      const adapted=productTest.replace(helper,()=>pinned).replace('type Page }','type Page, type Route }');
+      assert.equal(fs.readFileSync(file,'utf8').replace(/\r\n/g,'\n').trim(),adapted,file+' only the previously qualified negative-response buffering helper may differ');
     } else assert.equal(git('hash-object',file),git('rev-parse',`${product}:${file}`),file);
   }
   save('source-manifest.json',expected);
-  save('product-source-proof.json',{productHead:product,harnessHead:git('rev-parse','HEAD'),harnessOnly,transportHead,transportFiles,digest:expected.digest,count:Object.keys(expected.files).length});
+  save('product-source-proof.json',{productHead:product,harnessHead:git('rev-parse','HEAD'),harnessOnly,transportHead,transportFiles,negativeTransportFile,digest:expected.digest,count:Object.keys(expected.files).length});
   report.gates.source=true;
   const probeDir=path.join(dir,'probe');fs.mkdirSync(probeDir,{recursive:true});
   fs.writeFileSync(path.join(probeDir,'Dockerfile'),'FROM node:22-alpine\nCOPY probe.cjs /probe.cjs\nRUN node /probe.cjs > /probe.json\n');

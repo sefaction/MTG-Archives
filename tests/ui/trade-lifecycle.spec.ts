@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page, type Route } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { loadIsolatedQualificationTarget } from "./isolated-qualification-target";
@@ -291,7 +291,7 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
       .toBe("ACCEPTED_PENDING_EXCHANGE");
     expect(total()).toBe(16);
 
-    async function rejectPhysicalSubmission(page: Page, detail: Locator, invalid: string) {
+    async function rejectPhysicalSubmission(page: Page, detail: Locator, invalid: string, caseName: string = "gift-qualification") {
       const snapshot = () => database<unknown>(`return p.$transaction(async tx=>({
         trade:await tx.trade.findUniqueOrThrow({where:{id:${quote(counter)}}}),
         events:await tx.tradeEvent.findMany({where:{tradeId:${quote(counter)}},orderBy:{id:'asc'}}),
@@ -304,9 +304,32 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
         if (value) node.add(new Option("Invalid fixture choice", value));
         node.value = value;
       }, invalid);
-      const responsePromise = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/trades" && Boolean(response.request().headers()["next-action"]));
-      await detail.getByRole("button", { name: "Confirm Physical Trade" }).click();
-      await (await responsePromise).finished();
+      // React may abort consumption of an error RSC response. Fetch the actual
+      // intercepted browser POST to completion, then fulfill with its unchanged
+      // backend response. This is no mocked action and sends the request once.
+      let resolveBackend!: (receipt: { status: number; bytes: number }) => void;
+      let rejectBackend!: (error: unknown) => void;
+      const backend = new Promise<{ status: number; bytes: number }>((resolve, reject) => { resolveBackend = resolve; rejectBackend = reject; });
+      const timer = setTimeout(() => rejectBackend(new Error(`Physical rejection ${caseName} response deadline`)), 20000);
+      const handler = async (route: Route) => {
+        const request = route.request();
+        if (request.method() !== "POST" || new URL(request.url()).pathname !== "/trades" || !request.headers()["next-action"]) return route.continue();
+        try {
+          expect(new URL(request.url()).origin).toBe(baseURL);
+          const response = await route.fetch({ timeout: 15000, maxRedirects: 0, maxRetries: 0 });
+          const body = await response.body();
+          expect(response.status()).toBe(500);
+          expect(response.headers()["content-type"]).toContain("text/x-component");
+          expect(body.toString("utf8")).toContain('"digest"');
+          await route.fulfill({ response });
+          resolveBackend({ status: response.status(), bytes: body.length });
+        } catch (error) { rejectBackend(error); await route.abort().catch(() => {}); }
+      };
+      await page.route("**/trades*", handler);
+      try {
+        const [receipt] = await Promise.all([backend, detail.getByRole("button", { name: "Confirm Physical Trade" }).click()]);
+        console.log(`PASS physical rejection ${caseName}: complete real response ${receipt.status}, ${receipt.bytes} bytes`);
+      } finally { clearTimeout(timer); await page.unroute("**/trades*", handler); }
       expect(snapshot()).toEqual(before);
       const refreshed = await openTrade(page, counter);
       await expect(refreshed.getByRole("combobox")).toHaveValue("");
