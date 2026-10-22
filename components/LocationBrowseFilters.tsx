@@ -61,8 +61,13 @@ export function LocationBrowseFilters({
         latestNavigation.current = null;
       }
     }
-    const restoreHistory = () =>
-      reset(Object.fromEntries(new URLSearchParams(window.location.search)));
+    const restoreHistory = () => {
+      const next = Object.fromEntries(new URLSearchParams(window.location.search));
+      // The history event restores this URL before its server props arrive.
+      // Acknowledge it now so those props cannot erase subsequent edits.
+      previousHref.current = locationBrowseHref(next).split("#")[0];
+      reset(next);
+    };
     window.addEventListener("popstate", restoreHistory);
     return () => window.removeEventListener("popstate", restoreHistory);
   }, [params, receivedHref]);

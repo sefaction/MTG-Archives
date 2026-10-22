@@ -1,6 +1,43 @@
 # Work checkpoint
 
-## Current work - laptop Locations filters, October 22, 2026
+## Current work - #905 history correction, October 22, 2026
+
+- Owner: STMLT26, thread `01a16522-acc1-7390-a1a1-1005ec1997cc`, run
+  `fix-905-20261022-01a16522`. Brian explicitly authorized applying the reviewed
+  correction, allowed checks and updating PR906 in this chat, with the runtime
+  hold left in place. This supersedes the preceding review-only scope for these
+  actions; the prior author identity and original evidence remain below.
+- Existing isolated branch `codex/laptop-location-filter-state`, parent
+  `87ffe94ba8225012472d7b64d406f4653367f802`, base main `11f54612`. This commit
+  contains the correction, regression tests and handoff; PR906 records its final
+  exact head. No root cumulative working-tree changes are included.
+- [Issue #905](https://github.com/sefaction/MTG-Archives/issues/905), draft
+  [PR #906](https://github.com/sefaction/MTG-Archives/pull/906): acknowledge the
+  restored history URL on popstate so delayed props cannot erase subsequent
+  typing/filter edits or interrupt IME composition. Preserve genuine external
+  navigation resets and existing URL/filter semantics.
+- Completed: identical new versioned tests fail twice on the preceding source
+  while all seven original component cases pass; corrected source passes all
+  19 focused location/component/static checks. Focused TypeScript reports zero
+  diagnostics (345,460 KiB peak RSS, 256 MiB heap cap); whitespace passes.
+  Tests execute the real component with hook/router/JSX/timer stand-ins; no
+  installed React renderer, browser, database or layout acceptance is claimed.
+- Pending: required exact-head CI, fresh independent review of this correction,
+  and authorized desktop/320/390px runtime review. The previous independent
+  reviewer now implements this correction, so that review does not approve the
+  new source. Keep PR draft and issue open. Earlier exploratory return-to-initial
+  overlap remains unverified for actual router ordering; no broader fix claimed.
+- Canonical lightweight guard belongs only to this run/thread during source and
+  publication work. All bounded test processes are terminal; no runtime lock,
+  fixture, child service or deployment is owned. Release the exact lightweight
+  claim after publication/readback. ACTIVE heavy-runtime hold remains unchanged.
+- Private correction evidence: `.local-data/review-905-20261022/` in the primary
+  checkout (`correction-negative.txt`, `correction-focused.txt`,
+  `correction-typecheck.txt`, prior `REVIEW.md`). Original failures and prior
+  author evidence are preserved. Next safe step: verify new exact-head CI and
+  independent review; runtime acceptance waits for explicit scoped hold release.
+
+## Historical author checkpoint - laptop Locations filters, October 22, 2026
 
 - Owner: STMLT26, thread `01a1641c-c524-7402-8b5e-d6f0986878c4`, run
   `laptop-locations-20261022-01a1641c`. Brian's current standalone laptop

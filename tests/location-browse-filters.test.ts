@@ -116,10 +116,13 @@ function mount(initial: LocationBrowseParams, deck = false) {
       window.location.search = new URL(locationBrowseHref(next), "http://local").search;
       render();
     },
-    history(next: LocationBrowseParams) {
+    beginHistory(next: LocationBrowseParams) {
       window.location.search = new URL(locationBrowseHref(next), "http://local").search;
       listeners.get("popstate")?.();
       render();
+    },
+    history(next: LocationBrowseParams) {
+      this.beginHistory(next);
       this.receive(next);
     },
     submit() { tree.props.onSubmit({ preventDefault() {} }); this.flush(); },
@@ -222,4 +225,42 @@ test("history cancels a queued edit and can restore unfiltered storage", () => {
   assert.equal(lastParams(ui).get("parent"), null);
   assert.equal(lastParams(ui).get("type"), null);
   assert.equal(lastParams(ui).get("q"), null);
+});
+
+test("typing and filter edits after popstate survive delayed history props", () => {
+  const ui = mount({ q: "box", parent: "vault", type: "Box" });
+  const restored = { parent: "shelf", type: "Binder" };
+  ui.beginHistory(restored);
+  assert.equal(ui.find("q").props.value, "");
+  assert.equal(ui.find("type").props.value, "Binder");
+  ui.change("q", "binder");
+  ui.change("space", "available");
+  ui.receive(restored);
+  assert.equal(ui.find("q").props.value, "binder");
+  assert.equal(ui.find("space").props.value, "available");
+  ui.flush();
+  for (const [key, value] of Object.entries({ q: "binder", parent: "shelf", type: "Binder", space: "available" })) {
+    assert.equal(lastParams(ui).get(key), value);
+  }
+  ui.receive({ parent: "other-branch" });
+  assert.equal(ui.find("q").props.value, "");
+  assert.equal(ui.find("space").props.value, "");
+});
+
+test("delayed history props preserve active IME composition", () => {
+  const ui = mount({ view: "decks", q: "old" }, true);
+  const restored = { view: "decks", parent: "shelf" };
+  ui.beginHistory(restored);
+  ui.event("q", "onCompositionStart");
+  ui.change("q", "新");
+  ui.receive(restored);
+  assert.equal(ui.find("q").props.value, "新");
+  ui.change("q", "新しい");
+  ui.flush();
+  assert.equal(ui.navigations.length, 0);
+  ui.event("q", "onCompositionEnd", "新しい");
+  ui.flush();
+  assert.equal(lastParams(ui).get("q"), "新しい");
+  assert.equal(lastParams(ui).get("parent"), "shelf");
+  assert.equal(lastParams(ui).get("view"), "decks");
 });
