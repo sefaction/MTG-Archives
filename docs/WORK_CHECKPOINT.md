@@ -1,5 +1,44 @@
 # Work checkpoint
 
+## Current work - laptop Locations filters, October 22, 2026
+
+- Owner: STMLT26, thread `01a1641c-c524-7402-8b5e-d6f0986878c4`, run
+  `laptop-locations-20261022-01a1641c`. Brian's current standalone laptop
+  automation authorizes lightweight interface implementation and draft PRs;
+  no merge, deployment, schedule, scanner or shared-runtime mutation.
+- Branch `codex/laptop-location-filter-state`, isolated worktree
+  `.local-data/worktrees/laptop-location-filter-state`; current product/test head
+  `9c405f61eb76373bacf59fb95c8810acc5e4e837`, based on main `11f54612` (PR904).
+  This handoff-only commit follows; the draft PR records the final exact head.
+- [Issue #905](https://github.com/sefaction/MTG-Archives/issues/905): synchronize
+  mounted Locations query/space/type/status and branch state after client
+  navigation/history; preserve newer edits across earlier own responses.
+  Existing backend/domain/other worker scope is untouched. The initial tree-link
+  reproduction was corrected to the main `next/link` Locations navigation;
+  ordinary tree anchors may remount. No installed browser reproduction claimed.
+- Completed: 17 focused tests, zero focused TypeScript diagnostics, whitespace
+  check. The identical seven component-event cases against pinned old source
+  fail five and pass two preservation controls; current source passes all seven.
+  This uses actual component handlers/effects with hook/router/JSX stand-ins,
+  plus existing browser-helper/static UI tests, without a browser or database.
+- Pending gates: ordinary required exact-head hosted CI, independent review,
+  authorized runtime desktop and 320/390px phone navigation/history/typing/IME
+  and section/owner presentation checks. Keep draft. ACTIVE heavy-runtime hold
+  prohibits local builds/reloads/full suites/database/browser fixtures; passing
+  source checks does not establish runtime delivery or historical #721 repair.
+- Ownership/cleanup: canonical lightweight guard belongs only to this run/thread
+  during work. No runtime lock, fixture, child service or deployment is owned.
+  Release this exact lightweight claim after terminal cleanup; leave the hold
+  and every other owner's resource unchanged. Retain the review worktree.
+- Private current/evidence/creation receipt: `.local-data/laptop-worker-setup-20261022/`
+  (`current.json`, `location-filter-evidence.md`, `location-filter-creation-receipt.json`,
+  focused/negative test logs). Root cumulative branch and policy/manual/checkpoint
+  WIP are preserved. Next safe step: inspect final draft CI and obtain independent
+  review; runtime review waits for explicitly scoped hold release.
+
+Earlier entries retain their original observation times and authority; they are
+not this laptop batch's current ownership or permission.
+
 ## Current work - coordinated documentation pass, October 22, 2026
 
 - Owner/node: thread `01a16053-5a48-75da-87ba-626757bad03f` on STMLT26, isolated worktree
