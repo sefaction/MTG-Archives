@@ -1,5 +1,32 @@
 # Work checkpoint
 
+## Current work - coordinated documentation pass, October 22, 2026
+
+- Owner/node: thread `01a16053-5a48-75da-87ba-626757bad03f` on STMLT26, isolated worktree
+  `.local-data/worktrees/agents-policy-20261022`, branch `docs/agents-policy-20261022`,
+  base `1d235f45e4a79896ed29e89a0acf3b809ebbf85d` (live main verified on entry).
+- Authority/scope: Brian's October 22 coordinated-pass approval, relayed by parent
+  task `01a15678-1540-7066-a74b-8a84f69d4034`; prepare a local documentation patch
+  only. No publication, merge, runtime/data/lock/schedule changes or new jobs/issues.
+- Changes: canonical policy, command reference, intake and execution/handoff guidance
+  cover user-outcome priority, proportional verification, ownership recovery,
+  capability-based work, lean artifacts and compact checkpoints. Earlier history
+  below is preserved; the primary worktree's checkpoint/manual WIP is untouched.
+- Resources: no runtime lock acquired or changed; existing shared runtime owner
+  remains separate. No build, Docker, database or application test operation.
+- Checks: whitespace, 14 relative links, all 18 existing type/status/area label
+  tokens and historical-content preservation pass. Six primary-worktree protected
+  files (checkpoint, three manual/handoff files, shared lock and worker state)
+  match their entry SHA-256 hashes. Required CI awaits future publication;
+  aggregate verification would build/run browser tests and is not needed here.
+- Questions: none for the approved scope. Next: parent reviews this uncommitted
+  five-file local patch; await separate publication instructions. No PR exists.
+
+## Preserved history
+
+Entries below retain their original observations and authority references; they
+are not this batch's current state, pending operations or continuing permissions.
+
 ## PR #879 integration and qualification - October 21, 2026
 
 Current main 3ae13d0d integrated with checkpoint histories retained. Readiness
