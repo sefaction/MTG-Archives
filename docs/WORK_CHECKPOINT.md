@@ -1,6 +1,38 @@
 # Work checkpoint
 
-## Current work - #905 history correction, October 22, 2026
+## Current work - #905 readiness evidence, October 22, 2026
+
+- Owner STMLT26/thread `01a16522-acc1-7390-a1a1-1005ec1997cc`, run
+  `ready-905-20261022-01a16522`. Brian removed the runtime hold and requested
+  completing an issue through readiness for review. Existing isolated branch
+  `codex/laptop-location-filter-state`; product/test head `2c558e35`, base main
+  `11f54612`. This documentation-only commit records final evidence; PR906 gives
+  its exact head/current CI. No product/test/build-input changes follow the tests.
+- [#905](https://github.com/sefaction/MTG-Archives/issues/905) /
+  [#906](https://github.com/sefaction/MTG-Archives/pull/906): 19 focused checks,
+  zero focused TypeScript diagnostics, preserved two-case negative controls,
+  independent source review with no findings, bounded local production build,
+  matching 1,223-input source manifest, and 12 real browser groups at
+  desktop/390/320 px pass. Fixture stock/audit invariance and selected original
+  review baselines pass. Exact delayed-history ordering remains component-tested;
+  browser history is natural and the actual gated response is own-search RSC.
+- [Portable review evidence](LOCATIONS_FILTER_REVIEW.md) records exact image,
+  runtime, source binding, build-only adaptations and evidence limits. Current
+  synthetic app <http://127.0.0.1:13012/locations> is retained for Brian's review
+  with its isolated database/image. Test browsers, temporary sessions/private env
+  file and builder/cache are retired; runtime claim released after terminal work.
+- Required CI on product head passed all seven checks in run39844065806; this
+  final documentation head needs fresh exact-head CI. Source review remains
+  bound to unchanged product/test inputs; documentation evidence is separately
+  reviewed. Mark ready after those gates pass; keep issue open pending approved
+  merge. No merge, production, scanner, schema or domain change.
+- Canonical source-batch claim is exact-owned only during this handoff/publication
+  and released after final metadata readback. No running test/build children.
+  Private reports/current are in `.local-data/review-905-20261022/` and setup
+  `current.json`; root cumulative/policy/manual WIP is preserved. Next safe step:
+  final exact-head CI/readiness publication, then Brian's individual review.
+
+## Historical correction checkpoint - #905, October 22, 2026
 
 - Owner: STMLT26, thread `01a16522-acc1-7390-a1a1-1005ec1997cc`, run
   `fix-905-20261022-01a16522`. Brian explicitly authorized applying the reviewed
