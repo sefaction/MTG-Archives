@@ -504,7 +504,7 @@ export async function verifyAcquisitionCommit(
       )._sum.quantity,
       1,
     );
-    // Compose both actual public domain services, rather than treating a
+    // Compose both actual domain services, rather than treating a
     // capacity helper alone as proof of capture-versus-CSV admission.
     const csvLocation = await location(1), csvCapture = await capture(csvLocation, 1);
     await review(csvCapture.id, csvCapture.photos[0].id);
@@ -556,7 +556,7 @@ export async function verifyAcquisitionCommit(
       assert.equal(csvStock.length, 1); assert.equal(csvStock[0].quantity, 1);
       assert.equal(csvStock[0].sourceType, "CSV_PULL_IMPORT");
       assert.equal(await db.acquisitionCommit.count({ where: { run: { sessionId: csvCapture.id } } }), 0);
-      assert.equal(await db.acquisitionCommitMember.count({ where: { run: { sessionId: csvCapture.id } } }), 0);
+      assert.equal(await db.acquisitionCommitMember.count({ where: { candidate: { run: { sessionId: csvCapture.id } } } }), 0);
       assert.equal(await db.inventoryAuditLog.count({ where: { inventoryItem: { locationId: csvLocation } } }), 1);
       const fresh = await previewAcquisitionCommit(db, actor, csvCapture.id, csvSelection);
       assert.equal(fresh.destination.remaining, 0); assert.equal(fresh.overfill, 1);
