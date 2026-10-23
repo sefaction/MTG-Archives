@@ -105,8 +105,62 @@ export async function verifyAcquisitionCatalogReconciliation(
     _count: { _all: true },
     _sum: { quantity: true },
   });
+  const inventoryBeforeAdmission = await db.inventoryItem.findMany({orderBy: {id: "asc"}});
   let providerCalls = 0;
+  let responseMode: "invalid" | "interrupted" | "complete" = "invalid";
+  const httpRequests: string[] = [];
+  // Substitute only HTTP responses. Query construction, provider validation,
+  // pagination, durable cache publication and proposal refresh are production.
+  async function throughProvider<T>(operation: () => Promise<T>): Promise<T> {
+    const previousFetch = globalThis.fetch;
+    const settings = {
+      SCRYFALL_API_BASE_URL: "https://catalog-admission.invalid",
+      SCRYFALL_MIN_REQUEST_INTERVAL_MS: "0",
+      SCRYFALL_MAX_RETRIES: "0",
+    };
+    const previous = Object.fromEntries(Object.keys(settings).map(key => [key, process.env[key]]));
+    Object.assign(process.env, settings);
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input));
+      httpRequests.push(url.href);
+      assert.equal(url.origin, settings.SCRYFALL_API_BASE_URL);
+      assert.equal(init?.body, undefined, "metadata lookup sends no photo/account payload");
+      if (url.pathname === "/cards/newset/17/en") {
+        assert.equal(url.search, "");
+      } else if (url.pathname === "/cards/named") {
+        assert.equal(url.searchParams.get("exact"), name);
+        assert.deepEqual([...url.searchParams.keys()], ["exact"]);
+      } else {
+        assert.equal(url.pathname, "/cards/search", "provider next_page URLs are never followed");
+        assert.deepEqual(Object.fromEntries(url.searchParams), {
+          q: `!"${name}" game:paper lang:en`, unique: "prints", order: "set",
+          include_extras: "true", include_variations: "true", include_multilingual: "true",
+          page: url.searchParams.get("page"),
+        });
+        assert(["1", "2"].includes(url.searchParams.get("page")!));
+      }
+      if (responseMode === "invalid") return Response.json({...cards[0], id: "not-a-uuid"});
+      if (url.pathname !== "/cards/search") return Response.json(cards[0]);
+      if (url.searchParams.get("page") === "1") return Response.json({
+        object: "list", data: [cards[0]], total_cards: 2, has_more: true,
+        next_page: "https://untrusted.invalid/private?must-not-follow=1",
+      });
+      if (responseMode === "interrupted") return Response.json({object: "error"}, {status: 503});
+      return Response.json({object: "list", data: [cards[1]], total_cards: 2, has_more: false});
+    }) as typeof fetch;
+    try {
+      return await operation();
+    } finally {
+      globalThis.fetch = previousFetch;
+      for (const key of Object.keys(settings)) {
+        if (previous[key] === undefined) delete process.env[key];
+        else process.env[key] = previous[key];
+      }
+    }
+  }
   try {
+    assert.equal(await db.card.count({where: {scryfallId: {in: ids}}}), 0,
+      "new provider identities start absent from the real catalog");
     assert.equal(
       await completeAcquisitionJob(
         db,
@@ -144,14 +198,9 @@ export async function verifyAcquisitionCatalogReconciliation(
       db,
       async (query, signal) => {
         keys.add(catalogQueryKey(query));
-        return resolveCachedAcquisitionCatalog(db, query, signal, async () => {
+        return resolveCachedAcquisitionCatalog(db, query, signal, async (q, s) => {
           providerCalls++;
-          return {
-            status: "FOUND",
-            cards,
-            requestsMade: 2,
-            printingCoverage: "CHECKED",
-          };
+          return fetchAcquisitionCatalogQuery(q, s);
         });
       },
     );
@@ -159,7 +208,42 @@ export async function verifyAcquisitionCatalogReconciliation(
       await assert.rejects(handler({...job,input:{...job.input as Prisma.InputJsonObject,resolverVersion}},
         AbortSignal.timeout(30000)),/Catalog interpretation version superseded/);
     assert.equal(providerCalls,0,"obsolete resolver must not spend provider calls or mutate cached metadata");
-    const output = await handler(job, AbortSignal.timeout(30000));
+    const rejected = await throughProvider(() => handler(job, AbortSignal.timeout(30000)));
+    assert.equal((rejected.catalog as any).status, "PROVIDER_ERROR");
+    assert.equal((rejected.catalog as any).printingCoverage, "UNRESOLVED");
+    assert.equal((rejected.proposals as any).automaticAcceptance, false);
+    assert.equal(await db.card.count({where: {scryfallId: {in: ids}}}), 0,
+      "invalid upstream identity is rejected before Card publication");
+    assert.equal(httpRequests.length, 2, "only observed printing and exact-name fallback are queried");
+    assert.deepEqual(await db.inventoryItem.findMany({orderBy: {id: "asc"}}), inventoryBeforeAdmission);
+    await db.acquisitionCatalogLookup.updateMany({where: {key: {in: [...keys]}}, data: {expiresAt: new Date(0)}});
+    responseMode = "interrupted";
+    const interrupted = await throughProvider(() => handler(job, AbortSignal.timeout(30000)));
+    assert.equal((interrupted.catalog as any).status, "PROVIDER_ERROR");
+    assert.equal((interrupted.catalog as any).printingCoverage, "UNRESOLVED");
+    assert.equal((interrupted.proposals as any).automaticAcceptance, false);
+    assert((interrupted.proposals as any).proposals.every((p: any) =>
+      p.reasons.includes("REVIEW_REQUIRED") && !p.reasons.includes("STRONG_EXACT_PRINTING")),
+      "a partial page cannot establish printing uniqueness");
+    assert.equal(await db.card.count({where: {scryfallId: {in: ids}}}), 1);
+    const partialCard = await db.card.findUniqueOrThrow({where: {scryfallId: ids[0]}});
+    assert.equal(httpRequests.length, 8, "two bounded lookups each stop at the failed second page without HTTP retries");
+    assert.equal(await confirmStrongAcquisitionMatches(db), 0);
+    assert.deepEqual(await db.inventoryItem.findMany({orderBy: {id: "asc"}}), inventoryBeforeAdmission);
+    await db.acquisitionCatalogLookup.updateMany({where: {key: {in: [...keys]}}, data: {expiresAt: new Date(0)}});
+    responseMode = "complete";
+    const output = await throughProvider(() => handler(job, AbortSignal.timeout(30000)));
+    assert.equal(httpRequests.length, 11);
+    assert.equal((output.catalog as any).requestsMade, 3);
+    assert.equal((output.catalog as any).printingCoverage, "CHECKED");
+    assert.equal(await db.card.count({where: {scryfallId: {in: ids}}}), 2);
+    assert.equal((await db.card.findUniqueOrThrow({where: {scryfallId: ids[0]}})).id, partialCard.id,
+      "retry preserves the local identity already published from the valid first page");
+    assert((output.proposals as any).proposals.some((p: any) => p.card.id === partialCard.id),
+      "the refreshed proposal uses the newly published local Card identity");
+    assert.deepEqual(output.native, native, "catalog admission never rewrites or reruns OCR");
+    assert.deepEqual((await db.acquisitionProcessingJob.findUniqueOrThrow({where: {id: rawJob.id}})).output,
+      source, "saved recognition evidence and its original empty proposal remain immutable");
     assert.equal((output.versions as Prisma.InputJsonObject).resolver,CATALOG_RESOLVER_VERSION);
     assert.deepEqual((output.proposals as {evidence:unknown}).evidence,
       {setCodes:["newset"],collectors:["17"],languages:["en"]});
@@ -175,7 +259,7 @@ export async function verifyAcquisitionCatalogReconciliation(
         p.reasons.includes("STAMP_UNVERIFIED"),
       ),
     );
-    assert.equal(providerCalls, 1);
+    assert.equal(providerCalls, 5);
     assert.equal(await completeAcquisitionJob(db, job, output), "COMPLETE");
     const review = await getAcquisitionCardReview(
       db,
@@ -237,13 +321,17 @@ export async function verifyAcquisitionCatalogReconciliation(
     );
     assert.equal(review.suggestions.length, 2);
     assert.equal(await confirmStrongAcquisitionMatches(db), 0);
-    const retried = await handler(job, AbortSignal.timeout(30000));
+    const retried = await throughProvider(() => handler(job, AbortSignal.timeout(30000)));
     assert.equal(
       providerCalls,
-      1,
+      5,
       "saved metadata and refreshed snapshot survive repeated processing without HTTP or OCR",
     );
     assert.equal((retried.proposals as any).proposals.length, 2);
+    assert.equal(httpRequests.length, 11, "warm durable metadata requires no further HTTP request");
+    assert.equal((retried.catalog as any).requestsMade, 0);
+    assert.deepEqual(await db.inventoryItem.findMany({orderBy: {id: "asc"}}), inventoryBeforeAdmission);
+    console.log("PASS: production HTTP query/validation/pagination -> real Card publication -> same manual proposal; invalid identity, interrupted coverage, stable retry and no-network cache reuse");
     // Independent image evidence can find a printing that is absent locally,
     // even when the saved text did not identify it. It uses the same shared
     // Scryfall cache, stable local Card identity and immutable result fence.

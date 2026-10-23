@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { canonicalCaptureSnapshot } from "./ci/acquisition-snapshot";
 import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 import {
@@ -312,7 +313,7 @@ export async function verifyAcquisitionOrchestration(
     for (const n of [0, 1, 2])
       assert.equal((await ingestAcquisitionEvent(shortReconnect, actor, shortSource.session.id, event(n))).replay, true);
     const reloaded = await getAcquisitionSession(shortReconnect, actor, shortSource.session.id);
-    assert.deepEqual(reloaded, shortStored);
+    assert.deepEqual(canonicalCaptureSnapshot(reloaded), canonicalCaptureSnapshot(shortStored));
     assert.equal(reloaded.session.phase, "COMPLETE");
     assert.equal(reloaded.session.target, 7);
     const summary = captureSummary(reloaded.session);
