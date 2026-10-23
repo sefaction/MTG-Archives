@@ -244,7 +244,7 @@ export function AcquisitionPhotoReview({
   const searchInput = useRef<HTMLInputElement>(null);
   const focusSearch = useRef(false);
   const correctionButton = useRef<HTMLButtonElement>(null);
-  const focusAfterDiscard = useRef(false);
+  const focusAfterReview = useRef(false);
   function openCorrection() {
     evidenceTokens.current.edit ??= record?.evidenceToken;
     focusSearch.current = true;
@@ -258,9 +258,9 @@ export function AcquisitionPhotoReview({
     }
   }, [editing]);
   useEffect(() => {
-    if (busy || !focusAfterDiscard.current) return;
-    focusAfterDiscard.current = false;
-    // Cancel can unmount its focused button. Wait for the replacement controls
+    if (busy || !focusAfterReview.current) return;
+    focusAfterReview.current = false;
+    // Completing review can unmount its focused button. Wait for the replacement controls
     // to be enabled, but leave focus alone if the user moved to another card.
     const focused = document.activeElement;
     if (focused !== document.body && !root.current?.contains(focused)) return;
@@ -461,7 +461,7 @@ export function AcquisitionPhotoReview({
       clearDraft();
       apply(next);
       setQuery(""); setSet(""); setNumber(""); setMatches(null);
-      focusAfterDiscard.current = true;
+      focusAfterReview.current = true;
       setEditing(false);
       setMessage("Unsaved changes discarded.");
     } catch (e) {
@@ -495,6 +495,7 @@ export function AcquisitionPhotoReview({
       });
       clearDraft(); dirty.current = false; setDraftDirty(false); onDirtyChange?.(photoId, false);
       await reload();
+      focusAfterReview.current = !next;
       setEditing(false);
       setMessage(
         action === "accept"
