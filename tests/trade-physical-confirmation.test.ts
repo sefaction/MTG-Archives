@@ -29,6 +29,8 @@ function fixture(side = "proposer", overrides: Record<string, unknown> = {}, con
     receiverPlayerId: "receiver",
     proposerCommittedAt: null,
     receiverCommittedAt: null,
+    deckBundles: [],
+    lines: [],
     // Prior/stale saved values must never substitute for this submission.
     proposerDestinationLocationId: "previous-choice",
     receiverDestinationLocationId: "previous-choice",

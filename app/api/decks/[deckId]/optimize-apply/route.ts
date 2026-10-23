@@ -1,3 +1,4 @@
+import { lockWritableDeck, DeckTradeWriteError } from "@/lib/deck-write-fence";
 import { NextRequest } from "next/server";
 import { getAccessScope, requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -61,7 +62,9 @@ export async function POST(
   }
   let updatedRows = 0;
   let mergedRows = 0;
-  await prisma.$transaction(async (tx) => {
+  try {
+    await prisma.$transaction(async (tx) => {
+      await lockWritableDeck(tx, deckId, policy.deck!.ownerUserId);
     for (const change of changes) {
       const deckCard = await tx.deckCard.findFirst({
         where: { id: change.deckCardId, deckId },
@@ -105,6 +108,10 @@ export async function POST(
       }
     }
   });
+  } catch (error) {
+    if (error instanceof DeckTradeWriteError) return Response.json({ error: error.message }, { status: 409 });
+    throw error;
+  }
   revalidatePath(`/decks/${deckId}`);
   revalidatePath("/decks");
   return Response.json({ updatedRows, mergedRows });
