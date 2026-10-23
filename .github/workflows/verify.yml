@@ -84,6 +84,8 @@ jobs:
           persist-credentials: false
       - name: OCR line geometry guards
         run: python -m unittest discover -s tools/acquisition-runtime -p test_reading_direction.py
+      - name: Offline scanner crash-event correlation and privacy (no hardware)
+        run: python -m unittest discover -s tools/scanner-agent -p test_crash_event_evidence.py
       - name: Tight scan geometry guards (no models or private photos)
         run: |
           pip install numpy==2.2.6 opencv-contrib-python==4.10.0.84 pillow==11.3.0
