@@ -31,6 +31,7 @@ export type PublicInventoryFilters = {
   rarity?: string;
   foil?: string;
   finish?: string;
+  language?: string | string[];
   type?: string;
   colors?: string;
   colorMode?: string;
@@ -319,6 +320,8 @@ export function buildPublicInventoryWhere(filters: PublicInventoryFilters) {
     where.foilStatus = { in: structured.finishes };
   else if (filters.foil === "true") where.foil = true;
   else if (filters.foil === "false") where.foil = false;
+  if (structured.languages.length)
+    where.language = { in: structured.languages };
   return where;
 }
 

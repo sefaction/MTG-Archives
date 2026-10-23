@@ -69,6 +69,48 @@ jobs:
       - name: Actual capture, isolated restore, source mutation and field conservation controls
         run: npx tsx scripts/verify-backup-correction-drill.ts
 
+  acquisition-capture-restore:
+    name: Acquisition capture archive restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: acquisition_capture_source305
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d acquisition_capture_source305"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/acquisition_capture_source305?schema=public
+      CAPTURE_RESTORE_DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/acquisition_capture_restore305?schema=public
+      MTG_LOCAL_PILOT_TEST: "1"
+      MTG_CAPTURE_RESTORE_FIXTURE: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - name: Install matching PostgreSQL archive tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-16
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
+      - name: Create the separate empty restore target
+        run: psql 'postgresql://ci:ci@127.0.0.1:5432/postgres' --set ON_ERROR_STOP=1 --command 'CREATE DATABASE acquisition_capture_restore305'
+      - name: Durable upload acknowledgement across actual backup and restore
+        run: npx tsx scripts/verify-acquisition-capture-restore.ts
+
   acquisition-integrity:
     name: Acquisition PostgreSQL integrity
     runs-on: ubuntu-latest
@@ -140,6 +182,8 @@ jobs:
           persist-credentials: false
       - name: OCR line geometry guards
         run: python -m unittest discover -s tools/acquisition-runtime -p test_reading_direction.py
+      - name: Offline scanner crash-event correlation and privacy (no hardware)
+        run: python -m unittest discover -s tools/scanner-agent -p test_crash_event_evidence.py
       - name: Tight scan geometry guards (no models or private photos)
         run: |
           pip install numpy==2.2.6 opencv-contrib-python==4.10.0.84 pillow==11.3.0
@@ -337,6 +381,11 @@ jobs:
           npx tsx scripts/ci/trade-proposal-reservations.ts
       - name: Concurrent proposals respect available physical stock
         run: npx tsx scripts/ci/trade-proposal-reservations.ts
+      - name: Whole-deck bundle schema, reservation fences and recipient ownership
+        # Pin the reproduced privacy failure independently of the candidate.
+        run: |
+          git show 1b1eb0d91d9159dc04320961bd21acffd275f3b5:app/api/trades/decks/route.ts > .local-data/trade-stock/privacy-baseline-route.ts
+          npx tsx scripts/ci/deck-trade-bundles.ts
 
   trade-audit-integrity:
     name: Trade audit PostgreSQL history bounds

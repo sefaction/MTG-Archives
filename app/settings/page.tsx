@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { Nav } from "@/components/Nav";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import {
@@ -26,6 +27,7 @@ import { APP_THEMES, normalizeAppTheme } from "@/lib/themes";
 import { normalizeNavigationLayout } from "@/lib/navigation-layout";
 import { defaultVisibilityLabel } from "@/lib/visibility";
 import { DefaultCollectionVisibility } from "@prisma/client";
+import { assertDeckDefaultVisibilityWritable, DeckTradeWriteError } from "@/lib/deck-write-fence";
 
 const PRICE_PROVIDERS = [
   { value: "scryfall", label: "Scryfall" },
@@ -96,6 +98,7 @@ export default async function SettingsPage({
       fd.get("preferredPriceProvider"),
     );
     const updated = await prisma.$transaction(async (tx) => {
+      await assertDeckDefaultVisibilityWritable(tx, actor.id, parseDefaultVisibility(fd.get("deckDefaultVisibility")));
       const savedUser = await tx.user.update({
         where: { id: actor.id },
         data: {
@@ -126,6 +129,9 @@ export default async function SettingsPage({
         tx,
       );
       return savedUser;
+    }).catch(error => {
+      if (error instanceof DeckTradeWriteError) redirect(`/settings?error=${encodeURIComponent(error.message)}`);
+      throw error;
     });
 
     await prisma.inventoryAuditLog.create({
@@ -170,6 +176,7 @@ export default async function SettingsPage({
   return (
     <main className="p-8 space-y-6">
       <Nav />
+      {params.error ? <p role="status" className="rounded border border-amber-800 p-3 text-sm text-amber-200">{params.error}</p> : null}
       {params.saved ? (
         <p className="rounded border border-emerald-800 bg-emerald-950/30 p-3 text-sm text-emerald-200">
           Settings saved.

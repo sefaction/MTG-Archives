@@ -1,3 +1,4 @@
+import { lockWritableDeck, DeckTradeWriteError } from "@/lib/deck-write-fence";
 import { DeckSection } from "@prisma/client";
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
@@ -56,6 +57,7 @@ export async function POST(
   let mergedRows = 0;
   try {
     await prisma.$transaction(async (tx) => {
+      await lockWritableDeck(tx, deckId, policy.deck!.ownerUserId);
       const deckCards = await tx.deckCard.findMany({
         where: { deckId, id: { in: rowIds } },
         orderBy: { cardName: "asc" },
@@ -125,7 +127,7 @@ export async function POST(
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "Bulk move failed." },
-      { status: 400 },
+      { status: error instanceof DeckTradeWriteError ? 409 : 400 },
     );
   }
   revalidatePath(`/decks/${deckId}`);
