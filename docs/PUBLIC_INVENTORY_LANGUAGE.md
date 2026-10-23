@@ -39,8 +39,41 @@ qualification dependency, not a merged delivery claim.
 
 ## Current qualification
 
-Thirty-five focused language/Inventory/public checks and TypeScript typechecking
-pass. Source-bound cumulative production build, full real browser/API matrix and
-required final-head hosted checks are pending. Keep the PR draft until these
-finish. Keep #913 open until its individually approved resolving merge. Production
-deployment and independent user acceptance remain separate.
+Thirty-five focused language/Inventory/public checks and final TypeScript
+typechecking pass. The actual regression passes ten language/owner cases through
+both list and suggestions, anonymous Private rejection, and three real form
+applications (French, both languages, empty) at each of 1366px and 320px. The
+printing shared between EN and FR stays correctly scoped through actual
+physical-language metadata. All 84 table fingerprints match after exact cleanup.
+
+The first full browser attempt passed the API controls and first French form
+application, then toggled an already-open persisted desktop panel closed. The
+corrected test respects its existing open state and waits for document navigation;
+the complete corrected test passes twice, including on the final image. API DTO
+checks use existing `cardName` and wishlist-target language fields rather than
+inventing top-level fields. These are harness corrections, not product repairs.
+Original failures remain in ignored local evidence.
+
+The standard production build passes compile, lint/types, static generation and
+client manifests. The local cumulative review at `ab768dd0` includes #902, #909,
+#912 and this language repair; no merge is implied. Final image
+`sha256:81ba039f513fa75566f7ea9a6c360331289f17682b66d376786bee7950f9baed`
+binds all 1,229 declared source inputs, digest
+`dbfac3414907eb4f8b5ef27ac9bbed9972aa4f9285165f6b0c1dbbd60b734794`.
+A first manifest-check invocation used the wrong working directory and failed to
+find its input; the corrected cumulative-directory check matches every input.
+No build input changed between final build and that check.
+
+The final image is healthy with zero restarts/no OOM kill at
+http://127.0.0.1:23001, using the explicit desktop Compose plus
+`compose.issue913.yml`. All 84 original snapshot tables match before build and
+after final load/browser checks. Existing volumes and issue901 rollback image
+are retained; no fixture or temporary session remains. The phone screenshot was
+visually inspected. This is local software qualification, not physical scanner
+or production acceptance.
+
+The first published head passes all seven hosted checks in Verify39973694488.
+The PR records the exact final head and its separate required hosted results;
+do not infer those from the earlier run. Ready status requires those final-head
+checks to pass. Keep #913 open until its individually approved resolving merge.
+Deployment and independent user acceptance remain separate.

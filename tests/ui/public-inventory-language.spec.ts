@@ -57,8 +57,8 @@ test("Public language filters constrain actual results, suggestions and desktop/
       expect(response.status()).toBe(200);
       const result = await response.json();
       expect(result.totalMatchingCount, `matching count for ${JSON.stringify(fixture)}`).toBe(fixture.count);
-      expect([...new Set(result.rows.map((row: any) => row.name))].sort()).toEqual(fixture.keys.map(key => names[key]).sort());
-      expect([...new Set(result.rows.map((row: any) => row.language))].sort()).toEqual(fixture.languages);
+      expect([...new Set(result.rows.map((row: any) => row.cardName))].sort()).toEqual(fixture.keys.map(key => names[key]).sort());
+      expect([...new Set(result.rows.flatMap((row: any) => row.tradeWishlistTargets.map((target: any) => target.language)))].sort()).toEqual(fixture.languages);
       const suggestions = new URLSearchParams({ kind: "cardName", q: tag });
       if (fixture.language !== undefined) suggestions.set("language", fixture.language);
       if (fixture.owner) suggestions.set("owner", fixture.owner);
@@ -74,13 +74,17 @@ test("Public language filters constrain actual results, suggestions and desktop/
       await context.route("**/*", route => new URL(route.request().url()).origin === baseURL ? route.continue() : route.abort());
       const page = await context.newPage();
       await page.goto(`/public/inventory?cardName=${tag}&displayMode=exact&pageSize=10`);
+      await page.waitForLoadState("networkidle");
       for (const [language, keys] of [["FR", ["Dual", "French", "OtherFrench"]], ["EN,FR", ["Dual", "English", "French", "OtherEnglish", "OtherFrench"]], ["", ["Dual", "English", "French", "OtherEnglish", "OtherFrench"]]] as const) {
-        await page.getByRole("button", { name: /advanced inventory search/i }).click();
         const panel = page.getByRole("dialog", { name: "Filter inventory" });
+        if (!await panel.isVisible()) await page.getByRole("button", { name: /advanced inventory search/i }).click();
         await expect(panel).toBeVisible();
         await panel.getByRole("tab", { name: "Collection" }).click();
         await panel.locator('input[name="language"]').fill(language);
-        await panel.getByRole("button", { name: "Apply filters" }).click();
+        await Promise.all([
+          page.waitForNavigation({ waitUntil: "networkidle" }),
+          panel.getByRole("button", { name: "Apply filters" }).click(),
+        ]);
         await expect.poll(() => new URL(page.url()).searchParams.get("language") || "").toBe(language);
         if (await panel.isVisible()) await panel.getByRole("button", { name: "Close filters" }).click();
         const results = page.locator(".inventory-results");
