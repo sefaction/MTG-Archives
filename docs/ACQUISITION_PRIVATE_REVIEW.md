@@ -39,20 +39,24 @@ The earlier three-case run passed in36.5seconds before those event assertions
 were added. Current-head CI and independent review are recorded in the PR before
 readiness. Screenshots and full before/after records are retained privately under
 `.local-data/p6-private-review-20261023/`. Every executed fixture cleanup compares
-every field/count in all84public tables against its original baseline.
+every field/count in all80public tables against its original baseline.
 
 The separately owned disposable app/PG/network uses640/384MiB limits, oneCPU
 each, no extra swap and one browser worker after measured runtime admission.
 493manifest-listed app/components/lib/schema/dependency inputs bind the reused
 4b5ffcimage to this branch:17differences are trade/settings/schema inputs, none
 affects the exercised review/auth/navigation/private-file workflow. The local
-fixture has84tables; current-main CI has85. This is no entire-current-image,
-new trade schema, production, physical capture, accuracy or installation claim.
+fixture has80tables; current-main CI has85. This fixture uses the app schema via
+db-push, so it omits the three separate pricing tables (CardPriceSnapshot,
+PriceImportJob, PriceWorkerHeartbeat), migration history and new TradeDeckBundle.
+Those omissions do not affect the exercised review/auth/private-file inputs;
+this case does not qualify pricing or the new trade schema. This is no entire
+current-image, production, physical capture, accuracy or installation claim.
 
 Preserved harness failures: initial fresh database bootstrap lacked pg_trgm and
 stopped before any fixture rows; completing the interrupted indexes required
 explicit empty-table verification. The first actual desktop case selected both
-the application alert and Next route announcer; its cleanup conserved all84tables.
+the application alert and Next route announcer; its cleanup conserved all80tables.
 The locator now names the unavailable alert. Neither failure is a product defect
 or a passing case; original logs/traces remain.
 
