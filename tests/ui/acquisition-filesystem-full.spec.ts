@@ -30,10 +30,10 @@ test("real inode ENOSPC preserves pending upload and recovers its exact identity
   const bytes = await sharp({ create: { width: 80, height: 120, channels: 3, background: "#335577" } }).png().toBuffer();
   const digest = createHash("sha256").update(bytes).digest("hex");
   const message = "Photo storage is full. Free storage space or ask the administrator, then retry.";
-  const requests: { url: string; digest: string }[] = [];
+  const requests: { url: string; contentType: string }[] = [];
   let batch = "", primary: unknown;
   const releaseFillers = () => database(`const fs=require('fs/promises'),dir='/inode-pressure/acquisition-v1',prefix=${JSON.stringify(tag + "-filler-")};for(const name of await fs.readdir(dir).catch(e=>{if(e.code==='ENOENT')return [];throw e})){if(name.startsWith(prefix))await fs.unlink(dir+'/'+name);}return true;`);
-  const state = () => database<{ photos: { id: string; ready: boolean; readyAt: string | null; uploadKey: string; slotId: string }[]; counts: number[]; stock: unknown[] }>(`const w={run:{sessionId:${JSON.stringify(batch)}}};return {photos:await p.acquisitionPhoto.findMany({where:w,orderBy:{id:'asc'}}),counts:await Promise.all(['acquisitionArtifact','acquisitionCandidate','acquisitionProcessingJob','acquisitionCommit'].map(m=>p[m].count({where:w}))),stock:await p.inventoryItem.findMany({where:{currentOwnerId:${JSON.stringify(tag)}},orderBy:{id:'asc'}})};`);
+  const state = () => database<{ photos: { id: string; ready: boolean; readyAt: string | null; uploadKey: string; slotId: string; digest: string; bytes: number }[]; counts: number[]; stock: unknown[] }>(`const w={run:{sessionId:${JSON.stringify(batch)}}};return {photos:await p.acquisitionPhoto.findMany({where:w,orderBy:{id:'asc'}}),counts:await Promise.all(['acquisitionArtifact','acquisitionCandidate','acquisitionProcessingJob','acquisitionCommit'].map(m=>p[m].count({where:w}))),stock:await p.inventoryItem.findMany({where:{currentOwnerId:${JSON.stringify(tag)}},orderBy:{id:'asc'}})};`);
   try {
     database(`const n=${JSON.stringify(tag)},passwordHash=require('crypto').randomBytes(32).toString('hex');await p.$transaction(async tx=>{await tx.player.create({data:{id:n,name:n,displayName:n}});await tx.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash}});await tx.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:10,sections:[]}}});await tx.card.create({data:{id:n,scryfallId:require('crypto').randomUUID(),name:n,setCode:'tst',collectorNumber:'1',lang:'en',finishes:['nonfoil'],typeLine:'Artifact',rarity:'common'}});await tx.inventoryItem.create({data:{cardId:n,currentOwnerId:n,originalOpenerId:n,quantity:2,condition:'NM',locationId:n,sourceType:'MANUAL'}});await tx.authSession.create({data:{tokenHash:${JSON.stringify(createHash("sha256").update(token).digest("hex"))},userId:n,credentialHash:require('crypto').createHash('sha256').update(passwordHash).digest('hex'),expiresAt:new Date(Date.now()+600000)}});});return true;`);
     await page.context().addCookies([{ name: "mtg_inventory_session", value: token, url: baseURL!, httpOnly: true, sameSite: "Lax" }]);
@@ -47,7 +47,7 @@ test("real inode ENOSPC preserves pending upload and recovers its exact identity
     writeFileSync(test.info().outputPath("kernel-pressure.json"), JSON.stringify(pressure));
     page.on("request", request => {
       if (request.method() === "POST" && request.url().includes(`/api/acquisition/${batch}/photos?`))
-        requests.push({ url: request.url(), digest: createHash("sha256").update(request.postDataBuffer()!).digest("hex") });
+        requests.push({ url: request.url(), contentType: request.headers()["content-type"] });
     });
     const failed = page.waitForResponse(response => response.url().includes(`/api/acquisition/${batch}/photos?`) && response.status() === 409);
     await page.getByLabel("Choose card photos").setInputFiles({ name: "saved-card.png", mimeType: "image/png", buffer: bytes });
@@ -61,9 +61,12 @@ test("real inode ENOSPC preserves pending upload and recovers its exact identity
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await page.screenshot({ path: test.info().outputPath(`storage-full-${width}.png`) });
     }
-    expect(requests).toHaveLength(1); expect(requests[0].digest).toBe(digest);
+    expect(requests).toHaveLength(1); expect(requests[0].contentType).toBe("image/png");
     const failedState = state(); expect(failedState.photos).toHaveLength(1);
-    expect(failedState.photos[0]).toMatchObject({ ready: false, readyAt: null });
+    // Chromium need not expose a streamed Blob body to request observers.
+    // The actual server inspection binds the failed request's bytes here;
+    // recovery additionally verifies the complete saved file's hash and size.
+    expect(failedState.photos[0]).toMatchObject({ ready: false, readyAt: null, digest, bytes: bytes.length });
     expect(failedState.counts).toEqual([0, 0, 0, 0]); expect(failedState.stock).toEqual(inventory);
     const photo = failedState.photos[0];
     expect(database(`const fs=require('fs/promises'),names=await fs.readdir('/inode-pressure/acquisition-v1');return names.filter(name=>name.startsWith(${JSON.stringify(photo.id)}));`)).toEqual([]);
@@ -72,7 +75,7 @@ test("real inode ENOSPC preserves pending upload and recovers its exact identity
     await pending.getByRole("button", { name: "Retry upload", exact: true }).click();
     const response = await recovered, ack = await response.json();
     expect(ack).toEqual({ id: photo.id, digest, ready: true });
-    await expect(pending).not.toContainText(message);
+    await expect(pending).toHaveCount(0);
     expect(requests).toHaveLength(2); expect(requests[1]).toEqual(requests[0]);
     const ready = state(); expect(ready.photos).toHaveLength(1);
     expect(ready.photos[0]).toMatchObject({ id: photo.id, slotId: photo.slotId, uploadKey: photo.uploadKey, ready: true });
@@ -82,7 +85,11 @@ test("real inode ENOSPC preserves pending upload and recovers its exact identity
     const fileProof = database(`const fs=require('fs/promises'),dir='/inode-pressure/acquisition-v1',data=await fs.readFile(dir+'/'+${JSON.stringify(photo.id + ".original")});return {digest:require('crypto').createHash('sha256').update(data).digest('hex'),bytes:data.length,neighbor:await fs.readFile(dir+'/'+${JSON.stringify(tag + "-neighbor")},'utf8'),partials:(await fs.readdir(dir)).filter(name=>name.endsWith('.part'))};`);
     expect(fileProof).toEqual({ digest, bytes: bytes.length, neighbor: "unchanged neighbor", partials: [] });
     writeFileSync(test.info().outputPath("recovered-state.json"), JSON.stringify({ failedState, ready, fileProof, requests }));
-    await page.reload(); await expect(page.getByRole("region", { name: "Batch progress", exact: true })).toContainText("1 photos saved");
+    await page.reload();
+    const progress = page.getByRole("region", { name: "Batch progress", exact: true });
+    await expect(progress).toContainText("1 photo saved");
+    await progress.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: test.info().outputPath("recovered-320.png") });
     expect(state()).toEqual(ready);
   } catch (error) { primary = error; throw error; }
   finally {
