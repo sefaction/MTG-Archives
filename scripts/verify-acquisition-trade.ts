@@ -6,7 +6,7 @@ import Module from "node:module";
 import path from "node:path";
 import { setTimeout } from "node:timers/promises";
 import ts from "typescript";
-import { PrismaClient, type Prisma } from "@prisma/client";
+import { PrismaClient, type Prisma, type InventoryItem, type TradeWishlistItem } from "@prisma/client";
 import { ensureCorrectionAccount } from "../lib/acquisition-correction-library";
 import { beginAcquisitionPhoto, createAcquisitionSession, executeAcquisitionCommand,
   finalizeAcquisitionPhoto, getAcquisitionCardReview, reserveAcquisitionCaptureSlot,
@@ -133,7 +133,7 @@ export async function verifyAcquisitionTradeCompositions(db: PrismaClient) {
         await db.card.create({ data: { id: cards[i], scryfallId: randomUUID(), name: cards[i], typeLine: "Artifact", setCode: "tst", collectorNumber: String(i), rarity: "common", lang: "en", finishes: ["nonfoil", "foil"] } });
         for (const id of [sources[i], destinations[i]]) await db.inventoryLocation.create({ data: { id, ownerPlayerId: owners[i], name: id, normalizedName: id, type: "Box", storageLayout: { capacity: 2, sections: [] } } });
       }
-      const stock = [];
+      const stock: InventoryItem[] = [];
       for (let i = 0; i < 2; i++) stock.push(await db.inventoryItem.create({ data: {
         cardId: cards[i], currentOwnerId: owners[i], originalOpenerId: owners[i], quantity: 2,
         foil: true, foilStatus: "FOIL", condition: "LP", language: "JA", sourceType: "MANUAL",
@@ -143,7 +143,7 @@ export async function verifyAcquisitionTradeCompositions(db: PrismaClient) {
       await db.trade.create({ data: { id: tradeId, proposerPlayerId: owners[0], receiverPlayerId: owners[1], status: "PARTIALLY_COMMITTED", proposerCommittedAt: new Date(), proposerDestinationLocationId: destinations[0], receiverDestinationLocationId: destinations[1],
         lines: { create: stock.map((row, i) => ({ side: i === 0 ? "PROPOSER" : "RECEIVER", inventoryItemId: row.id, quantity: 1, position: 0, snapshotJson: {} })) },
       } });
-      const wishlists = [];
+      const wishlists: TradeWishlistItem[] = [];
       for (let i = 0; i < 2; i++) wishlists.push(await db.tradeWishlistItem.create({ data: { ownerUserId: users[1 - i], targetOwnerPlayerId: owners[i], targetInventoryItemId: stock[i].id, cardId: cards[i], quantity: 1, status: "IN_TRADE" } }));
       const untouchedWishlist = await db.tradeWishlistItem.create({ data: { ownerUserId: users[2], targetOwnerPlayerId: owners[0], cardId: cards[0], quantity: 7 } });
       const created = await createAcquisitionSession(db, { userId: users[1], adminMode: false }, { requestKey: randomUUID(), ownerPlayerId: owners[1], locationId: destinations[1], section: "", policy: { kind: "MANUAL", quantity: 1 }, run: { providerId: "phone-photo-v1", runId: randomUUID(), enforcement: "LOGICAL_ALLOCATION", controls: ["STOP", "CANCEL"] } });
