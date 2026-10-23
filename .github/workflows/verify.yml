@@ -13,6 +13,104 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  backup-correction-drill:
+    name: Backup correction lifecycle and real recovery drill
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: drill
+          POSTGRES_PASSWORD: drill
+          POSTGRES_DB: mtg_drill_source922
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U drill -d mtg_drill_source922"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      restore-db:
+        image: postgres:16
+        env:
+          POSTGRES_USER: drill
+          POSTGRES_PASSWORD: drill
+          POSTGRES_DB: mtg_restore_drill
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U drill -d mtg_restore_drill"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://drill:drill@postgres:5433/mtg_drill_source922?schema=public
+      CORRECTION_DRILL_RESTORE_URL: postgresql://drill:drill@restore-db:5432/mtg_restore_drill?schema=public
+      MTG_LOCAL_PILOT_TEST: "1"
+      MTG_CORRECTION_DRILL_FIXTURE: "1"
+      TZ: America/Chicago
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Map only this disposable runner's fixed drill endpoints
+        run: echo '127.0.0.1 postgres restore-db' | sudo tee -a /etc/hosts
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - name: Install matching PostgreSQL archive tools and isolated file roots
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-16
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
+          sudo install -d -o "$(id -u)" -g "$(id -g)" /app /app/data /app/data/backups /input /drill
+          ln -s "$PWD/node_modules" /app/node_modules
+      - name: Actual capture, isolated restore, source mutation and field conservation controls
+        run: npx tsx scripts/verify-backup-correction-drill.ts
+
+  acquisition-capture-restore:
+    name: Acquisition capture archive restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: acquisition_capture_source305
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d acquisition_capture_source305"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/acquisition_capture_source305?schema=public
+      CAPTURE_RESTORE_DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/acquisition_capture_restore305?schema=public
+      MTG_LOCAL_PILOT_TEST: "1"
+      MTG_CAPTURE_RESTORE_FIXTURE: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - name: Install matching PostgreSQL archive tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-16
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
+      - name: Create the separate empty restore target
+        run: psql 'postgresql://ci:ci@127.0.0.1:5432/postgres' --set ON_ERROR_STOP=1 --command 'CREATE DATABASE acquisition_capture_restore305'
+      - name: Durable upload acknowledgement across actual backup and restore
+        run: npx tsx scripts/verify-acquisition-capture-restore.ts
+
   acquisition-integrity:
     name: Acquisition PostgreSQL integrity
     runs-on: ubuntu-latest
