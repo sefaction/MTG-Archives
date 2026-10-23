@@ -44,7 +44,7 @@ for (const width of [1366, 320]) for (const mode of ["Simple", "Advanced"] as co
     try {
       database(`const tag=${JSON.stringify(tag)},passwordHash=require('crypto').randomBytes(32).toString('hex');await p.$transaction(async tx=>{await tx.player.create({data:{id:tag,name:tag,displayName:tag}});await tx.user.create({data:{id:tag,username:tag,displayName:tag,playerId:tag,passwordHash}});await tx.inventoryLocation.create({data:{id:tag,name:tag,normalizedName:tag,ownerPlayerId:tag,type:'Box',storageLayout:{capacity:2,sections:[]}}});await tx.card.create({data:{...${JSON.stringify(printing)},scryfallId:require('crypto').randomUUID(),typeLine:'Artifact',rarity:'common'}});await tx.authSession.create({data:{tokenHash:${JSON.stringify(tokenHash)},userId:tag,credentialHash:require('crypto').createHash('sha256').update(passwordHash).digest('hex'),expiresAt:new Date(Date.now()+300000)}});});return true;`);
       await page.context().addCookies([{ name: "mtg_inventory_session", value: token, url: baseURL!, httpOnly: true, sameSite: "Lax" }]);
-      const created = await page.request.post("/api/acquisition", { headers, data: { requestKey: randomUUID(), locationId: tag, section: "", quantity: 1 } });
+      const created = await page.request.post("/api/acquisition", { headers, data: { requestKey: randomUUID(), locationId: tag, section: "", quantity: action === "Save and next" ? 2 : 1 } });
       expect(created.ok(), await created.text()).toBe(true); batch = (await created.json()).id;
       const reserved = await page.request.post(`/api/acquisition/${batch}`, { headers, data: { action: "reserve", requestKey: randomUUID() } });
       expect(reserved.ok()).toBe(true); const { slot } = await reserved.json();
