@@ -58,6 +58,22 @@ test("Public suggestions remain anonymous and public-only while Private stays au
     await data.cleanup();
   }
 });
+
+test("Public Advanced Search loads anonymous type suggestions", async ({ page, baseURL }) => {
+  const data = await fixture(page, baseURL);
+  try {
+    await page.context().clearCookies();
+    await page.goto("/public/inventory?language=EN");
+    await page.getByText("Advanced Search", { exact: true }).click();
+    const input = page.getByRole("combobox", { name: "Type line", exact: true });
+    await input.fill("Artifact");
+    const options = page.getByRole("listbox").getByRole("option");
+    await expect(options.filter({ hasText: /^Artifact$/ })).toHaveCount(1);
+  } finally {
+    await page.goto("about:blank");
+    await data.cleanup();
+  }
+});
 function fingerprint() {
   return database(`const result={};for(const model of ['inventoryItem','inventoryAuditLog','inventoryLocation','user','player','card']){const rows=await p[model].findMany({orderBy:{id:'asc'}});result[model]={count:rows.length,hash:require('crypto').createHash('sha256').update(JSON.stringify(rows)).digest('hex')};}return result;`);
 }
