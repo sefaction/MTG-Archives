@@ -73,6 +73,14 @@ needed for this test-only change. Both exact-owned containers and the internal
 network are retired after terminal child/client checks; the runtime claim is
 released. The reused image and all existing review resources remain protected.
 
+Publication reconciliation: approved retention-race PR #900 concurrently merged
+as main90a5e5b8. This branch integrates that main without conflict and preserves
+its two outer-verifier lines and separate new fixture/history files. No library,
+schema, dependency or changed manual-writer input differs from the local pass;
+that focused evidence remains applicable. Required final-head CI additionally
+qualifies the combined outer-verifier execution. The local full-suite failures
+above are still failures, not converted into a cumulative local pass.
+
 This is one actual domain-service/database schedule, not authenticated form or
 browser acceptance, natural storage/process/power loss, original-image or
 recognition qualification, every writer ordering, broad phase acceptance or

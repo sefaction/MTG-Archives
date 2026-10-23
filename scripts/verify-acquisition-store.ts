@@ -22,6 +22,7 @@ import { verifyScannerStartRetirement } from "./verify-scanner-start-retirement"
 import assert from "node:assert/strict";
 import { verifyAcquisitionPhotos } from "./verify-acquisition-photos";
 import { verifyAcquisitionStorageBoundaries } from "./verify-acquisition-storage-boundaries";
+import { verifyAcquisitionRetentionPinRaces } from "./verify-acquisition-retention-pin-races";
 import { verifyAcquisitionCatalog } from "./verify-acquisition-catalog";
 import { verifyAcquisitionCatalogCache } from "./verify-acquisition-catalog-cache";
 import { verifyAcquisitionOrchestration } from "./verify-acquisition-orchestration";
@@ -183,6 +184,7 @@ async function run() {
     },
   });
 
+  await verifyAcquisitionRetentionPinRaces(db, actor, input());
   await assert.rejects(
     createAcquisitionSession(db, stranger, input()),
     /unavailable/,
