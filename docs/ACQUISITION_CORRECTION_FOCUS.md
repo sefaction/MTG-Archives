@@ -33,7 +33,37 @@ before mutations, saves both snapshots and preserves primary and cleanup errors.
 That setup failure is not the product negative or a conservation pass.
 
 Eight existing draft/navigation/display checks and changed-file lint pass.
-Changed-input local production build, repaired browser matrix, source binding,
-required final-head CI and independent review are pending at initial commit.
+All four repaired Simple/Advanced1366/320px cases pass in32.6seconds, including
+the failed-read/draft control, next keyboard action and outside-focus delay.
+Every case conserves its exact saved candidate/events/Inventory/commits, makes
+no additional decision POST, retains the original photo bytes, and restores all
+84 table fingerprints after cleanup. Desktop/phone screenshots were inspected.
+
+The local production image at product/test `95a67040` passes compilation, types,
+static generation and client manifests. Its actual embedded manifest equals all
+1,227 expected declared inputs, digest
+`33560fff8c8e943cefe7430864b5556dae2a701f074ce4fbabbd2be081074685`.
+Image `57a6536dc48b61f88612f57dc9c31dc388b3b4ab891f7961930dfbf796fee4b1`
+was reviewed on loopback13017, with isolated acquisition storage and database
+`review905_01a16522`. This candidate includes main04b49133 and this focus repair;
+it does not claim subsequent main changes or production installation.
+
+The explicitly bounded recipe uses a2GiB/no-extra-swap/oneCPU builder and1536MiB
+JavaScript heap. It skips duplicate concurrent local lint; separate changed-file
+lint and canonical exact-head CI cover it. Build memory events record zero OOM
+kills. The owned builder and3.835GBcache were retired after preserving identity,
+logs, memory counters and cache manifest. This is declared-source equality,
+not a whole-context or reproducible-binary claim. No unchanged-input rebuild is
+needed for subsequent documentation-only updates.
+
+All seven product/test-head jobs passed Verify39978359486. Independent source
+and original-negative review found no actionable finding; final available
+runtime/evidence binding and required final-head CI are tracked on
+[PR #917](https://github.com/sefaction/MTG-Archives/pull/917). Original failing
+attempts are retained. The first runtime-claim release was rejected by automatic
+approval review while the temporary baseline container was live; its zero owned
+files and exact identity were verified, it stopped normally, and the claim then
+released through the supported exact-owner path. No resource lock was bypassed.
+
 Keep #916 and broad #308 open; individual merge approval, installation and user
 acceptance remain separate. No production, schedule or physical scanner action.
