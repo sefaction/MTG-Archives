@@ -1,3 +1,13 @@
+## Current work - correction discard focus #916 / PR #917, October 23, 2026
+
+- Laptop owner/thread `01a16943-ac96-7b93-89ea-c178f02100db`, run `laptop-cancel-focus-20261023-01a16943`; branch `codex/acquisition-cancel-focus`, base04b49133, product/test95a67040. Brian's October23shared-queue correction authorizes this bounded #308focus remainder; #913/914 remains desktop-owned. No merge, production, scanner or schedule authority.
+- Actual old-client Simple1366negative loses correction focus; exact cleanup restores all84table fingerprints. Fixed Simple/Advanced1366/320 matrix passes4cases/32.6s, failed-discard draft preservation, next keyboard action, delayed outside focus, saved-state/original-byte and no-extra-write controls. Eight focused tests/lint and seven product/test-headCI39978359486 pass. Initial unconfigured-storage harness failure/recovery preserved separately, with no initial global snapshot claim.
+- Source-bound local production compilation/types/static/client checks pass. Candidate image57a6536d,1227inputs/digest33560fff8c8e943cefe7430864b5556dae2a701f074ce4fbabbd2be081074685, loopback13017, isolatedDBreview905_01a16522. Retired owned builder/cache3.835GB; original previews and root WIP preserved. Full evidence/adaptations: [ACQUISITION_CORRECTION_FOCUS.md](ACQUISITION_CORRECTION_FOCUS.md); privatecurrent `.local-data/laptop-worker-setup-20261022/current-cancel-focus-01a16943.json` records actual live ownership/cleanup.
+- Independent source/negative review has no actionable finding; final runtime/evidence binding and refreshed final-headCI remain pending at this documentation checkpoint. PR917owns live readiness. Keep draft until actual gates pass, release runtime only after terminal owned work/cleanup and source claim after publication; retain current review/rollback and failure evidence. Next individual Brian review/approval and explicit merge request; do not close broad308.
+
+
+## Preserved main checkpoint history at 339188b0
+
 # Current integration status - PR #912, October 23, 2026
 
 PR #912 is being integrated with main 04b491333dd415b92f9a62aa8235209efa8ec9d2 after Brian's individual approval and independent source/evidence review. The only conflict was the concurrent checkpoint additions below; both histories are retained verbatim. PRs #902, #907 and #909 are merged. Fresh integrated-head CI remains required before #912 merge; #910/#911 remain open until that merge. #913/#914 language work and historical #721 remain separate and owned. No product changes, runtime, data, schedules or deployment accompany this documentation reconciliation.
