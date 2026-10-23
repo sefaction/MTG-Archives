@@ -15,7 +15,9 @@ import {
 } from "../lib/acquisition-files";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { type PrismaClient } from "@prisma/client";
+import { PrismaClient, type Prisma } from "@prisma/client";
+import { setTimeout } from "node:timers/promises";
+import { commitImportBatch } from "../lib/import-commit";
 import {
   createAcquisitionSession,
   executeAcquisitionCommand,
@@ -50,7 +52,8 @@ export async function verifyAcquisitionCommit(
   process.env.UPLOADS_DATA_PATH = root;
   const tag = `commit-${randomUUID()}`,
     runs: string[] = [],
-    locations: string[] = [];
+    locations: string[] = [],
+    importBatches: string[] = [];
   const card = await db.card.create({
     data: {
       scryfallId: tag,
@@ -501,6 +504,75 @@ export async function verifyAcquisitionCommit(
       )._sum.quantity,
       1,
     );
+    // Compose both actual domain services, rather than treating a
+    // capacity helper alone as proof of capture-versus-CSV admission.
+    const csvLocation = await location(1), csvCapture = await capture(csvLocation, 1);
+    await review(csvCapture.id, csvCapture.photos[0].id);
+    await stop(csvCapture.id);
+    const csvSelection = { photoIds: [csvCapture.photos[0].id], locationId: csvLocation, section: "A" };
+    const csvPreview = await previewAcquisitionCommit(db, actor, csvCapture.id, csvSelection);
+    const csvBatch = await db.importBatch.create({ data: {
+      filename: tag, importType: "inventory_csv:separate", selectedPlayerId: base.ownerPlayerId,
+      selectedOriginalOpenerId: base.ownerPlayerId, createdByUserId: actor.userId, status: "PREVIEW",
+      items: { create: { rowNumber: 2, status: "matched", cardPrintingId: card.id,
+        parsedCondition: "NM", parsedFoilStatus: "NONFOIL", rawRowJson: {},
+        parsedRowJson: { quantity: 1, condition: "NM", language: "EN", notes: "CSV capacity race" } } },
+    } });
+    importBatches.push(csvBatch.id);
+    let writerHeld!: () => void, releaseWriter!: () => void;
+    const held = new Promise<void>(resolve => { writerHeld = resolve; });
+    const release = new Promise<void>(resolve => { releaseWriter = resolve; });
+    // Pause only after the real import's transaction body has written its stock,
+    // audit and imported-row status, before that transaction commits.
+    const heldImportDb = new Proxy(db, { get(target, property) {
+      if (property === "$transaction") return (work: (tx: Prisma.TransactionClient) => Promise<unknown>, options: unknown) =>
+        Reflect.apply(target.$transaction, target, [async (tx: Prisma.TransactionClient) => {
+          const result = await work(tx); writerHeld(); await release; return result;
+        }, options]);
+      const value = Reflect.get(target, property); return typeof value === "function" ? value.bind(target) : value;
+    } });
+    const label = `csv-capture-${randomUUID()}`, captureUrl = new URL(process.env.DATABASE_URL!);
+    captureUrl.searchParams.set("application_name", label);
+    const captureDb = new PrismaClient({ datasourceUrl: captureUrl.href });
+    const importing = commitImportBatch(heldImportDb, { batchId: csvBatch.id, actingUserId: actor.userId,
+      playerId: base.ownerPlayerId, isAdmin: false, destinationLocationId: csvLocation, destinationLocationSection: "A" });
+    let capturing: Promise<unknown> | undefined;
+    try {
+      await Promise.race([held, importing.then(() => { throw new Error("Import finished before its controlled boundary"); })]);
+      capturing = commitAcquisitionCards(captureDb, actor, csvCapture.id, { ...csvSelection,
+        requestKey: randomUUID(), previewToken: csvPreview.token, overfillReason: null }).then(() => null, error => error);
+      const deadline = Date.now() + 5000;
+      let waiting = false;
+      do {
+        const rows = await db.$queryRaw<{ waiting: boolean }[]>`SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name = ${label} AND wait_event_type = 'Lock') AS waiting`;
+        waiting = rows[0].waiting;
+        if (!waiting) await setTimeout(20);
+      } while (!waiting && Date.now() < deadline);
+      assert.ok(waiting, "actual acquisition commit must wait behind the actual CSV writer");
+      releaseWriter();
+      assert.equal((await importing).committedRows, 1);
+      assert.match(String(await capturing), /preview changed/);
+      const csvStock = await db.inventoryItem.findMany({ where: { locationId: csvLocation } });
+      assert.equal(csvStock.length, 1); assert.equal(csvStock[0].quantity, 1);
+      assert.equal(csvStock[0].sourceType, "CSV_PULL_IMPORT");
+      assert.equal(await db.acquisitionCommit.count({ where: { run: { sessionId: csvCapture.id } } }), 0);
+      assert.equal(await db.acquisitionCommitMember.count({ where: { candidate: { run: { sessionId: csvCapture.id } } } }), 0);
+      assert.equal(await db.inventoryAuditLog.count({ where: { inventoryItem: { locationId: csvLocation } } }), 1);
+      const fresh = await previewAcquisitionCommit(db, actor, csvCapture.id, csvSelection);
+      assert.equal(fresh.destination.remaining, 0); assert.equal(fresh.overfill, 1);
+      const confirmed = await commitAcquisitionCards(db, actor, csvCapture.id, { ...csvSelection,
+        requestKey: randomUUID(), previewToken: fresh.token, overfillReason: "Checked one additional physical space after CSV import" });
+      assert.equal(confirmed.count, 1);
+      assert.equal((await db.inventoryItem.aggregate({ where: { locationId: csvLocation }, _sum: { quantity: true } }))._sum.quantity, 2);
+      const confirmedAudit = await db.inventoryAuditLog.findFirstOrThrow({ where: { inventoryItemId: confirmed.inventoryItemIds[0] } });
+      assert.equal((confirmedAudit.afterJson as { overfill: number }).overfill, 1);
+      assert.equal(confirmedAudit.reason, "Checked one additional physical space after CSV import");
+      console.log("PASS: actual CSV writer blocks acquisition commit, stale preview has zero partial receipt/audit effects, fresh explicit overfill is audited");
+    } finally {
+      releaseWriter();
+      await Promise.allSettled(capturing ? [importing, capturing] : [importing]);
+      await captureDb.$disconnect();
+    }
     const retained = first.photos[0],
       bytes = retentionBytes,
       bytesDigest = photoDigest(bytes);
@@ -858,6 +930,9 @@ export async function verifyAcquisitionCommit(
       "PASS: explicit scan subset commit, atomic receipt/audit/membership rollback, retry replay, immutable membership, fresh capacity/overfill, competing sessions and seven-day expiry, exact private-file removal and crash-safe purge retry",
     );
   } finally {
+    await db.importBatchItem.deleteMany({ where: { importBatchId: { in: importBatches } } });
+    await db.importBatch.deleteMany({ where: { id: { in: importBatches } } });
+    await db.inventoryAuditLog.deleteMany({ where: { changeType: "import_committed", inventoryItem: { cardId: card.id } } });
     await db.acquisitionCommitMember.deleteMany({
       where: { runId: { in: runs } },
     });

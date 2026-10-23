@@ -282,7 +282,10 @@ jobs:
       - name: Concurrent proposals respect available physical stock
         run: npx tsx scripts/ci/trade-proposal-reservations.ts
       - name: Whole-deck bundle schema, reservation fences and recipient ownership
-        run: npx tsx scripts/ci/deck-trade-bundles.ts
+        # Pin the reproduced privacy failure independently of the candidate.
+        run: |
+          git show 1b1eb0d91d9159dc04320961bd21acffd275f3b5:app/api/trades/decks/route.ts > .local-data/trade-stock/privacy-baseline-route.ts
+          npx tsx scripts/ci/deck-trade-bundles.ts
 
   trade-audit-integrity:
     name: Trade audit PostgreSQL history bounds

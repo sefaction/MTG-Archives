@@ -1,5 +1,23 @@
 # Whole-deck trade review — #807 / #881
 
+## Approved privacy-race repair — October 23, 2026
+
+Brian authorized prioritizing the independent review finding [discussion_r4362025936](https://github.com/sefaction/MTG-Archives/pull/881#discussion_r4362025936) on the existing PR branch. The merge coordinator remains the sole merger. This repair preserves the settled multi-deck, loose-card, gift, ownership, destination and consent requirements below.
+
+The old review handler checked visibility/sharing before reading the source in a separate transaction. A public-to-private update could therefore return the new private card list. Review now refreshes actual-owner access and private counter-sharing consent inside the same Repeatable Read transaction as every source query, then checks the loaded owner's identity and effective visibility before projecting the DTO. Deck search metadata uses the same current-consent snapshot. Revocation before that snapshot refuses access; a change during it can return only the earlier authorized snapshot, and the next request is refused. Source reads introduce no Inventory or trade writes.
+
+The real PostgreSQL suite pins the unchanged old `1b1eb0d91d9159dc04320961bd21acffd275f3b5` route and reproduces HTTP200 with newly private contents. The repaired actual handler passes steady Public200/Private404, explicit and inherited visibility revocation, same-Player actual-User ownership change, parent cancellation, proposer-to-requested bundle change, changed offering owner, private counter search cancellation, and a committed edit between in-transaction access and source reads. That last request returns only the earlier public list; its successor returns404. All original complete-deck/gift/mixed-counter/concurrent-completion controls pass in the same run. All85disposable table counts/full-row fingerprints return exactly to baseline.
+
+The desktop qualification uses an explicitly owned no-egress PostgreSQL/runner pair sharing a private loopback namespace; its hosted-only script flags are a declared local harness adaptation, not hosted evidence. Both containers, their unique anonymous volume and internal network are removed after terminal/no-client/reference checks. Current review apps/data remain protected. Required exact-head hosted jobs rerun the unmodified committed fixture with normal hosted identity. No production, hardware, credentials or schedules change.
+
+Current main `3b06f2089d9f017bcc1ed5952825a6497554a182` was integrated at local product/test `0b9db993418c9e7ac5a0637326dfc1e36f7dd513`. Only the local checkpoint conflicted; both histories were retained. There was no application/test conflict. The integration changes only unrelated acquisition focus/component/test inputs outside this repaired API; the passing actual privacy/deck-store regression remains applicable. Both standard Dockerfile builds pass; the second binds the complete integrated input set. Final full SHA and required exact-head CI belong to the PR.
+
+The current review app at23012 runs image `sha256:7387046fc953d60dd3890b2c0d0be441960ef080501280212b9da66ff6e4714d`, matching all1,245declared inputs/digest `1d5b92c6e3859d11269e68c9c0e2912b4e4783c4423872a321c5e91f9ed9dc59`. The complete1366px/320px workflow passes again (2tests/42.2seconds), with exact85table restoration after each. Reload itself preserved every85table fingerprint. The source/consent regression passes with complete original deck behavior and exact85table cleanup;54focused policy/confirmation/form checks and final types pass. The existing card-only action/UI inputs are unchanged, so their prior browser evidence below remains applicable alongside required fresh trade-concurrency CI. Current review and required rollback images/data remain; the superseded preintegration privacy candidate is retired after binding its compact build record.
+
+The first reload command used the workspace root with worktree-relative guard paths and refused before any Docker operation; using the correct worktree resolved it. Neither that guard nor any fixture, permission, quantity or deadline protection was relaxed. The local-only operational checkpoint is excluded from publication; current-main's canonical checkpoint is preserved remotely. No PR has been merged by this worker.
+
+## Prior whole-deck qualification retained
+
 ## Delivered behavior and authority
 
 Brian explicitly authorized finishing the existing whole-deck feature on an isolated branch in desktop chat `01a1692e-ab36-7d32-8cd9-a4d679df7680` on October 23, 2026. The six settled decisions in [the design](DECK_TRADE_DESIGN.md) remain authoritative. Individual merge approval, production deployment and independent user acceptance remain separate.

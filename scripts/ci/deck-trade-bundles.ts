@@ -304,7 +304,101 @@ async function run() {
   await verifyMixedCounter();
   await verifyCommittedTransfer();
   await verifyDeckReviewApi();
+  await verifyDeckReviewPrivacyRaces();
   console.log("PASS deck bundle foundation: real 55-lot/full-list snapshot, bundle/trade/side and positive-quantity constraints, three active reservation fences, competing owner/deck locks, stale owner denial, recipient-owned settings and Inventory/audit conservation");
+}
+async function verifyDeckReviewPrivacyRaces() {
+  const id = tag + "-privacy-race"; fixtureDeckIds.push(id);
+  await db.deck.create({ data: { id, ownerUserId: users[0], name: "Public reviewed deck", format: "CASUAL", visibility: "PUBLIC",
+    cards: { create: { cardId: cards[0], cardName: "Previously public list", quantity: 1 } } } });
+  const entry = await db.deckCard.findFirstOrThrow({ where: { deckId: id } });
+  const actorFor = async (index: number) => { actor = await db.user.findUniqueOrThrow({ where: { id: users[index] }, include: { player: true } }); };
+  const reset = async (visibility: "PUBLIC" | "PRIVATE" | "INHERIT" = "PUBLIC") => {
+    await db.deck.update({ where: { id }, data: { ownerUserId: users[0], name: "Public reviewed deck", visibility } });
+    await db.user.update({ where: { id: users[0] }, data: { deckDefaultVisibility: "PUBLIC" } });
+    await db.deckCard.update({ where: { id: entry.id }, data: { cardName: "Previously public list" } });
+  };
+  const makePrivate = async () => {
+    await db.$transaction([
+      db.deck.update({ where: { id }, data: { visibility: "PRIVATE", name: "New unshared private name" } }),
+      db.deckCard.update({ where: { id: entry.id }, data: { cardName: "New unshared private contents" } }),
+    ]);
+  };
+  type Options = { isolationLevel?: Prisma.TransactionIsolationLevel; timeout?: number; maxWait?: number };
+  // The outer preflight really executes first. A second real DB connection
+  // commits the revocation before the handler starts its source transaction.
+  const beforeTransaction = (mutate: () => Promise<unknown>) => new Proxy(db, { get(target, property) {
+    if (property === "$transaction") return async (callback: (tx: Prisma.TransactionClient) => Promise<unknown>, options?: Options) => {
+      await mutate(); return db.$transaction(callback, options);
+    };
+    const value = Reflect.get(target, property); return typeof value === "function" ? value.bind(target) : value;
+  } });
+  const request = (client: PrismaClient = db, extra: Record<string, string> = {}, routePath = "app/api/trades/decks/route.ts") =>
+    loadActual(routePath, client).GET(new Request("http://fixture.local/api/trades/decks?" + new URLSearchParams({
+      ownerId: owners[0], side: "requested", deckId: id, ...extra,
+    })));
+  const denied = async (response: Response) => { assert.equal(response.status, 404); assert.doesNotMatch(JSON.stringify(await response.json()), /New unshared private contents|Previously public list|"review"/); };
+  const unchanged = () => Promise.all([db.inventoryItem.findMany({ orderBy: { id: "asc" } }),
+    db.inventoryAuditLog.findMany({ orderBy: { id: "asc" } }), db.tradeEvent.findMany({ orderBy: { id: "asc" } }),
+    db.notification.findMany({ orderBy: { id: "asc" } })]);
+  const before = await unchanged(); await actorFor(1);
+  const baseline = await request(beforeTransaction(makePrivate), {}, ".local-data/trade-stock/privacy-baseline-route.ts");
+  assert.equal(baseline.status, 200); assert.match(JSON.stringify(await baseline.json()), /New unshared private contents/);
+  console.log("PASS pinned1b1eb0d9 negative: actual old review handler exposes newly private contents after successful public preflight");
+  await reset(); assert.equal((await request()).status, 200);
+  await denied(await request(beforeTransaction(makePrivate)));
+  await reset("PRIVATE"); await denied(await request());
+  await reset("INHERIT");
+  await denied(await request(beforeTransaction(async () => {
+    await db.$transaction([db.user.update({ where: { id: users[0] }, data: { deckDefaultVisibility: "PRIVATE" } }),
+      db.deckCard.update({ where: { id: entry.id }, data: { cardName: "New unshared private contents" } })]);
+  })));
+  await reset(); await actorFor(0);
+  await denied(await request(beforeTransaction(async () => {
+    await db.deck.update({ where: { id }, data: { ownerUserId: users[2], visibility: "PRIVATE" } });
+  }), { side: "offered" }));
+  await reset("PRIVATE"); await actorFor(1);
+  const source = await readTradeDeck(db as unknown as Prisma.TransactionClient, id, owners[0]);
+  const parent = await makeTrade();
+  const bundle = await db.tradeDeckBundle.create({ data: { tradeId: parent.id, deckId: id, side: "PROPOSER", position: 0,
+    snapshotJson: source.snapshot, snapshotDigest: source.digest } });
+  const counter = { counterTradeId: parent.id };
+  assert.equal((await request(db, counter)).status, 200);
+  const sharedPage = await request(db, { ...counter, deckId: "" });
+  assert.equal(sharedPage.status, 200); assert.ok((await sharedPage.json()).items.some((item: { deckId: string }) => item.deckId === id));
+  await denied(await request(beforeTransaction(async () => { await db.trade.update({ where: { id: parent.id }, data: { status: "CANCELLED" } }); }), { ...counter, deckId: "" }));
+  await db.trade.update({ where: { id: parent.id }, data: { status: "PROPOSED" } });
+  await denied(await request(beforeTransaction(async () => { await db.trade.update({ where: { id: parent.id }, data: { status: "CANCELLED" } }); }), counter));
+  await db.trade.update({ where: { id: parent.id }, data: { status: "PROPOSED" } });
+  await denied(await request(beforeTransaction(async () => { await db.tradeDeckBundle.update({ where: { id: bundle.id }, data: { side: "RECEIVER" } }); }), counter));
+  await db.tradeDeckBundle.update({ where: { id: bundle.id }, data: { side: "PROPOSER" } });
+  await denied(await request(beforeTransaction(async () => { await db.deck.update({ where: { id }, data: { ownerUserId: users[2] } }); }), counter));
+  await db.trade.update({ where: { id: parent.id }, data: { status: "CANCELLED" } }); await reset();
+  // Now mutate after the in-transaction access query. The actual MVCC snapshot
+  // must return only the earlier public list; the next request must be denied.
+  let changed = false;
+  const duringTransaction = new Proxy(db, { get(target, property) {
+    if (property !== "$transaction") { const value = Reflect.get(target, property); return typeof value === "function" ? value.bind(target) : value; }
+    return (callback: (tx: Prisma.TransactionClient) => Promise<unknown>, options?: Options) => {
+      assert.equal(options?.isolationLevel, "RepeatableRead");
+      return db.$transaction(tx => callback(new Proxy(tx, { get(transaction, key) {
+        if (key !== "deck") { const value = Reflect.get(transaction, key); return typeof value === "function" ? value.bind(transaction) : value; }
+        return new Proxy(tx.deck, { get(delegate, method) {
+          if (method === "findFirst") return async (query: Prisma.DeckFindFirstArgs) => {
+            const result = await tx.deck.findFirst(query);
+            if (!changed) { changed = true; await makePrivate(); }
+            return result;
+          };
+          const value = Reflect.get(delegate, method); return typeof value === "function" ? value.bind(delegate) : value;
+        } });
+      } })), options);
+    };
+  } });
+  const consistent = await request(duringTransaction); assert.equal(changed, true); assert.equal(consistent.status, 200);
+  const body = JSON.stringify(await consistent.json()); assert.match(body, /Previously public list/); assert.doesNotMatch(body, /New unshared private contents/);
+  await denied(await request());
+  assert.deepEqual(await unchanged(), before, "Review races must not write Inventory, audit, trade events or notifications");
+  console.log("PASS actual review privacy races: current public/inherited visibility, actual User ownership and parent/side/owner sharing revocation; same MVCC snapshot excludes newer private contents; no extra writes");
 }
 async function verifyDeckReviewApi() {
   const route = loadActual("app/api/trades/decks/route.ts");
