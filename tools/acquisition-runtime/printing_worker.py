@@ -104,7 +104,14 @@ def request(envelope, desc):
     if sha256(INDEX) != desc['details']['indexSha256']:
         raise ValueError('Printing index generation changed')
     if _runtime is None:
-        _records = json.loads(desc['file'].read_text(), object_hook=compact_reference_record)
+        reference_bytes = desc['file'].read_bytes()
+        if hashlib.sha256(reference_bytes).hexdigest() != desc['details']['referencesSha256']:
+            raise ValueError('Printing reference manifest integrity changed')
+        reference_text = reference_bytes.decode('utf8')
+        # Drop the raw buffer before compact decoding and runtime construction.
+        del reference_bytes
+        _records = json.loads(reference_text, object_hook=compact_reference_record)
+        del reference_text
         if len(_records) != desc['details']['referenceCount']:
             raise ValueError('Printing reference count changed')
         _runtime = PrintingRuntime(_records, REFERENCES)
