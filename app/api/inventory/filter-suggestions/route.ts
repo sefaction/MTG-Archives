@@ -144,9 +144,10 @@ export async function GET(request: Request) {
   const isPublic = url.searchParams.get("public") === "1";
   const inventoryWhere = isPublic
     ? buildPublicInventoryWhere(
-        Object.fromEntries(
-          suggestionScopeSearchParams(url.searchParams),
-        ) as any,
+        {
+          ...Object.fromEntries(suggestionScopeSearchParams(url.searchParams)),
+          language: url.searchParams.getAll("language"),
+        },
       )
     : await (async () => {
         const user = await getCurrentUser();
