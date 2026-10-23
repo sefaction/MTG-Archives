@@ -3,9 +3,10 @@
 This reconciles #309's recorded all-writer requirement against current source,
 not just the original phase delivery. It is a partial acceptance map, not closure
 of #309/#302, named-installation deployment or independent user acceptance.
-Current source base: main339188b0. This batch changes only database verification
+Current source base: maindb764847. This batch changes only database verification
 and this report; receipt, capacity, import, trade, deck and acquisition behavior
-are unchanged. Existing #807/#881 and #913/#914 owners remain independent.
+are unchanged. Whole-deck #807/#881 is merged; the separate #913/#914 owner and
+the approved integration coordinator retain their scopes.
 
 ## Writer and ordering coverage
 
@@ -13,11 +14,11 @@ are unchanged. Existing #807/#881 and #913/#914 owners remain independent.
 | --- | --- | --- |
 | Acquisition | commitAcquisitionCards uses the session/candidate fences, locked capacity read, shared receipt and unique member transaction | verify-acquisition-commit.ts: simultaneous same-request replay and competing sessions; rollback at receipt/audit/member stages; real stale-review rejection. Not every other writer composition. |
 | CSV import | commitImportBatch executes under the capacity gate in verify-inventory-capacity.ts | Gate-first actual service lock wait. This batch additionally pauses the actual CSV transaction after stock/audit/status writes, then observes the actual acquisition commit waiting in PostgreSQL. The stale preview must reject with zero acquisition receipt/member/audit effects; fresh explicit overfill records its reason and exactly one copy. |
-| Manual add | addInventoryCardToLocation executes behind the gate; writer-first serializable capacity read retries | Actual helper/transaction, occupancy/revision checks, verify-inventory-capacity.ts. The writer-first acquisition side was the capacity read, not the complete receipt service. |
-| Storage move | moveInventoryStorageBatch executes behind the gate | Actual service gate-first lock wait, verify-inventory-capacity.ts. Opposite-order complete acquisition/move composition is not asserted. |
+| Manual add | addInventoryCardToLocation and complete commitAcquisitionCards execute in both orders | verify-acquisition-writers.ts observes the actual named blocking pair after the first complete transaction body. Ordinary-first stale admission rolls back every scoped field; fresh explicit overfill/replay is verified. Acquisition-first permits the later advisory write without repeating its receipt. |
+| Storage move | moveInventoryStorageBatch and complete commitAcquisitionCards execute in both orders | Same complete-service schedule and exact source-lot/quantity/provenance conservation, not just a capacity read. Acquisition-first preserves the documented serialization refusal with zero move effects, then a separate fresh call succeeds. Full-stack movement is covered; partial splits and every arbitrary multi-location schedule remain distinct. |
 | Trade receipt | receivedTradeInventoryData followed by the real Inventory insert executes behind the gate | This is a receipt-helper/database boundary, not the full authenticated trade lifecycle. Separate actual trade stock/action tests qualify their own scopes; they do not establish a full trade-versus-acquisition interleaving. |
-| Deck return | returnCommittedInventoryFromDeck executes behind the gate | Actual service gate-first lock wait. Other deck operations rely on the same statement triggers; a full opposite-order deck/acquisition composition is not claimed. |
-| Layout edit | updateLocation executes behind the gate and changes the revision | Actual service plus placement-field trigger coverage, verify-inventory-capacity.ts. Complete simultaneous receipt/layout composition remains distinct. |
+| Deck return | returnCommittedInventoryFromDeck and complete commitAcquisitionCards execute in both orders | Whole-lot return to No section preserves original lot fields and existing destination stock. Other deck operations and every partial/merge schedule remain distinct. |
+| Layout edit | updateLocation and complete commitAcquisitionCards execute in both orders | Actual layout shrink invalidates the old preview, or follows the already committed receipt under advisory capacity. Its real update statement is enclosed in a fixture transaction only to hold the statement lock for observation; this is not a new production transaction or authenticated browser edit. |
 | Delete/direct SQL/FK | real delete, SQL section/key/null-location changes and trigger checks | Database mechanism coverage across positive stock, revision/rollback and enabled triggers. Not an exhaustive enumeration of arbitrary SQL/writer histories. |
 
 The common statement triggers touch affected locations in sorted identifier
@@ -40,9 +41,42 @@ overfill by design; this is advisory capacity, not a new hard stock constraint.
 | More than999 copies | verify-inventory-receipts.ts verifies a1200-copy receipt without the manual UI clamp; integer bounds/rollback remain | Acquisition intentionally selects at most500photos per receipt. The shared receipt quantity requirement does not authorize enlarging that transaction bound; broader scale/duration remains #310. |
 | Collection envelope | verify-inventory-capacity.ts uses150000copies/60000stacks/fourunevenowners/400locations/4000sections and enabled-trigger checks | One-printing write/occupancy scale is not full application or all-writer latency. |
 
-## This batch's bounded test and evidence
+## Complete ordinary-writer compositions
 
-Only one missing concurrent-write composition is added: real CSV import versus
+The four ordinary services above each run ordinary-first and acquisition-first,
+eight named schedules in total. The first transaction body performs all its real
+work, then pauses before commit. PostgreSQL must identify the waiting connection
+and its actual named blocker within the existing five-second observation window.
+Results and SQL are not mocked. Both operations are always released and awaited
+before either client disconnects or exact-owned rows are removed.
+
+Ordinary-first compares the refused acquisition's complete stock, audits,
+receipt/membership, candidates, photos, jobs, locations and session against the
+snapshot taken inside the completed ordinary writer. A fresh preview and a
+separate reason are then required for one excess copy; missing confirmation has
+zero effects. Acquisition-first preserves its one receipt through the later
+ordinary write. The older serializable move explicitly refuses with its existing
+refresh-and-retry message; its full rollback is compared to the held acquisition
+ledger before a separate fresh ordinary call succeeds. No production retry policy
+is changed. Both orders verify frozen successful-request replay, exactly one
+receipt/member/capture audit, ordinary audit accounting, quantities, complete
+unchanged resident rows, original photo metadata and explicit seven-day retention.
+Move/return preserve every lot field except the intended location and update time.
+
+These cases are invoked from the existing complete verifyAcquisitionCommit and
+required Acquisition PostgreSQL CI. They use synthetic persisted photo/review
+fixtures and actual domain services, not an authenticated browser/provider/native
+run, natural process/disk loss, full trade/acquisition lifecycle interleaving or
+global deadlock freedom. Existing full gate-first, direct SQL, CSV, scale,
+rollback, authorization and transport evidence remains separately scoped.
+
+Final local/CI source binding, run results, cleanup fingerprints and any failed
+verifier attempts are recorded in the PR. Test/documentation changes require no
+application image reload or repeated browser qualification.
+
+## Earlier CSV batch evidence (preserved)
+
+The earlier batch added one missing concurrent-write composition: real CSV import versus
 real acquisition commit, writer first. The import transaction is held only at an
 observation boundary after its actual stock/audit/status work. No result or SQL
 is mocked. A separate application-named Prisma client starts the actual capture
