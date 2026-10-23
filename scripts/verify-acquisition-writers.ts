@@ -61,6 +61,9 @@ export async function verifyAcquisitionWriterCompositions(
 ) {
   for (const kind of ["manual", "move", "deck", "layout"] as const) {
     for (const first of ["ordinary", "acquisition"] as const) {
+      // The desktop's independently owned PR #944 supplies manual-first.
+      // Keep this batch's seven distinct schedules; do not duplicate that case.
+      if (kind === "manual" && first === "ordinary") continue;
       const tag = `writer-${randomUUID()}`;
       const destination = await fixture.location(2);
       const source = await fixture.location(2);

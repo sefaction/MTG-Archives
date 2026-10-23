@@ -14,7 +14,7 @@ the approved integration coordinator retain their scopes.
 | --- | --- | --- |
 | Acquisition | commitAcquisitionCards uses the session/candidate fences, locked capacity read, shared receipt and unique member transaction | verify-acquisition-commit.ts: simultaneous same-request replay and competing sessions; rollback at receipt/audit/member stages; real stale-review rejection. Not every other writer composition. |
 | CSV import | commitImportBatch executes under the capacity gate in verify-inventory-capacity.ts | Gate-first actual service lock wait. This batch additionally pauses the actual CSV transaction after stock/audit/status writes, then observes the actual acquisition commit waiting in PostgreSQL. The stale preview must reject with zero acquisition receipt/member/audit effects; fresh explicit overfill records its reason and exactly one copy. |
-| Manual add | addInventoryCardToLocation and complete commitAcquisitionCards execute in both orders | verify-acquisition-writers.ts observes the actual named blocking pair after the first complete transaction body. Ordinary-first stale admission rolls back every scoped field; fresh explicit overfill/replay is verified. Acquisition-first permits the later advisory write without repeating its receipt. |
+| Manual add | addInventoryCardToLocation and complete commitAcquisitionCards execute in both orders across two owned deliveries | Desktop PR #944 supplies ordinary-first, exact-writer PID wait, stale/refused admission, reasoned retry and replay. verify-acquisition-writers.ts supplies the distinct acquisition-first schedule and actual named blocking pair; the later advisory write cannot repeat its receipt. Preserve both owners and their evidence; neither PR alone claims both cases. |
 | Storage move | moveInventoryStorageBatch and complete commitAcquisitionCards execute in both orders | Same complete-service schedule and exact source-lot/quantity/provenance conservation, not just a capacity read. Acquisition-first preserves the documented serialization refusal with zero move effects, then a separate fresh call succeeds. Full-stack movement is covered; partial splits and every arbitrary multi-location schedule remain distinct. |
 | Trade receipt | receivedTradeInventoryData followed by the real Inventory insert executes behind the gate | This is a receipt-helper/database boundary, not the full authenticated trade lifecycle. Separate actual trade stock/action tests qualify their own scopes; they do not establish a full trade-versus-acquisition interleaving. |
 | Deck return | returnCommittedInventoryFromDeck and complete commitAcquisitionCards execute in both orders | Whole-lot return to No section preserves original lot fields and existing destination stock. Other deck operations and every partial/merge schedule remain distinct. |
@@ -43,8 +43,10 @@ overfill by design; this is advisory capacity, not a new hard stock constraint.
 
 ## Complete ordinary-writer compositions
 
-The four ordinary services above each run ordinary-first and acquisition-first,
-eight named schedules in total. The first transaction body performs all its real
+The desktop's existing [PR #944](https://github.com/sefaction/MTG-Archives/pull/944)
+supplies manual-add-first. This batch adds the seven distinct remaining schedules:
+manual acquisition-first, and both orders for move, deck return and layout. The
+first transaction body performs all its real
 work, then pauses before commit. PostgreSQL must identify the waiting connection
 and its actual named blocker within the existing five-second observation window.
 Results and SQL are not mocked. Both operations are always released and awaited
@@ -70,6 +72,10 @@ run, natural process/disk loss, full trade/acquisition lifecycle interleaving or
 global deadlock freedom. Existing full gate-first, direct SQL, CSV, scale,
 rollback, authorization and transport evidence remains separately scoped.
 
+The initial local batch ran all eight before final reconciliation exposed the
+existing desktop delivery. Its duplicate manual-first invocation was removed;
+the other seven independent cases and all their assertions are unchanged. Reuse
+of that local evidence is explicit; required final-head CI must execute all seven.
 Final local/CI source binding, run results, cleanup fingerprints and any failed
 verifier attempts are recorded in the PR. Test/documentation changes require no
 application image reload or repeated browser qualification.
