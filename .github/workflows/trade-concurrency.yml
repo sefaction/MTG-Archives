@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - app/trades/actions.ts
+      - app/api/trades/decks/route.ts
+      - scripts/ci/deck-trade-bundles.ts
       - scripts/ci/trade-concurrency*
       - .github/workflows/trade-concurrency.yml
   workflow_dispatch:

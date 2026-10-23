@@ -126,6 +126,8 @@ jobs:
           persist-credentials: false
       - name: OCR line geometry guards
         run: python -m unittest discover -s tools/acquisition-runtime -p test_reading_direction.py
+      - name: Offline scanner crash-event correlation and privacy (no hardware)
+        run: python -m unittest discover -s tools/scanner-agent -p test_crash_event_evidence.py
       - name: Tight scan geometry guards (no models or private photos)
         run: |
           pip install numpy==2.2.6 opencv-contrib-python==4.10.0.84 pillow==11.3.0
@@ -323,6 +325,11 @@ jobs:
           npx tsx scripts/ci/trade-proposal-reservations.ts
       - name: Concurrent proposals respect available physical stock
         run: npx tsx scripts/ci/trade-proposal-reservations.ts
+      - name: Whole-deck bundle schema, reservation fences and recipient ownership
+        # Pin the reproduced privacy failure independently of the candidate.
+        run: |
+          git show 1b1eb0d91d9159dc04320961bd21acffd275f3b5:app/api/trades/decks/route.ts > .local-data/trade-stock/privacy-baseline-route.ts
+          npx tsx scripts/ci/deck-trade-bundles.ts
 
   trade-audit-integrity:
     name: Trade audit PostgreSQL history bounds

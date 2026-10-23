@@ -15,11 +15,19 @@ import {
   actOnTrade,
   cancelTradeWishlistItem,
   confirmPhysicalTrade,
+  confirmPhysicalTradeWithFeedback,
+  acceptTradeWithFeedback,
   createTrade,
   updateTradeWishlistQuantity,
 } from "./actions";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
-import { TradeBuilder, type TradeBuilderItem } from "@/components/TradeBuilder";
+import { TradeBuilder, type TradeBuilderItem, type TradeDraftLine } from "@/components/TradeBuilder";
+import { TradeActionForm } from "@/components/TradeActionForm";
+import { TradeDeckContents } from "@/components/TradeDeckPicker";
+import { TradeDeckReceiptFields } from "@/components/TradeDeckReceiptFields";
+import { tradeDeckReview } from "@/lib/trade-deck-view";
+import type { TradeDeckSnapshot } from "@/lib/deck-trade-policy";
+import { buildDeckFolderOptions } from "@/lib/deck-folders";
 import {
   cn,
   filterButtonClass,
@@ -66,6 +74,7 @@ type SearchParams = {
   offeredInventoryItemId?: string;
   requestedInventoryItemId?: string;
   counterTradeId?: string;
+  offerDeckId?: string;
   view?: string;
   wishlistMode?: string;
 };
@@ -226,12 +235,20 @@ function toTradeCardSummary({
   };
 }
 
-function tradeSideLabel(cards: TradeCardSummary[]) {
+function tradeSideLabel(cards: TradeCardSummary[], deckCount = 0) {
+  if (deckCount) return `${deckCount} whole ${deckCount === 1 ? "deck" : "decks"}${cards.length ? ` + ${cards.reduce((sum, card) => sum + (card.quantity ?? 1), 0)} loose cards` : ""}`;
   if (cards.length === 1) {
     return `${cards[0].quantity ?? 1}× ${cards[0].name}`;
   }
   const quantity = cards.reduce((sum, card) => sum + (card.quantity ?? 1), 0);
   return `${quantity} cards · ${cards.length} lines`;
+}
+
+function ParticipantTradeForm({ deckTrade, intent, children, className }: {
+  deckTrade: boolean; intent: "accept" | "confirm"; children: ReactNode; className?: string;
+}) {
+  if (deckTrade) return <TradeActionForm action={intent === "accept" ? acceptTradeWithFeedback : confirmPhysicalTradeWithFeedback} className={className}>{children}</TradeActionForm>;
+  return <form action={intent === "accept" ? actOnTrade : confirmPhysicalTrade} className={className}>{children}</form>;
 }
 
 function CompactSection({
@@ -737,6 +754,10 @@ export default async function TradesPage({
         orderBy: [{ side: "asc" }, { position: "asc" }],
         include: { inventoryItem: { include: { card: true } } },
       },
+      deckBundles: {
+        orderBy: [{ side: "asc" }, { position: "asc" }],
+        include: { deck: { select: { ownerUserId: true } } },
+      },
       events: {
         orderBy: { createdAt: "asc" },
         include: { actorPlayer: true, actorUser: true },
@@ -744,6 +765,35 @@ export default async function TradesPage({
     },
     orderBy: { proposedAt: "desc" },
   });
+  // Render only the allowlisted review DTO, never the raw stock/provenance or
+  // sender organization stored in the immutable transaction snapshot.
+  const catalogIds = [...new Set(visibleTrades.flatMap(trade => trade.deckBundles.flatMap(bundle =>
+    (bundle.snapshotJson as unknown as TradeDeckSnapshot).stock.map(item => String(item.cardId)))))];
+  const catalog = [] as { id: string; name: string; setCode: string; collectorNumber: string; scryfallId: string }[];
+  for (let offset = 0; offset < catalogIds.length; offset += 500) {
+    catalog.push(...await prisma.card.findMany({ where: { id: { in: catalogIds.slice(offset, offset + 500) } },
+      select: { id: true, name: true, setCode: true, collectorNumber: true, scryfallId: true } }));
+  }
+  const deckReviews = new Map(visibleTrades.flatMap(trade => trade.deckBundles.map(bundle =>
+    [bundle.id, tradeDeckReview(bundle.snapshotJson as unknown as TradeDeckSnapshot, bundle.snapshotDigest, catalog)] as const)));
+  const [receiptFolders, receiptTags] = await Promise.all([
+    prisma.deckFolder.findMany({ where: { ownerUserId: user.id }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+    prisma.deckTag.findMany({ where: { ownerUserId: user.id }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+  ]);
+  const receiptFolderOptions = buildDeckFolderOptions(receiptFolders).map(folder => ({ id: folder.id, name: folder.path }));
+  const counter = params.counterTradeId ? visibleTrades.find(trade => trade.id === params.counterTradeId &&
+    trade.status === TradeStatus.PROPOSED && trade.receiverPlayerId === user.playerId &&
+    proposerId === user.playerId && trade.proposerPlayerId === receiverId) : undefined;
+  const counterLooseLines = (side: TradeLineSide): TradeDraftLine[] => counter?.lines.filter(line =>
+    line.side === side && !line.deckBundleId && line.inventoryItem && line.inventoryItem.quantity > 0).map(line => ({
+      item: toTradeBuilderItem(line.inventoryItem!, user.preferredPriceProvider), quantity: line.quantity,
+    })) ?? [];
+  const initialOfferedDecks = counter?.deckBundles.filter(bundle => bundle.side === "RECEIVER" && bundle.deck?.ownerUserId === user.id)
+    .map(bundle => deckReviews.get(bundle.id)!) ?? [];
+  const initialRequestedDecks = counter?.deckBundles.filter(bundle => bundle.side === "PROPOSER")
+    .map(bundle => deckReviews.get(bundle.id)!) ?? [];
+  const counterUnavailable = counter ? counter.lines.filter(line => !line.deckBundleId && (!line.inventoryItem || line.inventoryItem.quantity <= 0)).length +
+    counter.deckBundles.filter(bundle => !bundle.deck || (bundle.side === "RECEIVER" && bundle.deck.ownerUserId !== user.id)).length : 0;
   const myDestinationLocations = user.playerId
     ? (await getLocationsForOwner(prisma, user.playerId)).filter(
         (location) =>
@@ -1038,6 +1088,7 @@ export default async function TradesPage({
               </p>
             </div>
             <form method="get" className="flex flex-wrap items-end gap-2">
+              {params.offerDeckId ? <input type="hidden" name="offerDeckId" value={params.offerDeckId} /> : null}
               {isAdmin ? (
                 <label className={cn(filterFieldClass, "min-w-44")}>
                   Proposer
@@ -1092,11 +1143,14 @@ export default async function TradesPage({
               pairingSide="requested"
             />
             <div className="xl:sticky xl:top-3">
+              {params.counterTradeId && !counter ? <p role="status" className="mb-2 rounded border border-amber-800 p-2 text-sm text-amber-200">This counter is unavailable. Open the current offer in Active Trades.</p> : null}
+              {counterUnavailable ? <p role="status" className="mb-2 rounded border border-amber-800 p-2 text-sm text-amber-200">{counterUnavailable} original selections are unavailable from this account. Review the remaining draft and replace them before proposing a counter.</p> : null}
               <TradeBuilder
                 key={[
                   proposerId,
                   receiverId,
                   params.counterTradeId ?? "",
+                  params.offerDeckId ?? "",
                   initialOfferedItem?.id ?? "",
                   initialRequestedItem?.id ?? "",
                 ].join(":")}
@@ -1105,6 +1159,12 @@ export default async function TradesPage({
                 proposerOwnerId={proposerId}
                 receiverPlayerId={receiverId}
                 counterTradeId={params.counterTradeId}
+                initialOfferedLines={counter ? counterLooseLines(TradeLineSide.RECEIVER) : undefined}
+                initialRequestedLines={counter ? counterLooseLines(TradeLineSide.PROPOSER) : undefined}
+                initialOfferedDecks={initialOfferedDecks}
+                initialRequestedDecks={initialRequestedDecks}
+                initialOfferedReviewDeckId={params.offerDeckId}
+                allowWholeDecks={proposerId === user.playerId}
                 proposerName={
                   players.find((player) => player.id === proposerId)
                     ?.displayName || "You"
@@ -1176,12 +1236,17 @@ export default async function TradesPage({
                   : trade.proposerPlayer.displayName
                 : "";
               const offeredLines = trade.lines.filter(
-                (line) => line.side === TradeLineSide.PROPOSER,
+                (line) => line.side === TradeLineSide.PROPOSER && !line.deckBundleId,
               );
               const requestedLines = trade.lines.filter(
-                (line) => line.side === TradeLineSide.RECEIVER,
+                (line) => line.side === TradeLineSide.RECEIVER && !line.deckBundleId,
               );
-              const offeredCards = trade.lines.length
+              const offeredDecks = trade.deckBundles.filter(bundle => bundle.side === "PROPOSER");
+              const requestedDecks = trade.deckBundles.filter(bundle => bundle.side === "RECEIVER");
+              const displayLeftDecks = userIsReceiver ? requestedDecks : offeredDecks;
+              const displayRightDecks = userIsReceiver ? offeredDecks : requestedDecks;
+              const incomingDecks = userIsProposer ? requestedDecks : offeredDecks;
+              const offeredCards = trade.lines.length || trade.deckBundles.length
                 ? offeredLines.map((line) =>
                     toTradeCardSummary({
                       id: line.id,
@@ -1204,7 +1269,7 @@ export default async function TradesPage({
                       preferredPriceProvider: user.preferredPriceProvider,
                     }),
                   ];
-              const requestedCards = trade.lines.length
+              const requestedCards = trade.lines.length || trade.deckBundles.length
                 ? requestedLines.map((line) =>
                     toTradeCardSummary({
                       id: line.id,
@@ -1251,6 +1316,7 @@ export default async function TradesPage({
                 trade.requestedInventoryItemId ??
                 "";
               const canUseExactTemplate =
+                !trade.deckBundles.length &&
                 offeredCards.length <= 1 &&
                 requestedCards.length <= 1 &&
                 (offeredCards.length === 0 || Boolean(templateOfferedId)) &&
@@ -1258,6 +1324,7 @@ export default async function TradesPage({
               return (
                 <details
                   key={trade.id}
+                  data-trade-id={trade.id}
                   className="group overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950/40"
                 >
                   <summary className="grid cursor-pointer list-none items-center gap-3 p-3 transition-colors hover:bg-zinc-900/60 md:grid-cols-[minmax(12rem,0.8fr)_minmax(18rem,1.4fr)_auto]">
@@ -1278,11 +1345,11 @@ export default async function TradesPage({
                     </div>
                     <div className="grid min-w-0 grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
                       <span className="truncate rounded bg-zinc-900 px-2 py-1 text-zinc-200">
-                        {tradeSideLabel(displayLeftCards)}
+                        {tradeSideLabel(displayLeftCards, displayLeftDecks.length)}
                       </span>
                       <span className="text-zinc-600">for</span>
                       <span className="truncate rounded bg-zinc-900 px-2 py-1 text-zinc-200">
-                        {tradeSideLabel(displayRightCards)}
+                        {tradeSideLabel(displayRightCards, displayRightDecks.length)}
                       </span>
                     </div>
                     <div className="flex items-center justify-end gap-2">
@@ -1308,38 +1375,23 @@ export default async function TradesPage({
                           Action needed
                         </span>
                       ) : null}
-                      {trade.status === TradeStatus.PROPOSED ? (
+                      {trade.status === TradeStatus.PROPOSED && (userIsReceiver || userIsProposer) ? (
                         <Link
                           href={
-                            canUseExactTemplate
-                              ? userIsReceiver
-                                ? `/trades?receiverId=${trade.proposerPlayerId}&offeredInventoryItemId=${templateRequestedId}&requestedInventoryItemId=${templateOfferedId}&counterTradeId=${trade.id}`
-                                : `/trades?receiverId=${trade.receiverPlayerId}&offeredInventoryItemId=${templateOfferedId}&requestedInventoryItemId=${templateRequestedId}`
-                              : `/trades?receiverId=${
-                                  userIsReceiver
-                                    ? trade.proposerPlayerId
-                                    : trade.receiverPlayerId
-                                }${
-                                  userIsReceiver
-                                    ? `&counterTradeId=${trade.id}`
-                                    : ""
-                                }`
+                            userIsReceiver ? `/trades?receiverId=${trade.proposerPlayerId}&counterTradeId=${trade.id}` : canUseExactTemplate
+                              ? `/trades?receiverId=${trade.receiverPlayerId}&offeredInventoryItemId=${templateOfferedId}&requestedInventoryItemId=${templateRequestedId}`
+                              : `/trades?receiverId=${trade.receiverPlayerId}`
                           }
                           className={cn(filterButtonClass, "self-start")}
                         >
-                          {canUseExactTemplate
-                            ? userIsReceiver
-                              ? "Counter From This"
-                              : "Use As Template"
-                            : userIsReceiver
-                              ? "Start New Counter"
-                              : "Start New Trade"}
+                          {userIsReceiver ? "Counter From This" : canUseExactTemplate ? "Use As Template" : "Start New Trade"}
                         </Link>
                       ) : null}
                     </div>
                     {trade.message ? (
                       <p className="text-sm text-zinc-300">{trade.message}</p>
                     ) : null}
+                    {trade.deckBundles.length ? <p className="text-xs text-zinc-400">Whole decks stay together. The value comparison below covers loose cards only.</p> : null}
                     <TradeValueSummary
                       compact
                       leftLabel={`${displayLeftPlayer.displayName} offers`}
@@ -1352,19 +1404,29 @@ export default async function TradesPage({
                         <h4 className="text-xs font-semibold uppercase text-zinc-500">
                           {displayLeftPlayer.displayName} offers
                         </h4>
+                        {displayLeftDecks.map(bundle => <section key={bundle.id} className="min-w-0 space-y-2 rounded border border-sky-900 p-3" aria-label={`Whole deck: ${deckReviews.get(bundle.id)!.name}`}>
+                          <h5 className="break-words font-semibold">{deckReviews.get(bundle.id)!.name} · whole deck</h5>
+                          {bundle.deck?.ownerUserId === user.id && bundle.deckId ? <Link href={`/decks/${bundle.deckId}`} className="text-xs text-sky-300 underline">Open in your deck library</Link> : null}
+                          <TradeDeckContents review={deckReviews.get(bundle.id)!} />
+                        </section>)}
                         {displayLeftCards.map((card) => (
                           <TradeCardPreview key={card.id} card={card} />
                         ))}
-                        {!displayLeftCards.length && <p className="text-sm text-zinc-400">Nothing offered.</p>}
+                        {!displayLeftCards.length && !displayLeftDecks.length && <p className="text-sm text-zinc-400">Nothing offered.</p>}
                       </section>
                       <section className="space-y-2">
                         <h4 className="text-xs font-semibold uppercase text-zinc-500">
                           {displayRightPlayer.displayName} offers
                         </h4>
+                        {displayRightDecks.map(bundle => <section key={bundle.id} className="min-w-0 space-y-2 rounded border border-sky-900 p-3" aria-label={`Whole deck: ${deckReviews.get(bundle.id)!.name}`}>
+                          <h5 className="break-words font-semibold">{deckReviews.get(bundle.id)!.name} · whole deck</h5>
+                          {bundle.deck?.ownerUserId === user.id && bundle.deckId ? <Link href={`/decks/${bundle.deckId}`} className="text-xs text-sky-300 underline">Open in your deck library</Link> : null}
+                          <TradeDeckContents review={deckReviews.get(bundle.id)!} />
+                        </section>)}
                         {displayRightCards.map((card) => (
                           <TradeCardPreview key={card.id} card={card} />
                         ))}
-                        {!displayRightCards.length && <p className="text-sm text-zinc-400">Nothing offered.</p>}
+                        {!displayRightCards.length && !displayRightDecks.length && <p className="text-sm text-zinc-400">Nothing offered.</p>}
                       </section>
                     </div>
                     <details className="text-sm">
@@ -1393,7 +1455,7 @@ export default async function TradesPage({
                       {trade.status === TradeStatus.PROPOSED &&
                       userIsReceiver ? (
                         <>
-                          <form action={actOnTrade}>
+                          <ParticipantTradeForm deckTrade={trade.deckBundles.length > 0} intent="accept">
                             <input
                               type="hidden"
                               name="tradeId"
@@ -1407,7 +1469,7 @@ export default async function TradesPage({
                             >
                               Accept
                             </SubmitButton>
-                          </form>
+                          </ParticipantTradeForm>
                           <details className="w-full sm:w-auto">
                             <summary
                               className={cn(
@@ -1482,26 +1544,27 @@ export default async function TradesPage({
                         </form>
                       ) : null}
                       {userNeedsPhysical ? (
-                        <form
-                          action={confirmPhysicalTrade}
-                          className="flex flex-wrap items-end gap-2 rounded border border-zinc-800 bg-zinc-950/50 p-3"
+                        <ParticipantTradeForm
+                          deckTrade={trade.deckBundles.length > 0} intent="confirm"
+                          className="flex min-w-0 w-full flex-wrap items-end gap-2 rounded border border-zinc-800 bg-zinc-950/50 p-3"
                         >
                           <input
                             type="hidden"
                             name="tradeId"
                             value={trade.id}
                           />
-                          <TradeDestinationSelect
+                          <TradeDeckReceiptFields decks={incomingDecks.map(bundle => ({ bundleId: bundle.id, name: deckReviews.get(bundle.id)!.name }))} folders={receiptFolderOptions} tags={receiptTags} />
+                          {!trade.deckBundles.length || incomingCards.length ? <TradeDestinationSelect
                             incomingLineCount={incomingCards.length}
                             locations={myDestinationLocations}
-                          />
+                          /> : <p className="w-full text-sm text-zinc-400">No loose cards need a destination. Received decks retain their committed copies in their deck locations.</p>}
                           <SubmitButton
                             pendingLabel="Confirming exchange..."
                             className={filterPrimaryButtonClass}
                           >
                             Confirm Physical Trade
                           </SubmitButton>
-                        </form>
+                        </ParticipantTradeForm>
                       ) : null}
                       {userConfirmedPhysical ? (
                         <span className="rounded border border-emerald-800 px-3 py-2 text-sm text-emerald-200">
@@ -1539,7 +1602,7 @@ export default async function TradesPage({
                               Admin Cancel
                             </SubmitButton>
                           </form>
-                          <form
+                          {!trade.deckBundles.length ? <form
                             action={confirmPhysicalTrade}
                             className="flex gap-1"
                           >
@@ -1565,7 +1628,7 @@ export default async function TradesPage({
                             >
                               Force Complete
                             </SubmitButton>
-                          </form>
+                          </form> : null}
                         </>
                       ) : null}
                     </div>
