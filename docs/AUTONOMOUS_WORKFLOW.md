@@ -13,6 +13,8 @@
 
 Keep useful bug reports with reproduction/uncertainty, impact and resolving PRs after duplicate checks. A failed harness attempt or missing evidence usually stays with the existing batch; separate issues are for independently actionable work. Bounded audits remain appropriate when requested, for concrete risk or when no eligible agreed work remains. Record the question, next test and stopping criterion; use results to fix user workflows instead of expanding qualification indefinitely.
 
+The two-node selection and continuation rules are in [ISSUE_WORKERS.md](ISSUE_WORKERS.md). Both nodes draw from the shared queue using measured capability and current ownership. A preferred product area is not an exclusive reservation of every issue in that area. Explicit assignments and existing owners still govern their actual batches. Pending review or a blocked item does not stop selection of independent work; hourly scheduling does not cancel or duplicate an existing live run.
+
 ## Proportionate verification and evidence reuse
 
 Choose checks from the changed behavior and risk. Focused regression tests come first; shared behavior, schema, security, data-integrity, concurrent writers and unexplained failures warrant broader coverage. Do not weaken required CI or applicable ownership, quantity/reservation conservation, privacy, rollback/replay and concurrency protections to fit a machine. Run those checks in an authorized environment capable of them or leave their status pending.
