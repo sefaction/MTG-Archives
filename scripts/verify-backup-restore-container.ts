@@ -7,6 +7,8 @@ import { join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { PrismaClient } from "@prisma/client";
 import { captureRestoreWorkers, verifyRestoredWorkers, type RestoreWorkerEvidence } from "./restore-worker-projection";
+import { readCorrectionGuards, verifyCorrectionBackupCapture, captureCorrectionRestoreEvidence, assertCorrectionEvidence,
+  verifyRestoredCorrections, correctionRestoreTables, type CorrectionRestoreEvidence } from "./restore-correction-projection";
 import {
   assertIsolatedDrillDatabase,
   isolatedDrillArchivePath,
@@ -34,6 +36,7 @@ type Evidence = {
   appdata: Array<{ envName: string; archivePath: string }>;
   credentialFence: { version: 1; scannerAgents: Digest };
   workerFence: RestoreWorkerEvidence;
+  correctionFence: CorrectionRestoreEvidence;
 };
 
 // These tables change asynchronously under the normal delivery worker. They are
@@ -144,6 +147,7 @@ async function capture(db: PrismaClient) {
     4,
     "All four local appdata roots must be configured",
   );
+  const correctionBefore = await readCorrectionGuards(db);
   const database = await databaseDigest(db);
   const credentialFence = {
     version: 1 as const,
@@ -158,8 +162,16 @@ async function capture(db: PrismaClient) {
   const backup = await createBackup();
   const backupMs = Date.now() - started;
   const after = await databaseDigest(db);
+  stage = "correction backup lifecycle";
+  const correctionAfter = await readCorrectionGuards(db);
+  const capturedGuardId = verifyCorrectionBackupCapture(correctionBefore,
+    correctionAfter, { started, finished: Date.now() });
+  const sourceExpected = { ...database };
+  // Its entire before/after row graph was just checked independently, allowing
+  // exactly one completed guard. Other source tables still compare raw hashes.
+  if ("CorrectionBackupGuard" in sourceExpected) sourceExpected.CorrectionBackupGuard = after.CorrectionBackupGuard;
   stage = "source database equality";
-  const changedTables = changedDrillTables(database, after);
+  const changedTables = changedDrillTables(sourceExpected, after);
   if (changedTables.length) {
     await writeFile(
       join(backupDir, "capture-failure.json"),
@@ -171,9 +183,10 @@ async function capture(db: PrismaClient) {
   }
   assert.deepEqual(
     after,
-    database,
+    sourceExpected,
     "Source changed during backup; rerun when quiescent",
   );
+  stage = "source file equality";
   for (const entry of paths)
     assert.deepEqual(
       await fileDigest(entry.sourcePath),
@@ -190,6 +203,7 @@ async function capture(db: PrismaClient) {
     database,
     credentialFence,
     workerFence,
+    correctionFence: await captureCorrectionRestoreEvidence(db, capturedGuardId),
     physicalCopies,
     files,
     appdata: backup.manifest.appdata.map(({ envName, archivePath }) => ({
@@ -232,6 +246,7 @@ async function restore(db: PrismaClient, phase: "validate" | "apply") {
     1,
     "Capture predates credential-fence evidence; create a fresh qualified capture",
   );
+  assertCorrectionEvidence(evidence.correctionFence);
   stage = "locate captured application archive";
   const archive = isolatedDrillArchivePath(evidence.path);
   process.env.BACKUP_DIR = "/drill/backups";
@@ -397,6 +412,7 @@ async function restore(db: PrismaClient, phase: "validate" | "apply") {
     force: true,
     confirmation: "RESTORE",
   });
+  const finished = Date.now();
   const restoreMs = Date.now() - started;
   assert.equal(restored.dryRun, false);
   assert.deepEqual(
@@ -428,6 +444,11 @@ async function restore(db: PrismaClient, phase: "validate" | "apply") {
   assert.ok(evidence.workerFence, "Capture predates worker-fence evidence; create a fresh qualified capture");
   await verifyRestoredWorkers(db, evidence.workerFence);
   for (const name of ["AcquisitionProcessingJob", "AcquisitionCatalogLookup"]) {
+    delete actualDatabase[name];
+    delete expectedDatabase[name];
+  }
+  await verifyRestoredCorrections(db, evidence.correctionFence, { started, finished });
+  for (const name of correctionRestoreTables) {
     delete actualDatabase[name];
     delete expectedDatabase[name];
   }
@@ -474,6 +495,7 @@ async function restore(db: PrismaClient, phase: "validate" | "apply") {
       restoredTrigramExtension: true,
       restoredCredentialsRevalidated: true,
       restoredWorkerClaimsInvalidated: true,
+      restoredCorrectionLifecycleVerified: true,
       interruptedProcessingClaims: evidence.workerFence.jobs.runningIds.length,
       interruptedCatalogClaims: evidence.workerFence.lookups.runningIds.length,
       clearedWebsiteSessions: evidence.database.AuthSession?.rows ?? 0,
