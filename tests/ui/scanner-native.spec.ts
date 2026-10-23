@@ -21,6 +21,7 @@ test("website START through actual Windows fixture helper reaches ordinary recog
   let agentId="",child:ChildProcess|undefined,log="";
   const helper=(args:string[],input?:string)=>execFileSync(dotnet!,[dll!,...args],{input,encoding:"utf8",timeout:45000,windowsHide:true});
   const began=Date.now();
+  let primaryFailed=false,primaryError:unknown;
   try {
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:2,sections:[{name:'A',capacity:2}]}}});`);
     await page.goto('/login');await page.getByLabel(/username or email/i).fill(tag);await page.getByLabel(/^password$/i).fill(password);
@@ -132,9 +133,14 @@ test("website START through actual Windows fixture helper reaches ordinary recog
     expect(successive.first).toEqual(firstSaved);expect(successive.rows).toEqual(committed.rows);expect(successive.audits).toBe(1);
     expect(log.match(/"kind":"AcquisitionStarted"/g)?.length).toBe(2);
     writeFileSync('test-results/scanner-native-result.json',JSON.stringify({passed:true,fixture:true,physicalScans:0,inventoryChanges:1,explicitFinalConfirmation:true,successiveBatches:2,helperRestart:true,firstReviewAndReceiptPreserved:true,elapsedMs:Date.now()-began,originalDigest:originalHash,sourcePreserved:true,location:true,recognitionName:expectedName}));
-  } finally {
-    // Block new authenticated polling and retire only this fixture owner.
-    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
+  } catch(error) { primaryFailed=true;primaryError=error;throw error; } finally {
+    const cleanupErrors:unknown[]=[];
+    let cleanupSQL:string;
+    try { cleanupSQL=cancelAndCleanCorrectionFixture(tag); } catch(error) {
+      throw new AggregateError(primaryFailed?[primaryError,error]:[error],"Owned native scanner fixture cleanup failed");
+    }
+    // An unavailable first sweep must not bypass owned helper shutdown.
+    try { database(cleanupSQL + "console.log('{}');"); } catch(error) { cleanupErrors.push(error); }
     try {
     if(child && child.exitCode===null && child.signalCode===null){
       child.kill();await new Promise<void>(resolve=>{child!.once('exit',()=>resolve());setTimeout(resolve,5000);});
@@ -173,9 +179,9 @@ test("website START through actual Windows fixture helper reaches ordinary recog
       await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});
     `);
 
-    } finally {
-      // A final sweep also catches writes completed during legacy teardown.
-      database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
-    }
+    } catch(error) { cleanupErrors.push(error); }
+    // A final sweep also catches writes completed during legacy teardown.
+    try { database(cleanupSQL + "console.log('{}');"); } catch(error) { cleanupErrors.push(error); }
+    if(cleanupErrors.length)throw new AggregateError(primaryFailed?[primaryError,...cleanupErrors]:cleanupErrors,"Owned native scanner fixture cleanup failed");
   }
 });
