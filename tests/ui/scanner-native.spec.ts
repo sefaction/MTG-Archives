@@ -149,8 +149,8 @@ test("website START through actual Windows fixture helper reaches ordinary recog
     helperStopped=true;
     } catch(error) { cleanupErrors.push(error); }
     try { writeFileSync('test-results/scanner-native-helper.log',log); } catch(error) { cleanupErrors.push(error); }
-    // A live/uncertain helper keeps its local recovery journal. Server cleanup
-    // still attempts to remove only this fixture's authenticated authority.
+    // A live/uncertain helper keeps its local recovery journal and legacy data.
+    // The final cancellation/feedback sweep is still attempted independently.
     try {
     if(helperStopped) {
     if(agentId) {
@@ -163,7 +163,7 @@ test("website START through actual Windows fixture helper reaches ordinary recog
     }
     }
     } catch(error) { cleanupErrors.push(error); }
-    try {
+    if(helperStopped) try {
     database(`
       const n=${JSON.stringify(tag)};
       await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});
