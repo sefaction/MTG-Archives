@@ -243,6 +243,8 @@ export function AcquisitionPhotoReview({
     requestVersion = useRef(0);
   const searchInput = useRef<HTMLInputElement>(null);
   const focusSearch = useRef(false);
+  const correctionButton = useRef<HTMLButtonElement>(null);
+  const focusAfterDiscard = useRef(false);
   function openCorrection() {
     evidenceTokens.current.edit ??= record?.evidenceToken;
     focusSearch.current = true;
@@ -255,6 +257,15 @@ export function AcquisitionPhotoReview({
       searchInput.current?.focus(); searchInput.current?.select();
     }
   }, [editing]);
+  useEffect(() => {
+    if (busy || !focusAfterDiscard.current) return;
+    focusAfterDiscard.current = false;
+    // Cancel can unmount its focused button. Wait for the replacement controls
+    // to be enabled, but leave focus alone if the user moved to another card.
+    const focused = document.activeElement;
+    if (focused !== document.body && !root.current?.contains(focused)) return;
+    (mode === "simple" ? correctionButton.current : searchInput.current)?.focus();
+  }, [busy, editing, mode]);
   function markDirty() {
     evidenceTokens.current.edit ??= record?.evidenceToken;
     dirty.current = true;
@@ -450,6 +461,7 @@ export function AcquisitionPhotoReview({
       clearDraft();
       apply(next);
       setQuery(""); setSet(""); setNumber(""); setMatches(null);
+      focusAfterDiscard.current = true;
       setEditing(false);
       setMessage("Unsaved changes discarded.");
     } catch (e) {
@@ -1089,6 +1101,7 @@ export function AcquisitionPhotoReview({
                     )}
                     {!showEditor && (
                       <button
+                        ref={correctionButton}
                         className={button}
                         disabled={busy || regionEditing}
                         onClick={openCorrection}
