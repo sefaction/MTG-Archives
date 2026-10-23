@@ -193,7 +193,7 @@ export function InventoryQuickCardNameSearch({
       <form
         action={actionPath}
         method="get"
-        className="flex flex-col gap-2 sm:flex-row sm:items-end"
+        className="relative flex flex-col gap-2 sm:flex-row sm:items-end"
         onSubmit={handleSubmit}
       >
         <input type="hidden" name="page" value="1" />
@@ -206,7 +206,7 @@ export function InventoryQuickCardNameSearch({
           />
         ))}
         <label
-          className="relative block flex-1 text-xs font-medium text-zinc-300"
+          className="block flex-1 text-xs font-medium text-zinc-300 sm:relative"
           htmlFor={inputId}
         >
           Quick card name search
@@ -234,7 +234,7 @@ export function InventoryQuickCardNameSearch({
             <div
               id={listId}
               role="listbox"
-              className="absolute z-40 mt-1 max-h-64 w-full overflow-auto rounded-md border border-zinc-700 bg-zinc-950 p-1 text-sm shadow-xl shadow-black/30"
+              className="absolute left-0 top-full z-40 mt-1 max-h-64 w-full overflow-auto rounded-md border border-zinc-700 bg-zinc-950 p-1 text-sm shadow-xl shadow-black/30"
             >
               {suggestions.map((suggestion, index) => (
                 <button

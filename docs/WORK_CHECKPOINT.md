@@ -1,5 +1,12 @@
 # Work checkpoint
 
+## Current work - #910 phone popup repair, Public routing decision pending, October 23, 2026
+
+- Branch `codex/inventory-phone-search-popup`, base main51f810c3; active issue-resolution goal and recorded agent-created #910. Only three positioning classes change: phone popup anchors below stable form, desktop remains under input. Handlers, filters, suggestion selection and APIs unchanged. No merge/production/shared-routing authority.
+- Exact supported-filter old-client touch negative reproduces suggestion interception.23focused checks and changed-file lint pass. Cumulative local903e7785 includes qualified909b62df4f2 plus exact newQuick/test; bounded compilation/type/static/client guards pass. All ten corrected Private desktop390/320loading/settledpointer/keyboard cases and original combined phone trigger pass; six-table conservation/owned cleanup and inspected screenshots retained. Initial unsupported-condition harness failures remain failed.
+- Anonymous Public suggestions return actual401 before the backend's public branch. #911 records the distinct routing defect and authentication/privacy acceptance. Shared routing is desktop-owned; specific scope assignment requested. No fake-cookie, forced-click or logged-in substitute qualifies anonymous Public. Keep #910/PR draft until full acceptance, not just passing Private cases.
+- Current/evidence: `.local-data/quick-search-popup-20261023/`, portable `docs/INVENTORY_PHONE_SEARCH_POPUP.md`. Candidate cumulative13014 preserves905/909review and original data; same synthetic Review908account24copies remains. Builder/cache and temporary browser/fixture processes retired; exact runtime window released, source claim retained through publication/CI. Next: fresh final-head CI, scoped routing decision and corresponding complete Public qualification before readiness; no merge without individual approval.
+
 ## Current work - #905 readiness evidence, October 22, 2026
 
 - Owner STMLT26/thread `01a16522-acc1-7390-a1a1-1005ec1997cc`, run
