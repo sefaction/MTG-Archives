@@ -1,3 +1,4 @@
+import { lockWritableDeck, DeckTradeWriteError } from "@/lib/deck-write-fence";
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getAccessScope, requireLogin } from "@/lib/auth";
@@ -85,8 +86,9 @@ export async function POST(
     cardIds = [body.cardId];
   }
   try {
-    const result = await prisma.$transaction((tx) =>
-      returnCommittedInventoryFromDeckTx(tx, {
+    const result = await prisma.$transaction(async (tx) => {
+      await lockWritableDeck(tx, deckId, deck.ownerUserId);
+      return returnCommittedInventoryFromDeckTx(tx, {
         actorUserId: user.id,
         ownerPlayerId,
         deckId,
@@ -96,8 +98,8 @@ export async function POST(
         cardIds,
         maxQuantity:
           Number.isFinite(quantity) && quantity > 0 ? quantity : undefined,
-      }),
-    );
+      });
+    });
     revalidatePath(`/decks/${deckId}`);
     revalidatePath("/inventory");
     revalidatePath("/locations");
@@ -105,7 +107,7 @@ export async function POST(
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "Return failed." },
-      { status: 400 },
+      { status: error instanceof DeckTradeWriteError ? 409 : 400 },
     );
   }
 }

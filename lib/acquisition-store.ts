@@ -30,6 +30,8 @@ import { correctionUsage } from "./acquisition-correction-access";
 import {
   acquisitionEventSchema,
   candidateKey,
+  captureSummary,
+  countReasons,
   createCaptureSession,
   placementSnapshot,
   receiveAcquisitionEvent,
@@ -212,7 +214,12 @@ function hydrate(row: Stored): StoredCapture {
       eventId: e.sourceEventId,
       payload: e.payload,
     })),
-    candidates: run.candidates.map((c) => ({
+    // Relation row order is not a durable property. Preserve physical order on
+    // every fresh-client/replay read without mutating the persisted projection.
+    candidates: [...run.candidates].sort((left, right) =>
+      left.acquisitionOrder - right.acquisitionOrder || left.spatialOrder - right.spatialOrder ||
+      (left.physicalId < right.physicalId ? -1 : left.physicalId > right.physicalId ? 1 : 0),
+    ).map((c) => ({
       key: candidateKey(run.sourceRunId, c.physicalId),
       input: {
         id: c.physicalId,
@@ -940,6 +947,18 @@ export async function getAcquisitionProgress(
           : null,
       ]),
     );
+    // Advisory physical blockers only. A fresh commit preview still revalidates
+    // ownership, printing, destination, revisions and every selected photo.
+    const allocated = new Set(captureSummary(state.session).allocated);
+    const physicalReasons = new Map(state.session.candidates.map(candidate => {
+      const reasons: string[] = [];
+      if (candidate.excluded) reasons.push("UNAVAILABLE");
+      else {
+        if (countReasons(candidate).length) reasons.push("COUNT_UNCERTAIN");
+        if (!allocated.has(candidate.key)) reasons.push("OVERFLOW");
+      }
+      return [candidate.input.id, reasons] as const;
+    }));
     return {
       ...state,
       correctionLibrary: await correctionUsage(tx, row.ownerPlayerId),
@@ -954,6 +973,16 @@ export async function getAcquisitionProgress(
         generation: slot.generation,
         photos: slot.photos,
         review: reviews.get(slot.id) ?? null,
+        physicalReadiness: {
+          reasons: [
+            ...(physicalReasons.get(slot.id) ?? ["UNAVAILABLE"]),
+            // Match the existing selected-subset STOPPING exception.
+            ...(!["STOPPING", "COMPLETE", "CANCELLED"].includes(row.phase)
+              ? ["ACQUISITION_NOT_SETTLED"] : []),
+            ...(!slot.photos.some(photo => photo.ready && !photo.purgedAt &&
+              photo.generation === slot.generation) ? ["PHOTO_NOT_CURRENT"] : []),
+          ],
+        },
         reviewRevision: row.run!.candidates.find((c) => c.physicalId === slot.id)?.revision ?? 0,
         committed: Boolean(
           row.run!.candidates.find((c) => c.physicalId === slot.id)?.receipt,

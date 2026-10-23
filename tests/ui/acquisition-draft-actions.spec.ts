@@ -42,8 +42,29 @@ test("unsaved corrections protect bulk reviews and Inventory while clean cards s
       const index = photos.indexOf(new URL(route.request().url()).searchParams.get("photoId")!);
       await route.fulfill({ json: { ...record, suggestions: index < 3 ? [{ printing, reasons: ["Controlled fixture"] }] : [] } });
     });
+    // Controlled physical evidence: accepted first card is uncertain; the last
+    // accepted card is outside allocation. Real DTO/UI must retain both reviews.
+    database(`const b=${JSON.stringify(batch)};const first=await p.acquisitionPhoto.findUniqueOrThrow({where:{id:${JSON.stringify(photos[0])}}});await p.acquisitionCandidate.updateMany({where:{run:{sessionId:b},physicalId:first.slotId},data:{uncertainty:['MULTIFEED'],countConfirmed:false}});await p.acquisitionSession.update({where:{id:b},data:{target:13}});`);
     await page.goto(`/imports/scan?batch=${batch}`);
     const first = page.getByTestId("capture-card-1"); await first.scrollIntoViewIfNeeded();
+    for (const width of [1366, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.reload(); await first.scrollIntoViewIfNeeded();
+      await expect(first).toContainText("Confirm the physical count in reconciliation.");
+      await expect(first.getByRole("checkbox", { name: "Select card 1 for Inventory", exact: true })).toBeDisabled();
+      await expect(page.getByTestId("scan-review-summary")).toContainText("14 pending review or reconciliation");
+      await expect(page.getByTestId("scan-review-summary")).toContainText("0 ready to preview");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    const blockedProgress = await (await page.request.get(`/api/acquisition/${batch}`)).json();
+    expect(blockedProgress.slots[13].physicalReadiness.reasons).toContain("OVERFLOW");
+    expect(blockedProgress.slots[0].review.cardId).toBe(printing.id);
+    expect(blockedProgress.slots[13].review.cardId).toBe(printing.id);
+    expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
+    // Restore controlled evidence; service-level test exercises CONFIRM_COUNT.
+    database(`const b=${JSON.stringify(batch)};await p.acquisitionCandidate.updateMany({where:{run:{sessionId:b}},data:{uncertainty:[],countConfirmed:true}});await p.acquisitionSession.update({where:{id:b},data:{target:14}});`);
+    await page.setViewportSize({ width: 1366, height: 900 });
+    await page.reload(); await first.scrollIntoViewIfNeeded();
     await first.getByRole("button", { name: "Correct", exact: true }).click();
     await first.getByRole("combobox", { name: "Card condition", exact: true }).selectOption("LP");
     // Baseline defect: a saved review still offers its Inventory checkbox after editing.
@@ -59,11 +80,11 @@ test("unsaved corrections protect bulk reviews and Inventory while clean cards s
     const other = await page.context().newPage(); await other.goto("/dashboard");
     await expect(page.getByTestId("capture-card-14")).toHaveCount(0);
     await other.evaluate(({ key, draft }) => localStorage.setItem(key,JSON.stringify(draft)), { key: keyFor(photos[13]), draft });
-    await expect(page.getByTestId("scan-review-summary")).toContainText("0 ready for Inventory");
+    await expect(page.getByTestId("scan-review-summary")).toContainText("0 ready to preview");
     await page.reload(); await first.scrollIntoViewIfNeeded();
     await expect(first).toContainText("Unsaved correction restored from this browser");
     await expect(page.getByTestId("capture-card-14")).toHaveCount(0);
-    await expect(page.getByTestId("scan-review-summary")).toContainText("0 ready for Inventory");
+    await expect(page.getByTestId("scan-review-summary")).toContainText("0 ready to preview");
     const bulk = page.getByRole("region", { name: "Bulk match review", exact: true });
     await expect(bulk).toContainText("1 card has an unsaved correction");
     await bulk.getByRole("button", { name: "Bulk Confirm Match", exact: true }).click();
@@ -88,6 +109,7 @@ test("unsaved corrections protect bulk reviews and Inventory while clean cards s
     await expect(inventory).toContainText("2 reviewed cards are excluded because of unsaved corrections");
     await expect(inventory).toContainText("1 selected");
     await page.getByRole("button", { name: "Stop capture", exact: true }).click();
+    await expect(page.getByTestId("scan-review-summary")).toContainText("1 ready to preview");
     await inventory.getByRole("button", { name: "Select reviewed cards", exact: true }).click();
     await expect(inventory).toContainText("1 selected");
     await inventory.getByRole("button", { name: "Preview selected cards", exact: true }).click();
@@ -159,7 +181,7 @@ test("unsaved corrections protect bulk reviews and Inventory while clean cards s
     for (const photo of evidence.photos) expect(photo).toMatchObject({inputKind:"CARD_SCAN",digest:createHash("sha256").update(bytes).digest("hex")});
     expect(evidence.photos.filter((photo:any)=>photo.purgeAfter)).toHaveLength(2);
     expect(await page.evaluate(key=>localStorage.getItem(key),keyFor(photos[13]))).not.toBeNull();
-    await expect(page.getByTestId("scan-review-summary")).toContainText("0 ready for Inventory");
+    await expect(page.getByTestId("scan-review-summary")).toContainText("0 ready to preview");
     for (const width of [1366,320]) {
       await page.setViewportSize({width,height:900}); await inventory.scrollIntoViewIfNeeded();
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

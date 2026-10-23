@@ -5,12 +5,36 @@ import {
   CommanderLeagueResult,
   DefaultCollectionVisibility,
   Visibility,
+  Prisma,
 } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireLogin } from "@/lib/auth";
 import { pointsForResult } from "@/lib/commander-league";
 import { prisma } from "@/lib/prisma";
+import { lockDeckOwners, lockDeckRows, assertDeckUnreserved, DeckTradeWriteError } from "@/lib/deck-write-fence";
+
+// A League storage link changes deck-trade eligibility. Join the same gates as
+// proposal/transfer so it cannot attach a new restriction to a reserved deck.
+async function fenceLeagueDeckLocations(tx: Prisma.TransactionClient, expectedLocations: { id: string; ownerPlayerId: string }[]) {
+  const locations = await tx.inventoryLocation.findMany({ where: { id: { in: expectedLocations.map(location => location.id) } },
+    select: { id: true, ownerPlayerId: true, deck: { select: { id: true, ownerUserId: true } } } });
+  if (locations.length !== expectedLocations.length || locations.some(location =>
+    location.ownerPlayerId !== expectedLocations.find(expected => expected.id === location.id)?.ownerPlayerId))
+    throw new DeckTradeWriteError("Deck storage ownership changed. Refresh and retry.");
+  const decks = locations.flatMap(location => location.deck ? [location.deck] : []);
+  await lockDeckOwners(tx, decks.map(deck => deck.ownerUserId));
+  await lockDeckRows(tx, decks.map(deck => deck.id));
+  for (const expected of decks) {
+    const current = await tx.deck.findUnique({ where: { id: expected.id }, select: { ownerUserId: true } });
+    if (current?.ownerUserId !== expected.ownerUserId) throw new DeckTradeWriteError("Deck ownership changed. Refresh and retry.");
+    await assertDeckUnreserved(tx, expected.id);
+  }
+  const currentLocations = await tx.inventoryLocation.findMany({ where: { id: { in: locations.map(location => location.id) } }, select: { id: true, ownerPlayerId: true } });
+  if (currentLocations.length !== expectedLocations.length || currentLocations.some(location =>
+    location.ownerPlayerId !== expectedLocations.find(expected => expected.id === location.id)?.ownerPlayerId))
+    throw new DeckTradeWriteError("Deck storage ownership changed. Refresh and retry.");
+}
 
 function text(formData: FormData, name: string) {
   return String(formData.get(name) || "").trim();
@@ -158,7 +182,9 @@ export async function createCommanderLeague(formData: FormData) {
     slug = `${baseSlug}-${suffix++}`;
   }
 
-  const league = await prisma.commanderLeague.create({
+  const league = await prisma.$transaction(async tx => {
+    await fenceLeagueDeckLocations(tx, locations);
+    return tx.commanderLeague.create({
     data: {
       name,
       slug,
@@ -182,6 +208,7 @@ export async function createCommanderLeague(formData: FormData) {
         create: locations.map((location) => ({ locationId: location.id })),
       },
     },
+    });
   });
   redirect(`/league/${league.id}`);
 }
@@ -236,10 +263,13 @@ export async function addLeagueLocation(formData: FormData) {
       "Select a public location owned by an active league player.",
     );
   }
-  await prisma.commanderLeagueLocation.upsert({
+  await prisma.$transaction(async tx => {
+    await fenceLeagueDeckLocations(tx, [location]);
+    return tx.commanderLeagueLocation.upsert({
     where: { leagueId_locationId: { leagueId, locationId } },
     create: { leagueId, locationId },
     update: {},
+    });
   });
   revalidatePath(`/league/${leagueId}`);
 }

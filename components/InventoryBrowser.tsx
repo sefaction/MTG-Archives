@@ -1717,6 +1717,7 @@ export function InventoryBrowser({
   const [infiniteHasNextPage, setInfiniteHasNextPage] = useState(hasNextPage);
   const [nextInfinitePage, setNextInfinitePage] = useState(currentPage + 1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const infiniteRequestRef = useRef(0);
   const [loadMoreError, setLoadMoreError] = useState("");
   useEffect(() => {
     setLiveStorageLocations(storageLocations);
@@ -2113,6 +2114,10 @@ export function InventoryBrowser({
   }
 
   useEffect(() => {
+    // A new server page owns a fresh loader, even when an older request is
+    // still pending or we return to the same query after another navigation.
+    infiniteRequestRef.current++;
+    setIsLoadingMore(false);
     clearSelection();
     setPagination((current) => ({ ...current, pageIndex: 0 }));
     setSorting(
@@ -2125,6 +2130,7 @@ export function InventoryBrowser({
     setNextInfinitePage(currentPage + 1);
     setLoadMoreError("");
     queryKeyRef.current = queryKey;
+    return () => { infiniteRequestRef.current++; };
   }, [
     rows,
     displayMode,
@@ -2157,7 +2163,9 @@ export function InventoryBrowser({
       isLoadingMore
     )
       return;
-    const requestQueryKey = queryKeyRef.current;
+    const requestQueryKey = queryKey;
+    if (queryKeyRef.current !== requestQueryKey) return;
+    const requestId = ++infiniteRequestRef.current;
     const params = new URLSearchParams(pageHrefBase || "");
     params.set("page", String(nextInfinitePage));
     params.set("browse", "infinite");
@@ -2175,7 +2183,7 @@ export function InventoryBrowser({
         nextPage?: number;
         totalMatchingCount?: number;
       } = await response.json();
-      if (queryKeyRef.current !== requestQueryKey) return;
+      if (queryKeyRef.current !== requestQueryKey || infiniteRequestRef.current !== requestId) return;
       setLoadedRows((current) => {
         const seen = new Set(current.map((row) => row.id));
         const appended = payload.rows.filter((row) => !seen.has(row.id));
@@ -2184,10 +2192,10 @@ export function InventoryBrowser({
       setInfiniteHasNextPage(payload.hasNextPage);
       setNextInfinitePage(payload.nextPage ?? nextInfinitePage + 1);
     } catch (error: any) {
-      if (queryKeyRef.current !== requestQueryKey) return;
+      if (queryKeyRef.current !== requestQueryKey || infiniteRequestRef.current !== requestId) return;
       setLoadMoreError(error?.message || "Failed to load more results.");
     } finally {
-      if (queryKeyRef.current === requestQueryKey) setIsLoadingMore(false);
+      if (queryKeyRef.current === requestQueryKey && infiniteRequestRef.current === requestId) setIsLoadingMore(false);
     }
   }, [
     browsingMode,
@@ -2196,6 +2204,7 @@ export function InventoryBrowser({
     isLoadingMore,
     nextInfinitePage,
     pageHrefBase,
+    queryKey,
   ]);
 
   useEffect(() => {

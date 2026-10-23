@@ -36,6 +36,11 @@ import {
 import { normalizeTradeActionNote } from "@/lib/trade-notes";
 import { receivedTradeInventoryData } from "@/lib/trade-inventory";
 import { enqueueTradeAnnouncementDeliveries } from "@/lib/webhook-delivery";
+import { lockTradeDeckSources, readTradeDeck, prepareTradeDeckBundles, reservePreparedTradeDecks, isDeckTradeUserError } from "@/lib/deck-trade-store";
+import { parseTradeDeckSelections, type TradeDeckSelection } from "@/lib/deck-trade-policy";
+import { assertDeckUnreserved } from "@/lib/deck-write-fence";
+import { parseTradeDeckReceipts, recordTradeDeckReceipts, transferConfirmedTradeDecks } from "@/lib/deck-trade-transfer";
+import { tradeActionFeedback } from "@/lib/trade-action-feedback";
 
 const activeStatuses: TradeStatus[] = [
   TradeStatus.PROPOSED,
@@ -52,6 +57,8 @@ type ProposedTradeData = {
   receiverPlayerId: string;
   offeredLines: TradeLineSelection[];
   requestedLines: TradeLineSelection[];
+  offeredDecks?: TradeDeckSelection[];
+  requestedDecks?: TradeDeckSelection[];
 };
 type InventoryForSnapshot = Awaited<
   ReturnType<typeof validateProposedTrade>
@@ -103,7 +110,7 @@ async function validateProposedTrade(
     throw new TradeProposalValidationError(
       "Proposer and recipient must be different users.",
     );
-  if (!hasTradeContents(data.offeredLines.length, data.requestedLines.length)) {
+  if (!hasTradeContents(data.offeredLines.length + (data.offeredDecks?.length ?? 0), data.requestedLines.length + (data.requestedDecks?.length ?? 0))) {
     throw new TradeProposalValidationError(
       "Choose at least one card to offer or request. Both sides cannot be empty.",
     );
@@ -205,6 +212,8 @@ function tradeLinesFromForm(fd: FormData) {
         fd.get("requestedLinesJson"),
         legacyRequestedId || undefined,
       ),
+      offeredDecks: parseTradeDeckSelections(fd.get("offeredDecksJson")),
+      requestedDecks: parseTradeDeckSelections(fd.get("requestedDecksJson")),
     };
   } catch (error) {
     throw asTradeProposalValidationError(error);
@@ -220,6 +229,7 @@ async function loadTradeForAction(
     include: {
       proposerPlayer: true,
       receiverPlayer: true,
+      deckBundles: true,
       lines: {
         orderBy: [{ side: "asc" }, { position: "asc" }],
         include: {
@@ -302,12 +312,16 @@ async function createTradeMutation(fd: FormData) {
     if (counterSource) {
       await tx.$queryRaw`SELECT "id" FROM "Trade" WHERE "id" = ${counterSource.id} FOR UPDATE`;
     }
-    const reservationItemIds = Array.from(new Set(
-      [...data.offeredLines, ...data.requestedLines].map(line => line.inventoryItemId),
-    )).sort();
-    if (reservationItemIds.length) {
+    const bundles = await prepareTradeDeckBundles(tx, { actorUserId: actor.id,
+      proposerPlayerId: data.proposerPlayerId, receiverPlayerId: data.receiverPlayerId,
+      offered: data.offeredDecks, requested: data.requestedDecks, counterTradeId: counterSource?.id });
+    const reservationItemIds = Array.from(new Set([
+      ...[...data.offeredLines, ...data.requestedLines].map(line => line.inventoryItemId),
+      ...bundles.flatMap(bundle => bundle.source.stock.map(item => item.id)),
+    ])).sort();
+    for (let offset = 0; offset < reservationItemIds.length; offset += 500) {
       await tx.$queryRaw`SELECT "id" FROM "InventoryItem"
-        WHERE "id" IN (${Prisma.join(reservationItemIds)}) ORDER BY "id" FOR UPDATE`;
+        WHERE "id" IN (${Prisma.join(reservationItemIds.slice(offset, offset + 500))}) ORDER BY "id" FOR UPDATE`;
     }
     const { offered, requested } = await validateProposedTrade(
       data,
@@ -365,6 +379,7 @@ async function createTradeMutation(fd: FormData) {
         );
       }
       const counter = await tx.trade.create({ data: createData });
+      await reservePreparedTradeDecks(tx, counter.id, bundles, counterSource.id);
       await recordTradeEvent(tx, {
         tradeId: counterSource.id,
         eventType: "countered",
@@ -377,31 +392,32 @@ async function createTradeMutation(fd: FormData) {
         eventType: "counter_proposed",
         actorUserId: actor.id,
         actorPlayerId: actor.playerId,
-        message: `Counter proposed with ${offered.length} offered and ${requested.length} requested card lines.`,
+        message: `Counter proposed with ${offered.length} offered and ${requested.length} requested card lines${bundles.length ? ` and ${bundles.length} whole decks` : ""}.`,
         notification: {
           type: "trade.countered",
           title: `${actor.displayName} countered your trade`,
-          message: "Review the updated card exchange in Active Trades.",
+          message: bundles.length ? "Review the updated whole decks and cards in Active Trades." : "Review the updated card exchange in Active Trades.",
           recipientPlayerIds: [data.receiverPlayerId],
         },
       });
       return;
     }
     const trade = await tx.trade.create({ data: createData });
+    await reservePreparedTradeDecks(tx, trade.id, bundles);
     await recordTradeEvent(tx, {
       tradeId: trade.id,
       eventType: "proposed",
       actorUserId: actor.id,
       actorPlayerId: actor.playerId,
-      message: `Trade proposed with ${offered.length} offered and ${requested.length} requested card lines.`,
+      message: `Trade proposed with ${offered.length} offered and ${requested.length} requested card lines${bundles.length ? ` and ${bundles.length} whole decks` : ""}.`,
       notification: {
         type: "trade.proposed",
         title: `${actor.displayName} sent you a trade proposal`,
-        message: "Review the offered and requested cards in Active Trades.",
+        message: bundles.length ? "Review the offered and requested whole decks and cards in Active Trades." : "Review the offered and requested cards in Active Trades.",
         recipientPlayerIds: [data.receiverPlayerId],
       },
     });
-  });
+  }, data.offeredDecks.length || data.requestedDecks.length ? { timeout: 30000 } : undefined);
   revalidatePath("/trades");
   revalidatePath("/notifications");
 }
@@ -417,6 +433,7 @@ export async function createTrade(
       message: "Trade proposal sent.",
     };
   } catch (error) {
+    if (isDeckTradeUserError(error)) error = asTradeProposalValidationError(error);
     const validationState = tradeProposalValidationState(error);
     if (validationState) return validationState;
     throw error;
@@ -493,6 +510,23 @@ export async function actOnTrade(fd: FormData) {
       status: trade.status,
     });
     await prisma.$transaction(async (tx) => {
+      if (trade.deckBundles.length) {
+        await tx.$queryRaw`SELECT id FROM "Trade" WHERE id=${trade.id} FOR UPDATE`;
+        const current = await loadTradeForAction(trade.id, tx);
+        assertCanAcceptTrade({ actorOwnerId: actor.playerId, isAdmin: false,
+          proposerOwnerId: current.proposerPlayerId, recipientOwnerId: current.receiverPlayerId, status: current.status });
+        await lockTradeDeckSources(tx, current.deckBundles.map(bundle => {
+          if (!bundle.deckId) throw new Error("A traded deck is unavailable.");
+          return bundle.deckId;
+        }), [actor.id]);
+        for (const bundle of current.deckBundles) {
+          const source = await readTradeDeck(tx, bundle.deckId!, bundle.side === "PROPOSER" ? current.proposerPlayerId : current.receiverPlayerId);
+          if (bundle.side === "RECEIVER" && source.deck.ownerUserId !== actor.id)
+            throw new Error("Only the actual deck owner can accept its transfer.");
+          if (source.digest !== bundle.snapshotDigest) throw new Error("A traded deck changed. Cancel this offer and review its contents again.");
+          await assertDeckUnreserved(tx, bundle.deckId!, trade.id);
+        }
+      }
       await tx.trade.update({
         where: { id: trade.id },
         data: {
@@ -527,6 +561,12 @@ export async function actOnTrade(fd: FormData) {
       "Trade declined.",
     );
     await prisma.$transaction(async (tx) => {
+      if (trade.deckBundles.length) {
+        await tx.$queryRaw`SELECT id FROM "Trade" WHERE id=${trade.id} FOR UPDATE`;
+        const current = await loadTradeForAction(trade.id, tx);
+        assertCanDeclineTrade({ actorOwnerId: actor.playerId, isAdmin: actorIsAdmin,
+          proposerOwnerId: current.proposerPlayerId, recipientOwnerId: current.receiverPlayerId, status: current.status });
+      }
       await tx.trade.update({
         where: { id: trade.id },
         data: {
@@ -562,6 +602,12 @@ export async function actOnTrade(fd: FormData) {
         ? "admin_cancelled"
         : "cancelled";
     await prisma.$transaction(async (tx) => {
+      if (trade.deckBundles.length) {
+        await tx.$queryRaw`SELECT id FROM "Trade" WHERE id=${trade.id} FOR UPDATE`;
+        const current = await loadTradeForAction(trade.id, tx);
+        assertCanCancelTrade({ actorOwnerId: actor.playerId, isAdmin: actorIsAdmin,
+          proposerOwnerId: current.proposerPlayerId, recipientOwnerId: current.receiverPlayerId, status: current.status });
+      }
       await tx.trade.update({
         where: { id: trade.id },
         data: {
@@ -717,7 +763,10 @@ async function completeTradeIfReady(
   actorUserId: string,
   force = false,
 ) {
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(tx => completeTradeInTransaction(tx, tradeId, actorUserId, force));
+}
+
+async function completeTradeInTransaction(tx: Prisma.TransactionClient, tradeId: string, actorUserId: string, force = false) {
     // Serialize every completion of this trade, including admin overrides. Read
     // readiness, destinations and stock only after the previous completer commits.
     await tx.$queryRaw`SELECT "id" FROM "Trade" WHERE "id" = ${tradeId} FOR UPDATE`;
@@ -725,8 +774,9 @@ async function completeTradeIfReady(
     if (isTerminalTradeStatus(trade.status)) return;
     if (!force && (!trade.proposerCommittedAt || !trade.receiverCommittedAt))
       return;
-    const lines = trade.lines.length
-      ? trade.lines.map((line) => ({
+    if (force && trade.deckBundles.length) throw new Error("Whole-deck trades require both participants' confirmations and recipient settings.");
+    const lines = trade.lines.length || trade.deckBundles.length
+      ? trade.lines.filter(line => !line.deckBundleId).map((line) => ({
           side: line.side,
           inventoryItem: line.inventoryItem,
           quantity: line.quantity,
@@ -744,20 +794,37 @@ async function completeTradeIfReady(
           },
         ];
     if (
-      !lines.length ||
+      (!lines.length && !trade.deckBundles.length) ||
       lines.some((line) => !line.inventoryItem || line.quantity < 1)
     ) {
       throw new Error("One or more traded cards are no longer available.");
     }
     const reason = `Completed trade between ${trade.proposerPlayer.displayName} and ${trade.receiverPlayer.displayName}`;
-    const itemIds = Array.from(new Set(lines.map((line) => line.inventoryItem!.id))).sort();
+    const deckStockIds: string[] = [];
+    if (trade.deckBundles.length) {
+      const receiverUsers = trade.deckBundles.map(bundle => {
+        const receipt = bundle.receiptJson;
+        if (!receipt || typeof receipt !== "object" || Array.isArray(receipt) || typeof receipt.ownerUserId !== "string")
+          throw new Error("The recipient must choose organization and confirm deck visibility.");
+        return receipt.ownerUserId;
+      });
+      await lockTradeDeckSources(tx, trade.deckBundles.map(bundle => {
+        if (!bundle.deckId) throw new Error("A traded deck is unavailable.");
+        return bundle.deckId;
+      }), receiverUsers);
+      for (const bundle of trade.deckBundles) {
+        const source = await readTradeDeck(tx, bundle.deckId!, bundle.side === "PROPOSER" ? trade.proposerPlayerId : trade.receiverPlayerId);
+        deckStockIds.push(...source.stock.map(item => item.id));
+      }
+    }
+    const itemIds = Array.from(new Set([...lines.map((line) => line.inventoryItem!.id), ...deckStockIds])).sort();
     // Distinct trades can consume one lot. Serialize the fresh stock read so
     // audit quantities and full-versus-partial removal use its current state.
     // Lock in a common order across all trade completions.
-    await tx.$queryRaw`
-      SELECT "id" FROM "InventoryItem"
-      WHERE "id" IN (${Prisma.join(itemIds)}) ORDER BY "id" FOR UPDATE
-    `;
+    for (let offset = 0; offset < itemIds.length; offset += 500)
+      await tx.$queryRaw`SELECT "id" FROM "InventoryItem"
+        WHERE "id" IN (${Prisma.join(itemIds.slice(offset, offset + 500))}) ORDER BY "id" FOR UPDATE`;
+    if (trade.deckBundles.length) await transferConfirmedTradeDecks(tx, tradeId, actorUserId);
     const currentItems = await tx.inventoryItem.findMany({
       where: { id: { in: itemIds } },
       include: {
@@ -805,16 +872,19 @@ async function completeTradeIfReady(
         reason,
       );
     }
+    const receivedLines = [...resolvedLines, ...trade.lines.filter(line => line.deckBundleId).map(line => ({
+      side: line.side, quantity: line.quantity, inventoryItem: line.inventoryItem!,
+    }))];
     await fulfillCompletedTradeWishlists(tx, {
       proposerPlayerId: trade.proposerPlayerId,
       receiverPlayerId: trade.receiverPlayerId,
-      offeredCards: resolvedLines
+      offeredCards: receivedLines
         .filter((line) => line.side === TradeLineSide.PROPOSER)
         .map((line) => ({
           cardId: line.inventoryItem.cardId,
           quantity: line.quantity,
         })),
-      requestedCards: resolvedLines
+      requestedCards: receivedLines
         .filter((line) => line.side === TradeLineSide.RECEIVER)
         .map((line) => ({
           cardId: line.inventoryItem.cardId,
@@ -847,7 +917,7 @@ async function completeTradeIfReady(
         tradeId,
         proposerName: trade.proposerPlayer.displayName,
         receiverName: trade.receiverPlayer.displayName,
-        offeredCards: resolvedLines
+        offeredCards: receivedLines
           .filter((line) => line.side === TradeLineSide.PROPOSER)
           .map((line) => {
             const images = line.inventoryItem.card.imageUris as {
@@ -867,7 +937,7 @@ async function completeTradeIfReady(
                 line.inventoryItem.card.imageUri,
             };
           }),
-        requestedCards: resolvedLines
+        requestedCards: receivedLines
           .filter((line) => line.side === TradeLineSide.RECEIVER)
           .map((line) => {
             const images = line.inventoryItem.card.imageUris as {
@@ -891,7 +961,6 @@ async function completeTradeIfReady(
       },
       tx,
     );
-  });
 }
 
 async function assertTradeDestinationLocation(
@@ -927,6 +996,7 @@ export async function confirmPhysicalTrade(fd: FormData) {
   const destinationLocationId = String(fd.get("destinationLocationId") || "");
   let eventType = "physical_confirmed";
   if (actorIsAdmin && fd.get("forceComplete")) {
+    if (trade.deckBundles.length) throw new Error("Whole-deck trades require both participants' confirmations and recipient settings.");
     const reason = String(fd.get("reason") || "");
     if (!reason) throw new Error("Admin force complete requires a reason.");
     await prisma.$transaction((tx) =>
@@ -945,14 +1015,16 @@ export async function confirmPhysicalTrade(fd: FormData) {
   }
   let otherParticipantId: string;
   let willComplete = false;
+  const needsLooseDestination = !trade.deckBundles.length || trade.lines.some(line =>
+    !line.deckBundleId && line.side === (actor.playerId === trade.proposerPlayerId ? "RECEIVER" : "PROPOSER"));
   if (actor.playerId === trade.proposerPlayerId) {
     if (trade.proposerCommittedAt)
       throw new Error("You have already confirmed this physical exchange.");
-    await assertTradeDestinationLocation(
+    if (needsLooseDestination) await assertTradeDestinationLocation(
       destinationLocationId,
       actor.playerId,
     );
-    data.proposerDestinationLocationId = destinationLocationId;
+    data.proposerDestinationLocationId = needsLooseDestination ? destinationLocationId : null;
     data.proposerCommittedAt = new Date();
     eventType = "proposer_confirmed_physical_exchange";
     otherParticipantId = trade.receiverPlayerId;
@@ -960,11 +1032,11 @@ export async function confirmPhysicalTrade(fd: FormData) {
   } else if (actor.playerId === trade.receiverPlayerId) {
     if (trade.receiverCommittedAt)
       throw new Error("You have already confirmed this physical exchange.");
-    await assertTradeDestinationLocation(
+    if (needsLooseDestination) await assertTradeDestinationLocation(
       destinationLocationId,
       actor.playerId,
     );
-    data.receiverDestinationLocationId = destinationLocationId;
+    data.receiverDestinationLocationId = needsLooseDestination ? destinationLocationId : null;
     data.receiverCommittedAt = new Date();
     eventType = "receiver_confirmed_physical_exchange";
     otherParticipantId = trade.proposerPlayerId;
@@ -975,6 +1047,8 @@ export async function confirmPhysicalTrade(fd: FormData) {
     );
   }
   await prisma.$transaction(async (tx) => {
+    if (trade.deckBundles.length)
+      await recordTradeDeckReceipts(tx, trade.id, actor.id, parseTradeDeckReceipts(fd.get("deckReceiptsJson")));
     const confirmed = await tx.trade.updateMany({
       where: {
         id: trade.id,
@@ -1003,8 +1077,26 @@ export async function confirmPhysicalTrade(fd: FormData) {
             recipientPlayerIds: [otherParticipantId],
           },
     });
-  });
-  await completeTradeIfReady(trade.id, actor.id);
+    if (trade.deckBundles.length) await completeTradeInTransaction(tx, trade.id, actor.id);
+  }, trade.deckBundles.length ? { timeout: 30000 } : undefined);
+  if (!trade.deckBundles.length) await completeTradeIfReady(trade.id, actor.id);
   revalidatePath("/trades");
   revalidatePath("/notifications");
+}
+
+export async function confirmPhysicalTradeWithFeedback(_previous: TradeProposalActionState, fd: FormData): Promise<TradeProposalActionState> {
+  try {
+    await confirmPhysicalTrade(fd);
+    return { status: "success", message: "Physical exchange confirmed." };
+  } catch (error) { return tradeActionFeedback(error); }
+}
+
+export async function acceptTradeWithFeedback(_previous: TradeProposalActionState, fd: FormData): Promise<TradeProposalActionState> {
+  const acceptance = new FormData();
+  acceptance.set("tradeId", String(fd.get("tradeId") || ""));
+  acceptance.set("action", "accept");
+  try {
+    await actOnTrade(acceptance);
+    return { status: "success", message: "Offer accepted. Both participants must confirm physical exchange." };
+  } catch (error) { return tradeActionFeedback(error); }
 }

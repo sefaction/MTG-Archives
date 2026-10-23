@@ -1,5 +1,6 @@
 "use server";
 
+import { lockWritableDeck } from "@/lib/deck-write-fence";
 import { revalidatePath } from "next/cache";
 import { getAccessScope, requireLogin } from "@/lib/auth";
 import { findOrImportCard } from "@/lib/card-import";
@@ -109,11 +110,13 @@ export async function removeManualWishlistItem(fd: FormData) {
 }
 
 async function applyDeckCardPrintingChange(input: {
+  expectedOwnerUserId: string;
   deckId: string;
   deckCardId: string;
   proposedCardId: string;
 }) {
   await prisma.$transaction(async (tx) => {
+    await lockWritableDeck(tx, input.deckId, input.expectedOwnerUserId);
     const deckCard = await tx.deckCard.findFirst({
       where: { id: input.deckCardId, deckId: input.deckId },
     });
@@ -233,6 +236,7 @@ async function switchDeckCardFromWishlist(
     );
 
   await applyDeckCardPrintingChange({
+    expectedOwnerUserId: deck.ownerUserId,
     deckId,
     deckCardId,
     proposedCardId: change.proposed.cardId,
@@ -267,6 +271,7 @@ export async function changeWishlistDeckCardPrinting(fd: FormData) {
     throw new Error("You can only edit your own decks.");
   }
   await applyDeckCardPrintingChange({
+    expectedOwnerUserId: deck.ownerUserId,
     deckId,
     deckCardId,
     proposedCardId: cardId,

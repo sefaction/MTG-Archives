@@ -4,6 +4,7 @@ import { getAccessScope, requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma, TradeStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { lockInventoryDeckSources, assertInventoryDeckWritable, activeDeckTradeStatuses } from "@/lib/deck-write-fence";
 
 const activeTradeStatuses: TradeStatus[] = [
   TradeStatus.PROPOSED,
@@ -40,6 +41,7 @@ export async function deleteInventoryItem(fd: FormData) {
   if (!inventoryItemId) throw new Error("Missing inventory item id.");
   if (!reason) throw new Error("A delete reason is required.");
   await prisma.$transaction(async (tx) => {
+    const lockedDeckIds = await lockInventoryDeckSources(tx, [inventoryItemId]);
     await tx.$queryRaw`SELECT "id" FROM "InventoryItem" WHERE "id" = ${inventoryItemId} FOR UPDATE`;
     await assertNotReserved(tx, inventoryItemId);
     const item = await tx.inventoryItem.findUnique({
@@ -47,6 +49,7 @@ export async function deleteInventoryItem(fd: FormData) {
       include: { card: true, currentOwner: true },
     });
     if (!item) throw new Error("Inventory item not found.");
+    await assertInventoryDeckWritable(tx, item.locationId, lockedDeckIds);
     if (!actionIsAdmin) {
       if (!actionUser.playerId) throw new Error("Your account is not linked to an inventory owner.");
       if (item.currentOwnerId !== actionUser.playerId) throw new Error("You can only delete inventory you own.");
@@ -82,6 +85,7 @@ export async function cleanupZeroQuantityInventory(fd?: FormData) {
   const candidateIds = candidates.map(item => item.id).sort();
   await prisma.$transaction(async (tx) => {
     if (!candidateIds.length) return;
+    const lockedDeckIds = await lockInventoryDeckSources(tx, candidateIds);
     for (let offset = 0; offset < candidateIds.length; offset += 500) {
       const ids = candidateIds.slice(offset, offset + 500);
       await tx.$queryRaw`SELECT "id" FROM "InventoryItem"
@@ -104,8 +108,15 @@ export async function cleanupZeroQuantityInventory(fd?: FormData) {
         ])
         .filter((id): id is string => Boolean(id)),
     );
+    const reservedDecks = await tx.tradeDeckBundle.findMany({ where: {
+      deckId: { in: [...lockedDeckIds] }, trade: { status: { in: activeDeckTradeStatuses } },
+    }, select: { deckId: true } });
+    const reservedDeckIds = new Set(reservedDecks.map(bundle => bundle.deckId));
+    const writableDeckIds = [...lockedDeckIds].filter(id => !reservedDeckIds.has(id));
     const zeroItems = await tx.inventoryItem.findMany({
-      where: { quantity: { lte: 0 }, id: { in: candidateIds, notIn: [...reserved] } },
+      where: { quantity: { lte: 0 }, id: { in: candidateIds, notIn: [...reserved] }, OR: [
+        { locationId: null }, { location: { deckId: null } }, { location: { deckId: { in: writableDeckIds } } },
+      ] },
       include: {
         card: true,
         currentOwner: true,
