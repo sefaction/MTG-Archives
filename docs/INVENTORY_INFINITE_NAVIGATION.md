@@ -41,8 +41,42 @@ audit, location, user, player and card rows after exact owned cleanup.
 
 The identical versioned private/desktop success case fails against the
 unchanged image because no new page request is issued. Twenty focused existing
-Inventory paging, scroll and selection checks pass with the repair. Candidate
-production build, full browser matrix, exact-head CI and independent review
-remain pending at this author checkpoint. Earlier failure artifacts are kept
-privately, not overwritten by later runs. No historical #721 diagnosis,
-production deployment, merge or user acceptance is claimed.
+Inventory paging, scroll and selection checks pass with the repair. All seven
+product/test-head CI jobs pass in run `39957963796` at `8a81c29e`.
+
+The local production image passes compilation, type checking, static generation
+and client manifests. Its first attempt exhausted a 1 GiB JavaScript type-check
+heap and aborted; Docker recorded no OOM kill. The diagnosed retry retained a
+2 GiB/no-extra-swap/one-CPU builder, assigned 1536 MiB to JavaScript and skipped
+only simultaneous duplicate lint, reusing the complete exact-head CI lint/build
+result. All other build checks ran. Builder environment/command adaptations are
+explicit; this is not an unchanged-recipe binary-reproducibility claim. Owned
+builder/cache was retired after preserving logs, counters and its cache manifest.
+
+Eight Private/Public, desktop/320px delayed-success/failure cases pass on the
+candidate, including return to the original query while its first request is
+still held. Normal retry and selection preservation also pass. The first retry
+run failed only because a status selector matched three labels; its retained
+trace shows the selected checkbox and all 24 rows. The corrected unique-status
+assertion passes without repeating the eight unaffected cases. Each case
+removes its fixture and reproduces six original-table fingerprints.
+
+Direct original-trigger checks load all twelve narrowed rows on desktop and
+phone, with no page errors or stale rows; screenshots were inspected. The extra
+phone run first exposed an existing autocomplete popup covering Search. That
+pointer-interception failure is preserved separately under
+[#910](https://github.com/sefaction/MTG-Archives/issues/910). The successful direct
+phone check uses ordinary Escape to close suggestions before Search; it does
+not qualify the open-popup pointer path. The eight versioned cases retain their
+actual successful Search actions. No forced click conceals that separate defect.
+
+The image's 1,224 declared inputs at `8a81c29e` have digest
+`ff44b3959aaaba9ccd30ca6dac1ace318874bced6f7a696b35b06c8efc26e9b3`.
+The later author revision changes this report/checkpoint and the one test-only
+status selector; every application input remains identical. The test runs
+outside the image. A new application rebuild would add no relevant evidence;
+required final-head CI is tracked on the PR and must pass before readiness.
+Independent review and Brian's individual merge approval remain review gates.
+Earlier failure artifacts stay private and are not overwritten by later runs.
+No historical #721 diagnosis, production deployment, merge or human acceptance
+is claimed.

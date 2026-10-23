@@ -153,7 +153,7 @@ test("ordinary infinite retry preserves loaded rows and selection", async ({ pag
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await expect(rows).toHaveCount(24);
     await expect(rows.first().getByRole("checkbox", { name: /^Select / })).toBeChecked();
-    await expect(page.locator(".inventory-selection-context")).toContainText("1 entry selected");
+    await expect(page.locator(".inventory-selection-context").filter({ hasText: "1 entry selected" })).toBeVisible();
     expect(requests).toBe(3);
   } finally {
     await page.unrouteAll({ behavior: "wait" });
