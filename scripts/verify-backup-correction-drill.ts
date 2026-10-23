@@ -7,7 +7,7 @@ import { mkdir, writeFile, readFile, readdir, cp, access } from "node:fs/promise
 import path from "node:path";
 import sharp from "sharp";
 import { PrismaClient } from "@prisma/client";
-import { correctionRestoreTables, verifyRestoredCorrections, type CorrectionRestoreEvidence } from "./restore-correction-projection";
+import { correctionRestoreTables, verifyCorrectionBackupCapture, verifyRestoredCorrections, type CorrectionRestoreEvidence } from "./restore-correction-projection";
 
 const sourceURL = new URL(process.env.DATABASE_URL || "http://invalid");
 const targetURL = new URL(process.env.CORRECTION_DRILL_RESTORE_URL || "http://invalid");
@@ -51,6 +51,15 @@ function run(mode: string, env: NodeJS.ProcessEnv, expected = 0, stage?: string)
 }
 async function main() {
   const started = Date.now(); await empty(source, true); await empty(target, false);
+  const offset = new Date("2026-10-23T10:00:00Z").getTimezoneOffset();
+  if (process.env.TZ === "America/Chicago") assert.equal(offset, 300, "Non-UTC qualification must actually use its requested timezone");
+  const [serialized] = await source.$queryRaw<{ row: Record<string, unknown> }[]>`SELECT jsonb_build_object(
+    'id','timezone-probe','createdAt',TIMESTAMP '2026-10-23 10:00:00.100',
+    'releasedAt',TIMESTAMP '2026-10-23 10:00:00.200') AS row`;
+  const timestampWindow = { started: Date.parse("2026-10-23T10:00:00Z"), finished: Date.parse("2026-10-23T10:00:01Z") };
+  assert.equal(verifyCorrectionBackupCapture([], [serialized.row], timestampWindow), "timezone-probe");
+  assert.throws(() => verifyCorrectionBackupCapture([], [{ ...serialized.row, releasedAt: "2026-10-23T10:00:01.001" }], timestampWindow));
+  console.log(`PASS actual PostgreSQL TIMESTAMP JSON lifecycle window, runner TZ=${process.env.TZ || "system"}, offset=${offset}; no window expansion`);
   // Only this freshly verified empty fixture receives these columns. The real
   // verifier must conserve unknown future fields without enumerating a schema.
   for (const table of correctionRestoreTables) await source.$executeRawUnsafe(`ALTER TABLE public."${table}"

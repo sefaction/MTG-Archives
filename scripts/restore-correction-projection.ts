@@ -20,7 +20,11 @@ const transient: Record<string, string[]> = { CorrectionBackupGuard: ["releasedA
   CorrectionLibraryAccount: [], CorrectionExample: ["updatedAt"], CorrectionRetentionPin: ["releasedAt"] };
 const identifier = (table: string) => { assert.ok((correctionRestoreTables as readonly string[]).includes(table)); return `public."${table}"`; };
 function inWindow(value: unknown, window: TimeWindow) {
-  const millis = typeof value === "string" ? Date.parse(value) : NaN;
+  // Prisma's UTC TIMESTAMP(3) columns lose their offset in PostgreSQL JSON.
+  // Interpret that known representation as UTC, never as the runner's TZ.
+  const timestamp = typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})?$/.test(value)
+    ? /(?:Z|[+-]\d{2}:\d{2})$/.test(value) ? value : value + "Z" : "";
+  const millis = Date.parse(timestamp);
   assert.ok(Number.isFinite(millis) && millis >= window.started && millis <= window.finished,
     "Lifecycle timestamp must belong to this actual operation");
   return millis;

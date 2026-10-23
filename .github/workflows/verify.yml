@@ -45,6 +45,7 @@ jobs:
       CORRECTION_DRILL_RESTORE_URL: postgresql://drill:drill@restore-db:5432/mtg_restore_drill?schema=public
       MTG_LOCAL_PILOT_TEST: "1"
       MTG_CORRECTION_DRILL_FIXTURE: "1"
+      TZ: America/Chicago
     steps:
       - uses: actions/checkout@v4
         with:
