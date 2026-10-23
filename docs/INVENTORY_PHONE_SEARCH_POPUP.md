@@ -1,75 +1,100 @@
-# Inventory phone Search and suggestions
+# Inventory phone Search and Public suggestions
 
-Issue [#910](https://github.com/sefaction/MTG-Archives/issues/910) is a positioning
-defect: the suggestion list beneath the input can cover Search when the form
-stacks on a narrow viewport. An actual 320px touch control fails on the unchanged
-client because the first suggestion intercepts the tap. The fixture is removed
-and six original-table fingerprints match; screenshot and trace remain private.
+[PR #912](https://github.com/sefaction/MTG-Archives/pull/912) addresses
+[#910](https://github.com/sefaction/MTG-Archives/issues/910) and
+[#911](https://github.com/sefaction/MTG-Archives/issues/911).
 
-Three positioning classes anchor the popup below the entire form on narrow
-layouts, leaving Search/Clear above it. At the existing `sm` row breakpoint,
-the input label remains its anchor. The popup stays absolute, so blur/dismissal
-does not move the action between pointer down and up. Suggestion/query state,
-selection, keyboard handlers, filter preservation and server APIs are unchanged.
+Three positioning classes put phone suggestions below the entire stable form,
+leaving Search reachable. Desktop suggestions remain anchored beneath the input.
+The absolute popup does not move the button during blur or dismissal. Search,
+selection and keyboard handlers retain their existing behavior.
 
-`tests/ui/inventory-quick-search-popup.spec.ts` uses an explicit immutable local
-review-container/database target, synthetic owner and private sentinel owner.
-Twelve cases cover actual touch/mouse Search with loading/settled suggestions
-on Private/Public Inventory at 1366/390/320px. Eight phone cases preserve touch
-option selection, ArrowDown/Enter, ArrowUp/Enter and Escape/Enter. Search cases
-keep the popup open until the real action, assert the typed partial query and
-other filters, reject the private sentinel and check page containment/errors.
-No forced click, pre-click dismissal or suppressed suggestions qualifies Search.
+Brian explicitly authorized the specific Public-suggestions routing repair.
+Quick and Advanced Public search now use
+`/api/public/inventory/filter-suggestions`. This facade forces `public=1` before
+calling the existing validated, public-visibility-constrained query. Caller flags
+and sessions cannot switch it to private scope. Private endpoints and middleware,
+schema, quantities and writers are unchanged.
 
-Only loading-response timing is controlled; settled cases use ordinary API
-responses. Temporary fixture sessions test normal stored-session resolution,
-not password-login middleware. Every case checks complete original Inventory,
-audit, location, user, player and card fingerprints after exact owned cleanup.
-This is browser/software coverage at narrow widths, not physical phone or
-full accessibility certification.
+## Author qualification
 
-The feature branch starts from current main `51f810c3`. Cumulative local review
-also includes qualified [#909](https://github.com/sefaction/MTG-Archives/pull/909)
-at `b62df4f2`; its incremental-loading fix is separate from this PR. Local review
-head `903e7785` copies the exact new Quick component and popup test over that
-parent. Source manifests must bind both inputs; the cumulative image is not
-represented as a standalone build of the feature branch.
+- Twenty-three existing style/compact/scroll checks, ten public read-only checks
+  and changed-file lint pass.
+- Twenty real browser cases pass: Private and genuinely anonymous Public,
+  desktop/390/320px, loading/settled Search, suggestion taps, ArrowDown/Enter,
+  ArrowUp/Enter and Escape/Enter. Search uses ordinary mouse/touch with the popup
+  open. Query/filter preservation, exact result rows, private-sentinel exclusion,
+  page containment and page-error assertions pass. Desktop/phone screenshots were
+  inspected. No forced click or pre-click dismissal qualifies Search.
+- Two corrected controls pass: anonymous Advanced Search receives an actual
+  successful type-suggestion response; API checks cover anonymous, signed-in and
+  invalid-session public requests, forced flags, private-name/private-owner
+  exclusion, supported finish scope, bounded results and invalid kinds. Private,
+  wrong-path and unrelated inventory requests without authentication are rejected;
+  an invalid session is rejected by the private suggestion route.
+- Exact fixture cleanup and complete original Inventory, audit, location, user,
+  player and card counts/hashes match the retained pre-test baseline. A timed-out
+  test originally skipped cleanup after its page closed; its exact synthetic
+  owner/stock was verified and removed. All six original hashes then matched.
+  The finalizer now runs database cleanup even if page cleanup fails.
+- The earlier combined #908 phone loading/search trigger passed all twelve
+  narrowed rows on the cumulative layout candidate without Escape or a forced
+  click. The routing candidate retains those application bytes except the listed
+  Public route/caller changes; this is not claimed as a new run on that image.
 
-Twenty-three focused existing style/compact/scroll checks and changed-file lint
-pass. The cumulative build passes compilation, types, static generation and
-client manifests in a dedicated 2 GiB/no-extra-swap/one-CPU builder with a
-1536 MiB JavaScript heap. Local lint ran separately; canonical final-head CI
-remains a readiness gate. There were no Docker OOM kills. Owned builder/cache
-was retired after preserving its log, counters and cache manifest.
+The 20 browser cases passed in a 22-case run whose two added controls failed;
+those failures remain failed. Only the two corrected controls were rerun, both
+passing. Unrelated leftover synthetic stock from the timed-out control was
+present during the original 20-case run; each case used its own unique query,
+proved its own cleanup, and the complete original baseline was restored afterward.
 
-All ten corrected Private cases pass, with exact fixture cleanup and original
-six-table conservation. Desktop/phone open-popup screenshots were inspected.
-The original combined #908 phone trigger also loads all twelve narrowed rows
-on the cumulative candidate without Escape, a forced click or suppressing the
-popup. The test's supported Language filter is preserved. Its first matrix used
-an unsupported `condition` query parameter; those later assertion failures are
-preserved, not called passes. Correcting the test data/parameter changes no
-application code and does not justify a repeated application build.
+## Source and runtime binding
 
-Anonymous Public acceptance remains **blocked**, not passed or replaced by an
-authenticated test. Seven initial settled/keyboard cases cannot receive
-options: `/api/inventory/filter-suggestions?public=1` returns actual HTTP 401
-before the public branch runs. Independently actionable routing issue
-[#911](https://github.com/sefaction/MTG-Archives/issues/911) records the source,
-response and required privacy/authentication controls. The recorded work
-allocation reserves shared routing to the desktop; specific assignment for
-that repair is requested. No shared routing change, fake session workaround
-or suppressed suggestion response is implemented by this client batch.
+The feature branch starts from main `51f810c3`. Cumulative local review also
+includes separately qualified [#909](https://github.com/sefaction/MTG-Archives/pull/909)
+at `b62df4f2`; that PR is not included here. Cumulative source
+`258ce94c8458e7a633e102789788b72cb6504fbd` builds 1,226 declared inputs with digest
+`4b0d7afc20a77db583ad5d551426b93b09ca87173aaaac030951cf1c2da00d8a`.
 
-The cumulative image binds 1,225 declared inputs at `903e7785` with digest
-`0e5128bc084d1970607854169ff9c4e712477c79b46a82a2570ae25c260da638`.
-Its application Quick component exactly matches this feature branch; the
-later browser fixture correction is test-only and runs outside the image.
-The other cumulative application change is #909's separately qualified
-InventoryBrowser. Full feature/cumulative input differences are recorded in
-the private source binding, rather than claimed as a standalone feature image.
+The image manifest equals the expected cumulative manifest. Quick Search,
+Advanced Search, the public route, middleware and private APIs exactly match the
+feature source. The only other common application difference is #909's
+InventoryBrowser. Cumulative-only infinite-navigation tests and later corrections
+to two browser test files are explicitly recorded in the private binding. Tests
+run from feature source outside the image; no application bytes changed after
+the build. The declared-input manifest is not a whole Docker-context digest or
+a reproducible-binary identity.
 
-Keep the PR draft and #910 open until the complete Private/Public acceptance
-is qualified or an explicit reviewed disposition is agreed. Canonical final-head
-CI, independent/Brian review and individual merge approval remain separate.
-No production deployment or human acceptance is implied.
+Compilation, types, static generation and client manifests pass in the bounded
+2 GiB/no-extra-swap/one-CPU builder with a 1536 MiB JavaScript heap. Changed-file
+lint ran separately; canonical final-head CI remains required before readiness.
+There were zero Docker OOM kills. The first routing build was deliberately
+stopped to include the second Public caller; its graceful-stop log is preserved.
+The successful builder/cache and superseded layout-only web/image were retired.
+Current cumulative review and earlier rollback reviews remain available.
+
+## Preserved failures and separate remainder
+
+The unchanged 320px client fails a real-touch negative because a suggestion
+intercepts Search. Earlier browser fixtures used an unsupported condition query;
+those later assertions failed and are retained. Correcting that fixture to retain
+the Language query does not establish enforcement of every Public filter.
+
+Before the routing repair, the public-flagged private URL returned actual HTTP
+401 and anonymous settled/keyboard cases received no options. No fake cookie or
+authenticated substitute qualified anonymous Public behavior.
+
+The first added API control exposed an existing Public Language-filter gap:
+English rows/names still appear for `language=FR`. That failure is independently
+recorded as [#913](https://github.com/sefaction/MTG-Archives/issues/913), with
+reproduction and acceptance criteria. This routing repair preserves the existing
+public query and does not fix Language filtering. Its corrected scope control
+tests the supported finish filter. The Advanced control initially targeted an
+incorrect button label; the corrected accessible control passes. Other
+loader/wrong-working-directory/missing-file attempts are harness errors, not
+application passes or unexplained product regressions.
+
+This is author software/browser qualification, not independent review, physical
+phone certification, merge, installation or user acceptance. Check PR #912 for
+current final-head CI/readiness. Both issues stay open until their individually
+approved resolving merge. No merge or production authority is granted.

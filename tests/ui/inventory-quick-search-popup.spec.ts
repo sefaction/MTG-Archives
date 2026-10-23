@@ -38,9 +38,9 @@ test("Public suggestions remain anonymous and public-only while Private stays au
     const privateOwner = await page.request.get(`${publicPath}&owner=${encodeURIComponent(data.privateOwnerId)}`);
     expect(privateOwner.status()).toBe(200);
     expect((await privateOwner.json()).suggestions).toEqual([]);
-    const otherLanguage = await page.request.get(publicPath.replace("language=EN", "language=FR"));
-    expect(otherLanguage.status()).toBe(200);
-    expect((await otherLanguage.json()).suggestions).toEqual([]);
+    const otherFinish = await page.request.get(`${publicPath}&finish=FOIL`);
+    expect(otherFinish.status()).toBe(200);
+    expect((await otherFinish.json()).suggestions).toEqual([]);
     const invalid = await page.request.get("/api/public/inventory/filter-suggestions?kind=unknown&q=Popup");
     expect(invalid.status()).toBe(400);
     const bounded = await page.request.get(`${publicPath}&limit=1`);
@@ -64,14 +64,16 @@ test("Public Advanced Search loads anonymous type suggestions", async ({ page, b
   try {
     await page.context().clearCookies();
     await page.goto("/public/inventory?language=EN");
-    await page.getByText("Advanced Search", { exact: true }).click();
+    await page.getByRole("button", { name: "Filters — Advanced Inventory Search", exact: true }).click();
     const input = page.getByRole("combobox", { name: "Type line", exact: true });
+    const loaded = page.waitForResponse(response => response.url().includes("/api/public/inventory/filter-suggestions?") && new URL(response.url()).searchParams.get("kind") === "typeLine");
     await input.fill("Artifact");
+    expect((await loaded).status()).toBe(200);
     const options = page.getByRole("listbox").getByRole("option");
     await expect(options.filter({ hasText: /^Artifact$/ })).toHaveCount(1);
   } finally {
-    await page.goto("about:blank");
-    await data.cleanup();
+    try { await page.goto("about:blank"); }
+    finally { await data.cleanup(); }
   }
 });
 function fingerprint() {
@@ -145,8 +147,8 @@ for (const publicView of [false, true]) {
         } finally {
           release();
           await page.unrouteAll({ behavior: "wait" });
-          await page.goto("about:blank");
-          await data.cleanup();
+          try { await page.goto("about:blank"); }
+          finally { await data.cleanup(); }
         }
       });
     }
@@ -180,8 +182,8 @@ for (const publicView of [false, true]) {
         expect(new URL(page.url()).searchParams.get("language")).toBe("EN");
         await expect(page.locator(".inventory-results tbody tr")).toHaveCount(method === "Escape Enter" ? 3 : 1);
       } finally {
-        await page.goto("about:blank");
-        await data.cleanup();
+        try { await page.goto("about:blank"); }
+        finally { await data.cleanup(); }
       }
     });
   }
