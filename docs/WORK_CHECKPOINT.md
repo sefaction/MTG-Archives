@@ -1,5 +1,13 @@
 # Work checkpoint
 
+## Current work - Inventory incremental navigation repair #908, October 23, 2026
+
+- Branch `codex/inventory-infinite-navigation`, base main `51f810c3`; active issue-resolution goal authorizes this demonstrated client defect repair. [#908](https://github.com/sefaction/MTG-Archives/issues/908) creation receipt and exact owner are retained privately. No merge, production or backend-writer authority.
+- Actual production-client/list-API reproduction leaves 10 of 12 new-filter rows permanently loading after a delayed old page request. Duplicate search includes original paging work and completed retry PR415; historical #721 is separate and stays open. All owned synthetic records removed; six original-table fingerprints match. Initial cleanup harness failure/recovery preserved.
+- Client reset and monotonically identified requests prevent old success/error/finally handlers changing newer results, including same-query returns and refresh/unmount. No API, schema, quantity, ownership, privacy or selection-policy change.
+- Twenty focused paging/scroll/selection checks pass. Identical versioned browser negative fails against unchanged image because the new request never starts; trace retained. Candidate build, nine browser cases on Private/Public desktop/phone, required exact-head CI and independent review remain pending. Full evidence and limits: `docs/INVENTORY_INFINITE_NAVIGATION.md`.
+- Source claim remains owned while implementation/qualification continues. Reproduction and negative-control runtime windows released after terminal children/fixture cleanup. Existing primary and review resources/WIP preserved. Next: qualify source-bound candidate, publish/update the draft PR, address findings and refresh exact-head CI; individual approval required before merge.
+
 ## Current work - #905 readiness evidence, October 22, 2026
 
 - Owner STMLT26/thread `01a16522-acc1-7390-a1a1-1005ec1997cc`, run
