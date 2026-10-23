@@ -1,5 +1,182 @@
 # Work checkpoint
 
+## Current work - #905 readiness evidence, October 22, 2026
+
+- Owner STMLT26/thread `01a16522-acc1-7390-a1a1-1005ec1997cc`, run
+  `ready-905-20261022-01a16522`. Brian removed the runtime hold and requested
+  completing an issue through readiness for review. Existing isolated branch
+  `codex/laptop-location-filter-state`; product/test head `2c558e35`, base main
+  `11f54612`. This documentation-only commit records final evidence; PR906 gives
+  its exact head/current CI. No product/test/build-input changes follow the tests.
+- [#905](https://github.com/sefaction/MTG-Archives/issues/905) /
+  [#906](https://github.com/sefaction/MTG-Archives/pull/906): 19 focused checks,
+  zero focused TypeScript diagnostics, preserved two-case negative controls,
+  independent source review with no findings, bounded local production build,
+  matching 1,223-input source manifest, and 12 real browser groups at
+  desktop/390/320 px pass. Fixture stock/audit invariance and selected original
+  review baselines pass. Exact delayed-history ordering remains component-tested;
+  browser history is natural and the actual gated response is own-search RSC.
+- [Portable review evidence](LOCATIONS_FILTER_REVIEW.md) records exact image,
+  runtime, source binding, build-only adaptations and evidence limits. Current
+  synthetic app <http://127.0.0.1:13012/locations> is retained for Brian's review
+  with its isolated database/image. Test browsers, temporary sessions/private env
+  file and builder/cache are retired; runtime claim released after terminal work.
+- Required CI on product head passed all seven checks in run39844065806; this
+  final documentation head needs fresh exact-head CI. Source review remains
+  bound to unchanged product/test inputs; documentation evidence is separately
+  reviewed. Mark ready after those gates pass; keep issue open pending approved
+  merge. No merge, production, scanner, schema or domain change.
+- Canonical source-batch claim is exact-owned only during this handoff/publication
+  and released after final metadata readback. No running test/build children.
+  Private reports/current are in `.local-data/review-905-20261022/` and setup
+  `current.json`; root cumulative/policy/manual WIP is preserved. Next safe step:
+  final exact-head CI/readiness publication, then Brian's individual review.
+
+## Historical correction checkpoint - #905, October 22, 2026
+
+- Owner: STMLT26, thread `01a16522-acc1-7390-a1a1-1005ec1997cc`, run
+  `fix-905-20261022-01a16522`. Brian explicitly authorized applying the reviewed
+  correction, allowed checks and updating PR906 in this chat, with the runtime
+  hold left in place. This supersedes the preceding review-only scope for these
+  actions; the prior author identity and original evidence remain below.
+- Existing isolated branch `codex/laptop-location-filter-state`, parent
+  `87ffe94ba8225012472d7b64d406f4653367f802`, base main `11f54612`. This commit
+  contains the correction, regression tests and handoff; PR906 records its final
+  exact head. No root cumulative working-tree changes are included.
+- [Issue #905](https://github.com/sefaction/MTG-Archives/issues/905), draft
+  [PR #906](https://github.com/sefaction/MTG-Archives/pull/906): acknowledge the
+  restored history URL on popstate so delayed props cannot erase subsequent
+  typing/filter edits or interrupt IME composition. Preserve genuine external
+  navigation resets and existing URL/filter semantics.
+- Completed: identical new versioned tests fail twice on the preceding source
+  while all seven original component cases pass; corrected source passes all
+  19 focused location/component/static checks. Focused TypeScript reports zero
+  diagnostics (345,460 KiB peak RSS, 256 MiB heap cap); whitespace passes.
+  Tests execute the real component with hook/router/JSX/timer stand-ins; no
+  installed React renderer, browser, database or layout acceptance is claimed.
+- Pending: required exact-head CI, fresh independent review of this correction,
+  and authorized desktop/320/390px runtime review. The previous independent
+  reviewer now implements this correction, so that review does not approve the
+  new source. Keep PR draft and issue open. Earlier exploratory return-to-initial
+  overlap remains unverified for actual router ordering; no broader fix claimed.
+- Canonical lightweight guard belongs only to this run/thread during source and
+  publication work. All bounded test processes are terminal; no runtime lock,
+  fixture, child service or deployment is owned. Release the exact lightweight
+  claim after publication/readback. ACTIVE heavy-runtime hold remains unchanged.
+- Private correction evidence: `.local-data/review-905-20261022/` in the primary
+  checkout (`correction-negative.txt`, `correction-focused.txt`,
+  `correction-typecheck.txt`, prior `REVIEW.md`). Original failures and prior
+  author evidence are preserved. Next safe step: verify new exact-head CI and
+  independent review; runtime acceptance waits for explicit scoped hold release.
+
+## Historical author checkpoint - laptop Locations filters, October 22, 2026
+
+- Owner: STMLT26, thread `01a1641c-c524-7402-8b5e-d6f0986878c4`, run
+  `laptop-locations-20261022-01a1641c`. Brian's current standalone laptop
+  automation authorizes lightweight interface implementation and draft PRs;
+  no merge, deployment, schedule, scanner or shared-runtime mutation.
+- Branch `codex/laptop-location-filter-state`, isolated worktree
+  `.local-data/worktrees/laptop-location-filter-state`; current product/test head
+  `9c405f61eb76373bacf59fb95c8810acc5e4e837`, based on main `11f54612` (PR904).
+  This handoff-only commit follows; the draft PR records the final exact head.
+- [Issue #905](https://github.com/sefaction/MTG-Archives/issues/905): synchronize
+  mounted Locations query/space/type/status and branch state after client
+  navigation/history; preserve newer edits across earlier own responses.
+  Existing backend/domain/other worker scope is untouched. The initial tree-link
+  reproduction was corrected to the main `next/link` Locations navigation;
+  ordinary tree anchors may remount. No installed browser reproduction claimed.
+- Completed: 17 focused tests, zero focused TypeScript diagnostics, whitespace
+  check. The identical seven component-event cases against pinned old source
+  fail five and pass two preservation controls; current source passes all seven.
+  This uses actual component handlers/effects with hook/router/JSX stand-ins,
+  plus existing browser-helper/static UI tests, without a browser or database.
+- Pending gates: ordinary required exact-head hosted CI, independent review,
+  authorized runtime desktop and 320/390px phone navigation/history/typing/IME
+  and section/owner presentation checks. Keep draft. ACTIVE heavy-runtime hold
+  prohibits local builds/reloads/full suites/database/browser fixtures; passing
+  source checks does not establish runtime delivery or historical #721 repair.
+- Ownership/cleanup: canonical lightweight guard belongs only to this run/thread
+  during work. No runtime lock, fixture, child service or deployment is owned.
+  Release this exact lightweight claim after terminal cleanup; leave the hold
+  and every other owner's resource unchanged. Retain the review worktree.
+- Private current/evidence/creation receipt: `.local-data/laptop-worker-setup-20261022/`
+  (`current.json`, `location-filter-evidence.md`, `location-filter-creation-receipt.json`,
+  focused/negative test logs). Root cumulative branch and policy/manual/checkpoint
+  WIP are preserved. Next safe step: inspect final draft CI and obtain independent
+  review; runtime review waits for explicitly scoped hold release.
+
+Earlier entries retain their original observation times and authority; they are
+not this laptop batch's current ownership or permission.
+
+## Current work - coordinated documentation pass, October 22, 2026
+
+- Owner/node: thread `01a16053-5a48-75da-87ba-626757bad03f` on STMLT26, isolated worktree
+  `.local-data/worktrees/agents-policy-20261022`, branch `docs/agents-policy-20261022`,
+  base `1d235f45e4a79896ed29e89a0acf3b809ebbf85d` (live main verified on entry).
+- Authority/scope: Brian's October 22 coordinated-pass approval, relayed by parent
+  task `01a15678-1540-7066-a74b-8a84f69d4034`; prepare a local documentation patch
+  only. No publication, merge, runtime/data/lock/schedule changes or new jobs/issues.
+- Changes: canonical policy, command reference, intake and execution/handoff guidance
+  cover user-outcome priority, proportional verification, ownership recovery,
+  capability-based work, lean artifacts and compact checkpoints. Earlier history
+  below is preserved; the primary worktree's checkpoint/manual WIP is untouched.
+- Resources: no runtime lock acquired or changed; existing shared runtime owner
+  remains separate. No build, Docker, database or application test operation.
+- Checks: whitespace, 14 relative links, all 18 existing type/status/area label
+  tokens and historical-content preservation pass. Six primary-worktree protected
+  files (checkpoint, three manual/handoff files, shared lock and worker state)
+  match their entry SHA-256 hashes. Required CI awaits future publication;
+  aggregate verification would build/run browser tests and is not needed here.
+- Questions: none for the approved scope. Next: parent reviews this uncommitted
+  five-file local patch; await separate publication instructions. No PR exists.
+
+## Preserved history
+
+Entries below retain their original observations and authority references; they
+are not this batch's current state, pending operations or continuing permissions.
+
+## PR #879 integration and qualification - October 21, 2026
+
+Current main 3ae13d0d integrated with checkpoint histories retained. Readiness
+product changes remain unchanged from qualified head 3c22393b. Source CI
+39534686852 passed all three jobs (1552 core tests plus both PostgreSQL suites).
+Hosted browser run 39536777618 passed one Chromium scenario (20.72s), all seven
+qualification gates and identical before/after snapshots for 84 tables. Independent
+source, harness and artifact reviews passed. Initial run 39535778024 storage
+fixture failure remains preserved; only harness tmpfs capacity was corrected.
+Brian authorized clear bounded fixes to merge overnight via parent delegation.
+Next: final integration CI, verify head before merge, verify resulting main checks.
+Do not deploy or close broad #308/#302. Earlier entries below are preserved history.
+
+
+## Physical review readiness under #308 — October 21, 2026
+
+- Branch `fix/308-physical-readiness`, desktop worktree `E:\Codex\mtg-308`,
+  base `f32ebffbec91d5488e7e3318510d446bdc3d80d7`. Related #308 / #302;
+  this bounded repair does not complete or close either tracker.
+- Reproduced old display returning `ready` for an accepted review carrying
+  uncertainty/overflow. Progress now projects physical count/allocation,
+  capture phase and current-photo blockers. Labels say ready to preview;
+  pending explanations retain saved reviews. Bulk selection shares readiness.
+  Commit rules, STOPPING subset exception, draft/retry fences are preserved.
+- Author checks: 19 focused display/navigation/domain tests passed under approved
+  Node 22.23.3; full worktree TypeScript no-emit check passed. Independent source
+  reviewer found navigation wording, bulk-selection and two fixture issues;
+  all corrected, final review has no outstanding findings. Whitespace check passes.
+- Added persisted progress/count-confirm/review-preservation controls to the
+  existing hosted acquisition integrity suite, and synthetic browser reload,
+  blocked reason/pending total/width controls to existing draft-action coverage.
+  Neither new database nor browser test has run locally: setup owner controls
+  environment; no DB/app slot exists and Docker/WSL C: exceptions remain pending.
+  Normal PR CI is the available database/typecheck/build route. Keep PR draft.
+- Shared dependencies used read-only via matching-lockfile E: junction after
+  owner approval and generation. No independent installs/services; no D:, laptop,
+  production, #876, broad filters, ordered-section acknowledgement or 100/300
+  presentation rebuild. Foundry hub unavailable on this desktop; repository and
+  live issue/comments used. Paste owner confirms no source overlap; recognition
+  coordination send failed with AbsolutePathBuf error, and no recognition code
+  changed. Next: publish draft, inspect exact-head CI, then obtain setup-owned
+  synthetic browser slot. No merge/deployment or user-acceptance claim.
 ## Prisma pool investigation #846 - October 21, 2026
 
 Isolated branch `codex/prisma-pool-846` from live main

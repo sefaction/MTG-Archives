@@ -24,12 +24,17 @@ export function LocationBrowseFilters({
 }) {
   const router = useRouter();
   const [query, setQuery] = useState(params.q ?? "");
+  const [filters, setFilters] = useState(params);
   const [pending, startTransition] = useTransition();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const composing = useRef(false);
   // Keep a local draft across server responses, so an earlier query response
   // cannot overwrite what the user is typing next.
   const draft = useRef(params);
+  const receivedHref = locationBrowseHref(params).split("#")[0];
+  const previousHref = useRef(receivedHref);
+  const ownNavigations = useRef(new Set<string>());
+  const latestNavigation = useRef<string | null>(null);
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
@@ -37,15 +42,35 @@ export function LocationBrowseFilters({
     [],
   );
   useEffect(() => {
-    const reset = () => {
+    const reset = (next: LocationBrowseParams) => {
       if (timer.current) clearTimeout(timer.current);
-      const q = new URLSearchParams(window.location.search).get("q") ?? "";
-      setQuery(q);
-      draft.current = { ...params, q };
+      composing.current = false;
+      ownNavigations.current.clear();
+      latestNavigation.current = null;
+      setQuery(next.q ?? "");
+      setFilters(next);
+      draft.current = next;
     };
-    window.addEventListener("popstate", reset);
-    return () => window.removeEventListener("popstate", reset);
-  }, [params]);
+    if (receivedHref !== previousHref.current) {
+      previousHref.current = receivedHref;
+      // Own responses acknowledge submitted URLs without erasing later edits.
+      // Client navigation from the main Locations link replaces the scope.
+      if (!ownNavigations.current.delete(receivedHref)) reset(params);
+      else if (receivedHref === latestNavigation.current) {
+        ownNavigations.current.clear();
+        latestNavigation.current = null;
+      }
+    }
+    const restoreHistory = () => {
+      const next = Object.fromEntries(new URLSearchParams(window.location.search));
+      // The history event restores this URL before its server props arrive.
+      // Acknowledge it now so those props cannot erase subsequent edits.
+      previousHref.current = locationBrowseHref(next).split("#")[0];
+      reset(next);
+    };
+    window.addEventListener("popstate", restoreHistory);
+    return () => window.removeEventListener("popstate", restoreHistory);
+  }, [params, receivedHref]);
 
   function navigate(changes: Partial<LocationBrowseParams>, delay = 0) {
     if (timer.current) clearTimeout(timer.current);
@@ -58,9 +83,16 @@ export function LocationBrowseFilters({
       edit: undefined,
       panel: undefined,
     };
+    setFilters(draft.current);
     const href = locationBrowseHref(draft.current).split("#")[0];
     timer.current = setTimeout(
-      () => startTransition(() => router.replace(href, { scroll: false })),
+      () => {
+        if (href !== previousHref.current) {
+          ownNavigations.current.add(href);
+          latestNavigation.current = href;
+        }
+        startTransition(() => router.replace(href, { scroll: false }));
+      },
       delay,
     );
   }
@@ -115,7 +147,7 @@ export function LocationBrowseFilters({
             <select
               name="space"
               aria-label="Space"
-              defaultValue={params.space ?? ""}
+              value={filters.space ?? ""}
               className={cn(filterSelectClass, "mt-1 block max-w-full")}
               onChange={(event) =>
                 navigate({ space: event.target.value, q: query })
@@ -133,7 +165,7 @@ export function LocationBrowseFilters({
             <select
               name="type"
               aria-label="Type"
-              defaultValue={params.type ?? ""}
+              value={filters.type ?? ""}
               className={cn(filterSelectClass, "mt-1 block max-w-full")}
               onChange={(event) =>
                 navigate({ type: event.target.value, q: query })
@@ -150,7 +182,7 @@ export function LocationBrowseFilters({
             <select
               name="status"
               aria-label="Status"
-              defaultValue={params.status ?? ""}
+              value={filters.status ?? ""}
               className={cn(filterSelectClass, "mt-1 block max-w-full")}
               onChange={(event) =>
                 navigate({ status: event.target.value, q: query })
