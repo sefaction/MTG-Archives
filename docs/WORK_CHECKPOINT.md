@@ -1,4 +1,170 @@
+# Current integration status - PR #912, October 23, 2026
+
+PR #912 is being integrated with main 04b491333dd415b92f9a62aa8235209efa8ec9d2 after Brian's individual approval and independent source/evidence review. The only conflict was the concurrent checkpoint additions below; both histories are retained verbatim. PRs #902, #907 and #909 are merged. Fresh integrated-head CI remains required before #912 merge; #910/#911 remain open until that merge. #913/#914 language work and historical #721 remain separate and owned. No product changes, runtime, data, schedules or deployment accompany this documentation reconciliation.
+
+## Preserved dated checkpoint histories
+
+## Current work - laptop development restored, October 22, 2026
+
+- Authority/owner: Brian explicitly corrected the laptop restriction in chat `01a16541-333e-7c31-92f4-1b8223d12ed0`; run `laptop-policy-20261022-01a16541`, STMLT26. Continue laptop implementation, local production builds, meaningful tests, Docker/app reloads and desktop/phone review. This supersedes historical ACTIVE heavy-runtime/source-only holds below, including runtime gates recorded for #905/#906. Prior failures and issue ownership remain; merge, production and physical scanner authority are unchanged.
+- Isolated branch `codex/laptop-development-resource-policy`, base main `11f5461279f9f5b99295378a56d0880ae225158b`; final head/PR and CI recorded on its PR. Changes: explicit canonical policy, resource workflow and a local runtime admission helper. Root cumulative application/manual WIP preserved.
+- Applied operationally: hold receipt RELEASED; batch guard accepts revised policy; runtime guard uses the common root runtime claim with task-specific memory/host/Docker storage budgets and exact-owner release. Host-only builds need no running Docker database. Both existing ACTIVE scheduler prompts updated through supported tools, with cadence/model/local project preserved and complete prompt readback verified. Implementation now carries owned issues through local validation and readiness; roundup remains read-only.
+- Primary local environment already has one acquisition-worker replica; catalog/OCR/visual/printing are distinct functions. Five idle review processing services were verified against immutable identities, zero processing jobs/sessions/capture records and installed graceful handlers, then received SIGTERM. All five exited 0 without OOM/forced termination. Their restart policy was already `no`. Review web/database and all primary services/data remain; HTTP 200 on primary app. Extra qualification processing is on demand, not permanently disabled.
+- Checks: PowerShell syntax/whitespace; impossible-budget admission leaves no claim; successful Docker and host-only admissions; competing claim rejected; wrong-owner release preserves bytes; terminal acknowledgement required; exact-owner archival; existing batch-guard self-check. No product rebuild is needed for these policy/helper changes. Required exact-head CI and independent PR review are tracked separately.
+- Storage observation: about 331 GiB host free; Docker reported 80.88 GB images and 84.05 GB build cache. No blanket cleanup or data deletion. Build only for changed inputs/concrete checks; inspect host/Docker storage before heavy work and at handoff, and retire verified owned superseded resources while preserving current review, rollback, unique data and compact evidence. Stopping containers does not guarantee immediate host memory reclamation.
+- Evidence: primary checkout `.local-data/laptop-policy-20261022/`, including original hold/prompt snapshots, guard checks, review immutable-ID stop manifest/results, schedule readback and resource observations. Runtime windows are released; only this batch's source claim remains until final publication/checkpoint cleanup. No child/build/fixture remains live. Next: finish this PR's required CI, release the exact source claim, then resume the existing feature owner's independent/local runtime review under the revised policy. Do not revive the superseded hold.
+
 # Work checkpoint
+
+## Current work - #910/#911 author qualification for PR #912, October 23, 2026
+
+- Branch `codex/inventory-phone-search-popup`, base main51f810c3; [PR #912](https://github.com/sefaction/MTG-Archives/pull/912). Phone suggestions open below the stable form. Brian explicitly authorized the narrow Public-suggestions repair: Quick/Advanced Public callers use a public facade forcing existing public visibility. Private API/middleware and writers unchanged. No general backend or merge/production grant.
+- 23 focused style/compact/scroll checks, 10 public-readonly checks and changed-file lint pass. 20 Private/anonymous Public desktop390/320 loading/settled touch/keyboard cases pass, plus two corrected anonymous API/Advanced controls. The 22-case run retains two failures; only corrected controls were rerun. Six original-table fingerprints fully restored, including exact recovery of the timed-out control fixture; finalizer hardened. Original touch interception,401,unsupported-condition and other harness failures preserved.
+- Cumulative source258ce94c includes qualified909b62df4f2;1,226 declared-input digest4b0d7afc20a77db583ad5d551426b93b09ca87173aaaac030951cf1c2da00d8a matches actual image. All changed application bytes match feature source; later differences are test-only plus separately tracked909. Bounded production compilation/types/static/client guards pass; builder/cache and superseded layout-only candidate retired. Current review and rollback remain; no temporary fixtures or browser/build children.
+- Public Language-filter enforcement is a separate demonstrated remainder [#913](https://github.com/sefaction/MTG-Archives/issues/913), not fixed here. Portable evidence/limits: [INVENTORY_PHONE_SEARCH_POPUP.md](INVENTORY_PHONE_SEARCH_POPUP.md). Require fresh final-head CI before marking ready; PR owns current CI/readiness. Next independent/Brian review, then individual approval and explicit merge request before merge/issue closure. Deployment/user acceptance remain separate.
+## Current work - Inventory incremental navigation repair #908, October 23, 2026
+
+- Branch `codex/inventory-infinite-navigation`, base main `51f810c3`; active issue-resolution goal authorizes this demonstrated client defect repair. [#908](https://github.com/sefaction/MTG-Archives/issues/908) creation receipt and exact owner are retained privately. No merge, production or backend-writer authority.
+- Actual production-client/list-API reproduction leaves 10 of 12 new-filter rows permanently loading after a delayed old page request. Duplicate search includes original paging work and completed retry PR415; historical #721 is separate and stays open. All owned synthetic records removed; six original-table fingerprints match. Initial cleanup harness failure/recovery preserved.
+- Client reset and monotonically identified requests prevent old success/error/finally handlers changing newer results, including same-query returns and refresh/unmount. No API, schema, quantity, ownership, privacy or selection-policy change.
+- Twenty focused checks, all seven product/test-head CI jobs39957963796, bounded production compilation/type/static/client checks, eight Private/Public desktop/320px delayed-response cases and corrected normal retry/selection case pass. Identical versioned negative fails on unchanged image; original heap/cleanup/ambiguous-selector failures retained. Six original-table fingerprints match after each exact fixture cleanup. Direct trigger passes desktop and phone after ordinary Escape closes suggestions; separate open-popup Search interception is filed as #910, not claimed fixed here.
+- Product/test head `8a81c29e`; loaded candidate binds1,224declared inputs/digestff44b3959aaaba9ccd30ca6dac1ace318874bced6f7a696b35b06c8efc26e9b3. Subsequent author changes are this report/checkpoint and one test-only selector; all application inputs unchanged, so no repeat application build. Builder/cache retired, current candidate/rollback protected. Full evidence, adaptations and limits: `docs/INVENTORY_INFINITE_NAVIGATION.md`.
+- Draft [#909](https://github.com/sefaction/MTG-Archives/pull/909) published and attached. Source/runtime claims remain owned through final readiness/cleanup; current exact identity is private. Refresh final-head CI and mark ready for independent/Brian review when author gates pass. Individual merge approval and separate production authority remain required. Existing primary and review resources/WIP preserved.
+
+## Current work - #905 readiness evidence, October 22, 2026
+
+- Owner STMLT26/thread `01a16522-acc1-7390-a1a1-1005ec1997cc`, run
+  `ready-905-20261022-01a16522`. Brian removed the runtime hold and requested
+  completing an issue through readiness for review. Existing isolated branch
+  `codex/laptop-location-filter-state`; product/test head `2c558e35`, base main
+  `11f54612`. This documentation-only commit records final evidence; PR906 gives
+  its exact head/current CI. No product/test/build-input changes follow the tests.
+- [#905](https://github.com/sefaction/MTG-Archives/issues/905) /
+  [#906](https://github.com/sefaction/MTG-Archives/pull/906): 19 focused checks,
+  zero focused TypeScript diagnostics, preserved two-case negative controls,
+  independent source review with no findings, bounded local production build,
+  matching 1,223-input source manifest, and 12 real browser groups at
+  desktop/390/320 px pass. Fixture stock/audit invariance and selected original
+  review baselines pass. Exact delayed-history ordering remains component-tested;
+  browser history is natural and the actual gated response is own-search RSC.
+- [Portable review evidence](LOCATIONS_FILTER_REVIEW.md) records exact image,
+  runtime, source binding, build-only adaptations and evidence limits. Current
+  synthetic app <http://127.0.0.1:13012/locations> is retained for Brian's review
+  with its isolated database/image. Test browsers, temporary sessions/private env
+  file and builder/cache are retired; runtime claim released after terminal work.
+- Required CI on product head passed all seven checks in run39844065806; this
+  final documentation head needs fresh exact-head CI. Source review remains
+  bound to unchanged product/test inputs; documentation evidence is separately
+  reviewed. Mark ready after those gates pass; keep issue open pending approved
+  merge. No merge, production, scanner, schema or domain change.
+- Canonical source-batch claim is exact-owned only during this handoff/publication
+  and released after final metadata readback. No running test/build children.
+  Private reports/current are in `.local-data/review-905-20261022/` and setup
+  `current.json`; root cumulative/policy/manual WIP is preserved. Next safe step:
+  final exact-head CI/readiness publication, then Brian's individual review.
+
+## Historical correction checkpoint - #905, October 22, 2026
+
+- Owner: STMLT26, thread `01a16522-acc1-7390-a1a1-1005ec1997cc`, run
+  `fix-905-20261022-01a16522`. Brian explicitly authorized applying the reviewed
+  correction, allowed checks and updating PR906 in this chat, with the runtime
+  hold left in place. This supersedes the preceding review-only scope for these
+  actions; the prior author identity and original evidence remain below.
+- Existing isolated branch `codex/laptop-location-filter-state`, parent
+  `87ffe94ba8225012472d7b64d406f4653367f802`, base main `11f54612`. This commit
+  contains the correction, regression tests and handoff; PR906 records its final
+  exact head. No root cumulative working-tree changes are included.
+- [Issue #905](https://github.com/sefaction/MTG-Archives/issues/905), draft
+  [PR #906](https://github.com/sefaction/MTG-Archives/pull/906): acknowledge the
+  restored history URL on popstate so delayed props cannot erase subsequent
+  typing/filter edits or interrupt IME composition. Preserve genuine external
+  navigation resets and existing URL/filter semantics.
+- Completed: identical new versioned tests fail twice on the preceding source
+  while all seven original component cases pass; corrected source passes all
+  19 focused location/component/static checks. Focused TypeScript reports zero
+  diagnostics (345,460 KiB peak RSS, 256 MiB heap cap); whitespace passes.
+  Tests execute the real component with hook/router/JSX/timer stand-ins; no
+  installed React renderer, browser, database or layout acceptance is claimed.
+- Pending: required exact-head CI, fresh independent review of this correction,
+  and authorized desktop/320/390px runtime review. The previous independent
+  reviewer now implements this correction, so that review does not approve the
+  new source. Keep PR draft and issue open. Earlier exploratory return-to-initial
+  overlap remains unverified for actual router ordering; no broader fix claimed.
+- Canonical lightweight guard belongs only to this run/thread during source and
+  publication work. All bounded test processes are terminal; no runtime lock,
+  fixture, child service or deployment is owned. Release the exact lightweight
+  claim after publication/readback. ACTIVE heavy-runtime hold remains unchanged.
+- Private correction evidence: `.local-data/review-905-20261022/` in the primary
+  checkout (`correction-negative.txt`, `correction-focused.txt`,
+  `correction-typecheck.txt`, prior `REVIEW.md`). Original failures and prior
+  author evidence are preserved. Next safe step: verify new exact-head CI and
+  independent review; runtime acceptance waits for explicit scoped hold release.
+
+## Historical author checkpoint - laptop Locations filters, October 22, 2026
+
+- Owner: STMLT26, thread `01a1641c-c524-7402-8b5e-d6f0986878c4`, run
+  `laptop-locations-20261022-01a1641c`. Brian's current standalone laptop
+  automation authorizes lightweight interface implementation and draft PRs;
+  no merge, deployment, schedule, scanner or shared-runtime mutation.
+- Branch `codex/laptop-location-filter-state`, isolated worktree
+  `.local-data/worktrees/laptop-location-filter-state`; current product/test head
+  `9c405f61eb76373bacf59fb95c8810acc5e4e837`, based on main `11f54612` (PR904).
+  This handoff-only commit follows; the draft PR records the final exact head.
+- [Issue #905](https://github.com/sefaction/MTG-Archives/issues/905): synchronize
+  mounted Locations query/space/type/status and branch state after client
+  navigation/history; preserve newer edits across earlier own responses.
+  Existing backend/domain/other worker scope is untouched. The initial tree-link
+  reproduction was corrected to the main `next/link` Locations navigation;
+  ordinary tree anchors may remount. No installed browser reproduction claimed.
+- Completed: 17 focused tests, zero focused TypeScript diagnostics, whitespace
+  check. The identical seven component-event cases against pinned old source
+  fail five and pass two preservation controls; current source passes all seven.
+  This uses actual component handlers/effects with hook/router/JSX stand-ins,
+  plus existing browser-helper/static UI tests, without a browser or database.
+- Pending gates: ordinary required exact-head hosted CI, independent review,
+  authorized runtime desktop and 320/390px phone navigation/history/typing/IME
+  and section/owner presentation checks. Keep draft. ACTIVE heavy-runtime hold
+  prohibits local builds/reloads/full suites/database/browser fixtures; passing
+  source checks does not establish runtime delivery or historical #721 repair.
+- Ownership/cleanup: canonical lightweight guard belongs only to this run/thread
+  during work. No runtime lock, fixture, child service or deployment is owned.
+  Release this exact lightweight claim after terminal cleanup; leave the hold
+  and every other owner's resource unchanged. Retain the review worktree.
+- Private current/evidence/creation receipt: `.local-data/laptop-worker-setup-20261022/`
+  (`current.json`, `location-filter-evidence.md`, `location-filter-creation-receipt.json`,
+  focused/negative test logs). Root cumulative branch and policy/manual/checkpoint
+  WIP are preserved. Next safe step: inspect final draft CI and obtain independent
+  review; runtime review waits for explicitly scoped hold release.
+
+Earlier entries retain their original observation times and authority; they are
+not this laptop batch's current ownership or permission.
+
+## Current work - coordinated documentation pass, October 22, 2026
+
+- Owner/node: thread `01a16053-5a48-75da-87ba-626757bad03f` on STMLT26, isolated worktree
+  `.local-data/worktrees/agents-policy-20261022`, branch `docs/agents-policy-20261022`,
+  base `1d235f45e4a79896ed29e89a0acf3b809ebbf85d` (live main verified on entry).
+- Authority/scope: Brian's October 22 coordinated-pass approval, relayed by parent
+  task `01a15678-1540-7066-a74b-8a84f69d4034`; prepare a local documentation patch
+  only. No publication, merge, runtime/data/lock/schedule changes or new jobs/issues.
+- Changes: canonical policy, command reference, intake and execution/handoff guidance
+  cover user-outcome priority, proportional verification, ownership recovery,
+  capability-based work, lean artifacts and compact checkpoints. Earlier history
+  below is preserved; the primary worktree's checkpoint/manual WIP is untouched.
+- Resources: no runtime lock acquired or changed; existing shared runtime owner
+  remains separate. No build, Docker, database or application test operation.
+- Checks: whitespace, 14 relative links, all 18 existing type/status/area label
+  tokens and historical-content preservation pass. Six primary-worktree protected
+  files (checkpoint, three manual/handoff files, shared lock and worker state)
+  match their entry SHA-256 hashes. Required CI awaits future publication;
+  aggregate verification would build/run browser tests and is not needed here.
+- Questions: none for the approved scope. Next: parent reviews this uncommitted
+  five-file local patch; await separate publication instructions. No PR exists.
+
+## Preserved history
+
+Entries below retain their original observations and authority references; they
+are not this batch's current state, pending operations or continuing permissions.
 
 ## PR #879 integration and qualification - October 21, 2026
 
@@ -9470,9 +9636,6 @@ Candidate79246410 hosted39529988169 passed old-source+fixed with production tran
 
 Hosted39530317142 onb2ac5181 passes stronger exact audit and second-receipt rollback assertions. Final reviewer follow-up adds truthful Prisma instrumentation metadata, per-call/read/scenario gate receipts, enforced actual two-read baseline overlap, unchanged baseline dependency context, local bridge guards and tmpfs-only bounded PostgreSQL. Product source remains579b117f569141e0dba93a356cde099121c61aa0a4d14df95cd591b859aac70b. Earlier normal CI on79246410 was automatically superseded/cancelled by the repository Verify workflow when the follow-up pushed; its two database jobs had passed. Preserve cancelled status; no manual job cancellation or runtime-job mutation occurred. Final exact-head run still required.
 
-## Whole-deck transfer decision draft (#807), October 20, 2026 Central
-
-Branch codex/deck-trade-design-807 at main b810f06a contains docs/DECK_TRADE_DESIGN.md only. Source-grounded design identifies physical per-section allocation ambiguity, deck/system-location ownership, normal receipt destination versus retained commitments, owner-specific folders/tags/effective visibility, League restrictions, 50-lot offer limits and the still-open bundle composition/counter policy. No dependent schema/product change was guessed. Independent acceptance matrix and transaction/reservation boundaries are reviewable. Draft needs Brian's product decisions; no code tests, Docker load, migration, merge or deployment applies to this documentation-only batch. Gift implementation remains separately in #880. Next safe step: publish labeled draft and link #807, then continue independent queue work.
 ## Independently reproduced trade wishlist race — October20Central
 
 Branch codex/trade-wishlist-atomic from mainb810f06a, draft885, new own-created bug886 (creation receipt .local-data/goal-20261020/issue-886-creation-receipt.json). Actual old/current helper2connections/first-real-query barrier deterministically leavesOPENqty1 after2one-copy receipts againstqty2; negative39541951161/job119031468491 at a36b6175 fails expectedFULFILLED and exactcleanup passes. Duplicate search found no narrow issue;309 explicitly retains wishlistconservation after876. No physicaltransfer/historicalincident attribution.
@@ -9596,25 +9759,6 @@ Branch codex/trade-proposal-draft-309 from main494f2ea1. Observed successful pri
 
 Original b555a4001c805ec55e7d46545c68fad72346cf45 combines with main 1e89eb083c74c5cee1721b04468c7fcc674d2949; exact controlled textarea/success callback and two-width real browser fixture retained. Original905eb old-source canonical comparison loses all76/75 characters and fails intended final assertion only; originalb555 succeeds with exact retry/storage/clear and84-table parity. Old expected-failing run has no final global snapshot and is not counted as a parity pass. Author clean/frozen, interrupted by model capacity on read-only follow-up; no duplicate implementation or environment switch. Existing main895 admission,893 deletion and889 audit fixes preserved. Fresh seven-job CI and canonical cumulative notes/ordinary-gift/last-copy proposal browser qualification pending before authorized merge. Narrow899 only after verified merge; broad309/302 and prior local incident remain open. No laptop resources or deployment.
 
-## Whole-deck trade decisions complete — October 21, 2026
-
-The user is available again and explicitly confirmed: multiple indivisible decks plus individual cards on either side; exclude every League-linked deck; counters may remove/replace whole decks and change cards with fresh acceptance; recipients choose organization and confirm visibility; no physical Maybeboard commitments, and same-printing ambiguity blocks without adding section allocation; transfer each existing deck location with committed copies, normal destination only for loose cards. Draft881 design updated; main3ae13d0d integrated, checkpoint conflict unioned preserving both histories; application source otherwise identical to main. These are implementation decisions, not individual merge/deployment approval.
-
-Next implementation batches: exact server bundle snapshot/model/policy; proposal/counter reservation and all overlapping deck/inventory writer fences; atomic existing-deck/location/stock ownership completion with recipient organization/privacy and immutable history; complete desktop/phone mixed-offer/counter/confirmation flows and real PostgreSQL rollback/concurrency/conservation. Do not narrow to a one-deck feature or silently flatten into editable card lines. PR900 remains separately qualified draft; the unused new HTTP-authorization worktree has no authored changes, and user-request807 now has priority.
-
-## Whole-deck foundation prepared — October 21, 2026
-
-All #807 choices are explicit in docs/DECK_TRADE_DESIGN.md, GitHub807 and Foundry. New lib/deck-trade-policy.ts binds complete deck/list/location/physical lot/tag state to a deterministic source digest, copies data to detach caller mutations and uses explicit scalar projections to exclude account/audit relations. It rejects League links, mismatched source ownership/location, invalid quantities, known-printing Maybeboard commitments and unresolved printing/name ambiguity. Multiple deck ID input and required explicit PRIVATE/PUBLIC receipt visibility/organization parsing are included. Six focused lightweight controls PASS (110 physical lots/no truncation, list-only Maybeboard, reordering/caller mutation/security projection, substantive revision changes, eligibility refusals, malformed input/receipt choices).
-
-Schema/migration adds indivisible TradeDeckBundle snapshots and nullable grouping for their existing TradeLine physical reservation members. Composite FK requires matching bundle/trade/side; positive bundle line quantity check, historical deck deletion SetNull and retained snapshot are defined. Prisma schema validation PASS without any database connection. No feature entrypoint is enabled yet. Next: actual server source loader/locking/snapshot revalidation; add proposal/counter and all overlapping writer fences, completion/recipient organization/privacy/history, then desktop/phone UI and actual DB/canonical qualification. Hosted migration/current-head checks pending. Keep881DRAFT/inprogress; do not merge a partially wired feature or claim whole-deck acceptance. Main3ae13d0d application changes retained; no laptop Docker/DB/hardware/production mutation.
-
-## Whole-deck writer fences prepared — October 21, 2026
-
-Moved the shared owner/deck reservation gate into cycle-free lib/deck-write-fence.ts. Existing deck metadata/list/physical commitment/import/delete actions now enter it inside their write transaction; folder deletion checks all affected reserved decks under its owner gate. Two post-transaction deck-location metadata updates were folded into the same guarded transaction. Bulk move/remove, printing optimization/change and physical-return HTTP routes and wishlist printing helper use the same fence; conflict responses remain explicit JSON. Source snapshots now also bind effective visibility, so an account-default change cannot silently preserve a stale source digest.
-
-Expanded the actual PostgreSQL fixture to execute13 real action/route/private-writer paths under all3active statuses, require full deck/location/list/stock/audit graph equality, and retain terminal metadata/location update as a positive control. Auth/cache/redirect bindings are explicit adapters; this is not HTTP-cookie qualification. These new integration controls are prepared, not yet passing. Six focused policy controls pass again. Remaining inventory Delete/zero-row/storage and other source-writer audit, proposal/counter/completion/recipient/privacy/UI integration and full feature qualification are still required. Do not mark881ready or merge a partially wired feature.
-
-Separate narrow901/902 has qualified head7f49330e: all7Verify39611548507pass; actual source negative23/24 permutations, current0/24, unchanged PostgreSQL full-session/reconnect/finalACK/count/zeroInventory/cleanup logs inspected. Mainbyte-equivalent original39610000878 failure retained. Next integrate that qualified source into this feature branch, then run new writer controls and fix any failures without weakening assertions. No PR/main merge by author, local Docker/DB/hardware/production change.
 ## Acquisition candidate order regression — October 21, 2026
 
 While qualifying whole-deck helper head2b753d53, Verify39610000878 acquisition119256088235 failed existing complete-session reconnect/final-ACK replay equality: the same two physical candidates/observations swapped array order. Sourceblobf8ee9e13 is identical to main3ae13d0d; bundle foundation SQL tests119256087965 passed. Core and other exact-head controls are separate; no green overall claim. Logs retained in root goal journal. New agent issue901 has immutable creation receipt, duplicate search and preserved evidence.
@@ -9622,55 +9766,3 @@ While qualifying whole-deck helper head2b753d53, Verify39610000878 acquisition11
 Separate branch codex/acquisition-candidate-order-304 starts atmain3ae13d0d, not the deck feature. Test-only negative commit4a468254 executes the actual private hydration functions:23of24permutations fail physical order, non-mutation/review preservation passes. Sorting a copy by acquisition/spatial/physical identity makes all24 and both controls pass locally. CI pins actual oldmaincommit/blob and requires exact23negative/permutation/preservation results; current controls and unchanged full PostgreSQL replay/counter/Inventory suite remain required. No DB/schema mutation or normalized-away comparison. Hosted checks pending. Keepissue901/parents304/302open; no localruntime/hardware/production/merge.
 
 Whole-deck807 remains prioritized and in progress in draft881at2b753d53: all decisions complete; source/schema6unit controls, schema validation and foundationd329sevenCI pass. Actual55-lot bundle/constraints/three-status/competinglocks/staleowner/recipient-settings/stock-audit/ownedcleanup controls pass in119256087965. Feature proposal/writer fences/completion/UI still unwired. Do not merge partial feature. Complete this separate narrow replay repair, then integrate qualified fix and resume full deck workflow.
-
-## First actual deck writer matrix PASS; zero-stock fence added — October21,2026
-
-Feature881 at efd9af51246147250f6787bc74dd5684a9f65cf4 includes qualified candidate-order9027f49330e via an isolated branch merge (not a PR/main merge). All7Verify39614249273PASS. Actual shared-stock119270916275 logs confirm13realmetadata/list/folder/printing/return/delete action/route/private-writer paths refuse all3active statuses with complete graph equality, terminal metadata+location synchronization succeeds, 55-lot source/constraints/competinglocks/receiptownership controls and exact cleanup pass. Logs saved .local-data/goal-20261020/deck-writers-efd9-stock.log. Auth/cache/redirect adapters are explicit, not HTTP-cookie authority proof.
-
-New unqualified extension covers direct Inventory Delete and admin zero cleanup: acquire sorted deck owner/Deck gates before Inventory locks; freshly check source location, refuse active bundles and skip zero rows in reserved or newly unobserved deck sources. Zero rows stay bound in bundle snapshots despite lacking positive TradeLine membership. Fixture now includes one such zero lot, actual positive/zero Delete refusals and no-op cleanup in3states, and successful zero cleanup after cancellation preserving all55positive lots with exactly1audit. Ordinary existing deletion/concurrent-receipt controls remain required unchanged. Pending hosted qualification, no pass claimed for this extension.
-
-Next full feature stages still required: audit remaining overlapping storage/League writers, wire multiple mixed whole-deck proposals/counters/privacy/actual Deck.ownerUserId consent, atomic transfer of existing Deck/location/all owned physical rows (including zero metadata) while retaining commitments and provenance; receiver's actual authenticated User owns received deck, not an arbitrary User attached to Player. Clear foreign sender folder/tag/storage-parent links; normal destination only for loose cards. Bind explicit recipient PRIVATE/PUBLIC settings/folders/tags and immutable history. Implement actual desktop/phone offer/counter/accept/two-confirmation flow, rollback/races/conservation before881ready. No partial feature merge or broad807completion claim.
-
-## Reviewed source preparation — October21,2026
-1603fb55 Verify39615580177 all7PASS, actual stock fixture logs inspected: active positive/zero Delete and admin cleanup preserve complete deck graph, terminal cleanup works, exact fixture removal. New prepared-source helper binds displayed digest, enforces actual User authority despite shared Player, multiple decks both sides, private owner consent in counters, and stale-source rollback. Seven focused policy tests PASS; new PostgreSQL controls pending qualification. Proposal/completion/UI remain unwired;881 stays draft/in progress. No local runtime change or merge.
-
-
-Prepared-source b30c9b28 Verify39618012969: real PostgreSQL stock controls PASS; Core failed TS7034/TS7005 in new fixture extraSelections inference. Explicit typed selection array fixes this without expectation changes. Added internal complete-bundle reservation helper (not an enabled action), real four-deck/55-lot writes, injected post-write rollback, replay refusal, zero/list-only no-lot coverage and exact stock/audit conservation controls. Fresh qualification pending; full feature proposal/completion/UI still required.
-
-
-## Recipient receipt and transfer component — October21,2026
-84170b3e Verify39619198103 all7 terminalPASS. Prepared new internal receipt/transfer component preserving existing Deck/list/location/positive and zero stock IDs/provenance, recipient-owned folder/tags/explicit visibility, actual-owner confirmation, and two confirmations. Source reads now exclude linked League/storage children before offer, preventing ownership-crossing links. Added actual PostgreSQL four-deck transfer inside injected final rollback: no early ownership, receiver settings, unchanged list/provenance,56audit rows, terminal replay refusal and exact rollback of decks/stock/audits/receipts/trade. These new controls pending hosted qualification; helpers not wired into action/UI yet. Seven focused policy tests PASS. No local runtime mutation or mainmerge.
-
-
-## Committed transfer concurrency coverage — October21,2026
-New real PostgreSQL control prepares/reserves an incomplete gift Deck with a canonical location under sender storage, one positive and one zero row, full main/Maybeboard list, owner folder/tag. Commits first/second receipts independently; no early ownership. Deliberate isolated post-consent corruption must roll back. Two concurrent finalizers invoke actual transfer component and same-tx completion: require one durable winner, one terminal refusal, same IDs/list/provenance/qty, missing copies unfilled, source parent detached, recipient folder/tag/privacy, exactly2audits and replay refusal. Hosted qualification pending. Still internal helper/component scope; public actions/UI integration remains required;881draftinprogress. No runtime or mainmerge.
-
-
-## Whole-deck action integration prepared — October21,2026
-Actual accept/decline/cancel now freshly lock/recheck whole-deck trades; acceptance requires actual requested deck owner's User and unchanged reviewed sources. Actual physical confirmation parses recipient choices with server-owned identity, requires no normal destination for deck-only receipts, blocks admin consent bypass, and performs second confirmation/receipt/all transfers/status/events/notifs in one transaction. Completion keeps bundle lots out of ordinary decrement/new-lot flow; locks owner/deck gates then combined sorted stock including zeros/loose; wishlist and announcements retain all physically received cards. Existing card-only wrapper behavior retained;30 focused ordinary confirmation/provenance tests PASS with explicit empty bundle fixture added. Actual gift fixture now exercises real acceptance/confirm actions, owner spoof ignored, admin bypass refusal, injected source change after conditional second-confirmation write (assert full receipt/confirmation/event/notification rollback), competing real confirmations and exact notifications/events cleanup. New hosted qualification pending. Proposal creation/counter selection and UI still not wired;881draftinprogress. No local runtime or mainmerge.
-
-
-## Actual deck confirmation actions qualified; proposal action prepared — October21,2026
-f7af5fab Verify39622962052 all7explicitterminalPASS; companion39622962111overallSUCCESS. Actual stock119300873959 inspected real acceptance/firstconfirm/admin-bypass refusal/recipient spoof ignored/failed second-confirm receipt+timestamp+events+notifs rollback/two competing actual confirmations/fullfixturecleanup PASS. New proposal/counter action integration accepts reviewed Deck selections, owner/deck gates before all sorted stock (including zero/loose), complete lot reservation in same proposal/counter/events/notifs tx, unchanged50loose-line parser and30sDeck-onlytxbudget. Gift fixture switched from internal reservation to real createTrade action with bad displayed digest refusal and unchangedtradecount; full gift API lifecycle qualification pending. UI and mixed counter/multiple-deck actual-action coverage remain required. No local runtime/mainmerge.
-
-
-## Mixed counter qualification and retained source assertion — October21,2026
-55e40221 Verify39623621228 all6 DBjobsPASS incl real create->accept->first/secondconfirm gift, bad digest inline refusal, postsecondconfirm rollback/events/notifs, realcompeting confirmations/cleanup. Core119303215702 failed sole static trades-ui expectation of literal tradeProposalValidationState(error) after inlining guarded deck-error conversion. Preserved existing assertion and unexpected-error semantics by converting known Deck error into local error binding before original validation call;53focused UI/proposal/physical/provenance tests nowPASS. No test relaxation. New actual mixed counter control: twoDecks+loosecards bothsides,55physicalbundlelots, wholeDeck removals/replacements and changed loosequantities, oldreservationsreleased/newonesbound, newactualowneracceptance, admin cancellation releasesonlyownreservations, fullInventory/audit equality. Hosted pending. Actual multiDeck browserUI stillrequired; draft881inprogress, no localruntime or mainmerge.
-
-
-## Mixed final exchange control prepared — October21,2026
-New actual-action case reuses all4reviewed decks/55physicalsource lots plus loose stock eachside. Requires normal destinations onlyforloose receipts; firstconfirmation leavesallstock unchanged. Injects error after actualbundle transfers/55audits and actualpartialloose debit/audit; exact ownedDeck/list/tag/location/stock/audit/Trade/receipts/events/notifications/wishlist graph mustrollback. Retry mustcommitfourDecks preservingoriginalphysicalIDs/list/provenance, createonly2separate loose receipts atselectednormaldestinations with exactattrs/qty, preserve totalquantity, creditonlyphysical wishlist quantities (7/6remaining), write55Deck+4looseaudits, rejectreplaywithfullgraphequality. Cleansownedwishlists andassertszero. Pending hosted qualification; no productcodechange/localruntime/mainmerge. UI remaining required; draft881inprogress.
-
-
-Mixedcontrol ba59f9c6 Verify39625837976 stock119310724319 failed newfixture expectation loose receipt sourceType PULL; actual TRADE is established receivedTradeInventoryData behavior and existing exact pure contract, not a product bug. Realmixedrollback/retry completedbeforeattrassert; exactfixturecleanupPASS, no fullcontrolPASS. Corrected test explicitly requiresTRADE/nullsection forloose receipts and exactotheroriginalprovenance/attrs; existingDeckstocksourceType remains exactrowconservation. No product change. Retain originalfailure andfreshqualifyfullcase.
-
-
-## Deck search/review UI service prepared; mixed fixture counts corrected — October21,2026
-7e9d817f Verify39626265138 sixotherjobsPASS; stock119312752624 reachedpostcommit wishlistassert andfailed7!=6. Existing55-lot fixture hasONEphysicalcopy perprinting whilelistasksTWO; corrected Bwishlistremaining7 explicitlyasserts sourcephysical1/list2 andcredits1Deck+2loose, nevermissingcopy. API expecteddisplay55committed/110listed/3Mayb alignsactualfixture. Retainfailure, no productlogicchange or passclaimyet.
-Prepared /api/trades/decks paged24list and fullreview with actualUseroffering authority (noadmin/sharedPlayerbypass), effective-public partnerDecks and verifiedactive-parent owner-consented privatecounter sharing. Sanitized clientDTO fulluntruncatedlist/aggregatedphysicalattrs/counts+reviewdigest omitsstockIDs/privatephysical/listnotes, provenanceidentities, folder/tag/storage IDs. Eightfocusedpolicy/viewtestsPASS incl110printing/full111list/112physicalcounts, deterministicaggregation, no privatefields/aliasing. ActualAPI controlspreparedaftermixed/gift: public55/fullreview, private exclusions, owneraccount/admin fences, privatecountergrantandterminalrevocation. UIcomponents/history/receiptforms/browser stillrequired. Hostedpending, draft881inprogress, no localruntime/mainmerge.
-
-
-## Mixed completion/review API qualified; proposal picker prepared — October21,2026
-926c3645 Verify39627102086 all7terminalPASS; companion39627102123 tradeconcurrencySUCCESS. Actual stock119315041380 log .local-data/goal-20261020/deck-mixed-review-926c-stock.log confirmsmixed4Deck/55physical+loosebothdirections correctdestinations, exactphysical/list/provenance/totalquantity, wishlistactualphysicalonly, fullrollbackafterrealDecktransfers+partialloosedebit/audit inclsecondconfirmation/events/notifs/receipts and replaygraphequality. Gift/counter/alloldfences andexactfixturecleanupPASS. API actualprivate/public/sharedPlayer/admin/activeprivatecounter/revokedterminalsharing controlsPASS. Earlierba59sourceType and7e9wishlistfixtureexpectation failures retained; correctlooseTRADE/nullsection and55physicalvs110listed stocknowexplicit; no productbugorweakenedcontractclaimed.
-PreparedclientTradeDeckPicker with24pagedsearch, fulluntruncatedlist/physicalreview, explicitreviewack, add/remove/refreshindivisibleDecks bothsides and opaque serverreviewselection; Entersearchpreventsprematureformsubmit. TradeBuilder mixedDeck/cardsubmissioncounts/gifts/hiddenDeckselections; scopesvaluecomparisontoloosecards; adminonbehalf hidesDeckpickers. ReviewDTO addswhitelistedpubliccardname/set/collector/Scryfall fromcatalogwithoutsourceprivatefields.27focusedUI/policytestsPASS. Core/build/actualbrowserpending. Active/historygroupedDeckrendering, receiptsettingsforms, fullcounterseeding, reservationbanner anddesktop/phoneacceptance stillrequired; don'tclaim807complete/881ready. No localruntime/mainmerge.
-

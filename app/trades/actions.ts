@@ -40,6 +40,7 @@ import { lockTradeDeckSources, readTradeDeck, prepareTradeDeckBundles, reservePr
 import { parseTradeDeckSelections, type TradeDeckSelection } from "@/lib/deck-trade-policy";
 import { assertDeckUnreserved } from "@/lib/deck-write-fence";
 import { parseTradeDeckReceipts, recordTradeDeckReceipts, transferConfirmedTradeDecks } from "@/lib/deck-trade-transfer";
+import { tradeActionFeedback } from "@/lib/trade-action-feedback";
 
 const activeStatuses: TradeStatus[] = [
   TradeStatus.PROPOSED,
@@ -1081,4 +1082,21 @@ export async function confirmPhysicalTrade(fd: FormData) {
   if (!trade.deckBundles.length) await completeTradeIfReady(trade.id, actor.id);
   revalidatePath("/trades");
   revalidatePath("/notifications");
+}
+
+export async function confirmPhysicalTradeWithFeedback(_previous: TradeProposalActionState, fd: FormData): Promise<TradeProposalActionState> {
+  try {
+    await confirmPhysicalTrade(fd);
+    return { status: "success", message: "Physical exchange confirmed." };
+  } catch (error) { return tradeActionFeedback(error); }
+}
+
+export async function acceptTradeWithFeedback(_previous: TradeProposalActionState, fd: FormData): Promise<TradeProposalActionState> {
+  const acceptance = new FormData();
+  acceptance.set("tradeId", String(fd.get("tradeId") || ""));
+  acceptance.set("action", "accept");
+  try {
+    await actOnTrade(acceptance);
+    return { status: "success", message: "Offer accepted. Both participants must confirm physical exchange." };
+  } catch (error) { return tradeActionFeedback(error); }
 }

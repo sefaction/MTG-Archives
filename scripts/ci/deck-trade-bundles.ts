@@ -8,6 +8,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import { readTradeDeck, lockTradeDeckSources, assertDeckUnreserved, lockWritableDeck, validateDeckReceipt,
   prepareTradeDeckBundles, revalidatePreparedTradeDecks, reservePreparedTradeDecks } from "../../lib/deck-trade-store";
 import { recordTradeDeckReceipts, transferConfirmedTradeDecks } from "../../lib/deck-trade-transfer";
+import { assertDeckDefaultVisibilityWritable } from "../../lib/deck-write-fence";
 
 assert.equal(process.env.GITHUB_ACTIONS, "true");
 assert.equal(process.env.RUNNER_ENVIRONMENT, "github-hosted");
@@ -62,12 +63,12 @@ async function run() {
   }
   await db.card.createMany({ data: cards.map((id, index) => ({ id, scryfallId: randomUUID(), name: "Bundle fixture " + index,
     setCode: "tst", collectorNumber: String(index), typeLine: "Artifact", rarity: "common" })) });
-  await db.deck.create({ data: { id: deckId, ownerUserId: users[0], name: "Complete original deck", visibility: "PRIVATE", folderId: tag + "-folder-0" } });
+  await db.deck.create({ data: { id: deckId, ownerUserId: users[0], name: "Complete original deck", visibility: "INHERIT", folderId: tag + "-folder-0" } });
   await db.deckTagAssignment.create({ data: { deckId, tagId: tag + "-tag-0" } });
   await db.deckCard.createMany({ data: cards.map(cardId => ({ deckId, cardId, cardName: cardId, quantity: 2, section: "MAINBOARD" })) });
   await db.deckCard.create({ data: { deckId, cardName: "Uncommitted list-only Maybeboard", quantity: 3, section: "MAYBEBOARD" } });
   await db.inventoryLocation.create({ data: { id: locationId, ownerPlayerId: owners[0], deckId, kind: "DECK", systemManaged: true,
-    name: "Deck fixture", normalizedName: tag, active: true } });
+    name: "Deck fixture", normalizedName: tag, active: true, visibility: "PUBLIC" } });
   await db.inventoryLocation.create({ data: { id: tag + "-normal", ownerPlayerId: owners[0], name: "Normal destination", normalizedName: tag + "-normal" } });
   await db.inventoryItem.createMany({ data: cards.map(cardId => ({ currentOwnerId: owners[0], originalOpenerId: owners[1],
     cardId, quantity: 1, locationId, sourceType: "MANUAL", condition: "NM", notes: "Preserve physical provenance" })) });
@@ -90,6 +91,9 @@ async function run() {
   actor = await db.user.findUniqueOrThrow({ where: { id: users[0] }, include: { player: true } });
   const actions = loadActual("app/decks/actions.ts");
   const inventoryActions = loadActual("app/inventory/actions.ts");
+  const leagueActions = loadActual("app/league/actions.ts");
+  await db.commanderLeague.create({ data: { id: tag + "-league", name: tag, slug: tag, year: 2026, createdByUserId: users[0],
+    members: { create: { userId: users[0], role: "ADMIN" } } } });
   const wishlist = loadActual("app/wishlist/actions.ts", db, "exports.fixturePrintingChange=applyDeckCardPrintingChange;");
   const deckCard = await db.deckCard.findFirstOrThrow({ where: { deckId, cardId: cards[0] } });
   const graph = () => Promise.all([
@@ -117,6 +121,16 @@ async function run() {
     await db.trade.update({ where: { id: first.id }, data: { status } });
     await assert.rejects(db.$transaction(tx => lockWritableDeck(tx, deckId, users[0])), /reserved in an active trade/);
     await db.$transaction(tx => assertDeckUnreserved(tx, deckId, first.id));
+    await assert.rejects(db.$transaction(async tx => {
+      await assertDeckDefaultVisibilityWritable(tx, users[0], "PUBLIC");
+      await tx.user.update({ where: { id: users[0] }, data: { deckDefaultVisibility: "PUBLIC" } });
+    }), /reserved in an active trade/);
+    await db.$transaction(tx => assertDeckDefaultVisibilityWritable(tx, users[0], "PRIVATE"));
+    assert.equal((await db.user.findUniqueOrThrow({ where: { id: users[0] } })).deckDefaultVisibility, "PRIVATE");
+    await assert.rejects(leagueActions.addLeagueLocation(form({ leagueId: tag + "-league", locationId })), /reserved in an active trade/);
+    await assert.rejects(leagueActions.createCommanderLeague(form({ name: tag + "-blocked-league", year: "2026", locationId })), /reserved in an active trade/);
+    assert.equal(await db.commanderLeagueLocation.count({ where: { locationId } }), 0);
+    assert.equal(await db.commanderLeague.count({ where: { name: tag + "-blocked-league" } }), 0);
     const before = await graph();
     for (const [action, data] of [
       [actions.updateDeck, form()], [actions.moveDeckToFolder, form({ folderId: "" })],
@@ -594,6 +608,7 @@ run().catch(error => { failure = error; }).finally(async () => {
     await db.inventoryItem.deleteMany({ where: { currentOwnerId: { in: owners } } });
     await db.tradeWishlistItem.deleteMany({ where: { ownerUserId: { in: users } } });
     await db.deck.deleteMany({ where: { id: { in: fixtureDeckIds } } });
+    await db.commanderLeague.deleteMany({ where: { id: tag + "-league" } });
     await db.inventoryLocation.deleteMany({ where: { ownerPlayerId: { in: owners } } });
     await db.deckFolder.deleteMany({ where: { ownerUserId: { in: users } } });
     await db.deckTag.deleteMany({ where: { ownerUserId: { in: users } } });

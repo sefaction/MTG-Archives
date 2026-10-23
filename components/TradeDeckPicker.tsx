@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { TradeDeckReview, TradeDeckSearchItem } from "@/lib/trade-deck-view";
 
 export function TradeDeckContents({ review }: { review: TradeDeckReview }) {
@@ -20,18 +20,19 @@ export function TradeDeckContents({ review }: { review: TradeDeckReview }) {
   </div>;
 }
 
-export function TradeDeckPicker({ ownerId, side, counterTradeId, selected, onChange }: {
+export function TradeDeckPicker({ ownerId, side, counterTradeId, initialDeckId, selected, onChange }: {
   ownerId: string; side: "offered" | "requested"; counterTradeId?: string;
+  initialDeckId?: string;
   selected: TradeDeckReview[]; onChange: (value: TradeDeckReview[]) => void;
 }) {
   const [query, setQuery] = useState("");
   const [loadedQuery, setLoadedQuery] = useState("");
   const [items, setItems] = useState<TradeDeckSearchItem[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const [busy, setBusy] = useState(Boolean(initialDeckId)), [error, setError] = useState("");
   const [review, setReview] = useState<TradeDeckReview | null>(null);
   const [confirmed, setConfirmed] = useState(false);
-  const base = () => new URLSearchParams({ ownerId, side, ...(counterTradeId ? { counterTradeId } : {}) });
+  const base = useCallback(() => new URLSearchParams({ ownerId, side, ...(counterTradeId ? { counterTradeId } : {}) }), [ownerId, side, counterTradeId]);
   const search = async (more = false) => {
     setBusy(true); setError("");
     try {
@@ -46,7 +47,7 @@ export function TradeDeckPicker({ ownerId, side, counterTradeId, selected, onCha
     } catch (failure) { setError(failure instanceof Error ? failure.message : "Deck search is unavailable."); }
     finally { setBusy(false); }
   };
-  const inspect = async (deckId: string) => {
+  const inspect = useCallback(async (deckId: string) => {
     setBusy(true); setError(""); setConfirmed(false); setReview(null);
     try {
       const params = base(); params.set("deckId", deckId);
@@ -56,7 +57,23 @@ export function TradeDeckPicker({ ownerId, side, counterTradeId, selected, onCha
       setReview(data.review);
     } catch (failure) { setError(failure instanceof Error ? failure.message : "This deck is unavailable to review."); }
     finally { setBusy(false); }
-  };
+  }, [base]);
+  useEffect(() => {
+    if (!initialDeckId) return;
+    const controller = new AbortController(), params = base();
+    params.set("deckId", initialDeckId);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/trades/decks?${params}`, { signal: controller.signal });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "This deck is unavailable to review.");
+        if (!controller.signal.aborted) setReview(data.review);
+      } catch (failure) {
+        if (!controller.signal.aborted) setError(failure instanceof Error ? failure.message : "This deck is unavailable to review.");
+      } finally { if (!controller.signal.aborted) setBusy(false); }
+    })();
+    return () => controller.abort();
+  }, [initialDeckId, base]);
   return <section className="min-w-0 space-y-2 rounded-lg border border-zinc-800 p-2" aria-label={side === "offered" ? "Whole decks to offer" : "Whole decks to request"}>
     <h4 className="text-sm font-medium text-zinc-100">Whole decks {side === "offered" ? "to offer" : "to request"}</h4>
     <p className="text-xs text-zinc-400">Each deck stays together with its committed copies. League-linked decks and physical Maybeboard commitments cannot be traded.</p>

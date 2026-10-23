@@ -41,6 +41,17 @@ export async function lockWritableDeck(tx: Tx, deckId: string, expectedOwnerUser
   return deck;
 }
 
+/** An inherited visibility change is also a change to the reviewed source. */
+export async function assertDeckDefaultVisibilityWritable(tx: Tx, ownerUserId: string, visibility: "PRIVATE" | "PUBLIC") {
+  await lockDeckOwners(tx, [ownerUserId]);
+  const owner = await tx.user.findUnique({ where: { id: ownerUserId }, select: { deckDefaultVisibility: true } });
+  if (!owner) throw new DeckTradeWriteError("Deck owner is unavailable.");
+  if (owner.deckDefaultVisibility === visibility) return;
+  const decks = await tx.deck.findMany({ where: { ownerUserId, visibility: "INHERIT" }, select: { id: true } });
+  await lockDeckRows(tx, decks.map(deck => deck.id));
+  for (const deck of decks) await assertDeckUnreserved(tx, deck.id);
+}
+
 /** Delete/zero cleanup must join the same order even for zero lots, which do
  * not have positive TradeLine reservation members. Refresh location after stock
  * locks; a source newly moved into an unobserved deck requires a retry/skip. */

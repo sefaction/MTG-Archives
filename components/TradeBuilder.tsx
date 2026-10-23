@@ -53,7 +53,7 @@ type SearchState = {
   items: TradeBuilderItem[];
 };
 
-type TradeDraftLine = {
+export type TradeDraftLine = {
   item: TradeBuilderItem;
   quantity: number;
 };
@@ -71,8 +71,11 @@ type TradeBuilderProps = {
   receiverName: string;
   initialOfferedItem?: TradeBuilderItem | null;
   initialRequestedItem?: TradeBuilderItem | null;
+  initialOfferedLines?: TradeDraftLine[];
+  initialRequestedLines?: TradeDraftLine[];
   initialOfferedDecks?: TradeDeckReview[];
   initialRequestedDecks?: TradeDeckReview[];
+  initialOfferedReviewDeckId?: string;
   allowWholeDecks?: boolean;
 };
 
@@ -246,6 +249,7 @@ function TradeInventorySearch({
   title,
   subtitle,
   ownerId,
+  counterTradeId,
   state,
   setState,
   selectedIds,
@@ -254,6 +258,7 @@ function TradeInventorySearch({
   title: string;
   subtitle: string;
   ownerId: string;
+  counterTradeId?: string;
   state: SearchState;
   setState: (
     next: SearchState | ((current: SearchState) => SearchState),
@@ -277,6 +282,7 @@ function TradeInventorySearch({
       setState((current) => ({ ...current, loading: true, error: "" }));
       try {
         const params = new URLSearchParams({ ownerId, q: query });
+        if (counterTradeId) params.set("counterTradeId", counterTradeId);
         const response = await fetch(`/api/trades/inventory-search?${params}`, {
           signal: controller.signal,
         });
@@ -302,7 +308,7 @@ function TradeInventorySearch({
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [ownerId, setState, state.query]);
+  }, [ownerId, counterTradeId, setState, state.query]);
 
   return (
     <details className="group overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950/40">
@@ -412,8 +418,11 @@ export function TradeBuilder({
   receiverName,
   initialOfferedItem,
   initialRequestedItem,
+  initialOfferedLines,
+  initialRequestedLines,
   initialOfferedDecks,
   initialRequestedDecks,
+  initialOfferedReviewDeckId,
   allowWholeDecks = true,
 }: TradeBuilderProps) {
   const [message, setMessage] = useState("");
@@ -429,10 +438,10 @@ export function TradeBuilder({
   const [requestSearch, setRequestSearch] =
     useState<SearchState>(emptySearchState);
   const [offered, setOffered] = useState<TradeDraftLine[]>(
-    initialOfferedItem ? [{ item: initialOfferedItem, quantity: 1 }] : [],
+    initialOfferedLines ?? (initialOfferedItem ? [{ item: initialOfferedItem, quantity: 1 }] : []),
   );
   const [requested, setRequested] = useState<TradeDraftLine[]>(
-    initialRequestedItem ? [{ item: initialRequestedItem, quantity: 1 }] : [],
+    initialRequestedLines ?? (initialRequestedItem ? [{ item: initialRequestedItem, quantity: 1 }] : []),
   );
   const [offeredDecks, setOfferedDecks] = useState<TradeDeckReview[]>(initialOfferedDecks ?? []);
   const [requestedDecks, setRequestedDecks] = useState<TradeDeckReview[]>(initialRequestedDecks ?? []);
@@ -571,7 +580,7 @@ export function TradeBuilder({
             }
           />
           {allowWholeDecks ? <div className="grid min-w-0 gap-2">
-            <TradeDeckPicker ownerId={proposerOwnerId} side="offered" counterTradeId={counterTradeId} selected={offeredDecks} onChange={setOfferedDecks} />
+            <TradeDeckPicker ownerId={proposerOwnerId} side="offered" counterTradeId={counterTradeId} initialDeckId={initialOfferedReviewDeckId} selected={offeredDecks} onChange={setOfferedDecks} />
             <TradeDeckPicker ownerId={receiverPlayerId} side="requested" counterTradeId={counterTradeId} selected={requestedDecks} onChange={setRequestedDecks} />
           </div> : <p className="text-xs text-zinc-400">Propose whole-deck trades from the deck owner’s own account.</p>}
         </div>
@@ -596,6 +605,7 @@ export function TradeBuilder({
           title={`Search ${proposerName}'s inventory`}
           subtitle="Add a card to the offer."
           ownerId={proposerOwnerId}
+          counterTradeId={counterTradeId}
           state={offerSearch}
           setState={setOfferSearch}
           selectedIds={offered.map((line) => line.item.id)}
@@ -605,6 +615,7 @@ export function TradeBuilder({
           title={`Search ${receiverName}'s inventory`}
           subtitle="Add a card to the request."
           ownerId={receiverPlayerId}
+          counterTradeId={counterTradeId}
           state={requestSearch}
           setState={setRequestSearch}
           selectedIds={requested.map((line) => line.item.id)}
