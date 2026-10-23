@@ -14,10 +14,10 @@ all-writer composition or phase acceptance follows from updating this map.
 | Writer | Actual exercised boundary | Evidence and limit |
 | --- | --- | --- |
 | Acquisition | commitAcquisitionCards uses the session/candidate fences, locked capacity read, shared receipt and unique member transaction | verify-acquisition-commit.ts: simultaneous same-request replay and competing sessions; rollback at receipt/audit/member stages; real stale-review rejection. Not every other writer composition. |
-| CSV import | commitImportBatch executes under the capacity gate in verify-inventory-capacity.ts | Gate-first actual service lock wait. This batch additionally pauses the actual CSV transaction after stock/audit/status writes, then observes the actual acquisition commit waiting in PostgreSQL. The stale preview must reject with zero acquisition receipt/member/audit effects; fresh explicit overfill records its reason and exactly one copy. |
+| CSV import | Complete commitImportBatch and commitAcquisitionCards execute in both orders | Existing #920 CSV-first stale/refreshed consent remains. The [reverse complete schedule](ACQUISITION_TRADE_WRITER.md) preserves the committed capture receipt/photo/audit while the later advisory CSV adds a separate provenance lot; both service replays have zero effects. |
 | Manual add | addInventoryCardToLocation executes behind the gate; writer-first serializable capacity read retries | Actual helper/transaction, occupancy/revision checks, verify-inventory-capacity.ts. The writer-first acquisition side was the capacity read, not the complete receipt service. |
 | Storage move | moveInventoryStorageBatch executes behind the gate | Actual service gate-first lock wait, verify-inventory-capacity.ts. Opposite-order complete acquisition/move composition is not asserted. |
-| Trade receipt | receivedTradeInventoryData followed by the real Inventory insert executes behind the gate | This is a receipt-helper/database boundary, not the full authenticated trade lifecycle. Separate actual trade stock/action tests qualify their own scopes; they do not establish a full trade-versus-acquisition interleaving. |
+| Trade receipt | Complete confirmPhysicalTrade action and complete acquisition receipt execute in both orders | [Full action schedules and rollback](ACQUISITION_TRADE_WRITER.md) execute real transfers, reservations, audits, wishlists, events and notifications. Only request identity/cache and post-body observation are adapted; this is not an authenticated browser/physical exchange claim. Existing helper controls remain. |
 | Deck return | returnCommittedInventoryFromDeck executes behind the gate | Actual service gate-first lock wait. Other deck operations rely on the same statement triggers; a full opposite-order deck/acquisition composition is not claimed. |
 | Layout edit | updateLocation executes behind the gate and changes the revision | Actual service plus placement-field trigger coverage, verify-inventory-capacity.ts. Complete simultaneous receipt/layout composition remains distinct. |
 | Delete/direct SQL/FK | real delete, SQL section/key/null-location changes and trigger checks | Database mechanism coverage across positive stock, revision/rollback and enabled triggers. Not an exhaustive enumeration of arbitrary SQL/writer histories. |
@@ -66,6 +66,12 @@ full typecheck gate. No app build/reload is required for test/documentation-only
 changes; a disposable local database is isolated from all current review data.
 
 ## Remaining acceptance and next safe step
+
+The final named trade/reverse-import schedules and finite original P7 acceptance
+reconciliation are in [ACQUISITION_TRADE_WRITER.md](ACQUISITION_TRADE_WRITER.md).
+Read its #944/#948 dependencies and actual PR gate/merge states before treating
+an earlier row or historical "next uncovered" statement as new work. Do not
+repeat named schedules merely because their original map predates that evidence.
 
 The subsequent persisted preview and receipt-create controls are documented in
 [ACQUISITION_COMMIT_INVALIDATION.md](ACQUISITION_COMMIT_INVALIDATION.md). They add

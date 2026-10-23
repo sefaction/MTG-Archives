@@ -558,6 +558,86 @@ export async function verifyAcquisitionCommit(
       )._sum.quantity,
       1,
     );
+    // Reverse order: hold the complete acquisition receipt, then let the
+    // complete ordinary CSV service retain its advisory-capacity semantics.
+    {
+      const destination = await location(1), captured = await capture(destination, 1);
+      await review(captured.id, captured.photos[0].id); await stop(captured.id);
+      const selection = { photoIds: [captured.photos[0].id], locationId: destination, section: "A" };
+      const preview = await previewAcquisitionCommit(db, actor, captured.id, selection);
+      const request = { ...selection, requestKey: randomUUID(), previewToken: preview.token, overfillReason: null };
+      const batch = await db.importBatch.create({ data: {
+        filename: tag + "-reverse", importType: "inventory_csv:separate", selectedPlayerId: base.ownerPlayerId,
+        selectedOriginalOpenerId: base.ownerPlayerId, createdByUserId: actor.userId, status: "PREVIEW",
+        items: { create: { rowNumber: 2, status: "matched", cardPrintingId: card.id, parsedCondition: "NM",
+          parsedFoilStatus: "NONFOIL", rawRowJson: {}, parsedRowJson: { quantity: 1, condition: "NM", language: "EN", notes: "CSV after acquisition" } } },
+      } });
+      importBatches.push(batch.id);
+      let signalHeld!: () => void, releaseWriter!: () => void;
+      const held = new Promise<void>(resolve => { signalHeld = resolve; }), release = new Promise<void>(resolve => { releaseWriter = resolve; });
+      const heldLabel = `capture-csv-holding-${randomUUID()}`, waitingLabel = `capture-csv-waiting-${randomUUID()}`;
+      const connection = (label: string) => { const url = new URL(process.env.DATABASE_URL!); url.searchParams.set("application_name", label); return new PrismaClient({ datasourceUrl: url.href }); };
+      const captureDb = connection(heldLabel), importDb = connection(waitingLabel);
+      const protectedLedger = async (p: Prisma.TransactionClient, id: string) => ({
+        receipt: await p.acquisitionCommit.findUniqueOrThrow({ where: { id } }),
+        members: await p.acquisitionCommitMember.findMany({ where: { commitId: id }, orderBy: { candidateId: "asc" } }),
+        audits: await p.inventoryAuditLog.findMany({ where: { changeType: "acquisition_committed", inventoryItem: { locationId: destination } }, orderBy: { id: "asc" } }),
+        photos: await p.acquisitionPhoto.findMany({ where: { run: { sessionId: captured.id } }, orderBy: { id: "asc" } }),
+      });
+      let original: Awaited<ReturnType<typeof protectedLedger>> | undefined;
+      const heldCapture = new Proxy(captureDb, { get(target, key) {
+        if (key === "$transaction") return (work: (tx: Prisma.TransactionClient) => Promise<Awaited<ReturnType<typeof commitAcquisitionCards>>>, options: unknown) =>
+          Reflect.apply(target.$transaction, target, [async (tx: Prisma.TransactionClient) => {
+            const result = await work(tx); original = await protectedLedger(tx, result.id);
+            signalHeld(); await release; return result;
+          }, options]);
+        const value = Reflect.get(target, key); return typeof value === "function" ? value.bind(target) : value;
+      } });
+      const importingInput = { batchId: batch.id, actingUserId: actor.userId, playerId: base.ownerPlayerId,
+        isAdmin: false, destinationLocationId: destination, destinationLocationSection: "A" };
+      const capturing = commitAcquisitionCards(heldCapture, actor, captured.id, request);
+      void capturing.catch(() => {});
+      let importing: ReturnType<typeof commitImportBatch> | undefined;
+      const errors: unknown[] = [];
+      try {
+        await Promise.race([held, capturing.then(() => { throw new Error("Capture left its held complete receipt early"); })]);
+        importing = commitImportBatch(importDb, importingInput); void importing.catch(() => {});
+        let waiting = false; const deadline = Date.now() + 5000;
+        do {
+          const [row] = await db.$queryRaw<{ waiting: boolean }[]>`SELECT EXISTS(
+            SELECT 1 FROM pg_stat_activity w JOIN pg_stat_activity h ON h.pid=ANY(pg_blocking_pids(w.pid))
+            WHERE w.application_name=${waitingLabel} AND h.application_name=${heldLabel} AND w.wait_event_type='Lock') AS waiting`;
+          waiting = row.waiting; if (!waiting) await setTimeout(20);
+        } while (!waiting && Date.now() < deadline);
+        assert(waiting, "complete CSV must wait for the actual complete acquisition receipt");
+        releaseWriter(); const receipt = await capturing; assert.equal((await importing).committedRows, 1);
+        assert(original); assert.deepEqual(await protectedLedger(db, receipt.id), original);
+        const snapshot = async () => ({
+          capture: await protectedLedger(db, receipt.id),
+          stock: await db.inventoryItem.findMany({ where: { locationId: destination }, orderBy: { id: "asc" } }),
+          audits: await db.inventoryAuditLog.findMany({ where: { inventoryItem: { locationId: destination } }, orderBy: { id: "asc" } }),
+          batch: await db.importBatch.findUniqueOrThrow({ where: { id: batch.id }, include: { items: { orderBy: { rowNumber: "asc" } } } }),
+        });
+        const after = await snapshot();
+        assert.equal(after.stock.length, 2); assert.equal(after.stock.reduce((sum, row) => sum + row.quantity, 0), 2);
+        assert.equal(after.audits.length, 2); assert.equal(after.batch.status, "IMPORTED");
+        assert.equal(after.batch.items[0].status, "imported");
+        const imported = after.stock.find(row => row.sourceType === "CSV_PULL_IMPORT")!;
+        assert.equal(imported.quantity, 1); assert.equal(imported.notes, "CSV after acquisition");
+        assert.equal(imported.originalOpenerId, base.ownerPlayerId); assert.equal(after.batch.items[0].inventoryItemId, imported.id);
+        assert.equal(after.stock.find(row => row.sourceType === "ACQUISITION")!.id, receipt.inventoryItemIds[0]);
+        const replay = await commitAcquisitionCards(db, actor, captured.id, request); assert(replay.replay); assert.equal(replay.id, receipt.id);
+        assert.equal((await commitImportBatch(db, importingInput)).committedRows, 0);
+        assert.deepEqual(await snapshot(), after, "both full-service replays preserve receipt/import/audit/stock state");
+        console.log("PASS: complete acquisition-first CSV lock pair, unchanged capture receipt/photo/audit, separate import provenance/status and both effect-free replays");
+      } catch (error) { errors.push(error); }
+      finally {
+        releaseWriter();
+        for (const result of await Promise.allSettled(importing ? [capturing, importing] : [capturing])) if (result.status === "rejected" && !errors.includes(result.reason)) errors.push(result.reason);
+        for (const result of await Promise.allSettled([captureDb.$disconnect(), importDb.$disconnect()])) if (result.status === "rejected") errors.push(result.reason);
+      }
+      if (errors.length) throw new AggregateError(errors, "Reverse complete CSV/acquisition verification failed", { cause: errors[0] });
+    }
     // Compose both actual domain services, rather than treating a
     // capacity helper alone as proof of capture-versus-CSV admission.
     const csvLocation = await location(1), csvCapture = await capture(csvLocation, 1);
