@@ -37,7 +37,7 @@ test("Public language filters constrain actual results, suggestions and desktop/
       for(const [key,owner,language,quantity,locationId] of [['English',ids[0],'EN',2,null],['French',ids[0],'FR',3,null],['Dual',ids[0],'EN',5,null],['Dual',ids[0],'FR',7,null],['OtherEnglish',ids[1],'EN',11,null],['OtherFrench',ids[1],'FR',13,null],['Private',ids[0],'FR',17,${quote(tag + "-hidden")}],['PrivateOwner',ids[2],'FR',19,null],['Zero',ids[0],'FR',0,null]]){await tx.inventoryItem.create({data:{currentOwnerId:owner,originalOpenerId:owner,cardId:${quote(tag)}+'-'+key,language,quantity,condition:'NM',sourceType:'MANUAL',locationId}});}
       return true;
     });`);
-    const cases: { language?: string; owner?: string; keys: string[]; languages: string[]; count: number }[] = [
+    const cases: { language?: string; languageValues?: string[]; owner?: string; keys: string[]; languages: string[]; count: number }[] = [
       { language: "FR", keys: ["Dual", "French", "OtherFrench"], languages: ["FR"], count: 3 },
       { language: "EN", keys: ["Dual", "English", "OtherEnglish"], languages: ["EN"], count: 3 },
       { language: " en ", keys: ["Dual", "English", "OtherEnglish"], languages: ["EN"], count: 3 },
@@ -48,10 +48,13 @@ test("Public language filters constrain actual results, suggestions and desktop/
       { language: "FR", owner: ids[0], keys: ["Dual", "French"], languages: ["FR"], count: 2 },
       { language: "EN", owner: ids[1], keys: ["OtherEnglish"], languages: ["EN"], count: 1 },
       { language: "FR", owner: ids[2], keys: [], languages: [], count: 0 },
+      { languageValues: ["EN", "FR"], keys: ["Dual", "English", "French", "OtherEnglish", "OtherFrench"], languages: ["EN", "FR"], count: 6 },
+      { languageValues: ["FR", ""], keys: ["Dual", "French", "OtherFrench"], languages: ["FR"], count: 3 },
     ];
     for (const fixture of cases) {
       const params = new URLSearchParams({ cardName: tag, displayMode: "exact", pageSize: "10" });
       if (fixture.language !== undefined) params.set("language", fixture.language);
+      for (const language of fixture.languageValues || []) params.append("language", language);
       if (fixture.owner) params.set("owner", fixture.owner);
       const response = await request.get(`/api/public/inventory/list?${params}`);
       expect(response.status()).toBe(200);
@@ -61,6 +64,7 @@ test("Public language filters constrain actual results, suggestions and desktop/
       expect([...new Set(result.rows.flatMap((row: any) => row.tradeWishlistTargets.map((target: any) => target.language)))].sort()).toEqual(fixture.languages);
       const suggestions = new URLSearchParams({ kind: "cardName", q: tag });
       if (fixture.language !== undefined) suggestions.set("language", fixture.language);
+      for (const language of fixture.languageValues || []) suggestions.append("language", language);
       if (fixture.owner) suggestions.set("owner", fixture.owner);
       const suggested = await request.get(`/api/public/inventory/filter-suggestions?${suggestions}`);
       expect(suggested.status()).toBe(200);
