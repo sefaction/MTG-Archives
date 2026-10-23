@@ -42,6 +42,7 @@ import {
   getLocationsForOwner,
 } from "@/lib/inventory-locations";
 import { prisma } from "@/lib/prisma";
+import { activeDeckTradeStatuses } from "@/lib/deck-write-fence";
 import { resolveDeckVisibility, visibilityLabel } from "@/lib/visibility";
 import { deckTagsText } from "@/lib/deck-tags";
 import {
@@ -215,10 +216,12 @@ export default async function DeckDetailPage({
     (member) => member.role === "ADMIN",
   );
   const leagueLocked = Boolean(leagueDeck?.submissions.length);
+  const reservedForTrade = Boolean(user && canManageDeck(user, deck, scope?.mode === "admin") &&
+    await prisma.tradeDeckBundle.findFirst({ where: { deckId, trade: { status: { in: activeDeckTradeStatuses } } }, select: { id: true } }));
   const canEdit =
     (canManageDeck(user, deck, scope?.mode === "admin") ||
       Boolean(leagueAdmin)) &&
-    !leagueLocked;
+    !leagueLocked && !reservedForTrade;
   const inventoryCommitmentEnabled = !leagueDeck;
   const folderOptions = canEdit
     ? buildDeckFolderOptions(
@@ -486,6 +489,7 @@ export default async function DeckDetailPage({
   return (
     <main className="deck-builder-page min-w-0 space-y-3 p-3 md:p-6">
       <Nav />
+      {reservedForTrade ? <p role="status" className="rounded border border-amber-700 p-3 text-sm text-amber-200">This whole deck is reserved in an active trade. Its list and committed copies are locked until the offer is completed, declined or cancelled. <Link href="/trades?view=active" className="underline">Open Active Trades</Link></p> : null}
       <section className="app-panel overflow-hidden">
         <header className="space-y-2 p-3">
           <Link
@@ -501,6 +505,7 @@ export default async function DeckDetailPage({
               {deck.name}
             </h1>
             <div className="flex flex-wrap items-center gap-2">
+              {user?.id === deck.ownerUserId && !leagueDeck && !reservedForTrade ? <Link href={`/trades?offerDeckId=${encodeURIComponent(deck.id)}`} className="deck-workspace-button">Offer whole deck</Link> : null}
               <a
                 href={`/api/decks/${deck.id}/export`}
                 className="deck-workspace-button"
