@@ -171,8 +171,8 @@ test("trade rows stay collapsed behind viewer-oriented compact summaries", () =>
   assert.match(tradesPage, /const displayLeftCards = userIsReceiver/);
   assert.match(tradesPage, /const displayRightCards = userIsReceiver/);
   assert.match(tradesPage, /const displayLeftPlayer = userIsReceiver/);
-  assert.match(tradesPage, /tradeSideLabel\(displayLeftCards\)/);
-  assert.match(tradesPage, /tradeSideLabel\(displayRightCards\)/);
+  assert.match(tradesPage, /tradeSideLabel\(displayLeftCards, displayLeftDecks.length\)/);
+  assert.match(tradesPage, /tradeSideLabel\(displayRightCards, displayRightDecks.length\)/);
   assert.match(tradesPage, /displayLeftCards\.map/);
   assert.match(tradesPage, /displayRightCards\.map/);
   assert.match(tradesPage, /leftLines=\{displayLeftCards\}/);
