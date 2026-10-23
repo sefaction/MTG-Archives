@@ -109,11 +109,21 @@ for (const width of [1366, 320]) for (const outcome of ["subset", "overfill"] as
       await page.reload();
       await expect(page.getByRole("region", { name: "Batch progress", exact: true })).toContainText(`${count} added`);
       if (outcome === "subset") {
+        const ledger = () => database<{
+          receipts: { id: string; members: { candidateId: string }[] }[];
+          stock: { id: string; locationId: string | null; quantity: number }[];
+          audits: { id: string; afterJson: { quantity: number; overfill: number } }[];
+        }>(`const n=${JSON.stringify(tag)},w={run:{sessionId:${JSON.stringify(batch)}}};return {receipts:await p.acquisitionCommit.findMany({where:w,orderBy:{id:'asc'},include:{members:{orderBy:{candidateId:'asc'}}}}),stock:await p.inventoryItem.findMany({where:{currentOwnerId:n},orderBy:{id:'asc'}}),audits:await p.inventoryAuditLog.findMany({where:{changedByUserId:n,changeType:'acquisition_committed'},orderBy:{id:'asc'}})};`);
+        const firstLedger = ledger();
+        expect(firstLedger.receipts).toHaveLength(1);
+        expect(firstLedger.receipts[0].members).toHaveLength(258);
+        writeFileSync(test.info().outputPath("first-receipt-ledger.json"), JSON.stringify(firstLedger));
         await page.getByRole("link", { name: "Add 5 confirmed cards to Inventory", exact: true }).click();
         await inventory.getByRole("button", { name: "Review 5 confirmed cards for Inventory", exact: true }).click();
         await expect(confirm.getByRole("alert")).toContainText("5 selected copies exceed");
-        // Change only the proposed destination; preview cannot move or consume
-        // the five pending physical copies. Their actual later commit is separate.
+        // Preview cannot consume the five copies. A separate explicit commit
+        // below completes their same-session reassignment without changing the
+        // first receipt or adding any copy twice.
         await inventory.getByText("Change destination", { exact: true }).click();
         await inventory.getByRole("button", { name: "Change", exact: true }).click();
         await inventory.getByRole("combobox", { name: "Search destinations", exact: true }).fill("Capacity alternative");
@@ -123,6 +133,39 @@ for (const width of [1366, 320]) for (const outcome of ["subset", "overfill"] as
         await expect(confirm.getByRole("alert")).toHaveCount(0);
         expect((await (await page.request.get(`/api/acquisition/${batch}`)).json()).slots.filter((value: { committed: boolean }) => !value.committed)).toHaveLength(5);
         expect(database(`return (await p.inventoryItem.aggregate({where:{currentOwnerId:${JSON.stringify(tag)}},_sum:{quantity:true}}))._sum.quantity;`)).toBe(800);
+        expect(ledger()).toEqual(firstLedger);
+        const committed = page.waitForResponse(response => response.url().endsWith(`/api/acquisition/${batch}/commit`) && response.request().postDataJSON()?.action === "commit");
+        await confirm.getByRole("button", { name: "Add 5 copies to Inventory", exact: true }).click();
+        const response = await committed;
+        expect(response.status()).toBe(200);
+        const receipt = await response.json();
+        expect(receipt).toMatchObject({ count: 5, locationId: tag + "-other", replay: false });
+        await expect(inventory).toContainText("Added 5 copies to Inventory.");
+        const secondLedger = ledger();
+        expect(secondLedger.receipts).toHaveLength(2);
+        expect(secondLedger.receipts.find(value => value.id === firstLedger.receipts[0].id)).toEqual(firstLedger.receipts[0]);
+        expect(secondLedger.receipts.find(value => value.id === receipt.id)?.members).toHaveLength(5);
+        const members = secondLedger.receipts.flatMap(value => value.members.map(member => member.candidateId));
+        expect(members).toHaveLength(263); expect(new Set(members).size).toBe(263);
+        expect(secondLedger.stock.filter(value => value.locationId === tag)).toEqual(firstLedger.stock);
+        expect(secondLedger.stock.filter(value => value.locationId === tag + "-other").reduce((sum, value) => sum + value.quantity, 0)).toBe(5);
+        expect(secondLedger.stock.reduce((sum, value) => sum + value.quantity, 0)).toBe(805);
+        expect(secondLedger.audits).toHaveLength(2);
+        expect(secondLedger.audits.find(value => value.id === firstLedger.audits[0].id)).toEqual(firstLedger.audits[0]);
+        expect(secondLedger.audits.filter(value => value.id !== firstLedger.audits[0].id)[0].afterJson).toMatchObject({ quantity: 5, overfill: 0 });
+        const replay = await page.request.post(`/api/acquisition/${batch}/commit`, { headers, data: response.request().postDataJSON() });
+        expect(replay.status()).toBe(200); expect(await replay.json()).toEqual({ ...receipt, replay: true });
+        expect(ledger()).toEqual(secondLedger);
+        await page.reload();
+        await expect(page.getByRole("region", { name: "Batch progress", exact: true })).toContainText("263 added");
+        await expect(page.getByRole("link", { name: "Add 5 confirmed cards to Inventory", exact: true })).toHaveCount(0);
+        const completed = await (await page.request.get(`/api/acquisition/${batch}`)).json();
+        expect(completed.slots.filter((value: { committed: boolean }) => value.committed)).toHaveLength(263);
+        expect(ledger()).toEqual(secondLedger);
+        writeFileSync(test.info().outputPath("reassigned-receipt-ledger.json"), JSON.stringify(secondLedger));
+        await page.getByRole("region", { name: "Batch progress", exact: true }).scrollIntoViewIfNeeded();
+        await expect(page.getByRole("region", { name: "Batch progress", exact: true })).toBeInViewport();
+        await page.screenshot({ path: test.info().outputPath("reassigned-complete.png") });
       }
       const retained = sourceState();
       writeFileSync(test.info().outputPath("originals-after.json"), JSON.stringify(retained));

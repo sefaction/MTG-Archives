@@ -3,9 +3,11 @@
 This reconciles #309's recorded all-writer requirement against current source,
 not just the original phase delivery. It is a partial acceptance map, not closure
 of #309/#302, named-installation deployment or independent user acceptance.
-Current source base: main339188b0. This batch changes only database verification
-and this report; receipt, capacity, import, trade, deck and acquisition behavior
-are unchanged. Existing #807/#881 and #913/#914 owners remain independent.
+Original composed-writer source base: main339188b0. The capacity/reassignment
+browser extension integrates main932e305c; its browser test/report/map changes
+leave receipt, capacity, import, trade, deck and acquisition services unchanged.
+Each earlier result retains its source/environment binding; no complete current
+all-writer composition or phase acceptance follows from updating this map.
 
 ## Writer and ordering coverage
 
@@ -34,7 +36,7 @@ overfill by design; this is advisory capacity, not a new hard stock constraint.
 | Retry, double click, new key and lost response | verify-acquisition-commit.ts same-request concurrency/replay, changed digest refusal, unique membership/new-key denial and replay after stock deletion; existing explicit handoff browser report | Source/database replay is distinct from every transport failure or current installed UI. |
 | Atomic Inventory/audit/receipt/membership | verify-acquisition-commit.ts injects audit/member failures after earlier writes; original stock/audit/member counts are compared. Shared receipt tests cover insert/increment audit rollback. | These are declared software faults. A fault specifically at AcquisitionCommit creation is not individually injected here; natural disk loss and full host crashes remain distinct. |
 | Subset/pending/retake/current physical count | verify-acquisition-commit.ts checks selected subset, unsettled/uncertain/overflow refusals, abandoned retake and unchanged pending photos | Device/provider acceptance remains deferred; current scan originals are not replaced by recognition guesses. |
-| Fresh capacity and reasoned overfill | Existing competing-session/stale-destination/review checks and the actual CSV-versus-acquisition case; new preview sees zero space/one excess and explicit retry audit. Subsequent263-to258 desktop/320px browser cases verify stale refusal,258subset/five-pending destination preview, and separately fresh263overfill consent/audit. | The larger UI case uses explicit persisted reviewed fixtures and a database occupancy write, not263provider acknowledgements or an authenticated manual-add interleaving. The five-card alternative destination is previewed, not subsequently committed. See ACQUISITION_CAPACITY_HANDOFF.md. |
+| Fresh capacity and reasoned overfill | Existing competing-session/stale-destination/review checks and the actual CSV-versus-acquisition case; new preview sees zero space/one excess and explicit retry audit.263-to258 desktop/320px cases verify stale refusal,258subset, five-pending destination preview then separate explicit addition there, first receipt/audit preservation,263unique memberships, reload/frozen-request replay, and separately fresh263overfill consent/audit. | The larger UI case uses explicit persisted reviewed fixtures and a database occupancy write, not263provider acknowledgements or an authenticated manual-add interleaving. The alternate-destination commit is now exercised with immutable first receipt and zero replay effects; whole provider/native/all-writer acceptance remains separate. See ACQUISITION_CAPACITY_HANDOFF.md. |
 | Owner/active actor/review/finish/layout changes | Existing stranger/inactive-user, changed review, incompatible/unknown finish checks and placement-field revision trigger | Enumerate missing complete-commit invalidations for owner/finish/layout rather than treating trigger inspection as every composition passing. |
 | Opener/source/notes/pull/round/lot | verify-inventory-receipts.ts and verify-import-commit.ts preserve distinctions, separate scan lots, compatible manual merging and concurrent before/after audits | Neither helper qualification nor one capture group proves every mixed provenance workload. |
 | More than999 copies | verify-inventory-receipts.ts verifies a1200-copy receipt without the manual UI clamp; integer bounds/rollback remain | Acquisition intentionally selects at most500photos per receipt. The shared receipt quantity requirement does not authorize enlarging that transaction bound; broader scale/duration remains #310. |
