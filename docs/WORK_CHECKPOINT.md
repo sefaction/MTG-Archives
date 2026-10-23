@@ -1,3 +1,9 @@
+# Current integration status - PR #912, October 23, 2026
+
+PR #912 is being integrated with main 04b491333dd415b92f9a62aa8235209efa8ec9d2 after Brian's individual approval and independent source/evidence review. The only conflict was the concurrent checkpoint additions below; both histories are retained verbatim. PRs #902, #907 and #909 are merged. Fresh integrated-head CI remains required before #912 merge; #910/#911 remain open until that merge. #913/#914 language work and historical #721 remain separate and owned. No product changes, runtime, data, schedules or deployment accompany this documentation reconciliation.
+
+## Preserved dated checkpoint histories
+
 ## Current work - laptop development restored, October 22, 2026
 
 - Authority/owner: Brian explicitly corrected the laptop restriction in chat `01a16541-333e-7c31-92f4-1b8223d12ed0`; run `laptop-policy-20261022-01a16541`, STMLT26. Continue laptop implementation, local production builds, meaningful tests, Docker/app reloads and desktop/phone review. This supersedes historical ACTIVE heavy-runtime/source-only holds below, including runtime gates recorded for #905/#906. Prior failures and issue ownership remain; merge, production and physical scanner authority are unchanged.
@@ -10,6 +16,12 @@
 
 # Work checkpoint
 
+## Current work - #910/#911 author qualification for PR #912, October 23, 2026
+
+- Branch `codex/inventory-phone-search-popup`, base main51f810c3; [PR #912](https://github.com/sefaction/MTG-Archives/pull/912). Phone suggestions open below the stable form. Brian explicitly authorized the narrow Public-suggestions repair: Quick/Advanced Public callers use a public facade forcing existing public visibility. Private API/middleware and writers unchanged. No general backend or merge/production grant.
+- 23 focused style/compact/scroll checks, 10 public-readonly checks and changed-file lint pass. 20 Private/anonymous Public desktop390/320 loading/settled touch/keyboard cases pass, plus two corrected anonymous API/Advanced controls. The 22-case run retains two failures; only corrected controls were rerun. Six original-table fingerprints fully restored, including exact recovery of the timed-out control fixture; finalizer hardened. Original touch interception,401,unsupported-condition and other harness failures preserved.
+- Cumulative source258ce94c includes qualified909b62df4f2;1,226 declared-input digest4b0d7afc20a77db583ad5d551426b93b09ca87173aaaac030951cf1c2da00d8a matches actual image. All changed application bytes match feature source; later differences are test-only plus separately tracked909. Bounded production compilation/types/static/client guards pass; builder/cache and superseded layout-only candidate retired. Current review and rollback remain; no temporary fixtures or browser/build children.
+- Public Language-filter enforcement is a separate demonstrated remainder [#913](https://github.com/sefaction/MTG-Archives/issues/913), not fixed here. Portable evidence/limits: [INVENTORY_PHONE_SEARCH_POPUP.md](INVENTORY_PHONE_SEARCH_POPUP.md). Require fresh final-head CI before marking ready; PR owns current CI/readiness. Next independent/Brian review, then individual approval and explicit merge request before merge/issue closure. Deployment/user acceptance remain separate.
 ## Current work - Inventory incremental navigation repair #908, October 23, 2026
 
 - Branch `codex/inventory-infinite-navigation`, base main `51f810c3`; active issue-resolution goal authorizes this demonstrated client defect repair. [#908](https://github.com/sefaction/MTG-Archives/issues/908) creation receipt and exact owner are retained privately. No merge, production or backend-writer authority.

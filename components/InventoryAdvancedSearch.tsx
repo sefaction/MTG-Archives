@@ -1084,7 +1084,7 @@ export function InventoryAdvancedSearch({
   setOptions = [],
   cardNameOptions = [],
   suggestionsEndpoint = isPublic
-    ? "/api/inventory/filter-suggestions?public=1"
+    ? "/api/public/inventory/filter-suggestions"
     : "/api/inventory/filter-suggestions",
   clearHref,
   scryfallQueryError,
