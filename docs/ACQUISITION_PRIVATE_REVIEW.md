@@ -52,6 +52,10 @@ PriceImportJob, PriceWorkerHeartbeat), migration history and new TradeDeckBundle
 Those omissions do not affect the exercised review/auth/private-file inputs;
 this case does not qualify pricing or the new trade schema. This is no entire
 current-image, production, physical capture, accuracy or installation claim.
+The fixture is not migration-complete: db-push does not apply migration-only SQL,
+triggers or guards. This browser run qualifies the exercised application access
+and review path, not those database protections. Current-head migrated PostgreSQL
+CI and existing history/rollback verification retain their separate scope.
 
 Preserved harness failures: initial fresh database bootstrap lacked pg_trgm and
 stopped before any fixture rows; completing the interrupted indexes required
