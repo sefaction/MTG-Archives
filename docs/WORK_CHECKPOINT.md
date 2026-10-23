@@ -1,19 +1,180 @@
+## Current work - correction discard focus #916 / PR #917, October 23, 2026
+
+- Laptop owner/thread `01a16943-ac96-7b93-89ea-c178f02100db`, run `laptop-cancel-focus-20261023-01a16943`; branch `codex/acquisition-cancel-focus`, base04b49133, product/test95a67040. Brian's October23shared-queue correction authorizes this bounded #308focus remainder; #913/914 remains desktop-owned. No merge, production, scanner or schedule authority.
+- Actual old-client Simple1366negative loses correction focus; exact cleanup restores all84table fingerprints. Fixed Simple/Advanced1366/320 matrix passes4cases/32.6s, failed-discard draft preservation, next keyboard action, delayed outside focus, saved-state/original-byte and no-extra-write controls. Eight focused tests/lint and seven product/test-headCI39978359486 pass. Initial unconfigured-storage harness failure/recovery preserved separately, with no initial global snapshot claim.
+- Source-bound local production compilation/types/static/client checks pass. Candidate image57a6536d,1227inputs/digest33560fff8c8e943cefe7430864b5556dae2a701f074ce4fbabbd2be081074685, loopback13017, isolatedDBreview905_01a16522. Retired owned builder/cache3.835GB; original previews and root WIP preserved. Full evidence/adaptations: [ACQUISITION_CORRECTION_FOCUS.md](ACQUISITION_CORRECTION_FOCUS.md); privatecurrent `.local-data/laptop-worker-setup-20261022/current-cancel-focus-01a16943.json` records actual live ownership/cleanup.
+- Independent source/negative review has no actionable finding; final runtime/evidence binding and refreshed final-headCI remain pending at this documentation checkpoint. PR917owns live readiness. Keep draft until actual gates pass, release runtime only after terminal owned work/cleanup and source claim after publication; retain current review/rollback and failure evidence. Next individual Brian review/approval and explicit merge request; do not close broad308.
+
+
+## Preserved main checkpoint history at 339188b0
+
+# Current integration status - PR #912, October 23, 2026
+
+PR #912 is being integrated with main 04b491333dd415b92f9a62aa8235209efa8ec9d2 after Brian's individual approval and independent source/evidence review. The only conflict was the concurrent checkpoint additions below; both histories are retained verbatim. PRs #902, #907 and #909 are merged. Fresh integrated-head CI remains required before #912 merge; #910/#911 remain open until that merge. #913/#914 language work and historical #721 remain separate and owned. No product changes, runtime, data, schedules or deployment accompany this documentation reconciliation.
+
+## Preserved dated checkpoint histories
+
+## Current work - laptop development restored, October 22, 2026
+
+- Authority/owner: Brian explicitly corrected the laptop restriction in chat `01a16541-333e-7c31-92f4-1b8223d12ed0`; run `laptop-policy-20261022-01a16541`, STMLT26. Continue laptop implementation, local production builds, meaningful tests, Docker/app reloads and desktop/phone review. This supersedes historical ACTIVE heavy-runtime/source-only holds below, including runtime gates recorded for #905/#906. Prior failures and issue ownership remain; merge, production and physical scanner authority are unchanged.
+- Isolated branch `codex/laptop-development-resource-policy`, base main `11f5461279f9f5b99295378a56d0880ae225158b`; final head/PR and CI recorded on its PR. Changes: explicit canonical policy, resource workflow and a local runtime admission helper. Root cumulative application/manual WIP preserved.
+- Applied operationally: hold receipt RELEASED; batch guard accepts revised policy; runtime guard uses the common root runtime claim with task-specific memory/host/Docker storage budgets and exact-owner release. Host-only builds need no running Docker database. Both existing ACTIVE scheduler prompts updated through supported tools, with cadence/model/local project preserved and complete prompt readback verified. Implementation now carries owned issues through local validation and readiness; roundup remains read-only.
+- Primary local environment already has one acquisition-worker replica; catalog/OCR/visual/printing are distinct functions. Five idle review processing services were verified against immutable identities, zero processing jobs/sessions/capture records and installed graceful handlers, then received SIGTERM. All five exited 0 without OOM/forced termination. Their restart policy was already `no`. Review web/database and all primary services/data remain; HTTP 200 on primary app. Extra qualification processing is on demand, not permanently disabled.
+- Checks: PowerShell syntax/whitespace; impossible-budget admission leaves no claim; successful Docker and host-only admissions; competing claim rejected; wrong-owner release preserves bytes; terminal acknowledgement required; exact-owner archival; existing batch-guard self-check. No product rebuild is needed for these policy/helper changes. Required exact-head CI and independent PR review are tracked separately.
+- Storage observation: about 331 GiB host free; Docker reported 80.88 GB images and 84.05 GB build cache. No blanket cleanup or data deletion. Build only for changed inputs/concrete checks; inspect host/Docker storage before heavy work and at handoff, and retire verified owned superseded resources while preserving current review, rollback, unique data and compact evidence. Stopping containers does not guarantee immediate host memory reclamation.
+- Evidence: primary checkout `.local-data/laptop-policy-20261022/`, including original hold/prompt snapshots, guard checks, review immutable-ID stop manifest/results, schedule readback and resource observations. Runtime windows are released; only this batch's source claim remains until final publication/checkpoint cleanup. No child/build/fixture remains live. Next: finish this PR's required CI, release the exact source claim, then resume the existing feature owner's independent/local runtime review under the revised policy. Do not revive the superseded hold.
+
 # Work checkpoint
 
-## Deterministic short-source conservation comparison — October 21, 2026
+## Current work - #910/#911 author qualification for PR #912, October 23, 2026
 
-Follow-up to merged #879 under #308/#302; branch fix/acquisition-snapshot-order.
-Failed main run 39611552235 at merge 1d235f45 is preserved. The unchanged short-source
-assertion at orchestration line 315 compared unordered relation arrays positionally.
-Only test comparison now clones and sorts artifacts, candidates and observations
-by identity; every field and ordered physical tuples/receipts/corrections remains
-in the deep comparison. Six permutations reproduce old failure; 12 data mutation
-controls still fail comparison. 13 focused tests and full TypeScript pass.
-Initial fixture draft incorrectly treated the reducer result as a wrapper; corrected
-before publication. Independent review and hosted PostgreSQL validation pending.
-Main run is completed/failure; wishlist job API remains in_progress despite its
-completed PASS/cleanup log, so no terminal success is inferred for that job.
-No product/schema/dependency/service changes, deployment or broad issue closure.
+- Branch `codex/inventory-phone-search-popup`, base main51f810c3; [PR #912](https://github.com/sefaction/MTG-Archives/pull/912). Phone suggestions open below the stable form. Brian explicitly authorized the narrow Public-suggestions repair: Quick/Advanced Public callers use a public facade forcing existing public visibility. Private API/middleware and writers unchanged. No general backend or merge/production grant.
+- 23 focused style/compact/scroll checks, 10 public-readonly checks and changed-file lint pass. 20 Private/anonymous Public desktop390/320 loading/settled touch/keyboard cases pass, plus two corrected anonymous API/Advanced controls. The 22-case run retains two failures; only corrected controls were rerun. Six original-table fingerprints fully restored, including exact recovery of the timed-out control fixture; finalizer hardened. Original touch interception,401,unsupported-condition and other harness failures preserved.
+- Cumulative source258ce94c includes qualified909b62df4f2;1,226 declared-input digest4b0d7afc20a77db583ad5d551426b93b09ca87173aaaac030951cf1c2da00d8a matches actual image. All changed application bytes match feature source; later differences are test-only plus separately tracked909. Bounded production compilation/types/static/client guards pass; builder/cache and superseded layout-only candidate retired. Current review and rollback remain; no temporary fixtures or browser/build children.
+- Public Language-filter enforcement is a separate demonstrated remainder [#913](https://github.com/sefaction/MTG-Archives/issues/913), not fixed here. Portable evidence/limits: [INVENTORY_PHONE_SEARCH_POPUP.md](INVENTORY_PHONE_SEARCH_POPUP.md). Require fresh final-head CI before marking ready; PR owns current CI/readiness. Next independent/Brian review, then individual approval and explicit merge request before merge/issue closure. Deployment/user acceptance remain separate.
+## Current work - Inventory incremental navigation repair #908, October 23, 2026
+
+- Branch `codex/inventory-infinite-navigation`, base main `51f810c3`; active issue-resolution goal authorizes this demonstrated client defect repair. [#908](https://github.com/sefaction/MTG-Archives/issues/908) creation receipt and exact owner are retained privately. No merge, production or backend-writer authority.
+- Actual production-client/list-API reproduction leaves 10 of 12 new-filter rows permanently loading after a delayed old page request. Duplicate search includes original paging work and completed retry PR415; historical #721 is separate and stays open. All owned synthetic records removed; six original-table fingerprints match. Initial cleanup harness failure/recovery preserved.
+- Client reset and monotonically identified requests prevent old success/error/finally handlers changing newer results, including same-query returns and refresh/unmount. No API, schema, quantity, ownership, privacy or selection-policy change.
+- Twenty focused checks, all seven product/test-head CI jobs39957963796, bounded production compilation/type/static/client checks, eight Private/Public desktop/320px delayed-response cases and corrected normal retry/selection case pass. Identical versioned negative fails on unchanged image; original heap/cleanup/ambiguous-selector failures retained. Six original-table fingerprints match after each exact fixture cleanup. Direct trigger passes desktop and phone after ordinary Escape closes suggestions; separate open-popup Search interception is filed as #910, not claimed fixed here.
+- Product/test head `8a81c29e`; loaded candidate binds1,224declared inputs/digestff44b3959aaaba9ccd30ca6dac1ace318874bced6f7a696b35b06c8efc26e9b3. Subsequent author changes are this report/checkpoint and one test-only selector; all application inputs unchanged, so no repeat application build. Builder/cache retired, current candidate/rollback protected. Full evidence, adaptations and limits: `docs/INVENTORY_INFINITE_NAVIGATION.md`.
+- Draft [#909](https://github.com/sefaction/MTG-Archives/pull/909) published and attached. Source/runtime claims remain owned through final readiness/cleanup; current exact identity is private. Refresh final-head CI and mark ready for independent/Brian review when author gates pass. Individual merge approval and separate production authority remain required. Existing primary and review resources/WIP preserved.
+
+## Current work - #905 readiness evidence, October 22, 2026
+
+- Owner STMLT26/thread `01a16522-acc1-7390-a1a1-1005ec1997cc`, run
+  `ready-905-20261022-01a16522`. Brian removed the runtime hold and requested
+  completing an issue through readiness for review. Existing isolated branch
+  `codex/laptop-location-filter-state`; product/test head `2c558e35`, base main
+  `11f54612`. This documentation-only commit records final evidence; PR906 gives
+  its exact head/current CI. No product/test/build-input changes follow the tests.
+- [#905](https://github.com/sefaction/MTG-Archives/issues/905) /
+  [#906](https://github.com/sefaction/MTG-Archives/pull/906): 19 focused checks,
+  zero focused TypeScript diagnostics, preserved two-case negative controls,
+  independent source review with no findings, bounded local production build,
+  matching 1,223-input source manifest, and 12 real browser groups at
+  desktop/390/320 px pass. Fixture stock/audit invariance and selected original
+  review baselines pass. Exact delayed-history ordering remains component-tested;
+  browser history is natural and the actual gated response is own-search RSC.
+- [Portable review evidence](LOCATIONS_FILTER_REVIEW.md) records exact image,
+  runtime, source binding, build-only adaptations and evidence limits. Current
+  synthetic app <http://127.0.0.1:13012/locations> is retained for Brian's review
+  with its isolated database/image. Test browsers, temporary sessions/private env
+  file and builder/cache are retired; runtime claim released after terminal work.
+- Required CI on product head passed all seven checks in run39844065806; this
+  final documentation head needs fresh exact-head CI. Source review remains
+  bound to unchanged product/test inputs; documentation evidence is separately
+  reviewed. Mark ready after those gates pass; keep issue open pending approved
+  merge. No merge, production, scanner, schema or domain change.
+- Canonical source-batch claim is exact-owned only during this handoff/publication
+  and released after final metadata readback. No running test/build children.
+  Private reports/current are in `.local-data/review-905-20261022/` and setup
+  `current.json`; root cumulative/policy/manual WIP is preserved. Next safe step:
+  final exact-head CI/readiness publication, then Brian's individual review.
+
+## Historical correction checkpoint - #905, October 22, 2026
+
+- Owner: STMLT26, thread `01a16522-acc1-7390-a1a1-1005ec1997cc`, run
+  `fix-905-20261022-01a16522`. Brian explicitly authorized applying the reviewed
+  correction, allowed checks and updating PR906 in this chat, with the runtime
+  hold left in place. This supersedes the preceding review-only scope for these
+  actions; the prior author identity and original evidence remain below.
+- Existing isolated branch `codex/laptop-location-filter-state`, parent
+  `87ffe94ba8225012472d7b64d406f4653367f802`, base main `11f54612`. This commit
+  contains the correction, regression tests and handoff; PR906 records its final
+  exact head. No root cumulative working-tree changes are included.
+- [Issue #905](https://github.com/sefaction/MTG-Archives/issues/905), draft
+  [PR #906](https://github.com/sefaction/MTG-Archives/pull/906): acknowledge the
+  restored history URL on popstate so delayed props cannot erase subsequent
+  typing/filter edits or interrupt IME composition. Preserve genuine external
+  navigation resets and existing URL/filter semantics.
+- Completed: identical new versioned tests fail twice on the preceding source
+  while all seven original component cases pass; corrected source passes all
+  19 focused location/component/static checks. Focused TypeScript reports zero
+  diagnostics (345,460 KiB peak RSS, 256 MiB heap cap); whitespace passes.
+  Tests execute the real component with hook/router/JSX/timer stand-ins; no
+  installed React renderer, browser, database or layout acceptance is claimed.
+- Pending: required exact-head CI, fresh independent review of this correction,
+  and authorized desktop/320/390px runtime review. The previous independent
+  reviewer now implements this correction, so that review does not approve the
+  new source. Keep PR draft and issue open. Earlier exploratory return-to-initial
+  overlap remains unverified for actual router ordering; no broader fix claimed.
+- Canonical lightweight guard belongs only to this run/thread during source and
+  publication work. All bounded test processes are terminal; no runtime lock,
+  fixture, child service or deployment is owned. Release the exact lightweight
+  claim after publication/readback. ACTIVE heavy-runtime hold remains unchanged.
+- Private correction evidence: `.local-data/review-905-20261022/` in the primary
+  checkout (`correction-negative.txt`, `correction-focused.txt`,
+  `correction-typecheck.txt`, prior `REVIEW.md`). Original failures and prior
+  author evidence are preserved. Next safe step: verify new exact-head CI and
+  independent review; runtime acceptance waits for explicit scoped hold release.
+
+## Historical author checkpoint - laptop Locations filters, October 22, 2026
+
+- Owner: STMLT26, thread `01a1641c-c524-7402-8b5e-d6f0986878c4`, run
+  `laptop-locations-20261022-01a1641c`. Brian's current standalone laptop
+  automation authorizes lightweight interface implementation and draft PRs;
+  no merge, deployment, schedule, scanner or shared-runtime mutation.
+- Branch `codex/laptop-location-filter-state`, isolated worktree
+  `.local-data/worktrees/laptop-location-filter-state`; current product/test head
+  `9c405f61eb76373bacf59fb95c8810acc5e4e837`, based on main `11f54612` (PR904).
+  This handoff-only commit follows; the draft PR records the final exact head.
+- [Issue #905](https://github.com/sefaction/MTG-Archives/issues/905): synchronize
+  mounted Locations query/space/type/status and branch state after client
+  navigation/history; preserve newer edits across earlier own responses.
+  Existing backend/domain/other worker scope is untouched. The initial tree-link
+  reproduction was corrected to the main `next/link` Locations navigation;
+  ordinary tree anchors may remount. No installed browser reproduction claimed.
+- Completed: 17 focused tests, zero focused TypeScript diagnostics, whitespace
+  check. The identical seven component-event cases against pinned old source
+  fail five and pass two preservation controls; current source passes all seven.
+  This uses actual component handlers/effects with hook/router/JSX stand-ins,
+  plus existing browser-helper/static UI tests, without a browser or database.
+- Pending gates: ordinary required exact-head hosted CI, independent review,
+  authorized runtime desktop and 320/390px phone navigation/history/typing/IME
+  and section/owner presentation checks. Keep draft. ACTIVE heavy-runtime hold
+  prohibits local builds/reloads/full suites/database/browser fixtures; passing
+  source checks does not establish runtime delivery or historical #721 repair.
+- Ownership/cleanup: canonical lightweight guard belongs only to this run/thread
+  during work. No runtime lock, fixture, child service or deployment is owned.
+  Release this exact lightweight claim after terminal cleanup; leave the hold
+  and every other owner's resource unchanged. Retain the review worktree.
+- Private current/evidence/creation receipt: `.local-data/laptop-worker-setup-20261022/`
+  (`current.json`, `location-filter-evidence.md`, `location-filter-creation-receipt.json`,
+  focused/negative test logs). Root cumulative branch and policy/manual/checkpoint
+  WIP are preserved. Next safe step: inspect final draft CI and obtain independent
+  review; runtime review waits for explicitly scoped hold release.
+
+Earlier entries retain their original observation times and authority; they are
+not this laptop batch's current ownership or permission.
+
+## Current work - coordinated documentation pass, October 22, 2026
+
+- Owner/node: thread `01a16053-5a48-75da-87ba-626757bad03f` on STMLT26, isolated worktree
+  `.local-data/worktrees/agents-policy-20261022`, branch `docs/agents-policy-20261022`,
+  base `1d235f45e4a79896ed29e89a0acf3b809ebbf85d` (live main verified on entry).
+- Authority/scope: Brian's October 22 coordinated-pass approval, relayed by parent
+  task `01a15678-1540-7066-a74b-8a84f69d4034`; prepare a local documentation patch
+  only. No publication, merge, runtime/data/lock/schedule changes or new jobs/issues.
+- Changes: canonical policy, command reference, intake and execution/handoff guidance
+  cover user-outcome priority, proportional verification, ownership recovery,
+  capability-based work, lean artifacts and compact checkpoints. Earlier history
+  below is preserved; the primary worktree's checkpoint/manual WIP is untouched.
+- Resources: no runtime lock acquired or changed; existing shared runtime owner
+  remains separate. No build, Docker, database or application test operation.
+- Checks: whitespace, 14 relative links, all 18 existing type/status/area label
+  tokens and historical-content preservation pass. Six primary-worktree protected
+  files (checkpoint, three manual/handoff files, shared lock and worker state)
+  match their entry SHA-256 hashes. Required CI awaits future publication;
+  aggregate verification would build/run browser tests and is not needed here.
+- Questions: none for the approved scope. Next: parent reviews this uncommitted
+  five-file local patch; await separate publication instructions. No PR exists.
+
+## Preserved history
+
+Entries below retain their original observations and authority references; they
+are not this batch's current state, pending operations or continuing permissions.
 
 ## PR #879 integration and qualification - October 21, 2026
 
@@ -9607,3 +9768,11 @@ Branch codex/trade-proposal-draft-309 from main494f2ea1. Observed successful pri
 ## Independent PR898 integration - 2026-10-21T08:41:12.460Z
 
 Original b555a4001c805ec55e7d46545c68fad72346cf45 combines with main 1e89eb083c74c5cee1721b04468c7fcc674d2949; exact controlled textarea/success callback and two-width real browser fixture retained. Original905eb old-source canonical comparison loses all76/75 characters and fails intended final assertion only; originalb555 succeeds with exact retry/storage/clear and84-table parity. Old expected-failing run has no final global snapshot and is not counted as a parity pass. Author clean/frozen, interrupted by model capacity on read-only follow-up; no duplicate implementation or environment switch. Existing main895 admission,893 deletion and889 audit fixes preserved. Fresh seven-job CI and canonical cumulative notes/ordinary-gift/last-copy proposal browser qualification pending before authorized merge. Narrow899 only after verified merge; broad309/302 and prior local incident remain open. No laptop resources or deployment.
+
+## Acquisition candidate order regression — October 21, 2026
+
+While qualifying whole-deck helper head2b753d53, Verify39610000878 acquisition119256088235 failed existing complete-session reconnect/final-ACK replay equality: the same two physical candidates/observations swapped array order. Sourceblobf8ee9e13 is identical to main3ae13d0d; bundle foundation SQL tests119256087965 passed. Core and other exact-head controls are separate; no green overall claim. Logs retained in root goal journal. New agent issue901 has immutable creation receipt, duplicate search and preserved evidence.
+
+Separate branch codex/acquisition-candidate-order-304 starts atmain3ae13d0d, not the deck feature. Test-only negative commit4a468254 executes the actual private hydration functions:23of24permutations fail physical order, non-mutation/review preservation passes. Sorting a copy by acquisition/spatial/physical identity makes all24 and both controls pass locally. CI pins actual oldmaincommit/blob and requires exact23negative/permutation/preservation results; current controls and unchanged full PostgreSQL replay/counter/Inventory suite remain required. No DB/schema mutation or normalized-away comparison. Hosted checks pending. Keepissue901/parents304/302open; no localruntime/hardware/production/merge.
+
+Whole-deck807 remains prioritized and in progress in draft881at2b753d53: all decisions complete; source/schema6unit controls, schema validation and foundationd329sevenCI pass. Actual55-lot bundle/constraints/three-status/competinglocks/staleowner/recipient-settings/stock-audit/ownedcleanup controls pass in119256087965. Feature proposal/writer fences/completion/UI still unwired. Do not merge partial feature. Complete this separate narrow replay repair, then integrate qualified fix and resume full deck workflow.

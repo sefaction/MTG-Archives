@@ -9,7 +9,7 @@ export function TradeDestinationSelect({
   locations: { id: string; path: string }[];
 }) {
   return (
-    <label className="min-w-64 text-sm text-zinc-300">
+    <label className="min-w-0 w-full text-sm text-zinc-300 sm:min-w-64 sm:w-auto">
       Move {incomingLineCount} incoming card{" "}
       {incomingLineCount === 1 ? "line" : "lines"} to
       <select

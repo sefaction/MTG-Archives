@@ -214,7 +214,12 @@ function hydrate(row: Stored): StoredCapture {
       eventId: e.sourceEventId,
       payload: e.payload,
     })),
-    candidates: run.candidates.map((c) => ({
+    // Relation row order is not a durable property. Preserve physical order on
+    // every fresh-client/replay read without mutating the persisted projection.
+    candidates: [...run.candidates].sort((left, right) =>
+      left.acquisitionOrder - right.acquisitionOrder || left.spatialOrder - right.spatialOrder ||
+      (left.physicalId < right.physicalId ? -1 : left.physicalId > right.physicalId ? 1 : 0),
+    ).map((c) => ({
       key: candidateKey(run.sourceRunId, c.physicalId),
       input: {
         id: c.physicalId,

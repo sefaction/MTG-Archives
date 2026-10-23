@@ -22,7 +22,7 @@ for (const { actionPath, viewport } of scenarios) {
     let requested!: () => void;
     const pending = new Promise<void>((resolve) => { release = resolve; });
     const requestSeen = new Promise<void>((resolve) => { requested = resolve; });
-    await page.route("**/api/inventory/filter-suggestions?**", async (route) => {
+    await page.route(actionPath.startsWith("/public") ? "**/api/public/inventory/filter-suggestions?**" : "**/api/inventory/filter-suggestions?**", async (route) => {
       const query = new URL(route.request().url()).searchParams.get("q");
       if (query === "Island") {
         requested();
@@ -63,7 +63,7 @@ test("quick search drops superseded replies, clears options, and selects current
   let requested!: () => void;
   const pending = new Promise<void>((resolve) => { release = resolve; });
   const requestSeen = new Promise<void>((resolve) => { requested = resolve; });
-  await page.route("**/api/inventory/filter-suggestions?**", async (route) => {
+  await page.route("**/api/public/inventory/filter-suggestions?**", async (route) => {
     const query = new URL(route.request().url()).searchParams.get("q");
     if (query === "For") {
       requested();
@@ -88,7 +88,7 @@ test("quick search drops superseded replies, clears options, and selects current
     await search.press("Enter");
     await expect(page).toHaveURL(/[?&]cardName=Island\+Sanctuary(?:&|$)/);
 
-    await page.route("**/api/inventory/filter-suggestions?**", (route) => route.fulfill({ json: { suggestions: [{ value: "Forest", label: "Forest" }] } }));
+    await page.route("**/api/public/inventory/filter-suggestions?**", (route) => route.fulfill({ json: { suggestions: [{ value: "Forest", label: "Forest" }] } }));
     await search.fill("For");
     await expect(page.getByRole("option", { name: "Forest", exact: true })).toBeVisible();
     await search.fill("");
