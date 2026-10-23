@@ -13,6 +13,48 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  acquisition-capture-restore:
+    name: Acquisition capture archive restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: acquisition_capture_source305
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d acquisition_capture_source305"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/acquisition_capture_source305?schema=public
+      CAPTURE_RESTORE_DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/acquisition_capture_restore305?schema=public
+      MTG_LOCAL_PILOT_TEST: "1"
+      MTG_CAPTURE_RESTORE_FIXTURE: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - name: Install matching PostgreSQL archive tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-16
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
+      - name: Create the separate empty restore target
+        run: psql 'postgresql://ci:ci@127.0.0.1:5432/postgres' --set ON_ERROR_STOP=1 --command 'CREATE DATABASE acquisition_capture_restore305'
+      - name: Durable upload acknowledgement across actual backup and restore
+        run: npx tsx scripts/verify-acquisition-capture-restore.ts
+
   acquisition-integrity:
     name: Acquisition PostgreSQL integrity
     runs-on: ubuntu-latest
