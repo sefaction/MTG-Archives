@@ -4,6 +4,8 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { TradeValueSummary } from "@/components/TradeValueSummary";
+import { TradeDeckPicker } from "@/components/TradeDeckPicker";
+import type { TradeDeckReview } from "@/lib/trade-deck-view";
 import { formatTradeMoney } from "@/lib/trade-value";
 import {
   TRADE_PAIRING_ADD_EVENT,
@@ -51,7 +53,7 @@ type SearchState = {
   items: TradeBuilderItem[];
 };
 
-type TradeDraftLine = {
+export type TradeDraftLine = {
   item: TradeBuilderItem;
   quantity: number;
 };
@@ -69,6 +71,12 @@ type TradeBuilderProps = {
   receiverName: string;
   initialOfferedItem?: TradeBuilderItem | null;
   initialRequestedItem?: TradeBuilderItem | null;
+  initialOfferedLines?: TradeDraftLine[];
+  initialRequestedLines?: TradeDraftLine[];
+  initialOfferedDecks?: TradeDeckReview[];
+  initialRequestedDecks?: TradeDeckReview[];
+  initialOfferedReviewDeckId?: string;
+  allowWholeDecks?: boolean;
 };
 
 function formatItemMeta(item: TradeBuilderItem) {
@@ -241,6 +249,7 @@ function TradeInventorySearch({
   title,
   subtitle,
   ownerId,
+  counterTradeId,
   state,
   setState,
   selectedIds,
@@ -249,6 +258,7 @@ function TradeInventorySearch({
   title: string;
   subtitle: string;
   ownerId: string;
+  counterTradeId?: string;
   state: SearchState;
   setState: (
     next: SearchState | ((current: SearchState) => SearchState),
@@ -272,6 +282,7 @@ function TradeInventorySearch({
       setState((current) => ({ ...current, loading: true, error: "" }));
       try {
         const params = new URLSearchParams({ ownerId, q: query });
+        if (counterTradeId) params.set("counterTradeId", counterTradeId);
         const response = await fetch(`/api/trades/inventory-search?${params}`, {
           signal: controller.signal,
         });
@@ -297,7 +308,7 @@ function TradeInventorySearch({
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [ownerId, setState, state.query]);
+  }, [ownerId, counterTradeId, setState, state.query]);
 
   return (
     <details className="group overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950/40">
@@ -407,6 +418,12 @@ export function TradeBuilder({
   receiverName,
   initialOfferedItem,
   initialRequestedItem,
+  initialOfferedLines,
+  initialRequestedLines,
+  initialOfferedDecks,
+  initialRequestedDecks,
+  initialOfferedReviewDeckId,
+  allowWholeDecks = true,
 }: TradeBuilderProps) {
   const [message, setMessage] = useState("");
   const [proposalState, submitProposal] = useActionState(
@@ -421,11 +438,13 @@ export function TradeBuilder({
   const [requestSearch, setRequestSearch] =
     useState<SearchState>(emptySearchState);
   const [offered, setOffered] = useState<TradeDraftLine[]>(
-    initialOfferedItem ? [{ item: initialOfferedItem, quantity: 1 }] : [],
+    initialOfferedLines ?? (initialOfferedItem ? [{ item: initialOfferedItem, quantity: 1 }] : []),
   );
   const [requested, setRequested] = useState<TradeDraftLine[]>(
-    initialRequestedItem ? [{ item: initialRequestedItem, quantity: 1 }] : [],
+    initialRequestedLines ?? (initialRequestedItem ? [{ item: initialRequestedItem, quantity: 1 }] : []),
   );
+  const [offeredDecks, setOfferedDecks] = useState<TradeDeckReview[]>(initialOfferedDecks ?? []);
+  const [requestedDecks, setRequestedDecks] = useState<TradeDeckReview[]>(initialRequestedDecks ?? []);
   useEffect(() => {
     const handlePairingAdd = (event: Event) => {
       const payload = (event as CustomEvent<TradePairingPayload>).detail;
@@ -439,7 +458,7 @@ export function TradeBuilder({
     return () =>
       window.removeEventListener(TRADE_PAIRING_ADD_EVENT, handlePairingAdd);
   }, []);
-  const canSubmit = Boolean(receiverPlayerId) && hasTradeContents(offered.length, requested.length);
+  const canSubmit = Boolean(receiverPlayerId) && hasTradeContents(offered.length + offeredDecks.length, requested.length + requestedDecks.length);
   const removeLine = (
     setter: Dispatch<SetStateAction<TradeDraftLine[]>>,
     inventoryItemId: string,
@@ -470,10 +489,10 @@ export function TradeBuilder({
     );
   const disabledReason = useMemo(() => {
     if (!receiverPlayerId) return "Choose a trade partner first.";
-    if (!hasTradeContents(offered.length, requested.length))
-      return "Choose at least one available card to offer or request. You can leave the other side empty for a gift.";
+    if (!hasTradeContents(offered.length + offeredDecks.length, requested.length + requestedDecks.length))
+      return "Choose at least one available card or whole deck to offer or request. You can leave the other side empty for a gift.";
     return "";
-  }, [offered, receiverPlayerId, requested]);
+  }, [offered, offeredDecks, receiverPlayerId, requested, requestedDecks]);
 
   return (
     <form
@@ -482,6 +501,8 @@ export function TradeBuilder({
       className="scroll-mt-3 space-y-3 rounded-xl border border-sky-900/70 bg-zinc-950/70 p-3 shadow-xl shadow-black/20"
     >
       <input type="hidden" name="receiverPlayerId" value={receiverPlayerId} />
+      <input type="hidden" name="offeredDecksJson" value={JSON.stringify(offeredDecks.map(({ deckId, digest }) => ({ deckId, digest })))} />
+      <input type="hidden" name="requestedDecksJson" value={JSON.stringify(requestedDecks.map(({ deckId, digest }) => ({ deckId, digest })))} />
       {counterTradeId ? (
         <input type="hidden" name="counterTradeId" value={counterTradeId} />
       ) : null}
@@ -520,13 +541,13 @@ export function TradeBuilder({
           <div>
             <h2 className="font-semibold text-sky-100">Proposal draft</h2>
             <p className="text-xs text-zinc-400">
-              Build a multi-card exchange with {receiverName}.
+              Build a multi-card exchange or trade whole decks with {receiverName}.
             </p>
           </div>
           <span className="rounded border border-zinc-800 px-2 py-1 text-xs text-zinc-400">
             {[
-              `${offered.length} offered`,
-              `${requested.length} requested`,
+              `${offered.length} card lines + ${offeredDecks.length} decks offered`,
+              `${requested.length} card lines + ${requestedDecks.length} decks requested`,
             ].join(" / ")}
           </span>
         </div>
@@ -558,9 +579,14 @@ export function TradeBuilder({
               changeQuantity(setRequested, id, quantity)
             }
           />
+          {allowWholeDecks ? <div className="grid min-w-0 gap-2">
+            <TradeDeckPicker ownerId={proposerOwnerId} side="offered" counterTradeId={counterTradeId} initialDeckId={initialOfferedReviewDeckId} selected={offeredDecks} onChange={setOfferedDecks} />
+            <TradeDeckPicker ownerId={receiverPlayerId} side="requested" counterTradeId={counterTradeId} selected={requestedDecks} onChange={setRequestedDecks} />
+          </div> : <p className="text-xs text-zinc-400">Propose whole-deck trades from the deck owner’s own account.</p>}
         </div>
       </div>
 
+      {offeredDecks.length || requestedDecks.length ? <p className="text-xs text-zinc-400">The value comparison covers loose cards. Review whole-deck contents separately above.</p> : null}
       <TradeValueSummary
         leftLabel={`${proposerName} offers`}
         rightLabel={`${receiverName} offers`}
@@ -579,6 +605,7 @@ export function TradeBuilder({
           title={`Search ${proposerName}'s inventory`}
           subtitle="Add a card to the offer."
           ownerId={proposerOwnerId}
+          counterTradeId={counterTradeId}
           state={offerSearch}
           setState={setOfferSearch}
           selectedIds={offered.map((line) => line.item.id)}
@@ -588,6 +615,7 @@ export function TradeBuilder({
           title={`Search ${receiverName}'s inventory`}
           subtitle="Add a card to the request."
           ownerId={receiverPlayerId}
+          counterTradeId={counterTradeId}
           state={requestSearch}
           setState={setRequestSearch}
           selectedIds={requested.map((line) => line.item.id)}
@@ -617,6 +645,7 @@ export function TradeBuilder({
           {offered.reduce((sum, line) => sum + line.quantity, 0)} cards offered
           {" · "}
           {requested.reduce((sum, line) => sum + line.quantity, 0)} requested
+          {offeredDecks.length || requestedDecks.length ? ` · ${offeredDecks.length} whole decks offered / ${requestedDecks.length} requested` : ""}
         </p>
         <SubmitButton
           pendingLabel="Proposing trade..."
