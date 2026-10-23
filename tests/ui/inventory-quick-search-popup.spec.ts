@@ -15,6 +15,49 @@ function database<T>(body: string): T {
     encoding: "utf8", timeout: 30_000,
   }));
 }
+
+test("Public suggestions remain anonymous and public-only while Private stays authenticated", async ({ page, baseURL }) => {
+  const data = await fixture(page, baseURL);
+  try {
+    const query = new URLSearchParams({ kind: "cardName", q: data.prefix, language: "EN" });
+    const publicPath = `/api/public/inventory/filter-suggestions?${query}`;
+    // A real session must not widen the public namespace, even with public=0.
+    const signedIn = await page.request.get(`${publicPath}&public=0`);
+    expect(signedIn.status()).toBe(200);
+    const expected = ["Alpha", "Beta", "Gamma"].map(name => `${data.prefix} ${name}`);
+    expect((await signedIn.json()).suggestions.map((item: { value: string }) => item.value)).toEqual(expected);
+    await page.context().clearCookies();
+    for (const suffix of ["", "&public=0", "&public=1"]) {
+      const response = await page.request.get(publicPath + suffix);
+      expect(response.status()).toBe(200);
+      expect((await response.json()).suggestions.map((item: { value: string }) => item.value)).toEqual(expected);
+    }
+    const privateName = await page.request.get(`/api/public/inventory/filter-suggestions?kind=cardName&q=${encodeURIComponent(data.prefix + " Private")}`);
+    expect(privateName.status()).toBe(200);
+    expect((await privateName.json()).suggestions).toEqual([]);
+    const privateOwner = await page.request.get(`${publicPath}&owner=${encodeURIComponent(data.privateOwnerId)}`);
+    expect(privateOwner.status()).toBe(200);
+    expect((await privateOwner.json()).suggestions).toEqual([]);
+    const otherLanguage = await page.request.get(publicPath.replace("language=EN", "language=FR"));
+    expect(otherLanguage.status()).toBe(200);
+    expect((await otherLanguage.json()).suggestions).toEqual([]);
+    const invalid = await page.request.get("/api/public/inventory/filter-suggestions?kind=unknown&q=Popup");
+    expect(invalid.status()).toBe(400);
+    const bounded = await page.request.get(`${publicPath}&limit=1`);
+    expect((await bounded.json()).suggestions).toHaveLength(1);
+    expect((await bounded.json()).hasMore).toBe(true);
+    for (const path of ["/api/inventory/filter-suggestions", "/api/inventory/filter-suggestions/wrong", "/api/inventory"]) {
+      expect((await page.request.get(`${path}?${query}&public=1`)).status()).toBe(401);
+    }
+    await page.context().addCookies([{ name: "mtg_inventory_session", value: "invalid-session", url: baseURL!, httpOnly: true, sameSite: "Lax" }]);
+    expect((await page.request.get(`/api/inventory/filter-suggestions?${query}`)).status()).toBe(401);
+    const forged = await page.request.get(`${publicPath}&public=0`);
+    expect(forged.status()).toBe(200);
+    expect((await forged.json()).suggestions.map((item: { value: string }) => item.value)).toEqual(expected);
+  } finally {
+    await data.cleanup();
+  }
+});
 function fingerprint() {
   return database(`const result={};for(const model of ['inventoryItem','inventoryAuditLog','inventoryLocation','user','player','card']){const rows=await p[model].findMany({orderBy:{id:'asc'}});result[model]={count:rows.length,hash:require('crypto').createHash('sha256').update(JSON.stringify(rows)).digest('hex')};}return result;`);
 }
@@ -28,6 +71,7 @@ async function fixture(page: import("@playwright/test").Page, baseURL: string | 
   await page.context().addCookies([{ name: "mtg_inventory_session", value: token, url: baseURL!, httpOnly: true, sameSite: "Lax" }]);
   return {
     prefix,
+    privateOwnerId: `${tag}-private`,
     async cleanup() {
       await page.context().clearCookies();
       database(`const tag=${JSON.stringify(tag)},owners=[tag,tag+'-private'];await p.$transaction(async tx=>{await tx.authSession.deleteMany({where:{tokenHash:${JSON.stringify(hash)},userId:tag}});await tx.inventoryItem.deleteMany({where:{currentOwnerId:{in:owners},originalOpenerId:{in:owners},cardId:{startsWith:tag+'-'}}});if(await tx.inventoryItem.count({where:{OR:[{currentOwnerId:{in:owners}},{location:{ownerPlayerId:{in:owners}}}]}}))throw Error('Unexpected stock prevents fixture cleanup');await tx.inventoryLocation.deleteMany({where:{ownerPlayerId:{in:owners}}});await tx.card.deleteMany({where:{id:{startsWith:tag+'-'},scryfallId:{startsWith:tag+'-'}}});await tx.user.deleteMany({where:{id:{in:owners},username:{in:owners}}});await tx.player.deleteMany({where:{id:{in:owners},name:{in:owners}}});});return true;`);
@@ -49,7 +93,7 @@ for (const publicView of [false, true]) {
         const gate = new Promise<void>(resolve => { release = resolve; });
         try {
           if (publicView) await page.context().clearCookies();
-          if (phase === "loading") await page.route("**/api/inventory/filter-suggestions?**", async route => {
+          if (phase === "loading") await page.route(publicView ? "**/api/public/inventory/filter-suggestions?**" : "**/api/inventory/filter-suggestions?**", async route => {
             const response = await route.fetch();
             await gate;
             await route.fulfill({ response });

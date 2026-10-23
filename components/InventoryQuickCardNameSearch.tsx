@@ -48,7 +48,7 @@ export function InventoryQuickCardNameSearch({
   actionPath,
   params,
   suggestionsEndpoint = actionPath.startsWith("/public")
-    ? "/api/inventory/filter-suggestions?public=1"
+    ? "/api/public/inventory/filter-suggestions"
     : "/api/inventory/filter-suggestions",
 }: InventoryQuickCardNameSearchProps) {
   const router = useRouter();
