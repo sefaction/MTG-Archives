@@ -27,8 +27,8 @@ export async function verifyNativeScannerCleanup(db:PrismaClient) {
  const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
  const body='let primaryFailed=false;let primaryError;try{throw injected;}'+target!.catchClause!.getText(source)+' finally '+target!.finallyBlock!.getText(source);
  const run=new AsyncFunction('database','cancelAndCleanCorrectionFixture','tag','child','writeFileSync','helper','agentId','log','path','process','rmSync','injected',ts.transpileModule(body,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText);
+ const before=await snapshot(); // A database refusal must precede any private filesystem/env mutation.
  const parent=await mkdtemp(path.join(os.tmpdir(),'mtg-native-cleanup-')),uploads=path.join(parent,'uploads'),local=path.join(parent,'local');
- await mkdir(uploads);await mkdir(local);
  const priorUploads=process.env.UPLOADS_DATA_PATH,priorLocal=process.env.LOCALAPPDATA;
  process.env.UPLOADS_DATA_PATH=uploads;process.env.LOCALAPPDATA=local;
  const tag=`ui-scanner-native-${randomUUID()}`,peer=`ui-scanner-native-${randomUUID()}`;
@@ -53,9 +53,9 @@ export async function verifyNativeScannerCleanup(db:PrismaClient) {
   await receiveScannerImage(db,token,{...claim,artifactId:randomUUID(),sequence:1,timestamp:new Date().toISOString(),side:'UNKNOWN',physicalBoundary:'UNKNOWN'},epoch,bytes,'image/png');
   return agentId;
  }
- const before=await snapshot();
  let primaryFailed=false;let primaryError:unknown;
  try {
+  await mkdir(uploads);await mkdir(local);
   const peerAgent=await seed(peer),peerBaseline=await snapshot(),peerFiles=await files(uploads);
   const peerSpool=path.join(local,'MTGArchives','ScannerAgent',peerAgent);await mkdir(peerSpool,{recursive:true});writeFileSync(path.join(peerSpool,'journal'),'peer journal');
   const agentId=await seed(tag),ownSpool=path.join(local,'MTGArchives','ScannerAgent',agentId);await mkdir(ownSpool,{recursive:true});writeFileSync(path.join(ownSpool,'journal'),'owned journal');
