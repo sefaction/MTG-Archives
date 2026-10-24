@@ -4,10 +4,13 @@ import {withDatabaseConnectionLifetime} from "../lib/prisma-connection-url";
 
 test("the native default bounds idle connection age while preserving endpoint and other policy",()=>{
   const before=new URL("postgresql://owner:p%40ss@database:5432/review?schema=public&connection_limit=5&pool_timeout=9&socket_timeout=45&options=-c%20application_name%3Dreview");
-  const after=new URL(withDatabaseConnectionLifetime(before.href)!);
+  const transformed=withDatabaseConnectionLifetime(before.href)!;
+  assert.equal(transformed,before.href+"&max_connection_lifetime=30");
+  const after=new URL(transformed);
   assert.equal(after.searchParams.get("max_connection_lifetime"),"30");
   after.searchParams.delete("max_connection_lifetime");
-  assert.equal(after.href,before.href);
+  assert.deepEqual([...after.searchParams],[...before.searchParams]);
+  for(const key of ["protocol","username","password","host","pathname","hash"] as const)assert.equal(after[key],before[key]);
 });
 
 test("explicit installation lifetimes including disabled are byte-preserved",()=>{
