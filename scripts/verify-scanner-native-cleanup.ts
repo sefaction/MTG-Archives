@@ -107,7 +107,7 @@ export async function verifyNativeScannerCleanup(db:PrismaClient) {
   try {if(child&&child.exitCode===null&&child.signalCode===null){child.kill();await new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Owned fixture child did not terminate')),5000);child!.once('exit',()=>{clearTimeout(timer);resolve();});});}}
   catch(error){cleanupErrors.push(error);}
   for(const owner of [tag,peer])for(const sql of [cancelAndCleanCorrectionFixture(owner),...(owner!==tag||(!recoveryPending&&(!child||child.exitCode!==null||child.signalCode!==null))?[legacy(owner)]:[]),cancelAndCleanCorrectionFixture(owner)])try{database(sql);}catch(error){cleanupErrors.push(error);}
-  try {assert.deepEqual(await snapshot(),before,'All public database tables return to pre-fixture baseline');}catch(error){cleanupErrors.push(error);}
+  try {const after=await snapshot();console.log(JSON.stringify({event:'native-scanner-cleanup-conservation',before,after}));assert.deepEqual(after,before,'All public database tables return to pre-fixture baseline');}catch(error){cleanupErrors.push(error);}
   if(priorUploads===undefined)delete process.env.UPLOADS_DATA_PATH;else process.env.UPLOADS_DATA_PATH=priorUploads;
   if(priorLocal===undefined)delete process.env.LOCALAPPDATA;else process.env.LOCALAPPDATA=priorLocal;
   try {assert.ok(!child||child.exitCode!==null||child.signalCode!==null,'Retain recovery files for an uncertain child');assert.equal(recoveryPending,false,'Retain owned recovery directory while original restoration is incomplete');assert.equal(path.dirname(parent),os.tmpdir());assert.ok(path.basename(parent).startsWith('mtg-native-cleanup-'));await rm(parent,{recursive:true,force:true});}catch(error){cleanupErrors.push(error);}
