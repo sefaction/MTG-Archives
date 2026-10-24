@@ -81,7 +81,11 @@ export async function verifyNativeScannerCleanup(db:PrismaClient) {
   let fileCaseFailed=false,fileCaseError:unknown;const recoveryErrors:unknown[]=[];
   try{
    await rename(blocked,held);recoveryPending=true;await mkdir(blocked);
-   await assert.rejects(run(database,cancelAndCleanCorrectionFixture,tag,child,(_name:string,content:string)=>writeFileSync(path.join(parent,'file-helper.log'),content),(args:string[])=>{assert.deepEqual(args,['forget',retryAgent]);assert.ok(child!.exitCode!==null||child!.signalCode!==null);},retryAgent,'owned retry helper output',path,process,rmSync,failure),(e:unknown)=>e instanceof AggregateError&&e.errors[0]===failure&&e.errors.length===2&&/file cleanup incomplete; retain database graph/.test(String(e.errors[1])));
+   await assert.rejects(run(database,cancelAndCleanCorrectionFixture,tag,child,(_name:string,content:string)=>writeFileSync(path.join(parent,'file-helper.log'),content),(args:string[])=>{assert.deepEqual(args,['forget',retryAgent]);assert.ok(child!.exitCode!==null||child!.signalCode!==null);},retryAgent,'owned retry helper output',path,process,rmSync,failure),(e:unknown)=>{
+    if(!(e instanceof AggregateError)||e.errors[0]!==failure||e.errors.length!==2)return false;
+    const stderr=String((e.errors[1] as {stderr?:unknown}).stderr??'');
+    return /AggregateError: Owned native scanner file cleanup incomplete; retain database graph/.test(stderr)&&/code: ['"](?:EISDIR|EPERM)['"]/.test(stderr);
+   });
    assert.ok(child.exitCode!==null||child.signalCode!==null);
    assert.equal((await lstat(blocked)).isDirectory(),true);assert.deepEqual(await readFile(held),originalBytes);
    for(const photo of ownedPhotos)for(const suffix of ['.original','.preview.jpg'])if(photo.id!==ownedPhotos[0].id||suffix!=='.original')await assert.rejects(readFile(path.join(uploads,'acquisition-v1',photo.id+suffix)),(e:NodeJS.ErrnoException)=>e.code==='ENOENT');
@@ -98,7 +102,7 @@ export async function verifyNativeScannerCleanup(db:PrismaClient) {
    if(target){assert.equal(target.isDirectory(),true);assert.equal(path.dirname(path.resolve(blocked)),path.resolve(uploads,'acquisition-v1'));await rmdir(blocked);}
    await rename(held,blocked);assert.deepEqual(await readFile(blocked),originalBytes);recoveryPending=false;
   }}catch(error){recoveryErrors.push(error);}
-  try{assert.ok(child.exitCode!==null||child.signalCode!==null,'No retry before actual helper termination');database(legacy(tag));database(legacy(tag));}catch(error){recoveryErrors.push(error);}
+  try{assert.equal(recoveryPending,false,'Original restoration incomplete; retain relational graph');assert.ok(child.exitCode!==null||child.signalCode!==null,'No retry before actual helper termination');database(legacy(tag));database(legacy(tag));}catch(error){recoveryErrors.push(error);}
   try{assert.deepEqual(await snapshot(),peerBaseline);assert.deepEqual(await files(uploads),peerFiles);}catch(error){recoveryErrors.push(error);}
   if(fileCaseFailed||recoveryErrors.length)throw new AggregateError([...(fileCaseFailed?[fileCaseError]:[]),...recoveryErrors],'Native file-phase qualification/recovery failed');
   console.log('PASS actual native file phase: real unlink refusal attempts all independent photo/preview/start paths, retains exact photo/parent recovery graph, restores held source bytes for explicit successful retry/replay, and conserves all peer tables/files');
