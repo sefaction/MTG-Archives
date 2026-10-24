@@ -6,6 +6,14 @@ const intent = (): PendingScannerStart => ({ requestKey: randomUUID(), agentId: 
   locationId: "box", section: "A", quantity: null, loadedCount: null, operatorLoadedSimplexFronts: true,
   settings: { dpi: 600, widthInches: 2.6, heightInches: 3.6, horizontalPlacement: "Start", duplex: false,
     color: "RGB", autoCrop: false, deskew: false, removeBlank: false } });
+
+test("pending scanner start retains the explicitly chosen original opener across reload", () => {
+  const cache=storage(),request={...intent(),defaults:{finish:"NONFOIL" as const,condition:"NM" as const,openerPlayerId:"chosen-person"}};
+  saveScannerStart(cache,"owner",request);
+  assert.deepEqual(readScannerStart(cache,"owner"),request);
+  clearScannerStart(cache,"owner",request.requestKey);
+  assert.equal(readScannerStart(cache,"owner"),null);
+});
 function storage() { const rows = new Map<string, string>(); return { rows,
   getItem: (key: string) => rows.get(key) ?? null, setItem: (key: string, value: string) => { rows.set(key, value); },
   removeItem: (key: string) => { rows.delete(key); } }; }
@@ -23,8 +31,9 @@ test("malformed intent and unexpected secrets fail closed instead of generating 
   assert.throws(() => saveScannerStart({ ...saved, setItem() { throw new Error("unavailable"); } }, "owner", intent()), /unavailable/);
 });
 
-test("explicit confirmed batch language stays frozen in scanner Start across reload",()=>{
-  const saved=storage(),first={...intent(),defaults:{finish:"NONFOIL" as const,condition:"NM" as const,language:"fr" as const}};
+test("confirmed batch language and explicit opener stay frozen together in scanner Start across reload",()=>{
+  const saved=storage(),first={...intent(),defaults:{finish:"NONFOIL" as const,condition:"NM" as const,language:"fr" as const,openerPlayerId:"chosen-person"}};
   saveScannerStart(saved,"owner",first);assert.deepEqual(readScannerStart(saved,"owner"),first);
   assert.equal(readScannerStart(saved,"owner")?.defaults?.language,"fr");
+  assert.equal(readScannerStart(saved,"owner")?.defaults?.openerPlayerId,"chosen-person");
 });

@@ -1,5 +1,26 @@
 # Confirmed batch language (#308)
 
+## Current integration with main
+
+Main9b3add47 now includes opener PR955 and test repairs957/959. The language
+feature is integrated with those deliveries: both default fields and selectors,
+opener validation, saved/draft preservation and frozen bulk/Start attributes are
+retained. Language-only default changes preserve the explicit opener; changing
+the opener does not clear the language. The browser regression explicitly
+chooses an opener and exercises both default edits while a confirmation is
+uncertain; the standalone opener matrix is also applicable.
+
+An integration regression reproduced a missing opener in a language-only
+default update (six of seven focused tests passed; one failed). The shared
+server preservation policy now keeps both omitted choices independently while
+honoring explicit null. It does not infer an opener from owner/operator.
+
+The PR records the actual integrated build/source binding, full SQL, both
+desktop/phone matrices and exact-head hosted checks. Earlier isolated results
+below retain their original revisions and cannot substitute for this integrated
+qualification. The pre-fix split-language negative remains separate evidence;
+no integration or later pass reclassifies that failure.
+
 ## Split-language correction qualification
 
 Independent review5636732457 / P2 inline4365910698 found that separate readable

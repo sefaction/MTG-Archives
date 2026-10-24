@@ -90,6 +90,8 @@ async function prepare(
           language: (candidate.review as any).language,
           finish: (candidate.review as any).finish,
           condition: (candidate.review as any).condition,
+          ...((candidate.review as any).openerPlayerId !== undefined
+            ? {openerPlayerId: (candidate.review as any).openerPlayerId} : {}),
         },
       );
       if (!parsed.success)
@@ -104,6 +106,11 @@ async function prepare(
   const cards = await tx.card.findMany({
     where: { id: { in: chosen.map((c) => c.decision.cardId) } },
   });
+  const openerIds = [...new Set(chosen.flatMap(c => c.decision.openerPlayerId ? [c.decision.openerPlayerId] : []))];
+  const openers = openerIds.length ? await tx.player.findMany({
+    where: {id: {in: openerIds}}, select: {id: true, displayName: true},
+  }) : [];
+  if (openers.length !== openerIds.length) throw new Error("An original opener is unavailable; review the affected cards");
   for (const { decision } of chosen) {
     const card = cards.find((c) => c.id === decision.cardId);
     if (
@@ -166,6 +173,7 @@ async function prepare(
       setCode: c.setCode,
       collectorNumber: c.collectorNumber,
       ...c.decision,
+      ...(c.decision.openerPlayerId ? {openerName: openers.find(p => p.id === c.decision.openerPlayerId)!.displayName} : {}),
     })),
   };
   return { preview, facts, chosen };
@@ -241,7 +249,7 @@ export async function commitAcquisitionCards(
       now = new Date();
     const groups = new Map<string, typeof chosen>();
     for (const card of chosen) {
-      const key = JSON.stringify(card.decision);
+      const key = JSON.stringify({...card.decision, openerPlayerId: card.decision.openerPlayerId ?? null});
       groups.set(key, [...(groups.get(key) ?? []), card]);
     }
     const memberships: Prisma.AcquisitionCommitMemberCreateManyInput[] = [];
@@ -252,7 +260,7 @@ export async function commitAcquisitionCards(
         merge: null,
         lot: {
           currentOwnerId: row.ownerPlayerId,
-          originalOpenerId: null,
+          originalOpenerId: d.openerPlayerId ?? null,
           cardId: d.cardId,
           quantity: group.length,
           foilStatus: d.finish,
@@ -275,7 +283,7 @@ export async function commitAcquisitionCards(
             candidateIds: group.map((c) => c.candidate.id),
             capacityBefore: preview.destination,
             overfill: preview.overfill,
-            originalOpenerKnown: false,
+            originalOpenerKnown: d.openerPlayerId != null,
           },
         },
       });

@@ -56,6 +56,27 @@ class PrintingEvidenceTests(unittest.TestCase):
                 stamped[1260:1260+h, x:x+w] = cv2.cvtColor(self.template, cv2.COLOR_GRAY2BGR)
                 self.assertNotEqual(self.evidence(stamped)['status'], 'ABSENT')
 
+    def test_faint_displaced_symbol_cannot_hide_under_printed_footer_text(self):
+        # Ordinary footer printing can weakly resemble a stamp. Agreement with
+        # its strongest template footprint must not hide an additional faint
+        # mark overlapping that printing, outside most of the nominal core.
+        reference = self.image.copy()
+        cv2.putText(reference, 'W', (35, 1348), cv2.FONT_HERSHEY_SIMPLEX,
+                    .6, (220,)*3, 2)
+        self.assertGreaterEqual(template_score(reference, self.template)['score'], .45)
+        query = reference.copy()
+        h, w = self.template.shape
+        x, y, opacity = 15, 1293, .15
+        mark = cv2.cvtColor(self.template, cv2.COLOR_GRAY2BGR)
+        query[y:y+h, x:x+w] = np.clip(
+            query[y:y+h, x:x+w]*(1-opacity)+mark*opacity, 0, 255).astype(np.uint8)
+        original_query, original_reference = query.copy(), reference.copy()
+        observed = stamp_evidence(query, self.alignment, self.template,
+            reference, 'ABSENT', visibility=np.full(query.shape[:2], 255, np.uint8))
+        self.assertNotEqual(observed['status'], 'ABSENT')
+        np.testing.assert_array_equal(query, original_query)
+        np.testing.assert_array_equal(reference, original_reference)
+
     def test_clipped_search_margin_does_not_hide_fully_observed_stamp(self):
         stamped = self.image.copy()
         stamped[1303:1353, 35:70] = cv2.cvtColor(self.template, cv2.COLOR_GRAY2BGR)

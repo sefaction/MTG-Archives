@@ -19,7 +19,7 @@ export default async function ScanPage({
     scope?.mode === "admin"
       ? {}
       : { ownerPlayerId: user.playerId ?? "__no_owner__" };
-  const [locations, recent] = await Promise.all([
+  const [locations, recent, openerChoices] = await Promise.all([
     prisma.inventoryLocation.findMany({
       where: { ...owner, active: true, systemManaged: false, kind: "NORMAL" },
       orderBy: { name: "asc" },
@@ -30,6 +30,7 @@ export default async function ScanPage({
       take: 10,
       select: { id: true, batchNumber: true, phase: true },
     }),
+    prisma.player.findMany({select: {id: true, displayName: true}, orderBy: {displayName: "asc"}}),
   ]);
   const params = await searchParams;
   const photoInput = params.input === "camera" || params.input === "photos" ? params.input : undefined;
@@ -60,6 +61,7 @@ export default async function ScanPage({
         key={initialBatch || initialSetup?.continueFrom || photoInput || "new"}
         userId={user.id}
         locations={storage}
+        openerChoices={openerChoices}
         initialSetup={initialSetup}
         setupMessage={setupMessage}
         initialBatch={initialBatch}

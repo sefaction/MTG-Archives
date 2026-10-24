@@ -15,7 +15,8 @@ import {
   emptyAcquisitionDefaults,
   acquisitionPrintingSelect,
   acquisitionReviewRequestSchema,
-  preserveAcquisitionDefaultLanguage,
+  preserveAcquisitionDefaultChoices,
+  preserveAcquisitionReviewOpener,
   type AcquisitionCardReview,
 } from "./acquisition-review";
 import { VISUAL_STAGE } from "./acquisition-visual";
@@ -345,6 +346,9 @@ export async function createAcquisitionSession(
           throw new Error("Capture creation identity conflict");
         return hydrate(existing);
       }
+      if (input.defaults?.openerPlayerId && !await tx.player.findUnique({
+        where: {id: input.defaults.openerPlayerId}, select: {id: true},
+      })) throw new Error("Choose an existing original opener, or Unknown");
       const owner = await tx.player.findUnique({
         where: { id: input.ownerPlayerId },
       });
@@ -1400,8 +1404,11 @@ export async function saveAcquisitionReview(
         throw new Error(
           "Capture batch defaults changed; reload them before saving",
         );
-      const defaults=preserveAcquisitionDefaultLanguage(input.defaults,
+      const defaults=preserveAcquisitionDefaultChoices(input.defaults,
         acquisitionDefaultsSchema.parse(row.reviewDefaults??emptyAcquisitionDefaults));
+      if (defaults.openerPlayerId && !await tx.player.findUnique({
+        where: {id: defaults.openerPlayerId}, select: {id: true},
+      })) throw new Error("Choose an existing original opener, or Unknown");
       await tx.acquisitionSession.update({
         where: { id: sessionId },
         data: {
@@ -1423,7 +1430,7 @@ export async function saveAcquisitionReview(
         },
       });
       return {
-        defaults: input.defaults,
+        defaults,
         defaultsRevision: row.defaultsRevision + 1,
       };
     }
@@ -1516,6 +1523,8 @@ export async function saveAcquisitionReview(
         "Capture card is already committed; use Inventory to change it",
       );
     const current = candidate.review as AcquisitionCardReview["review"];
+    if (input.action === "accept") input.decision = preserveAcquisitionReviewOpener(
+      input.decision, candidate.review as AcquisitionCardReview["review"]);
     if (candidate.revision !== input.revision) {
       if (
         input.action === "accept" &&
@@ -1529,6 +1538,9 @@ export async function saveAcquisitionReview(
       throw new Error("Capture card changed; reload its review before saving");
     }
     if (input.action === "accept") {
+      if (input.decision.openerPlayerId && !await tx.player.findUnique({
+        where: {id: input.decision.openerPlayerId}, select: {id: true},
+      })) throw new Error("Choose an existing original opener, or Unknown");
       const card = await tx.card.findUnique({
         where: { id: input.decision.cardId },
       });

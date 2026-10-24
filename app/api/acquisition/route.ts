@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       ownerPlayerId: location.ownerPlayerId,
       locationId: location.id,
       section: input.section,
-      ...(input.defaults ? {defaults:input.defaults} : {}),
+      ...(input.defaults ? {defaults: input.defaults} : {}),
       policy:
         input.quantity === null
           ? { kind: "FILL" }

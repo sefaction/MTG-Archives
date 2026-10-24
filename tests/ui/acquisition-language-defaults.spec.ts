@@ -29,9 +29,11 @@ for(const width of [1366,320])test(`confirmed batch language, readable conflict,
     await page.getByRole("checkbox",{name:"Set a batch limit (optional)",exact:true}).check();
     await page.getByRole("spinbutton",{name:"Cards in this batch",exact:true}).fill("6");
     await page.getByRole("combobox",{name:"Batch language",exact:true}).selectOption("en");
+    await expect(page.getByRole("combobox",{name:"Batch original opener",exact:true})).toHaveValue("");
+    await page.getByRole("combobox",{name:"Batch original opener",exact:true}).selectOption(tag);
     await page.getByRole("button",{name:"Start batch",exact:true}).click();await expect(page).toHaveURL(/batch=/);
     batch=new URL(page.url()).searchParams.get("batch")!;const headers={origin:baseURL!},endpoint=`/api/acquisition/${batch}/review`;
-    const state=await (await page.request.get(`/api/acquisition/${batch}`)).json();expect(state.defaults.language).toBe("en");
+    const state=await (await page.request.get(`/api/acquisition/${batch}`)).json();expect(state.defaults.language).toBe("en");expect(state.defaults.openerPlayerId).toBe(tag);
     const bytes=await sharp({create:{width:80,height:120,channels:3,background:"#335577"}}).jpeg().toBuffer(),photos:string[]=[];
     for(let index=0;index<6;index++){
       const reserved=await page.request.post(`/api/acquisition/${batch}`,{headers,data:{action:"reserve",requestKey:randomUUID()}});expect(reserved.ok()).toBe(true);
@@ -91,13 +93,21 @@ for(const width of [1366,320])test(`confirmed batch language, readable conflict,
     let attempts=0;const sent:string[]=[];const interrupt=async(route:Route)=>{const body=route.request().postDataJSON();
       if(body.action==='accept'&&body.photoId===photos[3]&&attempts<2){attempts++;sent.push(route.request().postData()!);if(attempts===1)expect((await route.fetch()).status()).toBe(200);await route.abort('failed');}else await route.continue();};
     await page.route('**/api/acquisition/*/review',interrupt);await bulk.getByRole('button',{name:'Confirm 2 selected matches',exact:true}).click();
-    await expect(bulk).toContainText('A confirmation is uncertain');expect(sent).toHaveLength(2);expect(sent[0]).toBe(sent[1]);expect(JSON.parse(sent[0]).decision.language).toBe('en');
-    const defaults=page.getByRole('region',{name:'Batch review defaults',exact:true});await defaults.getByRole('combobox',{name:'Batch language',exact:true}).selectOption('fr');
-    await defaults.getByRole('button',{name:'Save batch defaults',exact:true}).click();await expect.poll(async()=>(await (await page.request.get(`/api/acquisition/${batch}`)).json()).defaults.language).toBe('fr');
+    await expect(bulk).toContainText('A confirmation is uncertain');expect(sent).toHaveLength(2);expect(sent[0]).toBe(sent[1]);expect(JSON.parse(sent[0]).decision.language).toBe('en');expect(JSON.parse(sent[0]).decision.openerPlayerId).toBe(tag);
+    const defaults=page.getByRole('region',{name:'Batch review defaults',exact:true});
+    await defaults.getByRole('combobox',{name:'Batch original opener',exact:true}).selectOption('');
+    await defaults.getByRole('button',{name:'Save batch defaults',exact:true}).click();
+    await expect.poll(async()=>{const d=(await (await page.request.get(`/api/acquisition/${batch}`)).json()).defaults;return [d.language,d.openerPlayerId];}).toEqual(['en',null]);
+    expect((await reviewed(0)).openerPlayerId).toBe(tag);
+    await defaults.getByRole('combobox',{name:'Batch original opener',exact:true}).selectOption(tag);
+    await defaults.getByRole('combobox',{name:'Batch language',exact:true}).selectOption('fr');
+    await defaults.getByRole('button',{name:'Save batch defaults',exact:true}).click();
+    await expect.poll(async()=>{const d=(await (await page.request.get(`/api/acquisition/${batch}`)).json()).defaults;return [d.language,d.openerPlayerId];}).toEqual(['fr',tag]);
     await page.unroute('**/api/acquisition/*/review',interrupt);await bulk.getByRole('button',{name:'Continue original confirmations',exact:true}).click();
     await expect.poll(async()=>Promise.all([3,4].map(async position=>(await reviewed(position))?.language))).toEqual(['en','en']);
     publish(2,'unreadable');const jobs=reviewDatabase(`return p.acquisitionProcessingJob.findMany({where:{run:{sessionId:${JSON.stringify(batch)}}},orderBy:{id:'asc'}});`);expect(auto()).toBe(1);
     expect((await reviewed(0)).language).toBe('en');expect((await reviewed(1)).language).toBe('fr');expect((await reviewed(2)).language).toBe('fr');
+    for(const position of [0,1,2,3,4])expect((await reviewed(position)).openerPlayerId).toBe(tag);
     expect(await reviewed(5),"split readable language stays pending after defaults change").toBe(null);
     expect(reviewDatabase<number>(`return p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}});`)).toBe(0);
     await page.reload();for(let index=0;index<5;index++)await page.getByRole('checkbox',{name:`Select card ${index+1} for Inventory`,exact:true}).check();
@@ -109,7 +119,7 @@ for(const width of [1366,320])test(`confirmed batch language, readable conflict,
     await page.route('**/api/acquisition/*/commit',async route=>{const body=route.request().postDataJSON();if(body.action==='commit')commit=body;await route.continue();});
     await confirm.getByRole('button',{name:'Add 5 copies to Inventory',exact:true}).click();await expect(panel).toContainText('Added 5 copies to Inventory.');expect(commit).toBeTruthy();
     const ledger=()=>reviewDatabase(`return {lots:await p.inventoryItem.findMany({where:{currentOwnerId:${JSON.stringify(tag)}},orderBy:{id:'asc'}}),audits:await p.inventoryAuditLog.findMany({where:{changedByUserId:${JSON.stringify(tag)},changeType:'acquisition_committed'},orderBy:{id:'asc'}}),members:await p.acquisitionCommitMember.findMany({where:{candidate:{run:{sessionId:${JSON.stringify(batch)}}}},orderBy:{candidateId:'asc'}})};`);
-    const saved=ledger() as {lots:{language:string;quantity:number}[];audits:unknown[];members:unknown[]};expect(saved.lots.map(row=>[row.language.toLowerCase(),row.quantity]).sort()).toEqual([['en',3],['fr',2]]);expect(saved.audits).toHaveLength(2);expect(saved.members).toHaveLength(5);
+    const saved=ledger() as {lots:{language:string;quantity:number;originalOpenerId:string|null}[];audits:unknown[];members:unknown[]};expect(saved.lots.map(row=>[row.language.toLowerCase(),row.quantity]).sort()).toEqual([['en',3],['fr',2]]);expect(saved.lots.every(row=>row.originalOpenerId===tag)).toBe(true);expect(saved.audits).toHaveLength(2);expect(saved.members).toHaveLength(5);
     const replay=await page.request.post(`/api/acquisition/${batch}/commit`,{headers,data:commit});expect(replay.ok()).toBe(true);expect((await replay.json()).replay).toBe(true);expect(ledger()).toEqual(saved);
     expect(originals()).toEqual(source);expect(reviewDatabase(`return p.acquisitionProcessingJob.findMany({where:{run:{sessionId:${JSON.stringify(batch)}}},orderBy:{id:'asc'}});`)).toEqual(jobs);
     writeFileSync(test.info().outputPath('ledger.json'),JSON.stringify(saved));writeFileSync(test.info().outputPath('jobs-before.json'),JSON.stringify(jobs));

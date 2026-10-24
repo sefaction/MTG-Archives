@@ -3,7 +3,7 @@ import test from "node:test";
 import {acquisitionBatchLanguageCandidates,acquisitionObservedLanguages,acquisitionBatchLanguageAgrees,acquisitionObservedLanguageEvidence} from "../lib/acquisition-batch-language";
 import {acquisitionFooterObservations} from "../lib/acquisition-footer";
 import {createAcquisitionRecognitionIndex,proposeOrientedAcquisitionPrintings,type RecognitionCard,type RecognitionText} from "../lib/acquisition-recognition";
-import {acquisitionDefaultsSchema,acquisitionPreferredPrinting,preserveAcquisitionDefaultLanguage,type AcquisitionCardReview} from "../lib/acquisition-review";
+import {acquisitionDefaultsSchema,acquisitionPreferredPrinting,preserveAcquisitionDefaultChoices,type AcquisitionCardReview} from "../lib/acquisition-review";
 import {acquisitionReviewEvidence} from "../lib/acquisition-review-evidence";
 
 const card:RecognitionCard={id:"english",name:"Forest Guard",setCode:"abc",collectorNumber:"123a",lang:"en"};
@@ -105,12 +105,17 @@ test("isolated supported language codes are bounded observations across channels
 });
 
 test("optional batch language is explicit and legacy defaults retain their representation",()=>{
-  const legacy={finish:"NONFOIL",condition:"NM"};assert.deepEqual(acquisitionDefaultsSchema.parse(legacy),legacy);
+  const legacy={finish:"NONFOIL",condition:"NM"} as const;assert.deepEqual(acquisitionDefaultsSchema.parse(legacy),legacy);
   for(const language of [null,"en","fr"])assert.equal(acquisitionDefaultsSchema.parse({...legacy,language}).language,language);
   for(const language of ["","EN","english",true])assert.equal(acquisitionDefaultsSchema.safeParse({...legacy,language}).success,false);
   const previous={finish:"NONFOIL" as const,condition:"NM" as const,language:"fr" as const};
-  assert.equal(preserveAcquisitionDefaultLanguage({...previous,language:undefined,condition:"LP"},previous).language,"fr");
-  assert.equal(preserveAcquisitionDefaultLanguage({...previous,language:null},previous).language,null);
+  assert.equal(preserveAcquisitionDefaultChoices({...previous,language:undefined,condition:"LP"},previous).language,"fr");
+  assert.equal(preserveAcquisitionDefaultChoices({...previous,language:null},previous).language,null);
+  const combined={...previous,openerPlayerId:"chosen-person"};
+  assert.deepEqual(preserveAcquisitionDefaultChoices({...legacy,language:"en"},combined),
+    {...legacy,language:"en",openerPlayerId:"chosen-person"},"a language-only client must not clear the explicit opener");
+  assert.deepEqual(preserveAcquisitionDefaultChoices({...legacy,openerPlayerId:null},combined),
+    {...legacy,language:"fr",openerPlayerId:null});
 });
 
 test("only unreviewed suggestions prefer the default; saved printing and language remain authoritative",()=>{

@@ -279,7 +279,7 @@ export function AcquisitionCommitControls({
                 <li key={c.photoId}>
                   Card {c.position + 1}: {c.name} ({c.setCode} #
                   {c.collectorNumber}) · {c.finish.toLowerCase()} ·{" "}
-                  {c.condition} · {c.language}
+                  {c.condition} · {c.language} · Original opener: {c.openerName ?? "Unknown"}
                 </li>
               ))}
             </ul>
@@ -314,7 +314,7 @@ export function AcquisitionCommitControls({
             </div>
           )}
           <p className="text-sm">
-            Original opener will be unknown. Photos normally stay for 7 days after
+            Check each card&apos;s original opener above. Photos normally stay for 7 days after
             adding. Completed or trashed batches may be permanently removed sooner
             when scan-photo storage approaches its limit; pending cards keep their photos.
           </p>

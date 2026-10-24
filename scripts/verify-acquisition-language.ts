@@ -16,6 +16,7 @@ export async function verifyAcquisitionLanguage(db:PrismaClient,actor:Acquisitio
     collectorNumber:card.collectorNumber,lang:"fr",digital:false,finishes:["nonfoil"],typeLine:card.typeLine,rarity:card.rarity}});
   registerCard(french.id);
   const batch=await capture(12),index=createAcquisitionRecognitionIndex([card,french].map(({id,name,setCode,collectorNumber,lang,digital})=>({id,name,setCode,collectorNumber,lang,digital})));
+  const {ownerPlayerId:chosenOpener}=await db.acquisitionSession.findUniqueOrThrow({where:{id:batch.id},select:{ownerPlayerId:true}});
   const stock=()=>db.inventoryItem.aggregate({_count:{_all:true},_sum:{quantity:true}});
   const before=await stock(),outputs:{id:string;output:Prisma.JsonValue}[]=[];
   const records:ScryfallCard[]=[card,french].map(row=>({object:"card",id:row.scryfallId,name:row.name,
@@ -63,25 +64,30 @@ export async function verifyAcquisitionLanguage(db:PrismaClient,actor:Acquisitio
     }
     return job.id;
   }
-  async function defaults(language:string|null,revision:number){
-    await saveAcquisitionReview(db,actor,batch.id,{action:"defaults",revision,defaults:{finish:"NONFOIL",condition:"NM",language}});
+  async function defaults(language:string|null,revision:number,openerPlayerId?:string|null){
+    const saved=await saveAcquisitionReview(db,actor,batch.id,{action:"defaults",revision,defaults:{finish:"NONFOIL",condition:"NM",language,
+      ...(openerPlayerId!==undefined?{openerPlayerId}:{})}});
+    assert("defaults" in saved);assert.deepEqual(saved.defaults,(await getAcquisitionProgress(db,actor,batch.id)).defaults,
+      "save response reports the actual retained choices, not just submitted fields");
   }
   const review=(position:number)=>getAcquisitionCardReview(db,actor,batch.id,batch.photos[position].id);
   await assert.rejects(saveAcquisitionReview(db,stranger,batch.id,{action:"defaults",revision:0,defaults:{finish:"NONFOIL",condition:"NM",language:"en"}}));
-  await defaults(null,0);const firstJob=await publish(0);
+  await defaults(null,0,chosenOpener);const firstJob=await publish(0);
   assert.equal(await confirmStrongAcquisitionMatches(db),0,"missing language is not invented without explicit confirmation");
   await defaults("en",1);assert.equal(await confirmStrongAcquisitionMatches(db),1);
   assert.equal((await review(0)).review?.language,"en");
+  assert.equal((await review(0)).review?.openerPlayerId,chosenOpener,"explicit opener survives a language-only default edit");
   const first=await db.acquisitionProcessingJob.findUniqueOrThrow({where:{id:firstJob}});
   const command=await db.acquisitionCommand.findUniqueOrThrow({where:{runId_requestKey:{runId:first.runId,requestKey:`auto-confirm:${first.id}:2`}}});
   assert.deepEqual(JSON.parse(command.payload).languageConfirmation,{source:"CONFIRMED_BATCH",language:"en",defaultsRevision:2,usedForUnreadableLanguage:true});
   assert.equal(await confirmStrongAcquisitionMatches(db),0,"automatic review is replay safe");
   await saveAcquisitionReview(db,actor,batch.id,{action:"defaults",revision:2,defaults:{finish:"NONFOIL",condition:"NM"}});
   assert.equal((await getAcquisitionProgress(db,actor,batch.id)).defaults.language,"en","an older client omitting language cannot clear confirmation");
+  assert.equal((await getAcquisitionProgress(db,actor,batch.id)).defaults.openerPlayerId,chosenOpener,"omitting both optional choices preserves them");
   for(const [position,kind] of [[1,"readable-fr"],[2,"orientation"],[3,"title-missing"],[4,"unreadable"],[5,"unreadable"],[7,"provider-error"],[8,"other-language"],[9,"split-fr"],[10,"split-opposite"],[11,"legacy-split-en"]] as const)await publish(position,kind);
   const pending=await review(4);await saveAcquisitionReview(db,actor,batch.id,{action:"pending",photoId:pending.photoId,revision:pending.revision});
   const override=await review(5);await saveAcquisitionReview(db,actor,batch.id,{action:"accept",photoId:override.photoId,revision:override.revision,
-    decision:{cardId:french.id,language:"fr",finish:"NONFOIL",condition:"NM"}});
+    decision:{cardId:french.id,language:"fr",finish:"NONFOIL",condition:"NM",openerPlayerId:chosenOpener}});
   assert.equal(await confirmStrongAcquisitionMatches(db),0,"readable conflict, ambiguity, missing title/provider coverage and human pending are vetoes");
   assert((await getAcquisitionProgress(db,actor,batch.id)).slots[1].reviewProblems.includes("conflict"),"readable/default mismatch remains in the bounded conflict filter");
   assert((await getAcquisitionProgress(db,actor,batch.id)).slots[8].reviewProblems.includes("conflict"),"conflicting readable language in another direction is not hidden");
@@ -96,6 +102,9 @@ export async function verifyAcquisitionLanguage(db:PrismaClient,actor:Acquisitio
   assert.deepEqual(await Promise.all([0,1,5,6].map(async position=>(await review(position)).review)),saved,"defaults never rewrite saved decisions");
   assert.deepEqual(await stock(),before,"automatic and manual reviews do not write Inventory");
   await defaults(null,5);assert.equal((await getAcquisitionProgress(db,actor,batch.id)).defaults.language,null,"explicit null clears only future batch confirmation");
+  assert.equal((await getAcquisitionProgress(db,actor,batch.id)).defaults.openerPlayerId,chosenOpener);
+  await defaults(null,6,null);assert.equal((await getAcquisitionProgress(db,actor,batch.id)).defaults.openerPlayerId,null,"explicit null clears the future opener separately");
+  assert.deepEqual(await Promise.all([0,1,5,6].map(async position=>(await review(position)).review)),saved);
   const progress=await getAcquisitionProgress(db,actor,batch.id);await executeAcquisitionCommand(db,actor,batch.id,{requestKey:randomUUID(),revision:progress.revision,command:"STOP"});
   const session=await db.acquisitionSession.findUniqueOrThrow({where:{id:batch.id}});
   const chosen={photoIds:[0,1,5,6].map(position=>batch.photos[position].id),locationId:session.locationId!,section:session.section??""};
@@ -105,6 +114,7 @@ export async function verifyAcquisitionLanguage(db:PrismaClient,actor:Acquisitio
   const receipt=await commitAcquisitionCards(db,actor,batch.id,request);assert.equal(receipt.count,4);
   const lots=await db.inventoryItem.findMany({where:{id:{in:receipt.inventoryItemIds}}});
   assert.deepEqual(lots.map(row=>[row.language.toLowerCase(),row.quantity]).sort(),[["en",1],["fr",3]]);
+  assert(lots.every(row=>row.originalOpenerId===chosenOpener));
   assert.equal(await db.acquisitionCommitMember.count({where:{commitId:receipt.id}}),4);
   assert.deepEqual(await commitAcquisitionCards(db,actor,batch.id,request),{...receipt,replay:true});
   for(const output of outputs)assert.deepEqual((await db.acquisitionProcessingJob.findUniqueOrThrow({where:{id:output.id}})).output,output.output,"native and conditional interpretation remain immutable");
