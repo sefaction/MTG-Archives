@@ -1,6 +1,6 @@
 import type { AcquisitionDefaults, AcquisitionPrinting } from "./acquisition-review";
 
-export function finishForPrinting(defaultFinish: AcquisitionDefaults["finish"], printing: AcquisitionPrinting | null):
+export function finishForPrinting(defaultFinish: AcquisitionDefaults["finish"], printing: Pick<AcquisitionPrinting, "finishes"> | null):
   "NONFOIL" | "FOIL" | "ETCHED" | null {
   const fallback = defaultFinish === "UNKNOWN" ? null : defaultFinish;
   if (!printing || !Array.isArray(printing.finishes) || printing.finishes.length === 0) return fallback;

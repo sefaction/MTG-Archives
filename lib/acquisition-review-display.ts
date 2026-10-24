@@ -1,7 +1,16 @@
 export type AcquisitionReviewMode = "simple" | "advanced";
-export type AcquisitionReviewFilter = "all" | "awaiting" | "ready" | "added";
+export const acquisitionReviewProblemLabels = {
+  conflict: "Conflicting suggestions",
+  "no-match": "No match",
+  "unknown-finish": "Choose finish",
+  quality: "Photo needs attention",
+  overflow: "Outside batch allocation",
+} as const;
+export type AcquisitionReviewProblem = keyof typeof acquisitionReviewProblemLabels;
+export type AcquisitionReviewFilter = "all" | "awaiting" | "ready" | "added" | AcquisitionReviewProblem;
 type Slot = {
   committed: boolean;
+  reviewProblems?: readonly AcquisitionReviewProblem[];
   physicalReadiness?: { reasons: string[] };
   review: {
     cardId: string | null;
@@ -44,6 +53,23 @@ export function acquisitionSlotBlockedReason(slot: Slot): string {
 export function acquisitionReviewCounts<T extends Slot>(slots: T[], hasDraft: (slot: T) => boolean = () => false) {
   const counts = { all: slots.length, awaiting: 0, ready: 0, added: 0 };
   for (const slot of slots) counts[acquisitionSlotReviewState(slot, hasDraft(slot))]++;
+  return counts;
+}
+
+export function acquisitionSlotMatchesReviewFilter(slot: Slot, filter: AcquisitionReviewFilter, hasDraft = false) {
+  if (filter === "all") return true;
+  if (["awaiting", "ready", "added"].includes(filter))
+    return acquisitionSlotReviewState(slot, hasDraft) === filter;
+  return !slot.committed && Boolean(slot.reviewProblems?.includes(filter as AcquisitionReviewProblem));
+}
+
+export function acquisitionReviewProblemCounts<T extends Slot>(slots: T[]) {
+  const counts: Record<AcquisitionReviewProblem, number> = {
+    conflict: 0, "no-match": 0, "unknown-finish": 0, quality: 0, overflow: 0,
+  };
+  for (const slot of slots) if (!slot.committed)
+    for (const problem of new Set(slot.reviewProblems ?? []))
+      if (Object.hasOwn(counts, problem)) counts[problem]++;
   return counts;
 }
 
