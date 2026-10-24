@@ -1,3 +1,4 @@
+import * as ownedFixtureFiles from "./ui/owned-fixture-files.ts";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -14,7 +15,7 @@ for (const file of ['acquisition-printing.spec.ts','acquisition-footer-identifie
   async function exercise(faults=[]) {
     const calls=[],failures=[];let sweep=0;
     const step=name=>{calls.push(name);if(faults.includes(name)){const error=new Error(name);failures.push(error);throw error;}};
-    const context={tag:'ui-recognition-00000000-0000-0000-0000-000000000000',AggregateError,
+    const context={...ownedFixtureFiles,tag:'ui-recognition-00000000-0000-0000-0000-000000000000',AggregateError,
       visualReuseResults:[{}],reuseResults:[{}],cancelAndCleanCorrectionFixture:()=> 'owned-feedback:',
       require:name=>{assert.equal(name,'fs');return {mkdirSync:path=>assert.equal(path,'test-results'),writeFileSync:path=>step(path.endsWith('visual-reuse-application.json')?'visual-report':'printing-report')};},
       database:body=>step(body.startsWith('owned-feedback:')?(++sweep===1?'early-feedback':'late-feedback'):'acquisition-teardown')};

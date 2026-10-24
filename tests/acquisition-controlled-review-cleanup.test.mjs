@@ -1,3 +1,4 @@
+import * as ownedFixtureFiles from "./ui/owned-fixture-files.ts";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -13,7 +14,7 @@ for(const file of ['acquisition-quick-finish.spec.ts','acquisition-processing-re
   async function exercise(faults=[]){
     const calls=[],failures=[];let sweep=0;const step=name=>{calls.push(name);if(faults.includes(name)){const error=new Error(name);failures.push(error);throw error}};
     const tag='ui-controlled-review-00000000-0000-0000-0000-000000000000';
-    const context={tag,AggregateError,printings:[{id:tag}],cleanupCorrectionFixture:'original-feedback',cancelAndCleanCorrectionFixture:()=> 'owned-feedback:',page:{isClosed:()=>false,unrouteAll:async()=>step('unroute'),goto:async()=>step('leave-review')},database:body=>step(body.startsWith('owned-feedback:')?(++sweep===1?'early-feedback':'late-feedback'):'acquisition-teardown')};
+    const context={...ownedFixtureFiles,tag,AggregateError,printings:[{id:tag}],cleanupCorrectionFixture:'original-feedback',cancelAndCleanCorrectionFixture:()=> 'owned-feedback:',page:{isClosed:()=>false,unrouteAll:async()=>step('unroute'),goto:async()=>step('leave-review')},database:body=>step(body.startsWith('owned-feedback:')?(++sweep===1?'early-feedback':'late-feedback'):'acquisition-teardown')};
     let error;try{await vm.runInNewContext('(async()=>'+code+')()',context)}catch(e){error=e}return {calls,failures,error};
   }
   for(const fault of expected)test(`${file}: remaining cleanup survives ${fault}`,async()=>{const result=await exercise([fault]);assert.deepEqual(result.calls,expected);assert.ok(result.error instanceof AggregateError);assert.deepEqual(result.error.errors,result.failures)});

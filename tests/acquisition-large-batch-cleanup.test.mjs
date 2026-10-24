@@ -1,3 +1,4 @@
+import * as ownedFixtureFiles from "./ui/owned-fixture-files.ts";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -11,7 +12,7 @@ const code=ts.transpileModule(block.getText(tree),{compilerOptions:{target:ts.Sc
 async function exercise(faults=[]){
  const calls=[],failures=[],owners=[0,1,2,3].map(i=>({tag:String(i)}));let sweep=0;const report={};
  const step=name=>{calls.push(name);if(faults.includes(name)){const error=Error(name);failures.push(error);throw error}};
- const context={owners,contexts:owners.map(o=>({close:async()=>step('close-'+o.tag)})),AggregateError,timer:null,report,
+ const context={...ownedFixtureFiles,owners,contexts:owners.map(o=>({close:async()=>step('close-'+o.tag)})),AggregateError,timer:null,report,
  save:()=>step('report'),failedResponses:[],captureBrowserFailures:async()=>step('browser-report'),docker:()=>'',
  database:body=>{if(body.startsWith('feedback:')){const i=sweep++;step((i<4?'early-':'late-')+(i%4));return {}}
   if(body.startsWith('inventory:')){step(body);return 0}if(body.startsWith('fingerprint:'))return {};

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import * as ownedFixtureFiles from './ui/owned-fixture-files.ts';
 
 // Execute the real catch/finally, replacing only the expensive optical/browser
 // workflow with a controlled failure. Database and browser calls are adapters.
@@ -47,6 +48,7 @@ for (const file of [
       if (faults.has(name)) throw faults.get(name);
     }
     const context = {
+      ...ownedFixtureFiles,
       AggregateError, console: { log() {} },
       workflow: async () => { if (workflowFails) throw primary; },
       tag: 'ui-controlled-review-00000000-0000-0000-0000-000000000000',

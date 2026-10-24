@@ -1,3 +1,4 @@
+import { cleanupOwnedPhotoFixtureFiles } from "./owned-fixture-files";
 import { cleanupCorrectionFixture, cancelAndCleanCorrectionFixture } from "./correction-fixture";
 import { controlledReviewTarget, verifyControlledReviewTarget } from "./controlled-review-target";
 import { expect, test } from "@playwright/test";
@@ -145,11 +146,11 @@ for (const width of [1366, 390]) test(`direct finish buttons preserve review aut
     await cleanup(async () => { if (!page.isClosed()) await page.unrouteAll({ behavior: "wait" }); });
     await cleanup(async () => { if (!page.isClosed()) await page.goto("/dashboard"); });
     await cleanup(() => {
-    database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const runs=await p.acquisitionRun.findMany({where:{session:{createdByUserId:n}},select:{id:true}});const w={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});
+    database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const runs=await p.acquisitionRun.findMany({where:{session:{createdByUserId:n}},select:{id:true}});const w={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});${cleanupOwnedPhotoFixtureFiles}
       ${cleanupCorrectionFixture}
       for(const model of ['acquisitionCommitMember','acquisitionCommit','acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});
       await p.inventoryAuditLog.deleteMany({where:{changedByUserId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});await p.card.deleteMany({where:{id:{in:${JSON.stringify(printings.map(p=>p.id))}}}});
-      const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;if(!root||!paths.isAbsolute(root))throw new Error('Private fixture path unavailable');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw new Error('Invalid owned photo identity');for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e;});}`);
+      `);
     });
     // Remove feedback that completed while the original teardown was running.
     await cleanup(() => { database(cancelAndCleanCorrectionFixture(tag)); });
