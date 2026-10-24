@@ -153,18 +153,31 @@ for(const width of [1366,320])test(`Inventory rollback and durability across own
     expect(failedReply.ok()).toBe(false);const failureBody=await failedReply.text();
     expect(failureBody).not.toMatch(/postgresql:\/\/|PrismaClient|isolated-local-fixture|INSERT INTO/);
     dropBarrier();const rolledBack=ledger();expect(rolledBack).toEqual({lots:[],audits:[],receipts:[],members:[]});
+    writeFileSync(test.info().outputPath("rolled-back.json"),JSON.stringify(rolledBack));
     expect(originals()).toEqual(source);expect(reviewSourceState(batch).candidates.map(row=>row.review)).toEqual(reviews);
     await page.goto(url);
     const recoveryScreen=page.getByRole("heading",{name:"This page couldn’t load",exact:true});
     await expect(page.getByTestId("capture-card-1").or(recoveryScreen)).toBeVisible();
-    let recoveryReloads=0;
-    if(await recoveryScreen.count()){
+    let recoveryReloads=0;const recoveryRequests:{method:string;status:number}[]=[];
+    // Bound recovery to five explicit operator GETs, spaced five seconds apart.
+    // No application query, write retry or web restart warms the connection pool.
+    while(await recoveryScreen.count()){
+      expect(recoveryReloads,"Recovery did not complete within five explicit GETs").toBeLessThan(5);
       await expect(recoveryScreen).toBeVisible();
       await expect(page.locator("body")).not.toContainText("PrismaClient");
       await expect(page.locator("body")).not.toContainText("postgresql://");
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-      await page.screenshot({path:test.info().outputPath("page-recovery-control.png")});
-      await page.getByRole("button",{name:"Reload page",exact:true}).click();recoveryReloads++;
+      await page.screenshot({path:test.info().outputPath(`page-recovery-control-${recoveryReloads}.png`)});
+      await new Promise(resolve=>setTimeout(resolve,5000));
+      const [navigation]=await Promise.all([
+        page.waitForNavigation({waitUntil:"domcontentloaded"}),
+        page.getByRole("button",{name:"Reload page",exact:true}).click(),
+      ]);
+      expect(navigation).not.toBeNull();expect(navigation!.request().method()).toBe("GET");
+      expect(new URL(navigation!.url()).pathname+new URL(navigation!.url()).search).toBe(url);
+      recoveryRequests.push({method:navigation!.request().method(),status:navigation!.status()});recoveryReloads++;
+      writeFileSync(test.info().outputPath("page-recovery-requests.json"),JSON.stringify(recoveryRequests));
+      await expect(page.getByTestId("capture-card-1").or(recoveryScreen)).toBeVisible();
     }
     const recovery=await preview(1);await recovery.getByRole("button",{name:"Add 1 copy to Inventory",exact:true}).click();
     await expect(panel).toContainText("Added 1 copy to Inventory.");const firstCommitted=ledger();
@@ -174,7 +187,9 @@ for(const width of [1366,320])test(`Inventory rollback and durability across own
     const second=await preview(2);holdReply=true;await second.getByRole("button",{name:"Add 1 copy to Inventory",exact:true}).click();
     const completed=await deadline(held,20000,"Successful second commit was not held");const durable=ledger();
     expect(durable.lots.reduce((sum,row)=>sum+row.quantity,0)).toBe(2);expect(durable.receipts).toHaveLength(2);expect(durable.members).toHaveLength(2);expect(durable.audits).toHaveLength(2);
+    writeFileSync(test.info().outputPath("durable-before-crash.json"),JSON.stringify(durable));
     await crashAndRecover("committed");expect(ledger()).toEqual(durable);
+    writeFileSync(test.info().outputPath("durable-after-recovery.json"),JSON.stringify(ledger()));
     await heldRoute!.abort("failed");heldRoute=undefined;
     await expect(panel.getByRole("button",{name:"Retry Inventory addition",exact:true})).toBeEnabled();
     await panel.screenshot({path:test.info().outputPath("durable-recovery-retry.png")});
@@ -189,7 +204,7 @@ for(const width of [1366,320])test(`Inventory rollback and durability across own
     const original=await page.request.get(`/api/acquisition/${batch}/photos/${photos[0]}`);expect(original.status()).toBe(200);expect(hash(await original.body())).toBe(hash(bytes));
     const denied=await request.get(`/api/acquisition/${batch}/photos/${photos[0]}`,{headers:{cookie:`mtg_inventory_session=${foreignToken}`}});expect(denied.status()).toBe(403);
     const webAfter=inspect(web);expect(webAfter.Id).toBe(webBefore.Id);expect(webAfter.Image).toBe(webBefore.Image);expect(webAfter.State.StartedAt).toBe(webBefore.State.StartedAt);
-    writeFileSync(test.info().outputPath("result.json"),JSON.stringify({width,settings,rolledBack,firstCommitted,durable,final,replay:true,pending:1,webUnchanged:true,crashes:2,recoveryReloads}));
+    writeFileSync(test.info().outputPath("result.json"),JSON.stringify({width,settings,rolledBack,firstCommitted,durable,final,replay:true,pending:1,webUnchanged:true,crashes:2,recoveryReloads,recoveryRequests}));
   }catch(error){failed=true;primary=error;}
   if(heldRoute)try{await heldRoute.abort("failed");}catch(error){cleanup.push(error);}
   if(failed)try{await page.screenshot({path:test.info().outputPath("failed-state.png")});}catch(error){cleanup.push(error);}

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { acquisitionActor, acquisitionError } from "@/lib/acquisition-api";
+import { acquisitionActor, acquisitionCommitError } from "@/lib/acquisition-api";
 import {
   previewAcquisitionCommit,
   commitAcquisitionCards,
@@ -21,6 +21,6 @@ export async function POST(
         : await commitAcquisitionCards(prisma, actor, sessionId, input);
     return Response.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    return acquisitionError(error);
+    return acquisitionCommitError(error);
   }
 }

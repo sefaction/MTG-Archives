@@ -71,3 +71,76 @@ The test now bounds ordinary locator waits at15seconds instead of exhausting the
 whole180-second scenario on a missing card. No recovery assertion/deadline is
 weakened; the old application failure remains evidence. Corrected product build
 and the same declared desktop/phone cases are pending.
+
+## Ownership and reproduction
+
+The controller needs locked Playwright/Chromium, Sharp, Docker CLI and a Docker
+socket. Its browser and own ephemeral POST-contract HTTP listener share only
+loopback with the fixture web; no port is published. The web uses a private
+uploads root and the database uses one freshly created named volume. Both carry
+matching run/nonce/role labels; the network is internal and the volume/network
+labels and references are rechecked at each declared interruption and restart.
+
+| Variable | Required value |
+| --- | --- |
+| `MTG_DATABASE_LOSS_TEST` | `1` |
+| `MTG_REVIEW_ACCEPTANCE_TEST` | `1` |
+| `PLAYWRIGHT_BASE_URL` | `http://127.0.0.1:3000` inside the fixture namespace |
+| `MTG_INVENTORY_TEST_CONTAINER` | Full immutable owned web ID |
+| `MTG_INVENTORY_TEST_DATABASE` | Exact newly created `review\w+` database |
+| `MTG_DATABASE_LOSS_POSTGRES` | Full immutable owned PostgreSQL ID |
+| `MTG_DATABASE_LOSS_IMAGE` | Exact PostgreSQL image SHA256 |
+| `MTG_DATABASE_LOSS_RUN` | `acquisition-database-loss-310-...` owner run |
+| `MTG_DATABASE_LOSS_NONCE` | Matching32hex label on web/database/network/volume |
+| `MTG_DATABASE_LOSS_NETWORK` | Full immutable internal network ID |
+| `MTG_DATABASE_LOSS_VOLUME` | Sole `mtg-database-loss-data-...` named volume |
+
+Run the two named database-loss and page-load-recovery specs with one Chromium
+worker and `--max-failures=1`. Save source/image/archive and lifecycle/barrier/
+ledger fingerprints. After the test, require browser/helper/request termination,
+zero transactions, removal of its test-only barrier, exact85-table baselines and
+empty uploads before retiring only the owned fixture. A failed or uncertain
+termination preserves recovery records. This is not a production command.
+
+## Draft review correction
+
+Independent source review5637104548 found that the initial draft's history reload
+could repeat a document POST. Corrected source uses an explicit same-origin GET
+replacement after clearing even an empty fragment without navigation. Four focused
+navigation/ownership controls and strict harness types pass. A real Chromium
+form-POST history contract passes all three absent/empty/named-fragment cases
+(17.9seconds), with each server trace exactly POST then GET. The private old-action
+control repeats POST then POST and fails the unchanged recovery assertion. This
+negative is the initial draft action, not a claim about an old production control
+that did not yet exist.
+
+The full database scenario requires an observed recovery-screen reload and saves
+its screenshot; it cannot pass by silently skipping that branch. Corrected exact
+product build, complete desktop/phone matrix, final-head CI and independent final
+readiness remain pending. The POST contract uses the actual helper with a private
+HTTP fixture; it does not itself qualify the full application or database case.
+## Subsequent corrected-image failures (preserved)
+
+Exact source daf94e73 compiled successfully into image bd39e8f7 (1297 inputs,
+manifest afebcdc9, archive 7dc46564). Its first1366 run rolled back correctly and
+showed the recovery control, but one explicit GET still received P1017. A second
+bounded run made five rapid separate GETs, all500. Both restored all85 tables.
+Neither reached the durable window or phone layout. Their traces do not prove
+whether the pool, query preparation or a different layer owns the failure.
+
+A subsequent run allowed five explicitly clicked GETs five seconds apart. It did
+not show the page fallback in that run: ordinary first addition and exact replay
+passed. The second addition's stock/audit/receipt/member ledger remained identical
+across a second real PostgreSQL SIGKILL/recovery. However the browser's original
+retry then received P1017 as generic HTTP409. The commit UI treats409 as a semantic
+refusal and clears its frozen request, losing the original retry control. All85
+baseline tables restored again. This remains a failed workflow, not a matrix pass;
+the phone case and next ordinary addition were not reached.
+
+The scoped correction classifies P1017 as503 only in the commit route. The browser
+already preserves its frozen request for such transport failures; no automatic
+commit replay or shared-client disconnect is introduced. Other routes, upload retry
+hints, authorization and semantic403/409 handling remain unchanged. Focused
+classification controls, a new compiled image and the original desktop/phone
+recovery gates are pending. Five explicit GET attempts remain bounded; no dead
+connection cause or complete database-recovery repair is claimed from this change.

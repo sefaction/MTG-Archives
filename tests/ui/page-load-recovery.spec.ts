@@ -26,6 +26,7 @@ test("page recovery after a document POST makes a fresh GET, including fragment 
   });
   await new Promise<void>(resolve=>server.listen(0,"127.0.0.1",resolve));
   const port=(server.address() as AddressInfo).port;
+  let primary:unknown,failed=false;
   try{
     for(const fragment of ["no","empty","yes"]){
       const start=traffic.length;
@@ -39,9 +40,9 @@ test("page recovery after a document POST makes a fresh GET, including fragment 
       expect(traffic.slice(start)).toEqual([{method:"POST",url:"/failed?batch=contract"},{method:"GET",url:"/failed?batch=contract"}]);
       expect(new URL(page.url()).hash).toBe("");
     }
-    writeFileSync(test.info().outputPath("post-recovery-traffic.json"),JSON.stringify(traffic));
-  }finally{
-    server.closeAllConnections();
-    await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
-  }
+  }catch(error){failed=true;primary=error;}
+  const cleanup:unknown[]=[];
+  try{writeFileSync(test.info().outputPath("post-recovery-traffic.json"),JSON.stringify(traffic));}catch(error){cleanup.push(error);}
+  try{server.closeAllConnections();await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}catch(error){cleanup.push(error);}
+  if(failed||cleanup.length)throw new AggregateError([...(failed?[primary]:[]),...cleanup],"POST recovery contract or cleanup failed",{cause:failed?primary:cleanup[0]});
 });
