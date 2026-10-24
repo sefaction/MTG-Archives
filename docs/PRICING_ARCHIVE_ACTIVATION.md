@@ -11,6 +11,8 @@ retention additionally requires its own opt-in. The Pricing
 worker pauses imports in the 2–5 a.m. America/Chicago window only when the
 retention, maintenance and one-mode settings are complete.
 
+Brian's selected installation policy for #714 is to start maintenance automatically with the optional profile. The [profile/startup handoff](PRICING_MAINTENANCE_STARTUP.md#selected-profile-startup-policy) records the desired saved selection, effective startup proof and rollback. Selecting that profile does not replace the archive authorization and recovery gates below; repository defaults remain off.
+
 ## Evidence and remaining review
 
 - The local four-owner full-size retention load drill in PR #392 measured
