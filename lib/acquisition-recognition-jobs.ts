@@ -6,7 +6,7 @@ import { acquisitionRecognitionDto, type RecognitionResponse } from "./acquisiti
 type EvidenceJob = {id: string; stage: string; status: RecognitionResponse["status"]; output: unknown};
 // Callers provide newest-first, owner-authorized jobs for this immutable photo.
 // A failed/pending supplemental check retains prior photos and suggestions.
-export function acquisitionRecognitionJobs<T extends EvidenceJob>(
+export function acquisitionRecognitionSelection<T extends EvidenceJob>(
   jobs: T[], visualEnabled: boolean, printingEnabled: boolean,
 ) {
   const visual = jobs.find(j=>j.stage === VISUAL_STAGE);
@@ -28,6 +28,14 @@ export function acquisitionRecognitionJobs<T extends EvidenceJob>(
   const currentPrinting = pending ?? printing;
   const printingStatus = currentPrinting?.status ?? (printingEnabled ? "WAITING" : undefined);
   const job = currentPrinting?.status === "COMPLETE" ? currentPrinting : completed;
+  return {job, latest, completed, visualStatus, printingStatus};
+}
+
+export function acquisitionRecognitionJobs<T extends EvidenceJob>(
+  jobs: T[], visualEnabled: boolean, printingEnabled: boolean,
+) {
+  const {job, latest, completed, visualStatus, printingStatus} =
+    acquisitionRecognitionSelection(jobs, visualEnabled, printingEnabled);
   // Older OCR observations contain a CHECKING placeholder, even before a
   // catalog job exists. Only catalog/printing jobs supply catalog evidence.
   // Preserve the stored observation and its suggestions without claiming work.

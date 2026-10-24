@@ -1,6 +1,6 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { acquisitionPhotoLimits } from "./acquisition-photo-limits";
-import { removeAcquisitionPhotoBytes } from "./acquisition-files";
+import { findAcquisitionPhotoTemporaryFiles, removeAcquisitionPhotoBytes } from "./acquisition-files";
 import { hasCorrectionRetentionPins } from "./acquisition-correction-library";
 
 export const PHOTO_PRESSURE_CLEANUP_KEY = "photo-pressure-cleanup";
@@ -84,6 +84,9 @@ export async function purgeAcquisitionPhotosUnderPressure(db: PrismaClient, now 
       }, {timeout: 30000});
       if (!runId) continue;
       const photos = await db.acquisitionPhoto.findMany({where: {runId, purgedAt: null}, orderBy: {id: "asc"}, take: 25});
+      let temporaryFiles: Map<string, string[]>;
+      try { temporaryFiles = await findAcquisitionPhotoTemporaryFiles(photos.map(photo => photo.id)); }
+      catch { failed += photos.length; continue; }
       for (const photo of photos) {
         try {
           purged += await db.$transaction(async tx => {
@@ -93,7 +96,7 @@ export async function purgeAcquisitionPhotosUnderPressure(db: PrismaClient, now 
             const marker = await tx.acquisitionCommand.findUnique({where: {runId_requestKey: {runId, requestKey: PHOTO_PRESSURE_CLEANUP_KEY}}});
             const source = await tx.acquisitionPhoto.findUnique({where: {id: photo.id}});
             if (!marker || !source || source.runId !== runId || source.purgedAt) return 0;
-            await removeAcquisitionPhotoBytes(photo.id);
+            await removeAcquisitionPhotoBytes(photo.id, temporaryFiles.get(photo.id));
             return (await tx.acquisitionPhoto.updateMany({where: {id: photo.id, purgedAt: null}, data: {purgedAt: now}})).count;
           }, {timeout: 30000});
         } catch { failed++; }

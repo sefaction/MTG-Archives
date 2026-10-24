@@ -21,6 +21,9 @@ import {
 import { VISUAL_STAGE } from "./acquisition-visual";
 import { PRINTING_STAGE } from "./acquisition-printing";
 import { acquisitionRecognitionJobs } from "./acquisition-recognition-jobs";
+import {acquisitionReviewProblems} from "./acquisition-review-problems";
+import {readAcquisitionProblemJobs} from "./acquisition-review-problem-store";
+import {acquisitionAnalysisForPhoto} from "./acquisition-analysis-scope";
 import { CATALOG_RECONCILIATION_STAGE } from "./acquisition-catalog-status";
 import { acquisitionReviewEvidence } from "./acquisition-review-evidence";
 import { acquisitionManualAnalysisSchema, sameAcquisitionManualRegion, validateAcquisitionManualRegionFrame } from "./acquisition-manual-region";
@@ -915,11 +918,19 @@ export async function getAcquisitionProgress(
       : [];
     const evidenceVersionByPhoto=new Map(evidenceVersions.map(row=>[row.photoId,row.version]));
     const state = hydrate(row);
+    const problemSources = slots.flatMap(slot => {
+      const photo = slot.photos.find(p => p.ready && !p.purgedAt && p.generation === slot.generation);
+      const candidate = row.run!.candidates.find(c => c.physicalId === slot.id);
+      return photo && candidate ? [{id: photo.id,
+        manualAnalysis: acquisitionAnalysisForPhoto(candidate, photo)}] : [];
+    });
+    const problemJobs = await readAcquisitionProblemJobs(tx, row.run!.id, problemSources);
     const reviewedIds = [
       ...new Set(
-        state.session.candidates.flatMap((c) =>
+        [...state.session.candidates.flatMap((c) =>
           c.review?.cardId ? [c.review.cardId] : [],
-        ),
+        ), ...[...problemJobs.values()].flatMap(jobs => jobs.flatMap(job =>
+          job.proposalIds?.filter((id): id is string => typeof id === "string") ?? []))],
       ),
     ];
     const reviewedNames = new Map(
@@ -931,6 +942,7 @@ export async function getAcquisitionProgress(
             name: true,
             setCode: true,
             collectorNumber: true,
+            finishes: true,
           },
         })
       ).map((c) => [c.id, c]),
@@ -971,12 +983,23 @@ export async function getAcquisitionProgress(
         status: j.status,
         evidenceVersion:evidenceVersionByPhoto.get(j.artifact.sourceId)??null,
       })),
-      slots: slots.map((slot) => ({
+      slots: slots.map((slot) => {
+        const photo = slot.photos.find(p => p.ready && !p.purgedAt && p.generation === slot.generation);
+        const review = reviews.get(slot.id) ?? null;
+        const committed = Boolean(row.run!.candidates.find(c => c.physicalId === slot.id)?.receipt);
+        return {
         id: slot.id,
         position: slot.position,
         generation: slot.generation,
         photos: slot.photos,
-        review: reviews.get(slot.id) ?? null,
+        review,
+        reviewProblems: acquisitionReviewProblems({committed, review,
+          printings: reviewedNames,
+          visualEnabled: process.env.ACQUISITION_VISUAL_ENABLED === "1",
+          printingEnabled: process.env.ACQUISITION_PRINTING_ENABLED === "1",
+          defaultsFinish: state.defaults.finish, photoReady: Boolean(photo),
+          physicalReasons: physicalReasons.get(slot.id) ?? ["UNAVAILABLE"],
+          jobs: photo ? problemJobs.get(photo.id) ?? [] : []}),
         physicalReadiness: {
           reasons: [
             ...(physicalReasons.get(slot.id) ?? ["UNAVAILABLE"]),
@@ -988,11 +1011,9 @@ export async function getAcquisitionProgress(
           ],
         },
         reviewRevision: row.run!.candidates.find((c) => c.physicalId === slot.id)?.revision ?? 0,
-        committed: Boolean(
-          row.run!.candidates.find((c) => c.physicalId === slot.id)?.receipt,
-        ),
+        committed,
         received: row.run!.candidates.some((c) => c.physicalId === slot.id),
-      })),
+      }; }),
       reservedSlots: slots.length,
       availableSlots:
         row.target === null ? null : Math.max(0, row.target - slots.length),
