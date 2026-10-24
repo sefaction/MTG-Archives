@@ -15,7 +15,7 @@ public record EnrollmentCredential(string Secret, string? PairCode, string Site,
 public static class ScannerConnection
 {
     public const string Version = "0.3.0-native";
-    public const string HelperVersion = "0.4.3";
+    public const string HelperVersion = "0.4.4";
     private static string Root => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MTGArchives", "ScannerAgent");
     public static Uri Site(string value, bool allowLocal)
     {
@@ -303,7 +303,7 @@ public static class ScannerConnection
                 "MTG Archives Scanner", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return true;
         }
-        if (args[0] is not ("version" or "connect" or "pair-uri" or "resume" or "serve" or "report" or "forget" or "connection-selftest" or "connection-picker-fixture" or "native-selftest" or "discovery-selftest" or "fixture-server" or "discovery-fixture-server")) return false;
+        if (args[0] is not ("version" or "identity-selftest" or "connect" or "pair-uri" or "resume" or "serve" or "report" or "forget" or "connection-selftest" or "connection-picker-fixture" or "native-selftest" or "discovery-selftest" or "fixture-server" or "discovery-fixture-server")) return false;
         if (args[0] == "connection-picker-fixture" && args.Length == 1) {
             var choices = new[] {
                 new HelperConnection(Guid.Parse("11111111-1111-4111-8111-111111111111"), "http://127.0.0.1:13001/", "Local scanner", true, Account: "Brian"),
@@ -315,9 +315,11 @@ public static class ScannerConnection
             return true;
         }
         if (args[0] == "version" && args.Length == 1) {
-            Console.WriteLine(JsonSerializer.Serialize(new { helperVersion = HelperVersion, protocolVersion = Version, naps2SdkVersion = "1.3.0" }, RunSpool.Json));
+            Console.WriteLine(JsonSerializer.Serialize(new { helperVersion = HelperVersion, protocolVersion = Version,
+                naps2SdkVersion = "1.3.0", helperIdentity = ScannerHelperIdentity.Current }, RunSpool.Json));
             return true;
         }
+        if (args[0] == "identity-selftest" && args.Length == 1) { ScannerHelperIdentity.SelfTest(); return true; }
         if (args[0] == "native-selftest") { await ScannerNativeSelfTest.Run(Path.Combine(Root, "selftests")); return true; }
         if (args[0] == "discovery-selftest") { await ScannerDiscoveryProgressSelfTest.Run(); await ScannerDiscoverySelfTest.Run(); await ScannerDiagnosticSelfTest.Run(); return true; }
         if (args[0] == "connection-selftest")
