@@ -84,6 +84,7 @@ for (const width of [1366, 390, 320]) test(`whole-batch problem filters preserve
     await page.reload();
     await filter.selectOption("no-match");
     await expect(draft).toHaveCount(1);
+    await draft.scrollIntoViewIfNeeded();
     await expect(draft.getByRole("combobox", {name: "Card condition", exact: true})).toHaveValue("LP");
     await filter.selectOption("quality");
     await draft.scrollIntoViewIfNeeded();
