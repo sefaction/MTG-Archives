@@ -17,6 +17,7 @@ import { verifyScannerConnections } from "./verify-scanner-connections";
 import { verifyScannerRuns } from "./verify-scanner-runs";
 import { verifyNativeScannerCleanup } from "./verify-scanner-native-cleanup";
 import { verifyScannerStorageFileCleanup } from "./verify-scanner-storage-file-cleanup";
+import { verifyScannerCropCleanup } from "./verify-scanner-crop-cleanup";
 import { verifyBackupScannerSettlement } from "./verify-backup-scanner-settlement";
 import { verifyRestoreCredentials } from "./verify-restore-credentials";
 import { verifyRestoreWorkers } from "./verify-restore-workers";
@@ -125,6 +126,7 @@ async function run() {
   await verifyNativeScannerCleanup(db);
   await verifyScannerStorageFileCleanup(db);
   await verifyRecognitionSnapshot(db);
+  await verifyScannerCropCleanup(db);
   await verifyPrimaryCatalogFreshness(db);
   await verifyCorrectionFairness(db);
     await verifyCorrectionCaptureClock(db);
