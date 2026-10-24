@@ -81,7 +81,12 @@ for (const width of [1366, 390, 320]) test(`whole-batch problem filters preserve
     await expect(page.locator('[data-testid^="capture-card-"]')).toHaveCount(3);
     await expect(draft.getByRole("combobox", {name: "Card condition", exact: true})).toHaveValue("LP");
     await expect(page.getByTestId("capture-card-19")).toHaveCount(0);
-    await page.reload(); await filter.selectOption("quality");
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.reload();
+    await filter.selectOption("no-match");
+    await expect(draft).toHaveCount(1);
+    await expect(draft.getByRole("combobox", {name: "Card condition", exact: true})).toHaveValue("LP");
+    await filter.selectOption("quality");
     await draft.scrollIntoViewIfNeeded();
     await expect(draft.getByRole("combobox", {name: "Card condition", exact: true})).toHaveValue("LP");
     const layouts: unknown[] = [];

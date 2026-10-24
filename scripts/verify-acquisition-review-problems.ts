@@ -58,7 +58,14 @@ export async function verifyAcquisitionReviewProblems(db: PrismaClient, actor: A
       assert.equal(selected.reviewProblems.includes("overflow"), selected.physicalReadiness.reasons.includes("OVERFLOW"));
       return selected.reviewProblems;
     };
-    assert((await flags()).includes("conflict"));
+    const firstFlags = await flags();
+    if (!firstFlags.includes("conflict")) {
+      const projected = await db.$transaction(tx => readAcquisitionProblemJobs(tx, photo.runId, [{id: photoId, manualAnalysis: null}]));
+      console.log(JSON.stringify({event: "review-problems-first-conflict-diagnostic", flags: firstFlags,
+        slot: {id: slot.id, generation: slot.generation}, photo: {slotId: photo.slotId, generation: photo.generation},
+        candidate: {id: candidate.id, physicalId: candidate.physicalId}, projected: [...projected]}));
+    }
+    assert(firstFlags.includes("conflict"), "current valid local suggestion has conflict flag");
     await db.acquisitionProcessingJob.update({where: {id}, data: {output: output("NO_MATCH", [])}});
     assert((await flags()).includes("no-match"));
     for (const name of ["ACQUISITION_VISUAL_ENABLED", "ACQUISITION_PRINTING_ENABLED"]) {
@@ -72,6 +79,24 @@ export async function verifyAcquisitionReviewProblems(db: PrismaClient, actor: A
     await db.acquisitionProcessingJob.update({where: {id}, data: {status: "COMPLETE", leaseToken: null, leaseExpiresAt: null, output: {
       ...output("NO_MATCH", []), proposals: {...output("NO_MATCH", []).proposals, totalProposals: -1}}}});
     assert(!(await flags()).includes("no-match"), "malformed result cannot become a no-match signal");
+    for (const malformed of [
+      {...proposal, reasons: undefined}, {...proposal, reasons: [1]},
+      {...proposal, nameDistance: undefined}, {...proposal, card: {...proposal.card, name: 1}},
+    ]) {
+      for (const status of ["CONFLICT", "REVIEW_REQUIRED"]) {
+        const invalid = {...malformed, card: {...malformed.card,
+          id: status === "CONFLICT" ? card.id : "unavailable-review-fixture-printing"}};
+        await db.acquisitionProcessingJob.update({where: {id}, data: {output: {
+          ...output(status, []), proposals: {...output(status, []).proposals, totalProposals: 1,
+            proposals: JSON.parse(JSON.stringify([invalid]))}}}});
+        const problems = await flags();
+        assert(!problems.includes("conflict") && !problems.includes("no-match"), "DTO-invalid entry cannot supply a suggestion problem");
+      }
+    }
+    await db.acquisitionProcessingJob.update({where: {id}, data: {output: output("CONFLICT", Array.from({length: 13}, () => proposal))}});
+    const oversized = await db.$transaction(tx => readAcquisitionProblemJobs(tx, photo.runId, [{id: photoId, manualAnalysis: null}]));
+    assert.equal(oversized.get(photoId)?.find(job => job.id === id)?.proposalIds, null, "oversized arrays are not expanded into identifiers");
+    assert(!(await flags()).includes("conflict"));
     await db.acquisitionProcessingJob.update({where: {id}, data: {output: output("REVIEW_REQUIRED", [proposal], "NEEDS_CROP")}});
     assert((await flags()).includes("quality"));
     const other = await db.acquisitionCandidate.findFirstOrThrow({where: {runId: photo.runId, id: {not: candidate.id}}});

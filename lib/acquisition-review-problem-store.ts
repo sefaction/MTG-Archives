@@ -25,18 +25,33 @@ export async function readAcquisitionProblemJobs(tx: Prisma.TransactionClient, r
           'referenceAdmission',jsonb_build_object('status',left(work.output#>>'{referenceAdmission,status}',40))) AS output,
         left(work.output#>>'{proposals,status}',40) AS "resultStatus",
         CASE WHEN jsonb_typeof(work.output#>'{proposals,proposals}')='array' THEN
-          CASE WHEN jsonb_array_length(work.output#>'{proposals,proposals}')<=12
-            AND jsonb_typeof(work.output#>'{proposals,automaticAcceptance}')='boolean'
+          CASE WHEN jsonb_array_length(work.output#>'{proposals,proposals}')<=12 THEN
+            CASE WHEN jsonb_typeof(work.output#>'{proposals,automaticAcceptance}')='boolean'
             AND jsonb_typeof(work.output#>'{proposals,truncated}')='boolean'
             AND CASE WHEN jsonb_typeof(work.output#>'{proposals,totalProposals}')='number' THEN
-              (work.output#>>'{proposals,totalProposals}')::numeric>=jsonb_array_length(work.output#>'{proposals,proposals}')
+              (work.output#>>'{proposals,totalProposals}')::numeric>=0
               AND trunc((work.output#>>'{proposals,totalProposals}')::numeric)=(work.output#>>'{proposals,totalProposals}')::numeric
               ELSE false END
-            THEN jsonb_array_length(work.output#>'{proposals,proposals}') END END AS "proposalCount",
+            AND NOT EXISTS (
+              SELECT 1 FROM jsonb_array_elements(work.output#>'{proposals,proposals}') entry
+              WHERE NOT (
+                COALESCE(jsonb_typeof(entry#>'{card,id}')='string',false)
+                AND COALESCE(jsonb_typeof(entry#>'{card,name}')='string',false)
+                AND COALESCE(jsonb_typeof(entry#>'{card,setCode}')='string',false)
+                AND COALESCE(jsonb_typeof(entry#>'{card,collectorNumber}')='string',false)
+                AND (entry#>'{card,lang}' IS NULL OR jsonb_typeof(entry#>'{card,lang}') IN ('string','null'))
+                AND COALESCE(jsonb_typeof(entry->'nameDistance') IN ('number','null'),false)
+                AND CASE WHEN jsonb_typeof(entry->'reasons')='array' THEN NOT EXISTS (
+                  SELECT 1 FROM jsonb_array_elements(entry->'reasons') reason WHERE jsonb_typeof(reason)<>'string'
+                ) ELSE false END
+              )
+            )
+            THEN jsonb_array_length(work.output#>'{proposals,proposals}') END END END AS "proposalCount",
         CASE WHEN jsonb_typeof(work.output#>'{proposals,proposals}')='array' THEN
+          CASE WHEN jsonb_array_length(work.output#>'{proposals,proposals}')<=12 THEN
           ARRAY(SELECT left(proposal->'card'->>'id',200)
             FROM jsonb_array_elements(work.output#>'{proposals,proposals}') proposal LIMIT 13)
-        END AS "proposalIds",
+          END END AS "proposalIds",
         left(work.output#>>'{catalog,status}',40) AS "catalogStatus",
         left(work.output#>>'{native,geometry,status}',60) AS "geometryStatus",
         left(work.output#>>'{native,geometry,framing}',40) AS framing

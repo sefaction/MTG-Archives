@@ -214,7 +214,7 @@ export function AcquisitionCapture({
   );
   const shownSlots = (progress?.slots ?? []).filter(
     (slot) =>
-      visibleIds.has(slot.id) || slot.photos.some((p) => dirtyPhotos.has(p.id)),
+      visibleIds.has(slot.id) || hasDraft(slot),
   );
   const [reviewNavigation, setReviewNavigation] = useState("");
   function nextAwaitingReview(after: number) {
