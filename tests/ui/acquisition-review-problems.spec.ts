@@ -60,7 +60,7 @@ for (const width of [1366, 390, 320]) test(`whole-batch problem filters preserve
     expect(await denied.text()).not.toContain("reviewProblems");
     expect(progress.slots.filter((s: {reviewProblems: string[]}) => s.reviewProblems.includes("no-match")).map((s: {position: number}) => s.position)).toEqual([16,17]);
     for (const position of [18,20,21,22]) expect(progress.slots[position].reviewProblems).not.toContain("no-match");
-    await page.goto(`/imports/acquisition?batch=${fixture.batch}`);
+    await page.goto(`/imports/scan?batch=${fixture.batch}`);
     const filter = page.getByRole("combobox", {name: "Show cards", exact: true});
     for (const [value, text] of [["conflict","Conflicting suggestions (16)"],["no-match","No match (2)"],
       ["unknown-finish","Choose finish (24)"],["quality","Photo needs attention (2)"],["overflow","Outside batch allocation (1)"]])
