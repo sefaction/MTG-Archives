@@ -62,7 +62,7 @@ export async function verifyLegacyFixtureFiles(db:PrismaClient){
       await fs.mkdir(path.join(uploads,"scanner-control-v1"),{recursive:true});
       for(let i=0;i<count;i++){
         const capture=await session(),run=await db.acquisitionRun.findFirstOrThrow({where:{sessionId:capture.session.id}}),identity=randomUUID();
-        await db.scannerRun.create({data:{id:identity,agentId:agent.id,acquisitionRunId:run.id,epoch:randomUUID(),requestPayload:"{}",deviceId:"fixture-only",device:{},settings:{},status:"CANCELLED"}});
+        await db.scannerRun.create({data:{id:identity,agentId:agent.id,acquisitionRunId:run.id,epoch:randomUUID(),requestPayload:"{}",deviceId:"fixture-only",device:{},settings:{},loadedCount:1,physicalTarget:1,status:"CANCELLED_BEFORE_START",admissionReleasedAt:new Date()}});
         for(const suffix of suffixes)await fs.writeFile(path.join(uploads,"scanner-control-v1",identity+suffix),Buffer.from(JSON.stringify({fixture:true,id:identity,suffix})));
         identities.push(identity);
       }
