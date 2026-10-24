@@ -18,6 +18,7 @@ import { randomUUID } from "node:crypto";
 import { PrismaClient, type Prisma } from "@prisma/client";
 import { setTimeout } from "node:timers/promises";
 import { commitImportBatch } from "../lib/import-commit";
+import { verifyAcquisitionWriterCompositions } from "./verify-acquisition-writers";
 import {
   createAcquisitionSession,
   executeAcquisitionCommand,
@@ -707,6 +708,15 @@ export async function verifyAcquisitionCommit(
       await Promise.allSettled(capturing ? [importing, capturing] : [importing]);
       await captureDb.$disconnect();
     }
+    await verifyAcquisitionWriterCompositions(db, actor, base.ownerPlayerId, {
+      cardId: card.id, location,
+      capture: async destination => {
+        const created = await capture(destination, 1);
+        await review(created.id, created.photos[0].id);
+        await stop(created.id);
+        return { sessionId: created.id, photoId: created.photos[0].id };
+      },
+    });
     const retained = first.photos[0],
       bytes = retentionBytes,
       bytesDigest = photoDigest(bytes);
