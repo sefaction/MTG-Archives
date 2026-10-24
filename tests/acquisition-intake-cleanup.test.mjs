@@ -1,3 +1,4 @@
+import * as ownedFixtureFiles from "./ui/owned-fixture-files.ts";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -19,7 +20,7 @@ for (const [file, normal] of fixtures) {
   async function exercise(faults=[]) {
     const calls=[],failures=[];let sweep=0;
     const step=name=>{calls.push(name);if(faults.includes(name)){const error=new Error(name);failures.push(error);throw error;}};
-    const context={tag:'ui-intake-00000000-0000-0000-0000-000000000000',AggregateError,
+    const context={...ownedFixtureFiles,tag:'ui-intake-00000000-0000-0000-0000-000000000000',AggregateError,
       cancelAndCleanCorrectionFixture:()=> 'owned-feedback:',
       database:body=> { if(body.startsWith('owned-feedback:'))return step(++sweep===1?'early-feedback':'late-feedback');if(body.startsWith('await p.acquisitionSession.updateMany'))return step('cancel-owned');return step('acquisition-teardown'); },
       browser:{close:async()=>step('browser-close')},context:{close:async()=>step('context-close')},

@@ -58,7 +58,7 @@ export async function verifyLegacyFixtureFiles(db:PrismaClient){
         await finalizeAcquisitionPhoto(db,actor,capture.session.id,photo.id);identities.push(photo.id);
       }
     }else{
-      const agent=await db.scannerAgent.create({data:{id:randomUUID(),userId:id,tokenHash:randomUUID(),credentialHash:randomUUID(),name:"generated fixture",expiresAt:new Date(Date.now()+60000)}});
+      const agent=await db.scannerAgent.create({data:{id:randomUUID(),userId:id,tokenHash:createHash("sha256").update(randomUUID()).digest("hex"),credentialHash:createHash("sha256").update("fixture-only").digest("hex"),name:"generated fixture",expiresAt:new Date(Date.now()+60000),revokedAt:new Date()}});
       await fs.mkdir(path.join(uploads,"scanner-control-v1"),{recursive:true});
       for(let i=0;i<count;i++){
         const capture=await session(),run=await db.acquisitionRun.findFirstOrThrow({where:{sessionId:capture.session.id}}),identity=randomUUID();
