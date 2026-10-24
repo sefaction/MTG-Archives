@@ -4,12 +4,14 @@ import path from "node:path";
 import {createHash} from "node:crypto";
 import {readFileSync} from "node:fs";
 import ts from "typescript";
-import {loadLegacyFixtureCleanups} from "./legacy-fixture-cleanup-sources";
+import {loadLegacyFixtureCleanups,loadReviewFixtureCleanups} from "./legacy-fixture-cleanup-sources";
 
 const owner="ui-acquisition-44444444-4444-4444-8444-444444444444";
 const ids=["11111111-1111-4111-8111-111111111111","22222222-2222-4222-8222-222222222222"];
 const sources=loadLegacyFixtureCleanups();
 assert.equal(sources.length,25);
+const reviewSources=loadReviewFixtureCleanups();
+assert.equal(reviewSources.length,3);
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
 
 function fixture(source: typeof sources[number], options: {ids?:string[];root?:string;errors?:Map<string,unknown>;selectionError?:Error}={}) {
@@ -52,7 +54,7 @@ test("real verifier preserves the first retry failure without replaying it",asyn
   await assert.rejects(retry(true,false,async()=>{calls++;throw error;}),(actual:unknown)=>actual===error);assert.equal(calls,1);
 });
 
-for(const source of sources){
+for(const source of [...sources,...reviewSources]){
   const label=`${path.basename(source.file)}:${source.index}`;
   const directory=source.kind==="photo"?"acquisition-v1":"scanner-control-v1";
   const paths=ids.flatMap(id=>source.suffixes.map(suffix=>path.join(directory,id+suffix)));

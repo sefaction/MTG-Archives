@@ -4,6 +4,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import sharp from "sharp";
 import { cleanupCorrectionFixture } from "./correction-fixture";
+import { cleanupOwnedPhotoFixtureFiles } from "./owned-fixture-files";
 
 const container = process.env.MTG_INVENTORY_TEST_CONTAINER || "";
 const databaseName = process.env.MTG_INVENTORY_TEST_DATABASE || "";
@@ -35,7 +36,7 @@ for (const width of [1366, 320]) for (const outcome of ["subset", "overfill"] as
     const headers = { origin: baseURL! };
     const printing = { id: `${tag}-card`, name: "Capacity handoff fixture", setCode: "tst", collectorNumber: "1", lang: "en", imageUri: null, finishes: ["nonfoil"] };
     let batch = "";
-    let primaryError: unknown;
+    let primaryFailed = false; let primaryError: unknown;
     writeFileSync(test.info().outputPath("fixture-before.json"), JSON.stringify({ tag, before }));
     try {
       database(`const n=${JSON.stringify(tag)},passwordHash=require('crypto').randomBytes(32).toString('hex');await p.$transaction(async tx=>{await tx.player.create({data:{id:n,name:n,displayName:n}});await tx.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash}});for(const [id,name,capacity] of [[n,'Capacity original',800],[n+'-other','Capacity alternative',5]])await tx.inventoryLocation.create({data:{id,name,normalizedName:id,ownerPlayerId:n,type:'Box',storageLayout:{capacity,sections:[]}}});await tx.card.create({data:{...${JSON.stringify(printing)},scryfallId:require('crypto').randomUUID(),typeLine:'Artifact',rarity:'common'}});await tx.inventoryItem.create({data:{cardId:${JSON.stringify(printing.id)},currentOwnerId:n,originalOpenerId:n,quantity:537,condition:'NM',locationId:n,sourceType:'MANUAL'}});await tx.authSession.create({data:{tokenHash:${JSON.stringify(tokenHash)},userId:n,credentialHash:require('crypto').createHash('sha256').update(passwordHash).digest('hex'),expiresAt:new Date(Date.now()+600000)}});});return true;`);
@@ -170,7 +171,7 @@ for (const width of [1366, 320]) for (const outcome of ["subset", "overfill"] as
       const retained = sourceState();
       writeFileSync(test.info().outputPath("originals-after.json"), JSON.stringify(retained));
       expect(retained).toEqual(originals);
-    } catch (error) { primaryError = error; throw error; }
+    } catch (error) { primaryFailed = true; primaryError = error; throw error; }
     finally {
       const cleanupErrors: unknown[] = [];
       try { await page.unrouteAll({ behavior: "wait" }); await page.goto("about:blank"); }
@@ -178,13 +179,13 @@ for (const width of [1366, 320]) for (const outcome of ["subset", "overfill"] as
       try { await page.context().clearCookies(); }
       catch (error) { cleanupErrors.push(error); }
       try {
-          database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{ownerPlayerId:n},data:{phase:'CANCELLED'}});const w={run:{session:{ownerPlayerId:n}}};if(await p.acquisitionProcessingJob.count({where:{...w,status:'RUNNING'}}))throw Error('Live fixture job prevents cleanup');const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});${cleanupCorrectionFixture}await p.acquisitionCommitMember.deleteMany({where:{candidate:w}});await p.acquisitionCommit.deleteMany({where:w});await p.inventoryAuditLog.deleteMany({where:{changedByUserId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{session:{ownerPlayerId:n}}});await p.acquisitionSession.deleteMany({where:{ownerPlayerId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});await p.card.deleteMany({where:{id:${JSON.stringify(printing.id)}}});const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;if(!root||!paths.isAbsolute(root))throw Error('Missing fixture root');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw Error('Unexpected fixture photo');for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e});}return true;`);
+          database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{ownerPlayerId:n},data:{phase:'CANCELLED'}});const w={run:{session:{ownerPlayerId:n}}};if(await p.acquisitionProcessingJob.count({where:{...w,status:'RUNNING'}}))throw Error('Live fixture job prevents cleanup');const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});${cleanupOwnedPhotoFixtureFiles}${cleanupCorrectionFixture}await p.acquisitionCommitMember.deleteMany({where:{candidate:w}});await p.acquisitionCommit.deleteMany({where:w});await p.inventoryAuditLog.deleteMany({where:{changedByUserId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{session:{ownerPlayerId:n}}});await p.acquisitionSession.deleteMany({where:{ownerPlayerId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});await p.card.deleteMany({where:{id:${JSON.stringify(printing.id)}}});return true;`);
           const after = fingerprint();
           writeFileSync(test.info().outputPath("fixture-after.json"), JSON.stringify({ tag, after }));
           expect(after).toEqual(before);
       } catch (error) { cleanupErrors.push(error); }
       if (cleanupErrors.length) {
-        throw new AggregateError(primaryError ? [primaryError, ...cleanupErrors] : cleanupErrors, "Capacity handoff cleanup failed; all independent cleanup was attempted");
+        throw new AggregateError(primaryFailed ? [primaryError, ...cleanupErrors] : cleanupErrors, "Capacity handoff cleanup failed; all independent cleanup was attempted");
       }
     }
   });
