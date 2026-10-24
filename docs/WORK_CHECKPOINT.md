@@ -1,3 +1,16 @@
+## Current integration - approved PRs #967 and #969, October 24, 2026
+
+Both owner checkpoint histories are preserved verbatim below. Their latest reviews and release receipts establish readiness; these historical pending statements do not replace live GitHub status. This integration retains every fixture verifier and requires fresh final-head checks before merge. Broad #692/#310 remain open; no runtime or deployment action is implied.
+
+## Preserved owner checkpoint histories
+
+## Current work — laptop photo-intake fixture cleanup
+
+- Owner: thread01a16943 / runfixture-file-failure-692-20261024-01a16943, isolated codex/fixture-file-failure-692 from main9b3add47; #966 under #692/#310, no merge authority.
+- Actual-source negative:1/4files attempted after19 relational deletes. Fix preserves the full original workflow/assertions/deadline/relational-tail text;9host controls pass.
+- Source ownership/release is recorded in the exact private current record; temporary fixture/runtime retired, no live owned child. Private source/evidence record: `.local-data/fixture-file-failure-692-20261024/` at primary root.
+- Tested source67c1bdc2 / PR967:9locked controls, actual4path failure/retained rows/verified restoration/replay/populated peer/all85tables and corrected type-only check pass. Independent review5637927019 has no findings; all9initial-head CI pass. Original setup/config failures retained.
+- Next: final report-head CI and exact source release/readiness handoff. Root cumulative WIP and existing reviews remain protected.
 ## Current work - remaining fixture file phases #968 / PR969, October 24, 2026
 
 - Root laptop/thread01a16522, runremaining-fixture-files-692-20261024-01a16522; isolated codex/remaining-fixture-file-cleanup. Source905f0ce1 from main9b3add47 qualified; final report-only head tracked privately. Source claim held through final handoff; no runtime claim/live child/resource remains.
