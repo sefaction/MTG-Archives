@@ -1,10 +1,12 @@
 import type { PrismaClient } from "@prisma/client";
+import { z } from "zod";
 import {settledScannerTransfer} from "./scanner-drain-policy";
 import {BATCH_TRASH_DAYS} from "./acquisition-batch-policy";
 import { hasCorrectionRetentionPins } from "./acquisition-correction-library";
 import {
   PHOTO_RETENTION_DAYS_AFTER_COMMIT,
   removeAcquisitionPhotoBytes,
+  findAcquisitionPhotoTemporaryFiles,
 } from "./acquisition-files";
 
 /** Bounded worker maintenance. Receipt membership and elapsed commit age are
@@ -33,6 +35,9 @@ export async function purgeCommittedAcquisitionPhotos(
   `;
   let purged = 0,
     failed = 0;
+  let temporaryFiles: Map<string, string[]>;
+  try { temporaryFiles = await findAcquisitionPhotoTemporaryFiles(photos.map(photo => photo.id)); }
+  catch { return { purged, failed: photos.length }; }
   for (const photo of photos) {
     try {
       purged += await db.$transaction(async tx => {
@@ -42,7 +47,7 @@ export async function purgeCommittedAcquisitionPhotos(
         if (await hasCorrectionRetentionPins(tx, photo.sessionId)) return 0;
         const current = await tx.acquisitionPhoto.findUnique({where: {id: photo.id}});
         if (!current || current.purgedAt || !current.purgeAfter || current.purgeAfter > now) return 0;
-        await removeAcquisitionPhotoBytes(photo.id);
+        await removeAcquisitionPhotoBytes(photo.id, temporaryFiles.get(photo.id));
         const changed = await tx.acquisitionPhoto.updateMany({
           where: { id: photo.id, purgedAt: null, purgeAfter: { lte: now } },
           data: { purgedAt: now },
@@ -82,9 +87,12 @@ export async function purgeTrashedAcquisitionPhotos(db: PrismaClient, now = new 
         expired++;
       }
       const photos = await tx.acquisitionPhoto.findMany({where: {runId: session.run.id, purgedAt: null}, orderBy: {id: "asc"}, take: 25});
+      let temporaryFiles: Map<string, string[]>;
+      try { temporaryFiles = await findAcquisitionPhotoTemporaryFiles(photos.map(photo => photo.id)); }
+      catch { failed += photos.length; return; }
       for (const photo of photos) {
         try {
-          await removeAcquisitionPhotoBytes(photo.id);
+          await removeAcquisitionPhotoBytes(photo.id, temporaryFiles.get(photo.id));
           await tx.acquisitionPhoto.update({where: {id: photo.id}, data: {purgedAt: now}});
           purged++;
         } catch { failed++; }
@@ -92,4 +100,43 @@ export async function purgeTrashedAcquisitionPhotos(db: PrismaClient, now = new 
     }, {timeout: 30000});
   }
   return {expired, purged, failed};
+}
+
+/** Explicit, bounded recovery for aliases left by an older successful purge.
+ * Preview is the default. Never infer deletion authority from a filename alone. */
+export async function repairPurgedAcquisitionPhotoTemporaries(db: PrismaClient, ownerPlayerId: string,
+  ids: readonly string[], apply = false, now = new Date()) {
+  if (!ownerPlayerId || !ids.length || ids.length > 25) throw new Error("Select one owner and 1–25 photo IDs");
+  const selected = [...new Set(ids.map(id => z.string().uuid().parse(id)))];
+  const photos = await db.acquisitionPhoto.findMany({where: {id: {in: selected}, purgedAt: {not: null},
+    run: {session: {ownerPlayerId}}}, select: {id: true, runId: true, run: {select: {sessionId: true}}}});
+  const temporaryFiles = await findAcquisitionPhotoTemporaryFiles(photos.map(photo => photo.id));
+  const cutoff = new Date(now.getTime() - PHOTO_RETENTION_DAYS_AFTER_COMMIT * 86400000);
+  const result = {checked: photos.length, eligible: 0, temporaryFiles: 0, repaired: 0, failed: 0};
+  for (const photo of photos) {
+    try {
+      const outcome = await db.$transaction(async tx => {
+        await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id=${photo.run.sessionId} FOR UPDATE`;
+        const session = await tx.acquisitionSession.findUnique({where: {id: photo.run.sessionId}});
+        const current = await tx.acquisitionPhoto.findUnique({where: {id: photo.id}});
+        if (!session || session.ownerPlayerId !== ownerPlayerId || !current?.purgedAt ||
+            current.runId !== photo.runId || await hasCorrectionRetentionPins(tx, session.id)) return null;
+        if (!session.deletedAt) {
+          if (session.trashedAt || !current.purgeAfter || current.purgeAfter > now) return null;
+          const [receipt] = await tx.$queryRaw<{exists: boolean}[]>`
+            SELECT EXISTS (SELECT 1 FROM "AcquisitionCandidate" c
+              JOIN "AcquisitionCommitMember" m ON m."candidateId"=c.id AND m."runId"=c."runId"
+              JOIN "AcquisitionCommit" r ON r.id=m."commitId" AND r."runId"=m."runId"
+              WHERE c."runId"=${current.runId} AND c."physicalId"=${current.slotId}
+                AND r."createdAt"<=${cutoff}) AS exists`;
+          if (!receipt.exists) return null;
+        }
+        const names = temporaryFiles.get(photo.id)!;
+        if (apply && names.length) await removeAcquisitionPhotoBytes(photo.id, names);
+        return {temporaryFiles: names.length, repaired: apply && names.length ? 1 : 0};
+      });
+      if (outcome) { result.eligible++; result.temporaryFiles += outcome.temporaryFiles; result.repaired += outcome.repaired; }
+    } catch { result.failed++; }
+  }
+  return result;
 }

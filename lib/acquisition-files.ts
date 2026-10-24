@@ -9,6 +9,7 @@ import {
   unlink,
   readFile,
   statfs,
+  opendir,
 } from "node:fs/promises";
 import path from "node:path";
 import sharp, { type Metadata } from "sharp";
@@ -257,9 +258,28 @@ export async function readBoundedPhotoBody(request: Request) {
   }
 }
 
-/** Exact UUID-named files only. Missing bytes mean a prior interrupted purge
+const photoTemporarySuffix = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.part$/i;
+function photoTemporaryName(name: string, id: string) {
+  return name.startsWith(`${id}.`) && photoTemporarySuffix.test(name.slice(id.length + 1));
+}
+
+/** One streaming discovery per selected purge batch, retaining only its IDs.
+ * Callers still hold/recheck their normal expiry, pin and session authority. */
+export async function findAcquisitionPhotoTemporaryFiles(ids: readonly string[]) {
+  const selected = new Map<string, string[]>();
+  for (const id of ids) selected.set(z.string().uuid().parse(id), []);
+  if (!selected.size) return selected;
+  const { directory } = await filePath(ids[0], "raw");
+  for await (const entry of await opendir(directory, { bufferSize: 256 })) {
+    const id = entry.name.slice(0, 36), names = selected.get(id);
+    if (names && photoTemporaryName(entry.name, id)) names.push(entry.name);
+  }
+  return selected;
+}
+
+/** Exact UUID-named originals/previews and writer temporaries only. Missing bytes mean a prior interrupted purge
  * already removed them. Never traverse a directory or follow a file symlink. */
-export async function removeAcquisitionPhotoBytes(id: string) {
+export async function removeAcquisitionPhotoBytes(id: string, temporaryFiles?: readonly string[]) {
   for (const variant of ["raw", "preview"] as const) {
     const { file } = await filePath(id, variant);
     try {
@@ -271,9 +291,21 @@ export async function removeAcquisitionPhotoBytes(id: string) {
       if (error.code !== "ENOENT") throw error;
     }
   }
+  const { directory } = await filePath(id, "raw");
+  const temporary = temporaryFiles ?? (await findAcquisitionPhotoTemporaryFiles([id])).get(id)!;
+  for (const name of temporary) {
+    if (!photoTemporaryName(name, id)) throw new Error("Private photo temporary is unsafe");
+    const file = path.join(directory, name);
+    try {
+      const info = await lstat(file);
+      if (!info.isFile() || info.isSymbolicLink()) throw new Error("Private photo file is unsafe");
+      await unlink(file);
+    } catch (error: any) {
+      if (error.code !== "ENOENT") throw error;
+    }
+  }
   if (process.platform !== "win32") {
-    const { directory } = await filePath(id, "raw"),
-      handle = await open(directory, "r");
+    const handle = await open(directory, "r");
     const failures: unknown[] = [];
     try { await handle.sync(); } catch (error) { failures.push(error); }
     try { await handle.close(); } catch (error) { failures.push(error); }

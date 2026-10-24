@@ -68,6 +68,56 @@ test("only known database serialization/deadlock errors carry a safe retry hint"
   }
 });
 
+test("filesystem-full responses give safe guidance without leaking paths or retry hints", async () => {
+  for (const code of ["ENOSPC", "EDQUOT"]) {
+    const primary = Object.assign(new Error("private filesystem detail /private/unavailable/owner/photo.part"), { code });
+    for (const error of [primary, Object.assign(new AggregateError([primary, new Error("private cleanup")],
+      "private combined failure", { cause: primary }), { code })]) {
+      const response = acquisitionError(error);
+      assert.equal(response.status, 409);
+      assert.equal(response.headers.get("Cache-Control"), "no-store");
+      assert.deepEqual(await response.json(), {
+        error: "Photo storage is full. Free storage space or ask the administrator, then retry.",
+      });
+    }
+  }
+  for (const error of [Object.assign(new Error("private path"), { code: "EIO" }),
+    new Error("ENOSPC"), { code: "ENOSPC-like" }]) {
+    assert.deepEqual(await acquisitionError(error).json(), {
+      error: "The scan request could not be completed. Refresh and retry.",
+    });
+  }
+  const denied = acquisitionError(new Error("Login required"));
+  assert.equal(denied.status, 403);
+  assert.deepEqual(await denied.json(), { error: "Login required" });
+});
+
+test("a filesystem-full response preserves the original upload for one manual retry", async () => {
+  for (const code of ["ENOSPC", "EDQUOT"]) {
+    let calls = 0;
+    await assert.rejects(uploadAcquisitionPhoto(url, blob, {
+      signal: new AbortController().signal, wait,
+      request: async (address, options) => {
+        calls++;
+        assert.equal(address, url);
+        assert.equal(options?.body, blob);
+        return acquisitionError(Object.assign(new Error("private filesystem detail"), { code }));
+      },
+    }), /Photo storage is full\. Free storage/);
+    assert.equal(calls, 1, "storage exhaustion must not trigger automatic upload retries");
+    await uploadAcquisitionPhoto(url, blob, {
+      signal: new AbortController().signal, wait,
+      request: async (address, options) => {
+        calls++;
+        assert.equal(address, url);
+        assert.equal(options?.body, blob);
+        return ready();
+      },
+    });
+    assert.equal(calls, 2);
+  }
+});
+
 test("lost acknowledgement and marked conflict retry the exact identity and blob", async () => {
   const controller = new AbortController();
   const calls: { url: unknown; options?: RequestInit }[] = [];
