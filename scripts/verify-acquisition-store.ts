@@ -10,6 +10,7 @@ import { verifyCorrectionCaptureClock } from "./verify-correction-capture-clock"
 import { ensureCorrectionAccount } from "../lib/acquisition-correction-library";
 import { verifyAcquisitionCommit } from "./verify-acquisition-commit";
 import { verifyAcquisitionManualWriter } from "./verify-acquisition-manual-writer";
+import { verifyAcquisitionTradeCompositions } from "./verify-acquisition-trade";
 import { verifyScannerConnections } from "./verify-scanner-connections";
 import { verifyScannerRuns } from "./verify-scanner-runs";
 import { verifyNativeScannerCleanup } from "./verify-scanner-native-cleanup";
@@ -531,6 +532,7 @@ async function run() {
   await verifyAcquisitionCommit(db, actor, stranger, input());
   await verifyAcquisitionManualWriter(db, input());
   await verifyScannerConnections(db);
+  await verifyAcquisitionTradeCompositions(db);
   await verifyScannerRuns(db);
   await verifyBackupScannerSettlement(db);
   await verifyRestoreCredentials(db);

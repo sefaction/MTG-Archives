@@ -17,10 +17,10 @@ all-writer composition or phase acceptance follows from updating this map.
 | Writer | Actual exercised boundary | Evidence and limit |
 | --- | --- | --- |
 | Acquisition | commitAcquisitionCards uses the session/candidate fences, locked capacity read, shared receipt and unique member transaction | verify-acquisition-commit.ts: simultaneous same-request replay and competing sessions; rollback at receipt/audit/member stages; real stale-review rejection. Not every other writer composition. |
-| CSV import | commitImportBatch executes under the capacity gate in verify-inventory-capacity.ts | Gate-first actual service lock wait. This batch additionally pauses the actual CSV transaction after stock/audit/status writes, then observes the actual acquisition commit waiting in PostgreSQL. The stale preview must reject with zero acquisition receipt/member/audit effects; fresh explicit overfill records its reason and exactly one copy. |
+| CSV import | Complete commitImportBatch and commitAcquisitionCards execute in both orders | Existing #920 CSV-first stale/refreshed consent remains. The [reverse complete schedule](ACQUISITION_TRADE_WRITER.md) preserves the committed capture receipt/photo/audit while the later advisory CSV adds a separate provenance lot; both service replays have zero effects. |
 | Manual add | addInventoryCardToLocation and complete commitAcquisitionCards execute in both orders across two owned deliveries | Desktop PR #944 supplies ordinary-first, exact-writer PID wait, stale/refused admission, reasoned retry and replay. verify-acquisition-writers.ts supplies the distinct acquisition-first schedule and actual named blocking pair; the later advisory write cannot repeat its receipt. Preserve both owners and their evidence; neither PR alone claims both cases. |
 | Storage move | moveInventoryStorageBatch and complete commitAcquisitionCards execute in both orders | Same complete-service schedule and exact source-lot/quantity/provenance conservation, not just a capacity read. Acquisition-first preserves the documented serialization refusal with zero move effects, then a separate fresh call succeeds. Full-stack movement is covered; partial splits and every arbitrary multi-location schedule remain distinct. |
-| Trade receipt | receivedTradeInventoryData followed by the real Inventory insert executes behind the gate | This is a receipt-helper/database boundary, not the full authenticated trade lifecycle. Separate actual trade stock/action tests qualify their own scopes; they do not establish a full trade-versus-acquisition interleaving. |
+| Trade receipt | Complete confirmPhysicalTrade action and complete acquisition receipt execute in both orders | [Full action schedules and rollback](ACQUISITION_TRADE_WRITER.md) execute real transfers, reservations, audits, wishlists, events and notifications. Only request identity/cache and post-body observation are adapted; this is not an authenticated browser/physical exchange claim. Existing helper controls remain. |
 | Deck return | returnCommittedInventoryFromDeck and complete commitAcquisitionCards execute in both orders | Whole-lot return to No section preserves original lot fields and existing destination stock. Other deck operations and every partial/merge schedule remain distinct. |
 | Layout edit | updateLocation and complete commitAcquisitionCards execute in both orders | Actual layout shrink invalidates the old preview, or follows the already committed receipt under advisory capacity. Its real update statement is enclosed in a fixture transaction only to hold the statement lock for observation; this is not a new production transaction or authenticated browser edit. |
 | Delete/direct SQL/FK | real delete, SQL section/key/null-location changes and trigger checks | Database mechanism coverage across positive stock, revision/rollback and enabled triggers. Not an exhaustive enumeration of arbitrary SQL/writer histories. |
@@ -108,6 +108,12 @@ full typecheck gate. No app build/reload is required for test/documentation-only
 changes; a disposable local database is isolated from all current review data.
 
 ## Remaining acceptance and next safe step
+
+The final named trade/reverse-import schedules and finite original P7 acceptance
+reconciliation are in [ACQUISITION_TRADE_WRITER.md](ACQUISITION_TRADE_WRITER.md).
+Read its #944/#948 dependencies and actual PR gate/merge states before treating
+an earlier row or historical "next uncovered" statement as new work. Do not
+repeat named schedules merely because their original map predates that evidence.
 
 The subsequent persisted preview and receipt-create controls are documented in
 [ACQUISITION_COMMIT_INVALIDATION.md](ACQUISITION_COMMIT_INVALIDATION.md). They add
