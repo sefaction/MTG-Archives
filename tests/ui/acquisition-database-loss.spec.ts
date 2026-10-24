@@ -193,8 +193,21 @@ for(const width of [1366,320])test(`Inventory rollback and durability across own
     await heldRoute!.abort("failed");heldRoute=undefined;
     await expect(panel.getByRole("button",{name:"Retry Inventory addition",exact:true})).toBeEnabled();
     await panel.screenshot({path:test.info().outputPath("durable-recovery-retry.png")});
-    await panel.getByRole("button",{name:"Retry Inventory addition",exact:true}).click();
-    await expect(panel).toContainText("Added 1 copy to Inventory.");expect(sent.at(-1)).toBe(completed.body);expect(ledger()).toEqual(durable);
+    const retryResponses:{status:number;method:string}[]=[];let recoveredCommit=false;
+    for(let attempt=0;attempt<5;attempt++){
+      await new Promise(resolve=>setTimeout(resolve,5000));
+      const responsePromise=page.waitForResponse(response=>response.url().endsWith(`/api/acquisition/${batch}/commit`)&&response.request().postDataJSON().action==="commit");
+      await panel.getByRole("button",{name:"Retry Inventory addition",exact:true}).click();
+      const response=await deadline(responsePromise,15000,"Explicit original retry response missing");
+      retryResponses.push({status:response.status(),method:response.request().method()});
+      expect(sent.at(-1)).toBe(completed.body);expect(ledger()).toEqual(durable);
+      writeFileSync(test.info().outputPath("original-retry-responses.json"),JSON.stringify(retryResponses));
+      if(response.ok()){recoveredCommit=true;break;}
+      expect(response.status()).toBe(503);
+      await expect(panel.getByRole("button",{name:"Retry Inventory addition",exact:true})).toBeEnabled();
+    }
+    expect(recoveredCommit,"Original commit did not recover within five explicit attempts").toBe(true);
+    await expect(panel).toContainText("Added 1 copy to Inventory.");expect(ledger()).toEqual(durable);
     expect(recoveryReloads).toBeGreaterThan(0);
     const third=await preview(3);await third.getByRole("button",{name:"Add 1 copy to Inventory",exact:true}).click();await expect(panel).toContainText("Added 1 copy to Inventory.");
     const final=ledger();expect(final.lots.reduce((sum,row)=>sum+row.quantity,0)).toBe(3);expect(final.receipts).toHaveLength(3);expect(final.members).toHaveLength(3);expect(final.audits).toHaveLength(3);
@@ -204,7 +217,7 @@ for(const width of [1366,320])test(`Inventory rollback and durability across own
     const original=await page.request.get(`/api/acquisition/${batch}/photos/${photos[0]}`);expect(original.status()).toBe(200);expect(hash(await original.body())).toBe(hash(bytes));
     const denied=await request.get(`/api/acquisition/${batch}/photos/${photos[0]}`,{headers:{cookie:`mtg_inventory_session=${foreignToken}`}});expect(denied.status()).toBe(403);
     const webAfter=inspect(web);expect(webAfter.Id).toBe(webBefore.Id);expect(webAfter.Image).toBe(webBefore.Image);expect(webAfter.State.StartedAt).toBe(webBefore.State.StartedAt);
-    writeFileSync(test.info().outputPath("result.json"),JSON.stringify({width,settings,rolledBack,firstCommitted,durable,final,replay:true,pending:1,webUnchanged:true,crashes:2,recoveryReloads,recoveryRequests}));
+    writeFileSync(test.info().outputPath("result.json"),JSON.stringify({width,settings,rolledBack,firstCommitted,durable,final,replay:true,pending:1,webUnchanged:true,crashes:2,recoveryReloads,recoveryRequests,retryResponses}));
   }catch(error){failed=true;primary=error;}
   if(heldRoute)try{await heldRoute.abort("failed");}catch(error){cleanup.push(error);}
   if(failed)try{await page.screenshot({path:test.info().outputPath("failed-state.png")});}catch(error){cleanup.push(error);}

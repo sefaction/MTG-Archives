@@ -144,3 +144,41 @@ hints, authorization and semantic403/409 handling remain unchanged. Focused
 classification controls, a new compiled image and the original desktop/phone
 recovery gates are pending. Five explicit GET attempts remain bounded; no dead
 connection cause or complete database-recovery repair is claimed from this change.
+## Locked-engine diagnosis and finite idle lifetime
+
+A separate native-client diagnostic on locked Prisma6.19.3/enginec2990dca
+reproduces the cold-prepare failure. After a controlled PostgreSQL interruption,
+a new SELECT fails repeatedly with P1017; executing a previously prepared SELECT
+fails once, and the new SELECT then succeeds. The engine source obtains prepared
+statements before its connection-health-marking I/O wrapper. This supports that
+bounded mechanism in this diagnostic; it is not a claim about every historical
+incident or a passing application workflow.
+
+An empty health-transaction proposal is rejected and remains private only:
+maxWait/timeout do not bound every BEGIN/rollback path. No such health action,
+shared-client disconnect or automatic operation replay is included.
+
+The client now defaults the supported absolute max_connection_lifetime to30seconds
+when PostgreSQL has no explicit lifetime setting. Explicit installation policy,
+including0, remains byte-preserved. Connection limits, socket/pool timeouts and
+other URL settings are preserved. The native pool retires expired idle leases at
+checkout rather than terminating an active query or transaction. This is a finite
+availability mitigation for the reproduced reuse problem, not an upstream engine
+patch or a cause/repair claim for #846/#859.
+
+The actual30-setting diagnostic terminated only its exact owned idle backend while
+a healthy transaction on the same two-connection client held a single insert open.
+Cold SELECT failed three times and then succeeded on attempt4, about15seconds after
+the first refusal. The healthy writer retained its PID through35,013milliseconds
+and committed exactly one insert. All85 public-table full-row fingerprints restored;
+the private diagnostic schema was removed. Observed recovery timing is recorded,
+not asserted as an exact lease-age boundary or universal deadline. An initial
+fingerprint count guard excluded the migration table (84); it stopped before writes
+and was corrected to the same85-table scope.
+
+The application regression retains its180-second case deadline. Recovery uses at
+most five explicit GET clicks and five original frozen-request retry clicks,
+spaced five seconds apart, recording each method/status and preserving the durable
+ledger after every attempt. It requires an actually observed page recovery screen;
+no fixture query warms the application pool. Full new-source build, desktop/phone
+results, final-head CI and independent review remain pending.
