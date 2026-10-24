@@ -1,9 +1,37 @@
+## Current integration — approved PR #971, October 24, 2026
+
+PR #969 is merged at 82b81aa6eb3f0892366c749cc666d45a8565b4ee. This integration preserves its inner file-cleanup repair and every current-main change, adds PR #971's reviewed outer cleanup, and retains both checkpoint histories below. Fresh final-head CI remains required before the individually approved merge. Broad #692/#310, deployment and independent user acceptance remain separate.
+
+## Preserved PR #971 owner checkpoint
+
 ## Current work - scanner-crop outer cleanup #970 / PR #971, October 24, 2026
 
 - Branch `codex/scanner-crop-outer-cleanup`, current tested sourcee35b8b8e from main9b3add47; isolated implementation worker owns the source batch. Exact owner/run and creation receipt remain private. No live children or runtime resource; four disposable containers/two sole volumes/two internal networks are retired and both runtime claims released after exact checks. Source claim remains held through final readiness/handoff.
 - Reproduced first-sweep bypass/error masking, repaired three independent actions and primary/falsy causes. Entire outside-helper/owner-wrapper source,78 expectation expressions, deadlines and legacy SQL/file template are exact. Eleven corrected controls pass; initial standalone and actual two-file composed969 SQL/85-table/peer/replay/type evidence retain separate bindings. Reviewer adapter-binding P2 is corrected in e35; original negative retained.
 - Source911b all9CI40093270788 pass. All9 corrected e35 CI40093855062 pass and independent5638237099 confirms the repaired adapter/P2; final report-head CI and evidence review remain pending. No app build/layout reload or original optical workflow is required or claimed for this fixture-only change. [Portable report](SCANNER_CROP_FIXTURE_CLEANUP.md) and [PR971](https://github.com/sefaction/MTG-Archives/pull/971) own exact live gates.
 - Next: final report-head CI/review, readiness and source release; Brian's individual approval/explicit merge remain required. Narrow970 and broad692/310 remain OPEN; no production, hardware, deployment or user acceptance claim. Prior checkpoint history follows unchanged.
+
+## Preserved current-main checkpoint history
+
+## Current integration - approved PRs #967 and #969, October 24, 2026
+
+Both owner checkpoint histories are preserved verbatim below. Their latest reviews and release receipts establish readiness; these historical pending statements do not replace live GitHub status. This integration retains every fixture verifier and requires fresh final-head checks before merge. Broad #692/#310 remain open; no runtime or deployment action is implied.
+
+## Preserved owner checkpoint histories
+
+## Current work — laptop photo-intake fixture cleanup
+
+- Owner: thread01a16943 / runfixture-file-failure-692-20261024-01a16943, isolated codex/fixture-file-failure-692 from main9b3add47; #966 under #692/#310, no merge authority.
+- Actual-source negative:1/4files attempted after19 relational deletes. Fix preserves the full original workflow/assertions/deadline/relational-tail text;9host controls pass.
+- Source ownership/release is recorded in the exact private current record; temporary fixture/runtime retired, no live owned child. Private source/evidence record: `.local-data/fixture-file-failure-692-20261024/` at primary root.
+- Tested source67c1bdc2 / PR967:9locked controls, actual4path failure/retained rows/verified restoration/replay/populated peer/all85tables and corrected type-only check pass. Independent review5637927019 has no findings; all9initial-head CI pass. Original setup/config failures retained.
+- Next: final report-head CI and exact source release/readiness handoff. Root cumulative WIP and existing reviews remain protected.
+## Current work - remaining fixture file phases #968 / PR969, October 24, 2026
+
+- Root laptop/thread01a16522, runremaining-fixture-files-692-20261024-01a16522; isolated codex/remaining-fixture-file-cleanup. Source905f0ce1 from main9b3add47 qualified; final report-only head tracked privately. Source claim held through final handoff; no runtime claim/live child/resource remains.
+- Coherent25-phase/24-file repair, original925expects/outerworkflows/DBqueries exact. All316 affected controls/types and actual25 real refusal/restoration/replay/peer/85table pairs pass locally; archive02165777. Actual source905CI40089443567 all9PASS, Core1788PASS/1existinghelperSKIP/types/build; independent5638072351 no findings, bothP2threads resolved.
+- Initial Core/helper-binding and two scanner-seed CI failures plus local raw-input guard refusals retained. Git/image/export bytes differ onlyCRLF; exact member guards stay enforced. Exact2containers/sole volume/network retired,85current counts/clients verified; runtime1213a83f released. Root/peerWIP/data/images protected.
+- Final report-head CI/narrow review and exact source release/readiness remain; no merge/production/physical authority. Detailed owner/source/creation/negative/CI/runtime/retirement records: .local-data/remaining-fixture-files-692-20261024/ at primary root. After approved merge close only968 and reconcile692/310, preserving original acceptance/history.
 
 ## Current work - correction discard focus #916 / PR #917, October 23, 2026
 

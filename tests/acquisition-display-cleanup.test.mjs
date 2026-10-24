@@ -1,3 +1,4 @@
+import * as ownedFixtureFiles from "./ui/owned-fixture-files.ts";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -15,7 +16,7 @@ for (const file of ['acquisition-batch-dashboard.spec.ts','acquisition-scan-rete
     async function exercise(faults=[]){
       const calls=[],failures=[];let sweep=0;
       const step=name=>{calls.push(name);if(faults.includes(name)){const error=new Error(name);failures.push(error);throw error;}};
-      const context={tag:'ui-display-00000000-0000-0000-0000-000000000000',AggregateError,
+      const context={...ownedFixtureFiles,tag:'ui-display-00000000-0000-0000-0000-000000000000',AggregateError,
         releaseImage:()=>step('release-image'),cancelAndCleanCorrectionFixture:()=> 'owned-feedback:',
         database:body=>step(body.startsWith('owned-feedback:')?(++sweep===1?'early-feedback':'late-feedback'):'acquisition-teardown')};
       let error;try{await vm.runInNewContext('(async()=>'+code+')()',context);}catch(caught){error=caught;}
