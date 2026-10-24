@@ -144,7 +144,7 @@ hints, authorization and semantic403/409 handling remain unchanged. Focused
 classification controls, a new compiled image and the original desktop/phone
 recovery gates are pending. Five explicit GET attempts remain bounded; no dead
 connection cause or complete database-recovery repair is claimed from this change.
-## Locked-engine diagnosis and finite idle lifetime
+## Historical lifetime proposal (withdrawn)
 
 A separate native-client diagnostic on locked Prisma6.19.3/enginec2990dca
 reproduces the cold-prepare failure. After a controlled PostgreSQL interruption,
@@ -158,7 +158,7 @@ An empty health-transaction proposal is rejected and remains private only:
 maxWait/timeout do not bound every BEGIN/rollback path. No such health action,
 shared-client disconnect or automatic operation replay is included.
 
-The client now defaults the supported absolute max_connection_lifetime to30seconds
+The rejected8a/243 proposal defaulted the supported absolute max_connection_lifetime to30seconds
 when PostgreSQL has no explicit lifetime setting. Explicit installation policy,
 including0, remains byte-preserved. Connection limits, socket/pool timeouts and
 other URL settings are preserved. The native pool retires expired idle leases at
@@ -182,19 +182,37 @@ spaced five seconds apart, recording each method/status and preserving the durab
 ledger after every attempt. It requires an actually observed page recovery screen;
 no fixture query warms the application pool. Full new-source build, desktop/phone
 results, final-head CI and independent review remain pending.
-The named hosted pool workflow also applies because lib/prisma.ts changes. Its
-historical hardcoded f32 source-equality check correctly identified changed source
-but prevented any current-source measurement. Preserve that baseline and both blob
-identities as explicit historical comparison metadata, while binding measurement to
-the selected clean current head and the canonical image's complete input manifest.
-Current uninstrumented/observed phases retain the same ordinary routes, fixed
-concurrency, process/topology/connection samples and owned cleanup assertions.
-The pre-existing allowed-builder inventory is captured before source refusals, so
-an early source failure no longer compares that builder against an uninitialized
-empty baseline. No unrelated builder is removed. Earlier failed run artifacts and
-source-control failures remain evidence; a new current-head pool run is required.
+## Current correction and unchanged policy
 
-The final local application build is24346032. Later CI-measurement/documentation
-integration does not change application, dependency or schema inputs; retain that
-specific reuse binding rather than claiming the local image has the later full
-source tree. Final-head hosted builds/checks remain independently required.
+Independent review traced the effective query-engine caller, not only the lower
+pool builder: lockedc299 PostgreSQL enables test_on_check_out and a15-second health
+check interval. The earlier~16-second read recovery cannot be attributed to the
+proposed30-second lifetime. The absolute-lifetime change/helper/tests are withdrawn;
+lib/prisma.ts is restored exactly to its original baseline. The paired0-setting
+control remains a bounded diagnostic, not a new application policy. Existing
+cached-prepare failures and all earlier experiments remain preserved; no indefinite
+failure or historical #846/#859 cause is established.
+
+Current product changes are the explicit POST-safe recovery screen and commit-route
+P1017→503, preserving the frozen request for operator retry. No pool settings,
+authentication, active transaction behavior, automatic retry or client lifetime
+change remains. The actual current-source local build and full matrix are pending;
+the compiled243 lifetime proposal remains separately bound evidence/cache only.
+
+The browser now renders the actual root boundary by navigating while the first
+owned PostgreSQL interruption is still present, after observing the interrupted
+commit reply. Then it restarts the same database and uses the visible control.
+This makes boundary coverage deterministic without requiring the recovered driver
+to fail on every later read. It retains observed fallback/reload, exact rollback,
+all durable-before/after ledgers, original frozen-request retries, next ordinary
+addition, privacy/originals/reviews and85-table cleanup checks at both widths.
+There is no private fixture query that warms the application pool. Each explicit
+GET/retry is recorded, at most five clicks spaced five seconds, within the unchanged
+180-second case bound. Prior post-recovery-only navigation failures remain evidence
+of their original scenarios and are not rewritten as passes.
+
+The named pool CI keeps its original historical unchanged-Prisma-source equality
+and all canonical image/route/process/connection/cleanup controls. Only the allowed
+pre-existing builder inventory/context read moves before source checks, so an early
+source refusal compares with the actual starting inventory. The intermediate57
+current-source measurement rewrite is withdrawn. No unrelated builder is removed.

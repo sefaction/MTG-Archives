@@ -60,7 +60,7 @@ for(const width of [1366,320])test(`Inventory rollback and durability across own
       volume.Labels?.["mtg.database-loss.nonce"]!==identity.nonce||users.length!==1||users[0]!==identity.id)
       throw Error("Private network/volume ownership or references changed; preserve without interruption");
   }
-  async function crashAndRecover(phase:string){
+  async function crashAndRecover(phase:string,onStopped?:()=>Promise<void>){
     const live=owned("running"),since=new Date().toISOString();resourcesOwned();
     lifecycle.push({event:phase+"-before-SIGKILL",state:live.State});saveLife();
     docker("kill","--signal","KILL",identity.id);
@@ -72,6 +72,7 @@ for(const width of [1366,320])test(`Inventory rollback and durability across own
       expect(blockerClosed).toBe(true);expect(stopped.error).toBeUndefined();expect(stopped.code).not.toBe(0);
       writeFileSync(test.info().outputPath("blocker-terminal.json"),JSON.stringify({...stopped,output:blockerOutput}));
     }
+    if(onStopped)await onStopped();
     owned("terminal");resourcesOwned();docker("start",identity.id);
     expect(Date.parse(owned("running").State.StartedAt)).toBeGreaterThan(Date.parse(live.State.StartedAt));
     await expect.poll(()=>{try{return sql("SELECT 1");}catch{return "not ready";}},{timeout:15000}).toBe("1");
@@ -149,13 +150,19 @@ for(const width of [1366,320])test(`Inventory rollback and durability across own
     let staged:unknown;
     await expect.poll(()=>{const rows=JSON.parse(sql(`SELECT coalesce(json_agg(json_build_object('pid',pid,'backendStart',backend_start,'transactionStart',xact_start,'xid',backend_xid,'query',query)),'[]') FROM pg_stat_activity WHERE wait_event_type='Lock' AND wait_event='advisory' AND ${blockerPid}=ANY(pg_blocking_pids(pid)) AND query LIKE '%AcquisitionCommitMember%'`));staged=rows;return rows.length;},{timeout:10000}).toBe(1);
     writeFileSync(test.info().outputPath("staged-barrier.json"),JSON.stringify({blockerPid,staged,stage:"AFTER member INSERT with in-transaction stock/audit/receipt/member preconditions"}));
-    await crashAndRecover("uncommitted");const failedReply=await deadline(firstResponse,15000,"Interrupted commit response missing");
+    await crashAndRecover("uncommitted",async()=>{
+      // Render the actual root boundary while its database is unavailable,
+      // rather than require a stale pool to fail nondeterministically later.
+      await (await deadline(firstResponse,10000,"Interrupted commit response missing")).body();
+      await page.goto(url);
+      await expect(page.getByRole("heading",{name:"This page couldn’t load",exact:true})).toBeVisible();
+    });
+    const failedReply=await deadline(firstResponse,15000,"Interrupted commit response missing");
     expect(failedReply.ok()).toBe(false);const failureBody=await failedReply.text();
     expect(failureBody).not.toMatch(/postgresql:\/\/|PrismaClient|isolated-local-fixture|INSERT INTO/);
     dropBarrier();const rolledBack=ledger();expect(rolledBack).toEqual({lots:[],audits:[],receipts:[],members:[]});
     writeFileSync(test.info().outputPath("rolled-back.json"),JSON.stringify(rolledBack));
     expect(originals()).toEqual(source);expect(reviewSourceState(batch).candidates.map(row=>row.review)).toEqual(reviews);
-    await page.goto(url);
     const recoveryScreen=page.getByRole("heading",{name:"This page couldn’t load",exact:true});
     await expect(page.getByTestId("capture-card-1").or(recoveryScreen)).toBeVisible();
     let recoveryReloads=0;const recoveryRequests:{method:string;status:number}[]=[];
