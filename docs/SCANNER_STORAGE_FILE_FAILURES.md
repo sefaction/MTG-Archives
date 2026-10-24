@@ -1,0 +1,15 @@
+# Scanner protocol fixture file failures (#964)
+
+Three remaining #692 fixtures (counted scanner, photo storage and section series) stopped their inner file cleanup after the first non-ENOENT unlink failure. Actual-source negative controls on main9b3add47 reproduce one attempted path and four skipped paths for two owned photos and one scanner-run marker. Prior #795/#796 fixed outer independent cleanup actions; #956/#957 fixed the separate native-helper inner file phase. Neither delivered these three inner paths.
+
+Each corrected script selects its complete owned photo/run references in stable ID order, validates every ID and the absolute private root before unlink, and attempts every original, preview and start marker independently. Non-ENOENT causes survive in deterministic path order, including falsy thrown controls. Any removal failure throws before relational deletion, preserving the photo/run/candidate/user graph for explicit recovery. Missing-file replay keeps the original successful relational teardown.
+
+The protocol test bodies, catch behavior, existing expectation calls,180-second deadlines and complete relational-deletion tail are unchanged. Outer cancellation/feedback sweeps and route-drain behavior remain. No application storage/retention, recognition, physical scanning or Inventory policy changes.
+
+## Verification
+
+Fifty-three focused actual-source checks pass with zero skips:29 new file-phase/recovery-guard checks and24 existing outer cleanup checks. They cover first/multiple failures, ordered/falsy causes, healthy/missing-file replay, invalid IDs/roots before unlink, failed run-reference selection before partial file mutation, and zero relational retries after unverified restoration. The small host run uses TypeScript5.9.3 for source parsing; locked final-head CI remains separate.
+
+The disposable PostgreSQL verifier `verify-scanner-storage-file-cleanup.ts` is wired into the acquisition integrity runner. It requires explicit local opt-in and a loopback acquisition_* database before filesystem/environment mutation. Each actual script receives a real two-photo scanner lineage alongside a populated neighbor. An owned original is held byte-exact outside the upload path and replaced with an empty directory to cause a real unlink refusal. The other originals/previews/start marker must still disappear while complete photo/run recovery rows remain. Only the empty owned obstruction is removed; restored bytes must verify before relational retry/replay. A failed or unverified restoration retains references and private recovery files. Each case conserves the neighbor's complete table/file fingerprints, and final cleanup restores every baseline public table. No helper, motor, browser or native recognition process runs.
+
+Actual SQL/filesystem results, exact source binding, final CI/review and owned retirement are pending and will be recorded before readiness. These controls do not establish ordinary native/optical/browser operation, physical feeding, historical failure causes, production deployment or broad #692/#310 completion.
