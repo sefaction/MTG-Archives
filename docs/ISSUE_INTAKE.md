@@ -1,5 +1,11 @@
 # Public issue intake and joint review
 
+## No-new-issues freeze - 2026-10-24
+
+Brian's current instruction applies to every local and remote worker: **do not create new issues until Brian explicitly lifts this freeze.** This overrides all earlier bug, audit, qualification, replacement, nested/child, and other ticket-creation instructions in repository guidance, startup prompts, and historical checkpoints, including those preserved below.
+
+Finish existing issues within their agreed scope. Preserve tests, failure evidence, and acceptance criteria; do not weaken tests or close issues with unresolved acceptance. Report newly discovered concerns and blockers to Brian instead of creating replacement or nested issues. Existing ownership, coordination, review, and individual merge-approval requirements still apply.
+
 Public submission needs a title and one description in the reporter's own words. The optional details box can hold reproduction, expected behavior, screenshots or environment. Users do not need to understand labels, roadmap hierarchy, work done/remaining or acceptance criteria. The general form is the fallback when they are unsure. Maintainers gather any missing context through focused conversation.
 
 [AGENTS.md](../AGENTS.md) is the canonical policy. Honor explicit user priorities and urgent security/data-integrity fixes, then finish the oldest agreed human feature requests and bugs, respecting dependencies. An unfinished coherent batch takes precedence over starting another audit or qualification ticket. Pending clarification blocks that decision, not independent authorized work.

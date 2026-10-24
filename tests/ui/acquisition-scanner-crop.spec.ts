@@ -22,18 +22,23 @@ const SETUP_AND_REVIEW_TIMEOUT_MS = 120000;
 const OWNED_CLEANUP_TIMEOUT_MS = 120000;
 type ScannerFixtureOwner = { tag: string; needsCleanup: boolean };
 
-function cleanupScannerOwner(tag: string) {
+function cleanupScannerOwner(tag: string, primaryFailed = false, primaryError?: unknown) {
   // Block new authenticated polling and retire only this fixture owner.
-  database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
+  const cleanupErrors: unknown[] = [];
+  let cleanupSQL: string;
+  try { cleanupSQL = cancelAndCleanCorrectionFixture(tag); } catch (error) {
+    throw new AggregateError(primaryFailed ? [primaryError, error] : [error], "Owned scanner crop fixture cleanup failed");
+  }
+  try { database(cleanupSQL + "console.log('{}');"); } catch (error) { cleanupErrors.push(error); }
   try {
   database(
     `const n=${JSON.stringify(tag)};const sessions=await p.acquisitionSession.findMany({where:{ownerPlayerId:n},select:{id:true}});const runs=await p.acquisitionRun.findMany({where:{sessionId:{in:sessions.map(s=>s.id)}},select:{id:true}});const where={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where});${cleanupOwnedPhotoFixtureFiles}await p.acquisitionCommitMember.deleteMany({where});await p.acquisitionCommit.deleteMany({where});await p.inventoryAuditLog.deleteMany({where:{changedByUserId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});await p.acquisitionProcessingJob.deleteMany({where});await p.acquisitionPhoto.deleteMany({where});await p.acquisitionCommand.deleteMany({where});await p.acquisitionCaptureSlot.deleteMany({where});await p.acquisitionCountCorrection.deleteMany({where});await p.acquisitionObservation.deleteMany({where});await p.acquisitionEvent.deleteMany({where});await p.acquisitionCandidate.deleteMany({where});await p.acquisitionArtifact.deleteMany({where});await p.acquisitionRun.deleteMany({where:{id:{in:runs.map(r=>r.id)}}});await p.acquisitionSession.deleteMany({where:{id:{in:sessions.map(s=>s.id)}}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});`,
   );
 
-  } finally {
-    // A final sweep also catches writes completed during legacy teardown.
-    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
-  }
+  } catch (error) { cleanupErrors.push(error); }
+  // A final sweep also catches writes completed during legacy teardown.
+  try { database(cleanupSQL + "console.log('{}');"); } catch (error) { cleanupErrors.push(error); }
+  if (cleanupErrors.length) throw new AggregateError(primaryFailed ? [primaryError, ...cleanupErrors] : cleanupErrors, "Owned scanner crop fixture cleanup failed");
 }
 
 const test = base.extend<{
@@ -42,10 +47,16 @@ const test = base.extend<{
 }>({
   scannerOwner: [async ({}, use) => {
     const owner = { tag: `ui-scanner-${randomUUID()}`, needsCleanup: false };
+    let primaryFailed = false;
+    let primaryError: unknown;
     try {
       await use(owner);
+    } catch (error) {
+      primaryFailed = true;
+      primaryError = error;
+      throw error;
     } finally {
-      if (owner.needsCleanup) cleanupScannerOwner(owner.tag);
+      if (owner.needsCleanup) cleanupScannerOwner(owner.tag, primaryFailed, primaryError);
     }
   }, { timeout: OWNED_CLEANUP_TIMEOUT_MS }],
   scannerVisual: [async ({}, use) => {

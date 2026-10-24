@@ -1,3 +1,18 @@
+## Current integration — approved PR #971, October 24, 2026
+
+PR #969 is merged at 82b81aa6eb3f0892366c749cc666d45a8565b4ee. This integration preserves its inner file-cleanup repair and every current-main change, adds PR #971's reviewed outer cleanup, and retains both checkpoint histories below. Fresh final-head CI remains required before the individually approved merge. Broad #692/#310, deployment and independent user acceptance remain separate.
+
+## Preserved PR #971 owner checkpoint
+
+## Current work - scanner-crop outer cleanup #970 / PR #971, October 24, 2026
+
+- Branch `codex/scanner-crop-outer-cleanup`, current tested sourcee35b8b8e from main9b3add47; isolated implementation worker owns the source batch. Exact owner/run and creation receipt remain private. No live children or runtime resource; four disposable containers/two sole volumes/two internal networks are retired and both runtime claims released after exact checks. Source claim remains held through final readiness/handoff.
+- Reproduced first-sweep bypass/error masking, repaired three independent actions and primary/falsy causes. Entire outside-helper/owner-wrapper source,78 expectation expressions, deadlines and legacy SQL/file template are exact. Eleven corrected controls pass; initial standalone and actual two-file composed969 SQL/85-table/peer/replay/type evidence retain separate bindings. Reviewer adapter-binding P2 is corrected in e35; original negative retained.
+- Source911b all9CI40093270788 pass. All9 corrected e35 CI40093855062 pass and independent5638237099 confirms the repaired adapter/P2; final report-head CI and evidence review remain pending. No app build/layout reload or original optical workflow is required or claimed for this fixture-only change. [Portable report](SCANNER_CROP_FIXTURE_CLEANUP.md) and [PR971](https://github.com/sefaction/MTG-Archives/pull/971) own exact live gates.
+- Next: final report-head CI/review, readiness and source release; Brian's individual approval/explicit merge remain required. Narrow970 and broad692/310 remain OPEN; no production, hardware, deployment or user acceptance claim. Prior checkpoint history follows unchanged.
+
+## Preserved current-main checkpoint history
+
 ## Current integration - approved PRs #967 and #969, October 24, 2026
 
 Both owner checkpoint histories are preserved verbatim below. Their latest reviews and release receipts establish readiness; these historical pending statements do not replace live GitHub status. This integration retains every fixture verifier and requires fresh final-head checks before merge. Broad #692/#310 remain open; no runtime or deployment action is implied.
@@ -19,6 +34,20 @@ Both owner checkpoint histories are preserved verbatim below. Their latest revie
 - Final report-head CI/narrow review and exact source release/readiness remain; no merge/production/physical authority. Detailed owner/source/creation/negative/CI/runtime/retirement records: .local-data/remaining-fixture-files-692-20261024/ at primary root. After approved merge close only968 and reconcile692/310, preserving original acceptance/history.
 
 ## Current work - correction discard focus #916 / PR #917, October 23, 2026
+
+## No-new-issues freeze - 2026-10-24
+
+Brian's current instruction applies to every local and remote worker: **do not create new issues until Brian explicitly lifts this freeze.** This overrides all earlier bug, audit, qualification, replacement, nested/child, and other ticket-creation instructions in repository guidance, startup prompts, and historical checkpoints, including those preserved below.
+
+Finish existing issues within their agreed scope. Preserve tests, failure evidence, and acceptance criteria; do not weaken tests or close issues with unresolved acceptance. Report newly discovered concerns and blockers to Brian instead of creating replacement or nested issues. Existing ownership, coordination, review, and individual merge-approval requirements still apply.
+
+## Freeze documentation preparation - 2026-10-24
+
+- Branch: `docs/no-new-issues-freeze-2026-10-24`; isolated worktree: `C:/Users/Admin/Documents/Codex/2026-10-24/task/mtg-issue-freeze`; base: `b4daf3d4ccadffc128e224d12bfc7d711c9e1397`.
+- Scope: six documentation entry points only; no new issue or affected issue/parent closure. Existing worker checkouts, claims, runtime, schedules, production, and credentials are untouched.
+- Checks: whitespace/diff review and verification that removing the additive notices/checkpoint restores each original document. No runtime tests are required for prose-only changes.
+- Brian explicitly approved pushing this documentation branch and opening a draft PR after initial local preparation. Next safe step: validate and publish the draft, verify its remote contents, then wait for separate approval of that PR before merge. Publication/merge completion must be verified separately; local edits do not establish remote-worker visibility.
+- Foundry hub at its documented path is unavailable. Repository guidance was inspected; prior checkpoint history below is preserved.
 
 - Laptop owner/thread `01a16943-ac96-7b93-89ea-c178f02100db`, run `laptop-cancel-focus-20261023-01a16943`; branch `codex/acquisition-cancel-focus`, base04b49133, product/test95a67040. Brian's October23shared-queue correction authorizes this bounded #308focus remainder; #913/914 remains desktop-owned. No merge, production, scanner or schedule authority.
 - Actual old-client Simple1366negative loses correction focus; exact cleanup restores all84table fingerprints. Fixed Simple/Advanced1366/320 matrix passes4cases/32.6s, failed-discard draft preservation, next keyboard action, delayed outside focus, saved-state/original-byte and no-extra-write controls. Eight focused tests/lint and seven product/test-headCI39978359486 pass. Initial unconfigured-storage harness failure/recovery preserved separately, with no initial global snapshot claim.
