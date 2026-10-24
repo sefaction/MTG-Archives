@@ -19,7 +19,7 @@ export async function verifyScannerStorageFileCleanup(db:PrismaClient){
  const url=new URL(process.env.DATABASE_URL||"http://invalid");
  assert.equal(process.env.MTG_LOCAL_PILOT_TEST,"1");assert.ok(["localhost","127.0.0.1","[::1]"].includes(url.hostname));assert.ok(url.pathname.startsWith("/acquisition_"));
  const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
- const module=(name:string)=>{if(name==="fs/promises")return files;if(name==="path")return path;throw Error("Unexpected embedded cleanup module");};
+ const module=(name:string)=>{if(name==="fs/promises")return files;if(name==="path")return path;if(name==="crypto")return {createHash};throw Error("Unexpected embedded cleanup module");};
  const execute=(script:string)=>new AsyncFunction("p","require","process",script)(db,module,process) as Promise<void>;
  const records=["scanner-counted","scanner-photo-storage","scanner-section-series"].map(name=>{
   const source=ts.createSourceFile(name,readFileSync("tests/ui/"+name+".spec.ts","utf8"),ts.ScriptTarget.Latest,true),expressions:string[]=[];
