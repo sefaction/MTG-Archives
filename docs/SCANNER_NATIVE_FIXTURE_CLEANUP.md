@@ -1,4 +1,17 @@
-# Native scanner fixture cleanup (#933)
+# Native scanner fixture file cleanup (#956)
+
+The legacy file phase now attempts all owner-scoped original, preview and start-marker removals after the helper is confirmed stopped. It collects non-ENOENT errors in deterministic photo/run order. A failed file phase throws before relational deletion, retaining the complete photo/parent graph for explicit recovery and retry. All photo/run identities and the absolute private root are checked before the first unlink. Missing-file replay retains its successful behavior.
+
+The ordinary native workflow body, assertions, input guards and deadlines are unchanged. Outer cancellation, helper shutdown, journal/log handling, ordered primary errors and the uncertain-helper server-data guard remain in force. Only the existing file phase changes; unrelated inner SQL failure behavior is not claimed repaired. Application retention, recognition, hardware and Inventory policy are unchanged.
+
+Focused tests execute the actual embedded script with first/multiple unlink failures, missing-file replay and invalid identities/roots, alongside all existing outer-error controls. The existing disposable PostgreSQL verifier additionally uses two real owned photos, a populated peer and a supervised Node child: it holds the exact original bytes, creates an empty directory obstruction to cause a real unlink refusal, verifies other files/markers are attempted and photo/parent recovery references remain, then restores the original for successful cleanup and replay. Final recovery must conserve all public tables and peer files. If original restoration or child termination is uncertain, the verifier retains owned recovery data. Exact executed results/source bindings, final CI, independent review and retirement are recorded on the PR.
+
+These are guarded fixture cleanup controls. The ordinary Windows-helper/native/optical workflow remains NOT RUN, and no historical incident is explained. #692/#310 keep their broader criteria. No application build or browser/layout reload is required for this test-only change.
+
+## Preserved earlier outer-cleanup delivery (#933 / PR #934)
+
+The following report describes that delivery: its legacy SQL was unchanged at the time. #956 intentionally changes the file phase above while preserving the other boundaries.
+
 
 The original `tests/ui/scanner-native.spec.ts` ran its first correction/account cleanup outside the cleanup try/finally. An exception there bypassed helper shutdown, local journal/log handling, legacy row/file removal and the final sweep. Later cleanup errors could also hide the original workflow failure. An actual-source probe on main932e305c reproduced the first-sweep bypass without a database or device.
 

@@ -3,7 +3,7 @@ import {execFileSync,spawn,type ChildProcess} from 'node:child_process';
 import {once} from 'node:events';
 import {randomUUID,createHash} from 'node:crypto';
 import {readFileSync,writeFileSync,rmSync} from 'node:fs';
-import {mkdtemp,mkdir,readdir,readFile,rm} from 'node:fs/promises';
+import {mkdtemp,mkdir,readdir,readFile,rm,rename,rmdir,lstat} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import ts from 'typescript';
@@ -39,7 +39,7 @@ export async function verifyNativeScannerCleanup(db:PrismaClient) {
  // Execute the exact legacy cleanup SQL, also for recovery after a failed probe.
  let legacySQL='';function findSQL(n:ts.Node){if(ts.isCallExpression(n)&&n.expression.getText(source)==='database'&&n.arguments[0]&&ts.isTemplateExpression(n.arguments[0])&&n.arguments[0].getText(source).includes('await p.scannerRun.deleteMany'))legacySQL=n.arguments[0].getText(source);ts.forEachChild(n,findSQL);}findSQL(target!.finallyBlock!);assert.ok(legacySQL);
  const legacy=new Function('tag','return '+legacySQL);
- async function seed(owner:string){
+ async function seed(owner:string,count=1){
   await db.player.create({data:{id:owner,name:owner,displayName:owner}});await db.user.create({data:{id:owner,username:owner,displayName:owner,playerId:owner,passwordHash:'fixture-only'}});
   await db.$transaction(tx=>ensureCorrectionAccount(tx,owner));await db.correctionLibraryAccount.update({where:{ownerPlayerId:owner},data:{sampleBasisPoints:0}});
   await db.inventoryLocation.create({data:{id:owner,name:owner,normalizedName:owner,ownerPlayerId:owner,type:'BOX'}});
@@ -47,13 +47,13 @@ export async function verifyNativeScannerCleanup(db:PrismaClient) {
   await claimScannerPairing(db,{version:1,pairCode:pair.code,agentId,secret,name:'Cleanup fixture'});
   const device={id:'fixture-wia',name:'Fixture source',backend:'fixture',source:'Wia',qualification:'GenericUnqualified'};
   await recordScannerPulse(db,token,{version:1,agentVersion:'fixture',devices:[device]});
-  const epoch=await scannerSiteEpoch(),run=await createScannerBatch(db,{userId:owner,adminMode:false},{requestKey:randomUUID(),agentId,deviceId:device.id,locationId:owner,section:'',quantity:1,loadedCount:1,operatorLoadedSimplexFronts:true,settings:{dpi:300,widthInches:2.6,heightInches:3.6,horizontalPlacement:'Start',duplex:false,color:'RGB',autoCrop:false,deskew:false,removeBlank:false}},epoch);
+  const epoch=await scannerSiteEpoch(),run=await createScannerBatch(db,{userId:owner,adminMode:false},{requestKey:randomUUID(),agentId,deviceId:device.id,locationId:owner,section:'',quantity:count,loadedCount:count,operatorLoadedSimplexFronts:true,settings:{dpi:300,widthInches:2.6,heightInches:3.6,horizontalPlacement:'Start',duplex:false,color:'RGB',autoCrop:false,deskew:false,removeBlank:false}},epoch);
   const claim={version:1,runId:run.runId,epoch,executionId:randomUUID()};await claimScannerRun(db,token,claim,epoch);
   const bytes=await sharp({create:{width:75,height:105,channels:3,background:'white'}}).png().toBuffer();
-  await receiveScannerImage(db,token,{...claim,artifactId:randomUUID(),sequence:1,timestamp:new Date().toISOString(),side:'UNKNOWN',physicalBoundary:'UNKNOWN'},epoch,bytes,'image/png');
+  for(let sequence=1;sequence<=count;sequence++)await receiveScannerImage(db,token,{...claim,artifactId:randomUUID(),sequence,timestamp:new Date().toISOString(),side:'UNKNOWN',physicalBoundary:'UNKNOWN'},epoch,bytes,'image/png');
   return agentId;
  }
- let primaryFailed=false;let primaryError:unknown;
+ let primaryFailed=false;let primaryError:unknown;let recoveryPending=false;
  try {
   await mkdir(uploads);await mkdir(local);
   const peerAgent=await seed(peer),peerBaseline=await snapshot(),peerFiles=await files(uploads);
@@ -67,15 +67,50 @@ export async function verifyNativeScannerCleanup(db:PrismaClient) {
   assert.equal(readFileSync(path.join(parent,'helper.log'),'utf8'),'owned helper output');
   assert.throws(()=>readFileSync(path.join(ownSpool,'journal')));assert.equal(readFileSync(path.join(peerSpool,'journal'),'utf8'),'peer journal');
   assert.deepEqual(await snapshot(),peerBaseline,'Every pre-existing full-row table fingerprint, including peer lineage, remains');assert.deepEqual(await files(uploads),peerFiles,'Entire upload tree remains byte-exact after owned cleanup');
+  // A real unlink failure must not skip independent files, but must retain the
+  // relational graph for recovery. The original is held byte-exact outside the
+  // upload directory until the empty owned obstruction is removed in recovery.
+  const retryAgent=await seed(tag,2),ownedPhotos=await db.acquisitionPhoto.findMany({where:{run:{session:{createdByUserId:tag}}},orderBy:{id:'asc'}});
+  assert.equal(ownedPhotos.length,2);for(const photo of ownedPhotos)assert.match(photo.id,/^[a-f0-9-]{36}$/);
+  const ownRuns=await db.scannerRun.findMany({where:{agent:{userId:tag}},select:{id:true}});assert.equal(ownRuns.length,1);
+  const retrySpool=path.join(local,'MTGArchives','ScannerAgent',retryAgent);await mkdir(retrySpool,{recursive:true});writeFileSync(path.join(retrySpool,'journal'),'owned retry journal');
+  child=spawn(process.execPath,['-e',"console.log('ready');setInterval(()=>{},1000)"],{stdio:['ignore','pipe','pipe'],windowsHide:true});await once(child.stdout!,'data');
+  const blocked=path.join(uploads,'acquisition-v1',ownedPhotos[0].id+'.original'),held=path.join(parent,'owned-original-recovery');
+  assert.equal(path.dirname(blocked),path.join(uploads,'acquisition-v1'));assert.equal(path.dirname(held),parent);
+  const originalBytes=await readFile(blocked),failure=Error('controlled workflow failure before real unlink refusal');
+  let fileCaseFailed=false,fileCaseError:unknown;const recoveryErrors:unknown[]=[];
+  try{
+   await rename(blocked,held);recoveryPending=true;await mkdir(blocked);
+   await assert.rejects(run(database,cancelAndCleanCorrectionFixture,tag,child,(_name:string,content:string)=>writeFileSync(path.join(parent,'file-helper.log'),content),(args:string[])=>{assert.deepEqual(args,['forget',retryAgent]);assert.ok(child!.exitCode!==null||child!.signalCode!==null);},retryAgent,'owned retry helper output',path,process,rmSync,failure),(e:unknown)=>e instanceof AggregateError&&e.errors[0]===failure&&e.errors.length===2&&/file cleanup incomplete; retain database graph/.test(String(e.errors[1])));
+   assert.ok(child.exitCode!==null||child.signalCode!==null);
+   assert.equal((await lstat(blocked)).isDirectory(),true);assert.deepEqual(await readFile(held),originalBytes);
+   for(const photo of ownedPhotos)for(const suffix of ['.original','.preview.jpg'])if(photo.id!==ownedPhotos[0].id||suffix!=='.original')await assert.rejects(readFile(path.join(uploads,'acquisition-v1',photo.id+suffix)),(e:NodeJS.ErrnoException)=>e.code==='ENOENT');
+   for(const scanner of ownRuns)await assert.rejects(readFile(path.join(uploads,'scanner-control-v1',scanner.id+'.start.json')),(e:NodeJS.ErrnoException)=>e.code==='ENOENT');
+   assert.deepEqual(await db.acquisitionPhoto.findMany({where:{run:{session:{createdByUserId:tag}}},orderBy:{id:'asc'}}),ownedPhotos,'Failed file phase cannot delete or rewrite photo recovery references');
+   assert.equal(await db.acquisitionCandidate.count({where:{run:{session:{createdByUserId:tag}}}}),2);
+   assert.equal(await db.scannerRun.count({where:{agent:{userId:tag}}}),1);assert.equal(await db.user.count({where:{id:tag}}),1);
+   assert.equal(await db.inventoryItem.count({where:{currentOwnerId:tag}}),0);
+  }catch(error){fileCaseFailed=true;fileCaseError=error;}
+  // Attempt recovery even when a negative assertion fails. Never replace a new
+  // unexpected file: only remove the empty, exact owned directory obstruction.
+  try{assert.ok(child.exitCode!==null||child.signalCode!==null,'No source recovery before actual helper termination');if(await lstat(held).then(()=>true,e=>{if(e.code==='ENOENT')return false;throw e;})){
+   const target=await lstat(blocked).catch(e=>{if(e.code==='ENOENT')return null;throw e;});
+   if(target){assert.equal(target.isDirectory(),true);assert.equal(path.dirname(path.resolve(blocked)),path.resolve(uploads,'acquisition-v1'));await rmdir(blocked);}
+   await rename(held,blocked);assert.deepEqual(await readFile(blocked),originalBytes);recoveryPending=false;
+  }}catch(error){recoveryErrors.push(error);}
+  try{assert.ok(child.exitCode!==null||child.signalCode!==null,'No retry before actual helper termination');database(legacy(tag));database(legacy(tag));}catch(error){recoveryErrors.push(error);}
+  try{assert.deepEqual(await snapshot(),peerBaseline);assert.deepEqual(await files(uploads),peerFiles);}catch(error){recoveryErrors.push(error);}
+  if(fileCaseFailed||recoveryErrors.length)throw new AggregateError([...(fileCaseFailed?[fileCaseError]:[]),...recoveryErrors],'Native file-phase qualification/recovery failed');
+  console.log('PASS actual native file phase: real unlink refusal attempts all independent photo/preview/start paths, retains exact photo/parent recovery graph, restores held source bytes for explicit successful retry/replay, and conserves all peer tables/files');
  } catch(error) {primaryFailed=true;primaryError=error;throw error;} finally {
   const cleanupErrors:unknown[]=[];
   try {if(child&&child.exitCode===null&&child.signalCode===null){child.kill();await new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Owned fixture child did not terminate')),5000);child!.once('exit',()=>{clearTimeout(timer);resolve();});});}}
   catch(error){cleanupErrors.push(error);}
-  for(const owner of [tag,peer])for(const sql of [cancelAndCleanCorrectionFixture(owner),legacy(owner),cancelAndCleanCorrectionFixture(owner)])try{database(sql);}catch(error){cleanupErrors.push(error);}
+  for(const owner of [tag,peer])for(const sql of [cancelAndCleanCorrectionFixture(owner),...(owner!==tag||(!recoveryPending&&(!child||child.exitCode!==null||child.signalCode!==null))?[legacy(owner)]:[]),cancelAndCleanCorrectionFixture(owner)])try{database(sql);}catch(error){cleanupErrors.push(error);}
   try {assert.deepEqual(await snapshot(),before,'All public database tables return to pre-fixture baseline');}catch(error){cleanupErrors.push(error);}
   if(priorUploads===undefined)delete process.env.UPLOADS_DATA_PATH;else process.env.UPLOADS_DATA_PATH=priorUploads;
   if(priorLocal===undefined)delete process.env.LOCALAPPDATA;else process.env.LOCALAPPDATA=priorLocal;
-  try {assert.ok(!child||child.exitCode!==null||child.signalCode!==null,'Retain recovery files for an uncertain child');assert.equal(path.dirname(parent),os.tmpdir());assert.ok(path.basename(parent).startsWith('mtg-native-cleanup-'));await rm(parent,{recursive:true,force:true});}catch(error){cleanupErrors.push(error);}
+  try {assert.ok(!child||child.exitCode!==null||child.signalCode!==null,'Retain recovery files for an uncertain child');assert.equal(recoveryPending,false,'Retain owned recovery directory while original restoration is incomplete');assert.equal(path.dirname(parent),os.tmpdir());assert.ok(path.basename(parent).startsWith('mtg-native-cleanup-'));await rm(parent,{recursive:true,force:true});}catch(error){cleanupErrors.push(error);}
   if(cleanupErrors.length)throw new AggregateError(primaryFailed?[primaryError,...cleanupErrors]:cleanupErrors,'Native cleanup qualification finalization failed');
  }
  console.log(`PASS actual native finally: first SQL sweep failure preserves original/cleanup errors, terminates real supervised child, removes only owned journal/rows/originals/marker, and conserves all peer table/file fingerprints; all ${Object.keys(before).length} tables restored after final cleanup; no native helper/hardware`);
