@@ -4,6 +4,9 @@ import {
   acquisitionReviewCounts,
   acquisitionSlotReviewState,
   acquisitionSlotBlockedReason,
+  acquisitionReviewProblemCounts,
+  acquisitionSlotMatchesReviewFilter,
+  type AcquisitionReviewProblem,
 } from "../lib/acquisition-review-display";
 
 test("review totals distinguish incomplete/pending choices from Inventory-ready and committed copies", () => {
@@ -42,6 +45,24 @@ test("review totals distinguish incomplete/pending choices from Inventory-ready 
       .length,
     12,
   );
+});
+
+test("problem filters count the whole batch independently, preserving status and bounded physical order", () => {
+  const review = {cardId: "card", finish: "NONFOIL", condition: "NM", language: "en"};
+  const slots = Array.from({length: 300}, (_, position) => ({position, committed: position === 299,
+    review: position % 2 ? null : review, physicalReadiness: {reasons: [] as string[]},
+    reviewProblems: (position % 3 ? ["conflict"] : ["quality", "conflict", "conflict"]) as AcquisitionReviewProblem[]}));
+  assert.deepEqual(acquisitionReviewProblemCounts(slots), {
+    conflict: 299, quality: 100, "no-match": 0, "unknown-finish": 0, overflow: 0,
+  });
+  assert.equal(acquisitionReviewCounts(slots).all, 300);
+  assert.equal(acquisitionReviewCounts(slots).added, 1);
+  assert.deepEqual(slots.filter(slot => acquisitionSlotMatchesReviewFilter(slot, "quality")).slice(0, 12).map(slot => slot.position),
+    Array.from({length: 12}, (_, n) => n * 3));
+  assert.equal(acquisitionSlotMatchesReviewFilter(slots[299], "conflict"), false);
+  assert.equal(acquisitionSlotMatchesReviewFilter(slots[299], "added"), true);
+  assert.equal(acquisitionSlotMatchesReviewFilter(slots[0], "ready", true), false);
+  assert.equal(acquisitionSlotMatchesReviewFilter(slots[0], "awaiting", true), true);
 });
 
 test("accepted reviews remain pending for physical blockers and become ready after reconciliation", () => {

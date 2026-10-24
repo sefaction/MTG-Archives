@@ -29,11 +29,15 @@ import {
 import type { acquisitionProgressDto } from "@/lib/acquisition-api";
 import {
   acquisitionReviewCounts,
+  acquisitionReviewProblemCounts,
+  acquisitionReviewProblemLabels,
+  acquisitionSlotMatchesReviewFilter,
   acquisitionSlotReviewState,
   acquisitionSlotBlockedReason,
   nextAwaitingAcquisitionSlot,
   type AcquisitionReviewMode,
   type AcquisitionReviewFilter,
+  type AcquisitionReviewProblem,
 } from "@/lib/acquisition-review-display";
 import {
   ACQUISITION_UPLOAD_ATTEMPTS,
@@ -201,10 +205,9 @@ export function AcquisitionCapture({
   }, [userId, batchId]);
   const hasDraft = (slot: Progress["slots"][number]) => slot.photos.some(photo => blockedPhotos.has(photo.id));
   const reviewCounts = acquisitionReviewCounts(progress?.slots ?? [], hasDraft);
+  const problemCounts = acquisitionReviewProblemCounts(progress?.slots ?? []);
   const filteredSlots = (progress?.slots ?? []).filter(
-    (slot) =>
-      reviewFilter === "all" ||
-      acquisitionSlotReviewState(slot, hasDraft(slot)) === reviewFilter,
+    (slot) => acquisitionSlotMatchesReviewFilter(slot, reviewFilter, hasDraft(slot)),
   );
   const visibleIds = new Set(
     filteredSlots.slice(0, visibleCount).map((s) => s.id),
@@ -1109,10 +1112,10 @@ export function AcquisitionCapture({
                     </button>
                   ))}
                 </div>
-                <label className="text-sm">
+                <label className="text-sm flex min-w-0 max-w-full items-center gap-2">
                   Show cards
                   <select
-                    className={input + " ml-2"}
+                    className={input + " min-w-0 max-w-full"}
                     value={reviewFilter}
                     onChange={(e) => {
                       setReviewFilter(e.target.value as AcquisitionReviewFilter);
@@ -1131,9 +1134,21 @@ export function AcquisitionCapture({
                     <option value="added">
                       Added to Inventory ({reviewCounts.added})
                     </option>
+                    <optgroup label="Review problems">
+                      {(Object.keys(acquisitionReviewProblemLabels) as AcquisitionReviewProblem[]).map(problem =>
+                        <option key={problem} value={problem}>
+                          {acquisitionReviewProblemLabels[problem]} ({problemCounts[problem]})
+                        </option>)}
+                    </optgroup>
                   </select>
                 </label>
               </div>
+              {Object.hasOwn(acquisitionReviewProblemLabels, reviewFilter) &&
+                <p className="text-sm mb-3" role="status">
+                  Problem counts cover the whole batch and can overlap. Unsaved corrections stay visible.
+                  {reviewFilter === "quality" && " These photos have clipped edges or need a crop to check."}
+                  {reviewFilter === "no-match" && " Cards still being checked are not counted as no match."}
+                </p>}
               {reviewMode === "simple" && (
                 <a className="text-sm underline" href="#scan-inventory" onClick={event => { event.preventDefault(); showInventory(); }}>
                   Go to Inventory confirmation
