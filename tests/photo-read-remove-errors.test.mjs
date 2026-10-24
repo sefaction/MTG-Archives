@@ -10,9 +10,11 @@ import ts from "typescript";
 import { z } from "zod";
 const source = fs.readFileSync(new URL("../lib/acquisition-files.ts", import.meta.url), "utf8");
 const tree = ts.createSourceFile("source.ts", source, ts.ScriptTarget.Latest, true);
-const actual = ["filePath", "readChecked", "readAcquisitionPhotoBytes", "removeAcquisitionPhotoBytes"].map(name => {
-  const n = tree.statements.find(n => ts.isFunctionDeclaration(n) && n.name?.text === name);
-  assert.ok(n, "Complete actual function " + name);
+const actual = ["filePath", "readChecked", "readAcquisitionPhotoBytes", "photoTemporarySuffix",
+  "photoTemporaryName", "findAcquisitionPhotoTemporaryFiles", "removeAcquisitionPhotoBytes"].map(name => {
+  const n = tree.statements.find(n => (ts.isFunctionDeclaration(n) && n.name?.text === name) ||
+    (ts.isVariableStatement(n) && n.declarationList.declarations.some(d => d.name.getText(tree) === name)));
+  assert.ok(n, "Complete actual declaration " + name);
   return ts.transpileModule(n.getText(tree).replace(/^export\s+/, ""), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
 }).join("\n");
 const digest = b => createHash("sha256").update(b).digest("hex");
@@ -27,7 +29,7 @@ async function fixture(fn, platform = "linux") {
   for (const key of [id, neighbor]) for (const variant of ["raw", "preview"]) await fsp.writeFile(file(key, variant), bytes);
   const step = stage => { calls.push(stage); if (faults.has(stage)) throw faults.get(stage); };
   const context = { AggregateError, Error, Buffer, path, z, constants, PHOTO_MAX_BYTES: 10 * 1024 * 1024, photoDigest: digest,
-    process: { platform, env: { UPLOADS_DATA_PATH: root } }, mkdir: fsp.mkdir, lstat: fsp.lstat, realpath: fsp.realpath,
+    process: { platform, env: { UPLOADS_DATA_PATH: root } }, mkdir: fsp.mkdir, lstat: fsp.lstat, realpath: fsp.realpath, opendir: fsp.opendir,
     open: async (p, flags) => {
       if (p === directory && flags === "r") {
         step("directory-open");
@@ -96,6 +98,13 @@ for (const value of [undefined, null, false, 0]) test("falsy removal sync cause 
 for (const platform of ["linux", "win32"]) test(platform + " normal removal and missing-file retry", () => fixture(async ({ api, id, calls }) => {
   await api.removeAcquisitionPhotoBytes(id); await api.removeAcquisitionPhotoBytes(id); assert.equal(calls.includes("directory-open"), platform !== "win32");
 }, platform));
+
+test("handle fixture executes actual temporary discovery and preserves unrelated names", () => fixture(async ({ api, id, bytes, file, directory }) => {
+  const alias = path.join(directory, `${id}.${randomUUID()}.part`), unrelated = path.join(directory, `${randomUUID()}.${randomUUID()}.part`);
+  await fsp.link(file(id, "raw"), alias); await fsp.writeFile(unrelated, bytes);
+  await api.removeAcquisitionPhotoBytes(id);
+  assert.equal(fs.existsSync(alias), false); assert.deepEqual(await fsp.readFile(unrelated), bytes);
+}));
 test("unsafe original and failed unlink preserve the other variant", () => fixture(async ({ api, id, faults, file, calls, bytes }) => {
   const error = fault("EACCES"); faults.set("unlink-raw", error); const r = await capture(() => api.removeAcquisitionPhotoBytes(id)); assert.equal(r.error, error);
   assert.deepEqual(await fsp.readFile(file(id, "preview")), bytes); faults.clear(); calls.length = 0;
