@@ -118,9 +118,9 @@ const known = {
 };
 
 async function run() {
-  await verifyScannerCropCleanup(db);
   await verifyNativeScannerCleanup(db);
   await verifyRecognitionSnapshot(db);
+  await verifyScannerCropCleanup(db);
   await verifyPrimaryCatalogFreshness(db);
   await verifyCorrectionFairness(db);
     await verifyCorrectionCaptureClock(db);
