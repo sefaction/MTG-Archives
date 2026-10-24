@@ -32,7 +32,18 @@ export async function verifyDeletedHandoffSource(
     assert.deepEqual(await db.inventoryItem.aggregate({_count:{_all:true},_sum:{quantity:true}}),inventory);
     console.log(`PASS: ${stage} real SQL-selected source deletion is skipped without review/Inventory changes`);
   }finally{
-    if(selected)await db.acquisitionProcessingJob.create({data:{...original,
-      input:original.input as Prisma.InputJsonValue,output:original.output===null?Prisma.DbNull:original.output as Prisma.InputJsonValue}});
+    if(selected){
+      // Restore the exact source, including finite native values. JSON-object
+      // parameters can round those numbers even in this fixture's create path.
+      await db.$transaction(async tx=>{
+        await tx.acquisitionProcessingJob.create({data:{...original,input:{},output:Prisma.DbNull}});
+        await tx.$executeRaw`UPDATE "AcquisitionProcessingJob"
+          SET input=${JSON.stringify(original.input)}::jsonb,
+            output=CASE WHEN ${original.output===null} THEN NULL ELSE ${JSON.stringify(original.output)}::jsonb END
+          WHERE id=${sourceId}`;
+      });
+      assert.deepEqual(await db.acquisitionProcessingJob.findUniqueOrThrow({where:{id:sourceId}}),original,
+        "deleted-source fixture must restore the entire original job exactly");
+    }
   }
 }

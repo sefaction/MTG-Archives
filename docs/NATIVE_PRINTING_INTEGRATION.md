@@ -101,7 +101,8 @@ The actual OCR image is
 and the actual visual/printing image is
 `sha256:039b3ae5fa7e50522fbb00970a715b190754ea0fdf70a9db81c2fb4f4d2af1b6`.
 All 502 OCR and 489 visual/printing copied source inputs match the committed Git
-export. Subsequent changes to this document do not change those image inputs.
+export. Subsequent documentation and the separate deleted-source SQL verification
+helper correction do not change the actual worker/native/controller inputs.
 
 All 15 stage jobs have the expected terminal states: 14 COMPLETE and the late
 printing job SUPERSEDED. The first image has 477 genuine geometric inliers;
@@ -121,3 +122,8 @@ localized that change to the JSON-object write path. The corrected publication
 passes exact comparisons throughout; no historical record is repaired or
 declared valid. The normal-width public templates remain unchanged; genuine
 larger public inputs meet the existing printing-width guard without upsampling.
+The first hosted PostgreSQL run passed exact initial job persistence, then found
+that its existing deleted-source fixture restored JSON through the object-write
+path and rounded those same values. That helper now restores serialized input
+and output inside one transaction and compares the complete original job;
+production/native-worker inputs are unchanged by this verification correction.
