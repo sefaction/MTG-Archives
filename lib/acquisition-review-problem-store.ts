@@ -49,8 +49,8 @@ export async function readAcquisitionProblemJobs(tx: Prisma.TransactionClient, r
             THEN jsonb_array_length(work.output#>'{proposals,proposals}') END END END AS "proposalCount",
         CASE WHEN jsonb_typeof(work.output#>'{proposals,proposals}')='array' THEN
           CASE WHEN jsonb_array_length(work.output#>'{proposals,proposals}')<=12 THEN
-          ARRAY(SELECT left(proposal->'card'->>'id',200)
-            FROM jsonb_array_elements(work.output#>'{proposals,proposals}') proposal LIMIT 13)
+          ARRAY(SELECT left(proposed.value->'card'->>'id',200)
+            FROM jsonb_array_elements(work.output#>'{proposals,proposals}') AS proposed(value) LIMIT 13)
           END END AS "proposalIds",
         left(work.output#>>'{catalog,status}',40) AS "catalogStatus",
         left(work.output#>>'{native,geometry,status}',60) AS "geometryStatus",
