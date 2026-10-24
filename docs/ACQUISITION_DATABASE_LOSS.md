@@ -59,8 +59,11 @@ exception page had no recovery control. The card locator reached the unchanged
 180-second case deadline; cleanup still restored all85 table fingerprints.
 
 The repair adds page and global/root-layout error boundaries sharing a small
-self-contained recovery screen. The operator explicitly reloads the page and
-checks the latest outcome before repeating an action. Raw error details are
+self-contained recovery screen. The operator explicitly starts a fresh same-origin
+GET for the same path/query and checks the latest outcome before repeating an
+action. Fragment removal uses history replacement before document navigation, so
+neither a document POST replay nor a fragment-only navigation is used. An actual
+browser contract covers no fragment, an empty fragment and a named fragment. Raw error details are
 never passed into its UI. Authentication, database pools, transactions and write
 retry policy are unchanged. This does not diagnose the separate #808/#844 reports.
 

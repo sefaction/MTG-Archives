@@ -156,6 +156,7 @@ for(const width of [1366,320])test(`Inventory rollback and durability across own
     expect(originals()).toEqual(source);expect(reviewSourceState(batch).candidates.map(row=>row.review)).toEqual(reviews);
     await page.goto(url);
     const recoveryScreen=page.getByRole("heading",{name:"This page couldn’t load",exact:true});
+    await expect(page.getByTestId("capture-card-1").or(recoveryScreen)).toBeVisible();
     let recoveryReloads=0;
     if(await recoveryScreen.count()){
       await expect(recoveryScreen).toBeVisible();
@@ -179,6 +180,7 @@ for(const width of [1366,320])test(`Inventory rollback and durability across own
     await panel.screenshot({path:test.info().outputPath("durable-recovery-retry.png")});
     await panel.getByRole("button",{name:"Retry Inventory addition",exact:true}).click();
     await expect(panel).toContainText("Added 1 copy to Inventory.");expect(sent.at(-1)).toBe(completed.body);expect(ledger()).toEqual(durable);
+    expect(recoveryReloads).toBeGreaterThan(0);
     const third=await preview(3);await third.getByRole("button",{name:"Add 1 copy to Inventory",exact:true}).click();await expect(panel).toContainText("Added 1 copy to Inventory.");
     const final=ledger();expect(final.lots.reduce((sum,row)=>sum+row.quantity,0)).toBe(3);expect(final.receipts).toHaveLength(3);expect(final.members).toHaveLength(3);expect(final.audits).toHaveLength(3);
     expect(originals()).toEqual(source);expect(reviewSourceState(batch).candidates.map(row=>row.review)).toEqual(reviews);
