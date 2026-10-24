@@ -24,6 +24,7 @@ test("three successive saved-scan batches reach recognition and survive refresh"
     background: "#dddddd" } }).png().toBuffer();
   const digest = createHash("sha256").update(bytes).digest("hex");
   const batches: string[] = [];
+  const workflowFailures: unknown[] = [];
   try {
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box'}});`);
     await page.goto("/login");
@@ -69,6 +70,9 @@ test("three successive saved-scan batches reach recognition and survive refresh"
       expect((await page.request.post(`/api/acquisition/${batch}`, { headers: { origin: baseURL! },
         data: { action: "control", revision: latest.revision, requestKey: randomUUID(), command: "STOP" } })).ok()).toBe(true);
     }
+  } catch (error) {
+    workflowFailures.push(error);
+    throw error;
   } finally {
     // Block new authenticated polling and retire only this fixture owner.
     const cleanupFailures: unknown[] = [];
@@ -85,6 +89,6 @@ database(`const n=${JSON.stringify(tag)};const w={run:{session:{createdByUserId:
       `); });
     // A final sweep also catches writes completed during legacy teardown.
     await cleanup(() => { database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');"); });
-    if (cleanupFailures.length) throw new AggregateError(cleanupFailures, "acquisition-successive-batches.spec.ts cleanup failed");
+    if (cleanupFailures.length) throw new AggregateError([...workflowFailures, ...cleanupFailures], "acquisition-successive-batches.spec.ts cleanup failed");
   }
 });
