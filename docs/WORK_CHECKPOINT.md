@@ -1,9 +1,9 @@
-## Current work - remaining fixture file phases #968, October 24, 2026
+## Current work - remaining fixture file phases #968 / PR969, October 24, 2026
 
-- Owner laptop/root01a16522, runremaining-fixture-files-692-20261024-01a16522, isolated codex/remaining-fixture-file-cleanup from main9b3add47. Source claim held; no runtime claim/live child between checks. No merge/production/physical authority.
-- Demonstrated25 remaining phases across24 original-audit fixtures; excludes pending965/967 and mergednative957. One shared helper attempts every prevalidated owned path before relational deletion, preserving ordered failures and recovery rows.
-- All128 source/retry controls pass; original925 expect calls, full outer workflows and exact database-call/query sequences preserved. Original context/navigation failures remain recorded. Real25-case SQL/filesystem recovery, types, final-head CI/review and exact retirement pending; keep DRAFT.
-- Detailed private source/creation/negative/resource/check evidence: .local-data/remaining-fixture-files-692-20261024/ at primary root. Root cumulative WIP and other owners protected. Next source-bound real disposable qualification, final checks/review and exact-owned cleanup/handoff.
+- Root laptop/thread01a16522, runremaining-fixture-files-692-20261024-01a16522; isolated codex/remaining-fixture-file-cleanup. Source905f0ce1 from main9b3add47 qualified; final report-only head tracked privately. Source claim held through final handoff; no runtime claim/live child/resource remains.
+- Coherent25-phase/24-file repair, original925expects/outerworkflows/DBqueries exact. All316 affected controls/types and actual25 real refusal/restoration/replay/peer/85table pairs pass locally; archive02165777. Actual source905CI40089443567 all9PASS, Core1788PASS/1existinghelperSKIP/types/build; independent5638072351 no findings, bothP2threads resolved.
+- Initial Core/helper-binding and two scanner-seed CI failures plus local raw-input guard refusals retained. Git/image/export bytes differ onlyCRLF; exact member guards stay enforced. Exact2containers/sole volume/network retired,85current counts/clients verified; runtime1213a83f released. Root/peerWIP/data/images protected.
+- Final report-head CI/narrow review and exact source release/readiness remain; no merge/production/physical authority. Detailed owner/source/creation/negative/CI/runtime/retirement records: .local-data/remaining-fixture-files-692-20261024/ at primary root. After approved merge close only968 and reconcile692/310, preserving original acceptance/history.
 
 ## Current work - correction discard focus #916 / PR #917, October 23, 2026
 
