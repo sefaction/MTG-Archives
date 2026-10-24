@@ -388,7 +388,7 @@ export function AcquisitionPhotoReview({
                   draftWrite.current = saved.writeId;
                   setRecord({ ...next, revision: saved.revision });
                   setSelected(saved.selected); setFinish(saved.finish); setCondition(saved.condition); setLanguage(saved.language);
-                  setOpenerPlayerId(saved.openerPlayerId ?? null);
+                  setOpenerPlayerId(acquisitionReviewOpener(next.defaults, next.review, saved));
                   setQuery(saved.query); setSet(saved.set); setNumber(saved.number); setEditing(true);
                   dirty.current = true; setDraftDirty(true); onDirtyChange?.(photoId, true);
                   setMessage(saved.revision === next.revision ? "Unsaved correction restored from this browser. Save the review when ready." :

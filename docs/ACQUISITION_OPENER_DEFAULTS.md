@@ -110,6 +110,50 @@ exact runtime claim was released. Four pre-existing review/database services
 were verified unchanged; the current application image is retained. Exact-head
 hosted checks and independent review are recorded separately on the PR.
 
+### Independent review correction: legacy draft omission
+
+Review5636334060 found that a valid version-1 browser draft from an older client
+omits `openerPlayerId`. The first implementation restored that omission as an
+explicit Unknown, so saving an unrelated correction could erase an already saved
+known opener. The server correctly preserves omitted fields but honors explicit
+Unknown; the browser therefore must retain the distinction too.
+
+Draft restoration now uses the loaded review/default policy only when the draft
+field is absent. A saved known opener stays known, a saved Unknown (including
+legacy reviews) stays Unknown independently of the current batch default, and
+explicit known/Unknown draft choices still override. Eleven focused storage and
+policy tests pass, including the parsed legacy draft through the actual restore
+policy and server preservation helper; final typecheck and focused lint pass.
+
+The same actual desktop1366/phone320 regression was run against both images.
+Both old-image cases reproduce the missing-field-to-Unknown bug at the restored
+known-opener editor. Both corrected-image cases pass the full workflow in15.8s,
+with zero skips/flaky results: legacy draft reload/save over saved known and
+Unknown, existing explicit Unknown draft, frozen bulk retry, named preview and
+explicit Add5 with A1/B3/Unknown1,three lots/three audits/five members. Originals
+and source jobs remain exact. An initial negative iteration reproduced the
+desktop bug but hit an earlier phone lazy-editor layout shift; the verifier now
+keeps the intended card in view until its editor is visible. All six browser
+before/after pairs, including that failed iteration, restore all85 tables; a
+fresh final fingerprint also matches and uploads contain no files.
+
+The unchanged canonical Dockerfile built correction
+`a5feaf43f2f331f3ecdd570dec384bfba4c4f5dd` into image
+`sha256:b876c86b9ab9a2d933efc98c36cd62dd18bf543f7a9241f5d2622cc2e47bae50`.
+All1,270 manifest inputs match exact Git export, digest
+`cba8a39c1cb8241f7fe5cb98f9ea22e1ebf3849fb4a69f91252e592b7a397d8b`;
+476 runtime source files were read back and matched. Browser head
+`aa30bf3fee14140b54d1ff22c371bebcdebe7720` differs only in its verifier file;
+application inputs remain unchanged. Earlier full SQL qualification remains
+separate; the correction window migrated the isolated review database and
+verified actual browser/database behavior without claiming a new local full SQL
+run. Refreshed current-head hosted SQL/build/unit gates are recorded on the PR.
+
+Four correction-window containers,two networks and the verified empty upload
+volume were retired; exact runtime claim released, protected services unchanged.
+The corrected image and old-image negative reference plus compact proof/failure
+artifacts remain at `.local-data/legacy-draft308/` and the original batch folder.
+
 Batch language remains a distinct original #308 requirement. Its automatic
 confirmation semantics are awaiting Brian's answer: whether an explicitly chosen
 language may complete otherwise strong exact-printing evidence when the image

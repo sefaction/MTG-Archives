@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {acquisitionReviewOpener, preserveAcquisitionReviewOpener} from "../lib/acquisition-review";
 import { ACQUISITION_DRAFT_MAX_CHARS, acquisitionDraftKey, clearAcquisitionDraft, listAcquisitionDraftPhotos, readAcquisitionDraft, saveAcquisitionDraft } from "../lib/acquisition-browser-review-draft";
 const scope = { userId: "owner", batchId: "batch", photoId: "photo" };
 const draft = { version: 1, revision: 4, selected: { id: "printing", name: "Chosen card", setCode: "tst",
@@ -24,6 +25,23 @@ test("opener corrections survive browser draft reload, including explicit Unknow
     saveAcquisitionDraft(cache, scope, {...draft, openerPlayerId});
     assert.equal(readAcquisitionDraft(cache, scope)!.openerPlayerId, openerPlayerId);
   }
+});
+
+test("legacy browser drafts preserve saved opener on unrelated corrections; explicit Unknown still overrides", () => {
+  const cache = storage(), defaults = {finish: "NONFOIL" as const, condition: "NM" as const, openerPlayerId: "later-default"};
+  const saved = {openerPlayerId: "saved-person"};
+  for (const [choice, expected] of [[undefined, "saved-person"], [null, null], ["draft-person", "draft-person"]] as const) {
+    saveAcquisitionDraft(cache, scope, {...draft, condition: "HP", ...(choice === undefined ? {} : {openerPlayerId: choice})});
+    const restored = readAcquisitionDraft(cache, scope)!;
+    assert.equal(restored.openerPlayerId, choice);
+    const openerPlayerId = acquisitionReviewOpener(defaults, saved, restored);
+    const submitted = {cardId: "printing", language: "en", finish: "NONFOIL" as const, condition: "HP" as const, openerPlayerId};
+    assert.equal(preserveAcquisitionReviewOpener(submitted, saved).openerPlayerId, expected);
+  }
+  saveAcquisitionDraft(cache, scope, draft);
+  const legacy = readAcquisitionDraft(cache, scope)!;
+  assert.equal(acquisitionReviewOpener(defaults, {}, legacy), null);
+  assert.equal(acquisitionReviewOpener(defaults, null, legacy), "later-default");
 });
 test("untrusted and unavailable browser storage cannot turn a draft into a valid server decision", () => {
   const cache = storage(); const writeId = saveAcquisitionDraft(cache, scope, draft);

@@ -3,6 +3,7 @@ import {createHash, randomBytes, randomUUID} from "node:crypto";
 import {writeFileSync} from "node:fs";
 import sharp from "sharp";
 import {cleanupReviewFixture, reviewDatabase, reviewFingerprint, reviewSourceState} from "./review-acceptance-fixture";
+import {acquisitionDraftKey} from "../../lib/acquisition-browser-review-draft";
 
 test.skip(process.env.MTG_ACQUISITION_OPENER_TEST !== "1", "Explicit isolated opener fixture; no recognition or hardware claim");
 test.use({trace:"retain-on-failure",screenshot:"only-on-failure",video:"off"});
@@ -66,14 +67,42 @@ for (const width of [1366,320]) test(`batch opener, per-card override, frozen bu
     await expect.poll(async()=>(await (await page.request.get(`/api/acquisition/${batch}`)).json()).phase)
       .toMatch(/^(STOPPING|COMPLETE)$/);
     await page.getByRole("button",{name:"Advanced",exact:true}).click();
+    async function revealCard(index:number){
+      const card=page.getByTestId(`capture-card-${index+1}`);
+      // Earlier cards expand after their lazy reviews load; keep the intended
+      // card in view until its editor has actually entered the viewport.
+      await expect(async()=>{
+        await card.scrollIntoViewIfNeeded();
+        await expect(card.getByRole("combobox",{name:"Original opener",exact:true})).toBeVisible({timeout:1000});
+      }).toPass({timeout:15_000});
+      return card;
+    }
     for(let index=0;index<3;index++){
-      const card=page.getByTestId(`capture-card-${index+1}`);await card.scrollIntoViewIfNeeded();
+      const card=await revealCard(index);
       const opener=card.getByRole("combobox",{name:"Original opener",exact:true});await expect(opener).toHaveValue(openerA);
-      if(index===1){await opener.selectOption("");await page.reload();await card.scrollIntoViewIfNeeded();await expect(opener).toHaveValue("");}
+      if(index===1){await opener.selectOption("");await page.reload();await revealCard(index);await expect(opener).toHaveValue("");}
       if(index===2)await opener.selectOption(openerB);
       await card.getByRole("button",{name:"Save card review",exact:true}).click();
       await expect.poll(async()=> (await (await page.request.get(`${endpoint}?photoId=${photos[index]}`)).json()).review?.openerPlayerId)
         .toBe([openerA,null,openerB][index]);
+    }
+    // Version-1 drafts from older clients omit opener entirely. Reload the actual
+    // editor with such an unrelated correction over both saved known and Unknown.
+    // The batch still has A, so neither omission may erase/invent saved provenance.
+    for(const index of [0,1]){
+      const record=await (await page.request.get(`${endpoint}?photoId=${photos[index]}`)).json();
+      const legacy={version:1,writeId:randomUUID(),revision:record.revision,selected:record.printing,
+        finish:record.review.finish,condition:"NM",language:record.review.language,query:"",set:"",number:""};
+      expect(Object.hasOwn(legacy,"openerPlayerId")).toBe(false);
+      await page.evaluate(({key,draft})=>localStorage.setItem(key,JSON.stringify(draft)),
+        {key:acquisitionDraftKey({userId:tag,batchId:batch,photoId:photos[index]}),draft:legacy});
+      await page.reload();const card=await revealCard(index);
+      await expect(card).toContainText("Unsaved correction restored");
+      await expect(card.getByRole("combobox",{name:"Original opener",exact:true})).toHaveValue(index===0?openerA:"");
+      await card.getByRole("button",{name:"Save card review",exact:true}).click();
+      await expect.poll(async()=>(await (await page.request.get(`${endpoint}?photoId=${photos[index]}`)).json()).review?.openerPlayerId)
+        .toBe(index===0?openerA:null);
+      await expect(card).not.toContainText("Unsaved correction restored");
     }
     const savedReviews=await Promise.all(photos.slice(0,3).map(async id=>(await (await page.request.get(`${endpoint}?photoId=${id}`)).json()).review));
     const defaults=page.getByRole("region",{name:"Batch review defaults",exact:true});

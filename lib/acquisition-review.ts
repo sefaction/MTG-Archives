@@ -30,7 +30,11 @@ export const acquisitionReviewDecisionSchema = z
 // Missing provenance on an older review means Unknown, independently of later
 // batch changes. Only unreviewed cards start with the chosen batch default.
 export function acquisitionReviewOpener(defaults: AcquisitionDefaults,
-  review: {openerPlayerId?: string | null} | null) {
+  review: {openerPlayerId?: string | null} | null,
+  draft?: {openerPlayerId?: string | null}) {
+  // An older draft did not edit this field. Preserve the loaded saved/default
+  // attribution, while honoring a newer draft's deliberate known or Unknown.
+  if (draft?.openerPlayerId !== undefined) return draft.openerPlayerId;
   return review ? review.openerPlayerId ?? null : defaults.openerPlayerId ?? null;
 }
 // Older clients cannot see this new field. Their unrelated edits must retain
