@@ -68,8 +68,7 @@ for (const width of [1366, 390, 320]) test(`whole-batch problem filters preserve
     await filter.selectOption("conflict");
     expect(await page.locator('[data-testid^="capture-card-"]').count()).toBeLessThan(300);
     await expect(page.getByTestId("capture-card-17")).toHaveCount(0);
-    const more = page.getByRole("button", {name: "Load more cards", exact: true});
-    if (await more.isVisible()) await more.click();
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await expect(page.locator('[data-testid^="capture-card-"]')).toHaveCount(16);
     expect(await page.locator('[data-testid^="capture-card-"]').evaluateAll(rows => rows.map(row => Number(row.getAttribute("data-testid")!.replace("capture-card-", ""))))).toEqual(Array.from({length: 16}, (_, i) => i + 1));
     await filter.selectOption("quality");
