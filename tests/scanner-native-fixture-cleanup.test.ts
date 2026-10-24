@@ -36,3 +36,40 @@ test('falsy original errors remain first when cleanup fails',async()=>{for(const
 test('invalid owner refuses before every database, helper or filesystem action',async()=>{const f=fixture();f.params[2]='real-owner';await assert.rejects(run(...f.params,false,undefined),AggregateError);assert.deepEqual(f.seen,[]);});
 test('unconfirmed helper stop preserves its spool and legacy data while final cancellation still runs',async()=>{const f=fixture({},true);await assert.rejects(run(...f.params,false,undefined),(e:unknown)=>e instanceof AggregateError&&e.errors.length===1&&String(e.errors[0]).includes('retain its spool'));assert.deepEqual(f.seen,['early','stop','log','late']);});
 test('invalid agent path refuses before forget or recursive removal',async()=>{const f=fixture();f.params[6]='../peer';await assert.rejects(run(...f.params,false,undefined),AggregateError);assert.deepEqual(f.seen,['early','stop','log','legacy','late']);});
+
+// Exercise the actual embedded legacy script, not a duplicate cleanup helper.
+let legacyTemplate='';
+function findLegacy(n:ts.Node){if(ts.isCallExpression(n)&&n.expression.getText(source)==='database'&&n.arguments[0]&&ts.isTemplateExpression(n.arguments[0])&&n.arguments[0].getText(source).includes('await p.scannerRun.deleteMany'))legacyTemplate=n.arguments[0].getText(source);ts.forEachChild(n,findLegacy);}findLegacy(target!.finallyBlock!);assert.ok(legacyTemplate);
+const legacy=new AsyncFunction('p','require','process',new Function('tag','return '+legacyTemplate)(tag));
+const photoIds=['11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222'];
+const runId='33333333-3333-4333-8333-333333333333';
+function fileFixture(options:{fail?:Record<string,unknown>;photos?:string[];runs?:string[];root?:string}={}){
+ const root=options.root??path.resolve('.local-data','synthetic-native-files'),attempts:string[]=[],deletes:string[]=[];
+ const p=new Proxy({}, {get(_target,model:string){return {
+  updateMany:async()=>{},
+  findMany:async(query:unknown)=>{if(model==='acquisitionPhoto'){assert.deepEqual(query,{where:{run:{session:{createdByUserId:tag}}},select:{id:true},orderBy:{id:'asc'}});return (options.photos??photoIds).map(id=>({id}));}assert.equal(model,'scannerRun');assert.deepEqual(query,{where:{agent:{userId:tag}},select:{id:true},orderBy:{id:'asc'}});return (options.runs??[runId]).map(id=>({id}));},
+  deleteMany:async()=>{deletes.push(model);},
+ };}});
+ const requireModule=(name:string)=>{if(name==='path')return path;assert.equal(name,'fs/promises');return {unlink:async(file:string)=>{const relative=path.relative(root,file);attempts.push(relative);if(options.fail&&relative in options.fail)throw options.fail[relative];}};};
+ return {attempts,deletes,execute:()=>legacy(p,requireModule,{env:{UPLOADS_DATA_PATH:root}})};
+}
+const fileNames=[...photoIds.flatMap(id=>['.original','.preview.jpg'].map(suffix=>path.join('acquisition-v1',id+suffix))),path.join('scanner-control-v1',runId+'.start.json')];
+
+test('legacy file phase attempts every owned path after first unlink failure and retains relational graph',async()=>{
+ const cause=Error('first unlink'),f=fileFixture({fail:{[fileNames[0]]:cause}});
+ await assert.rejects(f.execute(),(e:unknown)=>e instanceof AggregateError&&assert.deepEqual(e.errors,[cause])===undefined);
+ assert.deepEqual(f.attempts,fileNames);assert.deepEqual(f.deletes,[]);
+});
+test('legacy file phase preserves multiple removal errors in attempted order',async()=>{
+ const errors=[Error('first original'),Error('second preview'),Error('start marker')],f=fileFixture({fail:{[fileNames[0]]:errors[0],[fileNames[3]]:errors[1],[fileNames[4]]:errors[2]}});
+ await assert.rejects(f.execute(),(e:unknown)=>e instanceof AggregateError&&assert.deepEqual(e.errors,errors)===undefined);
+ assert.deepEqual(f.attempts,fileNames);assert.deepEqual(f.deletes,[]);
+});
+test('healthy and missing-file replay cleanup preserve successful relational teardown',async()=>{
+ for(const fail of [undefined,{[fileNames[0]]:Object.assign(Error('already gone'),{code:'ENOENT'})}]){
+  const f=fileFixture({fail});await f.execute();assert.deepEqual(f.attempts,fileNames);assert.ok(f.deletes.includes('acquisitionPhoto'));assert.ok(f.deletes.includes('scannerRun'));assert.equal(f.deletes.at(-1),'player');
+ }
+});
+for(const invalid of [{photos:['../peer']},{runs:['../peer']},{root:''},{root:'relative-private-root'}])test('legacy file phase rejects invalid identity/root before any unlink '+JSON.stringify(invalid),async()=>{
+ const f=fileFixture(invalid);await assert.rejects(f.execute(),/Invalid owned fixture identity|Private fixture storage unavailable/);assert.deepEqual(f.attempts,[]);assert.deepEqual(f.deletes,[]);
+});

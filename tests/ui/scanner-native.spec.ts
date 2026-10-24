@@ -170,14 +170,16 @@ test("website START through actual Windows fixture helper reaches ordinary recog
       const w={run:{session:{createdByUserId:n}}};
       const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;
       if(!root || !paths.isAbsolute(root))throw new Error('Private fixture storage unavailable');
-      const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});
+      const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true},orderBy:{id:'asc'}});
+      const runs=await p.scannerRun.findMany({where:{agent:{userId:n}},select:{id:true},orderBy:{id:'asc'}});
+      for(const item of [...photos,...runs])
+        if(!/^[a-f0-9-]{36}$/.test(item.id))throw new Error('Invalid owned fixture identity');
+      const fileErrors=[];
+      const remove=async file=>{try{await fs.unlink(file);}catch(error){if(error.code!=='ENOENT')fileErrors.push(error);}};
       for(const photo of photos)for(const suffix of ['.original','.preview.jpg'])
-        await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e;});
-      const runs=await p.scannerRun.findMany({where:{agent:{userId:n}},select:{id:true}});
-      for(const run of runs){
-        if(!/^[a-f0-9-]{36}$/.test(run.id))throw new Error('Invalid owned fixture identity');
-        await fs.unlink(paths.join(root,'scanner-control-v1',run.id+'.start.json')).catch(e=>{if(e.code!=='ENOENT')throw e;});
-      }
+        await remove(paths.join(root,'acquisition-v1',photo.id+suffix));
+      for(const run of runs)await remove(paths.join(root,'scanner-control-v1',run.id+'.start.json'));
+      if(fileErrors.length)throw new AggregateError(fileErrors,'Owned native scanner file cleanup incomplete; retain database graph for retry');
       await p.scannerRun.deleteMany({where:{agent:{userId:n}}});
       await p.acquisitionCommitMember.deleteMany({where:{commit:w}});await p.acquisitionCommit.deleteMany({where:w});
       await p.inventoryAuditLog.deleteMany({where:{changedByUserId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});
