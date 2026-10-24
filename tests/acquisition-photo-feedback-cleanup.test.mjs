@@ -1,3 +1,4 @@
+import * as ownedFixtureFiles from "./ui/owned-fixture-files.ts";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -14,7 +15,7 @@ for(const file of ['acquisition-photo-text.spec.ts','acquisition-photo-text-stre
   async function exercise(faults=[]){
     const calls=[],failures=[];let sweep=0;
     const step=name=>{calls.push(name);if(faults.includes(name)){const error=new Error(name);failures.push(error);throw error;}};
-    const report={};const context={tag:'ui-photo-cleanup-00000000-0000-0000-0000-000000000000',AggregateError,Date,report,
+    const report={};const context={...ownedFixtureFiles,tag:'ui-photo-cleanup-00000000-0000-0000-0000-000000000000',AggregateError,Date,report,
       save:()=>{assert.ok(report.finishedAt);step('save-report');},cancelAndCleanCorrectionFixture:()=> 'owned-feedback:',
       database:body=>step(body.startsWith('owned-feedback:')?(++sweep===1?'early-feedback':'late-feedback'):'acquisition-teardown')};
     let error;try{await vm.runInNewContext('(async()=>'+code+')()',context);}catch(caught){error=caught;}

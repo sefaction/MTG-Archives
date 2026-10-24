@@ -6,13 +6,26 @@
 - Completed: nine cited P7/recovery merge identities and base ancestry; 22 local links; six verifier invocation bindings; whitespace checks. Documentation only, so no application build, Docker reload or duplicate runtime qualification. Final-head CI and independent review remain pending at publication; keep the PR draft until its applicable gates pass.
 - Owned resources: isolated worktree and exact lightweight source claim only; no owned runtime/process/container/database. Private receipts: primary-root `.local-data/p7-reconciliation-20261024/`. Next: publish one PR, inspect exact-head checks/review, resolve findings, then release this exact source claim and continue an eligible existing issue. Preserve all earlier workers' checkpoint context below.
 
-## Preserved checkpoint — laptop photo-intake fixture cleanup
+
+## Current integration - approved PRs #967 and #969, October 24, 2026
+
+Both owner checkpoint histories are preserved verbatim below. Their latest reviews and release receipts establish readiness; these historical pending statements do not replace live GitHub status. This integration retains every fixture verifier and requires fresh final-head checks before merge. Broad #692/#310 remain open; no runtime or deployment action is implied.
+
+## Preserved owner checkpoint histories
+
+## Current work — laptop photo-intake fixture cleanup
 
 - Owner: thread01a16943 / runfixture-file-failure-692-20261024-01a16943, isolated codex/fixture-file-failure-692 from main9b3add47; #966 under #692/#310, no merge authority.
 - Actual-source negative:1/4files attempted after19 relational deletes. Fix preserves the full original workflow/assertions/deadline/relational-tail text;9host controls pass.
 - Source ownership/release is recorded in the exact private current record; temporary fixture/runtime retired, no live owned child. Private source/evidence record: `.local-data/fixture-file-failure-692-20261024/` at primary root.
 - Tested source67c1bdc2 / PR967:9locked controls, actual4path failure/retained rows/verified restoration/replay/populated peer/all85tables and corrected type-only check pass. Independent review5637927019 has no findings; all9initial-head CI pass. Original setup/config failures retained.
 - Next: final report-head CI and exact source release/readiness handoff. Root cumulative WIP and existing reviews remain protected.
+## Current work - remaining fixture file phases #968 / PR969, October 24, 2026
+
+- Root laptop/thread01a16522, runremaining-fixture-files-692-20261024-01a16522; isolated codex/remaining-fixture-file-cleanup. Source905f0ce1 from main9b3add47 qualified; final report-only head tracked privately. Source claim held through final handoff; no runtime claim/live child/resource remains.
+- Coherent25-phase/24-file repair, original925expects/outerworkflows/DBqueries exact. All316 affected controls/types and actual25 real refusal/restoration/replay/peer/85table pairs pass locally; archive02165777. Actual source905CI40089443567 all9PASS, Core1788PASS/1existinghelperSKIP/types/build; independent5638072351 no findings, bothP2threads resolved.
+- Initial Core/helper-binding and two scanner-seed CI failures plus local raw-input guard refusals retained. Git/image/export bytes differ onlyCRLF; exact member guards stay enforced. Exact2containers/sole volume/network retired,85current counts/clients verified; runtime1213a83f released. Root/peerWIP/data/images protected.
+- Final report-head CI/narrow review and exact source release/readiness remain; no merge/production/physical authority. Detailed owner/source/creation/negative/CI/runtime/retirement records: .local-data/remaining-fixture-files-692-20261024/ at primary root. After approved merge close only968 and reconcile692/310, preserving original acceptance/history.
 
 ## Current work - correction discard focus #916 / PR #917, October 23, 2026
 
