@@ -9,8 +9,10 @@ import { verifyCorrectionFairness } from "./verify-correction-fairness";
 import { verifyCorrectionCaptureClock } from "./verify-correction-capture-clock";
 import { ensureCorrectionAccount } from "../lib/acquisition-correction-library";
 import { verifyAcquisitionCommit } from "./verify-acquisition-commit";
+import { verifyAcquisitionManualWriter } from "./verify-acquisition-manual-writer";
 import { verifyScannerConnections } from "./verify-scanner-connections";
 import { verifyScannerRuns } from "./verify-scanner-runs";
+import { verifyNativeScannerCleanup } from "./verify-scanner-native-cleanup";
 import { verifyBackupScannerSettlement } from "./verify-backup-scanner-settlement";
 import { verifyRestoreCredentials } from "./verify-restore-credentials";
 import { verifyRestoreWorkers } from "./verify-restore-workers";
@@ -114,6 +116,7 @@ const known = {
 };
 
 async function run() {
+  await verifyNativeScannerCleanup(db);
   await verifyRecognitionSnapshot(db);
   await verifyPrimaryCatalogFreshness(db);
   await verifyCorrectionFairness(db);
@@ -526,6 +529,7 @@ async function run() {
     "PASS: database foreign-run/duplicate/negative-order constraints and zero inventory/audit effects",
   );
   await verifyAcquisitionCommit(db, actor, stranger, input());
+  await verifyAcquisitionManualWriter(db, input());
   await verifyScannerConnections(db);
   await verifyScannerRuns(db);
   await verifyBackupScannerSettlement(db);

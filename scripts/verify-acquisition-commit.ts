@@ -18,6 +18,7 @@ import { randomUUID } from "node:crypto";
 import { PrismaClient, type Prisma } from "@prisma/client";
 import { setTimeout } from "node:timers/promises";
 import { commitImportBatch } from "../lib/import-commit";
+import { verifyAcquisitionWriterCompositions } from "./verify-acquisition-writers";
 import {
   createAcquisitionSession,
   executeAcquisitionCommand,
@@ -233,24 +234,78 @@ export async function verifyAcquisitionCommit(
       previewToken: preview.token,
       overfillReason: null,
     };
+    // Persisted changes between preview and the complete commit must reject
+    // before any receipt effects. These are explicit fixture mutations, not
+    // claims about the ownership/layout editing routes or concurrent schedules.
+    async function commitState() {
+      return Promise.all([
+        db.acquisitionSession.findUniqueOrThrow({ where: { id: first.id } }),
+        db.acquisitionCandidate.findMany({ where: { runId: { in: runs } }, orderBy: { id: "asc" } }),
+        db.acquisitionPhoto.findMany({ where: { runId: { in: runs } }, orderBy: { id: "asc" } }),
+        db.inventoryItem.findMany({ where: { cardId: card.id }, orderBy: { id: "asc" } }),
+        db.inventoryAuditLog.findMany({ where: { changedByUserId: actor.userId }, orderBy: { id: "asc" } }),
+        db.acquisitionCommit.findMany({ where: { runId: { in: runs } }, orderBy: { id: "asc" } }),
+        db.acquisitionCommitMember.findMany({ where: { runId: { in: runs } }, orderBy: { candidateId: "asc" } }),
+      ]);
+    }
+    async function refusedWithoutEffects(expected: RegExp) {
+      const before = await commitState();
+      await assert.rejects(commitAcquisitionCards(db, actor, first.id, request), expected);
+      assert.deepEqual(await commitState(), before, "Refused complete commit must preserve all receipt/input rows and fields");
+    }
+    const foreignOwner = await db.user.findUniqueOrThrow({ where: { id: stranger.userId } });
+    assert.ok(foreignOwner.playerId && foreignOwner.playerId !== base.ownerPlayerId);
+    await db.acquisitionSession.update({ where: { id: first.id }, data: { ownerPlayerId: foreignOwner.playerId } });
+    try {
+      await refusedWithoutEffects(/unavailable|access|permission|owner/i);
+    } finally {
+      await db.acquisitionSession.update({ where: { id: first.id }, data: { ownerPlayerId: base.ownerPlayerId } });
+    }
+    const savedLayout = (await db.inventoryLocation.findUniqueOrThrow({ where: { id: destination } })).storageLayout;
+    request.previewToken = (await previewAcquisitionCommit(db, actor, first.id, selection)).token;
+    await db.inventoryLocation.update({ where: { id: destination }, data: { storageLayout: { capacity: 4, sections: [{ name: "A", capacity: 4 }] } } });
+    try {
+      await refusedWithoutEffects(/preview changed/);
+    } finally {
+      await db.inventoryLocation.update({ where: { id: destination }, data: { storageLayout: savedLayout as Prisma.InputJsonValue } });
+    }
+    request.previewToken = (await previewAcquisitionCommit(db, actor, first.id, selection)).token;
+    await db.card.update({ where: { id: card.id }, data: { finishes: ["nonfoil", "foil"] } });
+    try {
+      const current = await getAcquisitionCardReview(db, actor, first.id, first.photos[0].id);
+      await saveAcquisitionReview(db, actor, first.id, { action: "accept", photoId: first.photos[0].id,
+        revision: current.revision, decision: { ...decision, finish: "FOIL" } });
+      await refusedWithoutEffects(/preview changed/);
+      const refreshed = await previewAcquisitionCommit(db, actor, first.id, selection);
+      assert.notEqual(refreshed.token, request.previewToken);
+      assert.equal(refreshed.cards.find(value => value.photoId === first.photos[0].id)!.finish, "FOIL");
+    } finally {
+      await review(first.id, first.photos[0].id);
+      await db.card.update({ where: { id: card.id }, data: { finishes: ["nonfoil"] } });
+    }
+    request.previewToken = (await previewAcquisitionCommit(db, actor, first.id, selection)).token;
+    console.log("PASS: complete commit refuses changed owner, layout and saved finish without receipt/input effects; fresh preview exposes current finish");
     for (const table of [
       "InventoryAuditLog",
+      "AcquisitionCommit",
       "AcquisitionCommitMember",
     ] as const) {
       const fault = db.$extends({
         query: {
           $allModels: {
-            async $allOperations({ model, args, query }) {
-              if (model === table) throw new Error("injected commit failure");
+            async $allOperations({ model, operation, args, query }) {
+              if (model === table && (operation === "create" || operation === "createMany")) throw new Error("injected commit failure");
               return query(args);
             },
           },
         },
       }) as unknown as PrismaClient;
+      const beforeFault = await commitState();
       await assert.rejects(
         commitAcquisitionCards(fault, actor, first.id, request),
         /injected/,
       );
+      assert.deepEqual(await commitState(), beforeFault, `${table} failure must roll back every receipt/input field`);
       assert.equal(
         await db.inventoryItem.count({ where: { cardId: card.id } }),
         0,
@@ -573,6 +628,15 @@ export async function verifyAcquisitionCommit(
       await Promise.allSettled(capturing ? [importing, capturing] : [importing]);
       await captureDb.$disconnect();
     }
+    await verifyAcquisitionWriterCompositions(db, actor, base.ownerPlayerId, {
+      cardId: card.id, location,
+      capture: async destination => {
+        const created = await capture(destination, 1);
+        await review(created.id, created.photos[0].id);
+        await stop(created.id);
+        return { sessionId: created.id, photoId: created.photos[0].id };
+      },
+    });
     const retained = first.photos[0],
       bytes = retentionBytes,
       bytesDigest = photoDigest(bytes);

@@ -6,6 +6,8 @@ ground truth, never infers absence from a failed detector, never confirms stock.
 from collections import OrderedDict
 import ctypes
 import gc
+import hashlib
+import io
 import json
 import re
 from pathlib import Path
@@ -13,7 +15,7 @@ import cv2
 import numpy as np
 from urllib.parse import urlsplit
 from PIL import Image, ImageOps
-from catalog_references import sha256
+from catalog_references import MAX_IMAGE_BYTES
 from printing_evidence import SIZE, register, registration_features, stamp_evidence, candidate_relation, shared_stamp_evidence
 from printing_details import printing_detail_evidence
 from expansion_symbols import ExpansionSymbolBank, expansion_symbol_evidence
@@ -67,12 +69,20 @@ class PrintingRuntime:
             return self.cache[identity]
         row = self.records[identity]
         path = (self.root / row['file']).resolve()
-        if not path.is_relative_to(self.root) or sha256(path) != row['sha256']:
+        if not path.is_relative_to(self.root):
+            raise ValueError('Printing reference integrity changed')
+        with path.open('rb') as stream:
+            data = stream.read(MAX_IMAGE_BYTES + 1)
+        if len(data) > MAX_IMAGE_BYTES or hashlib.sha256(data).hexdigest() != row['sha256']:
             raise ValueError('Printing reference integrity changed')
         annotation = self.annotations.get(identity)
         state = annotation['stamp'] if annotation and annotation['sha256'] == row['sha256'] else 'UNKNOWN'
-        with Image.open(path) as source:
-            image = cv2.cvtColor(np.asarray(ImageOps.exif_transpose(source).convert('RGB')), cv2.COLOR_RGB2BGR)
+        # Decode the verified snapshot, even if the reference path changes now.
+        # Drop encoded storage before feature extraction/cache accounting.
+        with io.BytesIO(data) as encoded:
+            del data
+            with Image.open(encoded) as source:
+                image = cv2.cvtColor(np.asarray(ImageOps.exif_transpose(source).convert('RGB')), cv2.COLOR_RGB2BGR)
         entry = image, state, registration_features(image, True)
         release_temporary_memory()
         self._remember_reference(identity, entry)
