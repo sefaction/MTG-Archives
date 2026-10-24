@@ -139,7 +139,11 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
         language: card?.lang,
         finish: defaults.success ? defaults.data.finish : "UNKNOWN",
         condition: defaults.success ? defaults.data.condition : null,
+        ...(defaults.success && defaults.data.openerPlayerId !== undefined
+          ? {openerPlayerId: defaults.data.openerPlayerId} : {}),
       });
+      const openerAvailable = !decision.success || !decision.data.openerPlayerId || Boolean(
+        await tx.player.findUnique({where: {id: decision.data.openerPlayerId}, select: {id: true}}));
       const evidenceVersion = (
         job.output as { proposals?: { version?: number } }
       )?.proposals?.version;
@@ -174,7 +178,7 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
         card.setCode === proposal.card.setCode &&
         card.collectorNumber === proposal.card.collectorNumber &&
         card.lang === proposal.card.lang &&
-        decision.success &&
+        decision.success && openerAvailable &&
         Array.isArray(card.finishes) &&
         card.finishes.includes(decision.data.finish.toLowerCase());
       const review =

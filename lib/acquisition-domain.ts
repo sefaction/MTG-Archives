@@ -126,6 +126,7 @@ export type ReviewAttributes = {
   finish: "UNKNOWN" | "NONFOIL" | "FOIL" | "ETCHED";
   condition: string | null;
   source?: "AUTO_STRONG_MATCH";
+  openerPlayerId?: string | null;
 };
 type Candidate = {
   key: string;
@@ -454,6 +455,7 @@ const attributes = z
     language: id.nullable(),
     finish: z.enum(["UNKNOWN", "NONFOIL", "FOIL", "ETCHED"]),
     condition: id.nullable(),
+    openerPlayerId: id.nullable().optional(),
   })
   .strict();
 export function recordRecognitionProposal(

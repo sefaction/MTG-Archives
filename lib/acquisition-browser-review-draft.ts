@@ -8,6 +8,7 @@ export const acquisitionBrowserDraftSchema = z.object({ version: z.literal(1), w
   revision: z.number().int().nonnegative(), selected: printing.nullable(),
   finish: z.enum(["UNKNOWN", "NONFOIL", "FOIL", "ETCHED"]),
   condition: z.enum(["", "NM", "LP", "MP", "HP", "DMG"]), language: z.string().max(20),
+  openerPlayerId: z.string().min(1).max(200).nullable().optional(),
   query: z.string().max(300), set: z.string().max(100), number: z.string().max(100),
   evidenceTokens: correctionDisplayTokensSchema.optional() }).strict();
 export type AcquisitionBrowserDraft = z.infer<typeof acquisitionBrowserDraftSchema>;

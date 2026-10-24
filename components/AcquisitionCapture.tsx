@@ -14,7 +14,9 @@ import { StorageDestinationPicker } from "./StorageDestinationPicker";
 import {
   AcquisitionBatchDefaults,
   AcquisitionPhotoReview,
+  AcquisitionOpenerSelect,
 } from "./AcquisitionReviewControls";
+import {emptyAcquisitionDefaults, acquisitionOpenerName, type AcquisitionOpenerChoice} from "@/lib/acquisition-review";
 import {
   filterButtonClass as button,
   filterPrimaryButtonClass as primary,
@@ -29,11 +31,15 @@ import {
 import type { acquisitionProgressDto } from "@/lib/acquisition-api";
 import {
   acquisitionReviewCounts,
+  acquisitionReviewProblemCounts,
+  acquisitionReviewProblemLabels,
+  acquisitionSlotMatchesReviewFilter,
   acquisitionSlotReviewState,
   acquisitionSlotBlockedReason,
   nextAwaitingAcquisitionSlot,
   type AcquisitionReviewMode,
   type AcquisitionReviewFilter,
+  type AcquisitionReviewProblem,
 } from "@/lib/acquisition-review-display";
 import {
   ACQUISITION_UPLOAD_ATTEMPTS,
@@ -87,6 +93,7 @@ export function AcquisitionCapture({
   recent,
   initialSetup = null,
   setupMessage = "",
+  openerChoices = [],
 }: {
   userId: string;
   locations: StorageLocation[];
@@ -96,6 +103,7 @@ export function AcquisitionCapture({
   recent: { id: string; batchNumber: number; phase: string }[];
   initialSetup?: ScannerContinuation | null;
   setupMessage?: string;
+  openerChoices?: AcquisitionOpenerChoice[];
 }) {
   const [locationId, setLocationId] = useState(initialSetup?.locationId ?? "");
   const [section, setSection] = useState(initialSetup?.section ?? "");
@@ -117,6 +125,10 @@ export function AcquisitionCapture({
   const [retiredSetup, setRetiredSetup] = useState<PendingScannerStart | null>(null);
   const [setupNotice, setSetupNotice] = useState("");
   const setupDefaults = retiredSetup?.defaults ?? initialSetup?.defaults;
+  const [newOpenerPlayerId, setNewOpenerPlayerId] = useState(initialSetup?.defaults?.openerPlayerId ?? null);
+  useEffect(() => {
+    if (retiredSetup) setNewOpenerPlayerId(retiredSetup.defaults?.openerPlayerId ?? null);
+  }, [retiredSetup]);
   const [checkingStart, setCheckingStart] = useState(true);
   const [startStorageError, setStartStorageError] = useState(false);
   const sourceIdentity = useRef("");
@@ -201,17 +213,16 @@ export function AcquisitionCapture({
   }, [userId, batchId]);
   const hasDraft = (slot: Progress["slots"][number]) => slot.photos.some(photo => blockedPhotos.has(photo.id));
   const reviewCounts = acquisitionReviewCounts(progress?.slots ?? [], hasDraft);
+  const problemCounts = acquisitionReviewProblemCounts(progress?.slots ?? []);
   const filteredSlots = (progress?.slots ?? []).filter(
-    (slot) =>
-      reviewFilter === "all" ||
-      acquisitionSlotReviewState(slot, hasDraft(slot)) === reviewFilter,
+    (slot) => acquisitionSlotMatchesReviewFilter(slot, reviewFilter, hasDraft(slot)),
   );
   const visibleIds = new Set(
     filteredSlots.slice(0, visibleCount).map((s) => s.id),
   );
   const shownSlots = (progress?.slots ?? []).filter(
     (slot) =>
-      visibleIds.has(slot.id) || slot.photos.some((p) => dirtyPhotos.has(p.id)),
+      visibleIds.has(slot.id) || hasDraft(slot),
   );
   const [reviewNavigation, setReviewNavigation] = useState("");
   function nextAwaitingReview(after: number) {
@@ -453,7 +464,7 @@ export function AcquisitionCapture({
       if (!createKey.current) createKey.current = captureUuid();
       const value = {
         ...(scannerChoice ? { ...scannerChoice, action: "create" } : {}),
-        ...(scannerChoice && setupDefaults ? { defaults: setupDefaults } : {}),
+        defaults: {...(setupDefaults ?? emptyAcquisitionDefaults), openerPlayerId: newOpenerPlayerId},
         requestKey: createKey.current,
         locationId,
         section,
@@ -789,6 +800,11 @@ export function AcquisitionCapture({
           </div><div className="min-w-0">
           {photoInput ? <p className="text-sm my-3">One card per photo. JPEG, PNG and WebP are supported. Review the saved cards before adding them to Inventory.</p> : <ScannerSourceFields key={pendingScanner?.requestKey ?? "setup"} initialEnabled={pendingScanner || retiredSetup ? true : initialScanner} initialChoice={pendingScanner ?? retiredSetup ?? initialSetup?.scanner} onChange={scannerChanged} disabled={busy || checkingStart || !!pendingScanner || startStorageError || refreshingCapacity} remaining={customLimit ? Math.min(quantity,remaining??quantity) : remaining} />}
           </div></div>
+          <div className="my-3"><AcquisitionOpenerSelect label="Batch original opener"
+            value={pendingScanner ? pendingScanner.defaults?.openerPlayerId ?? null : newOpenerPlayerId}
+            choices={openerChoices} onChange={setNewOpenerPlayerId}
+            disabled={busy || checkingStart || !!pendingScanner || startStorageError} />
+            <p className="text-sm mt-1">Who originally opened these cards. Leave Unknown if you do not know.</p></div>
           <button
             className={primary}
             disabled={
@@ -1055,16 +1071,17 @@ export function AcquisitionCapture({
             </section>
           )}
           <details className="min-w-0" open={reviewMode === "advanced"}>
-          <summary className="cursor-pointer text-sm">Batch defaults: {progress.defaults.finish.toLowerCase()} · {progress.defaults.condition ?? "condition unset"} · Change</summary>
+          <summary className="cursor-pointer text-sm">Batch defaults: {progress.defaults.finish.toLowerCase()} · {progress.defaults.condition ?? "condition unset"} · Original opener: {acquisitionOpenerName(progress.defaults.openerPlayerId, openerChoices)} · Change</summary>
           <AcquisitionBatchDefaults
             key={`defaults:${batchId}`}
             batchId={batchId}
             defaults={progress.defaults}
+            openerChoices={openerChoices}
             revision={progress.defaultsRevision}
             refresh={() => void refresh()}
           />
           </details>
-          <AcquisitionBulkReview key={`bulk:${batchId}`} batchId={batchId} slots={progress.slots} defaults={progress.defaults} refresh={refresh}
+          <AcquisitionBulkReview key={`bulk:${batchId}`} batchId={batchId} slots={progress.slots} defaults={progress.defaults} openerChoices={openerChoices} refresh={refresh}
             blockedPhotos={blockedPhotos} draftsReady={cachedDrafts.ready} canUsePhotos={canUsePhotos}
             onOpenChange={setBulkOpen} onConfirmed={ids => { setSelectedPhotos(previous => [...new Set([...previous, ...ids])]); showInventory(); }}
             onInspect={position => { setReviewFilter("all"); setVisibleCount(count => Math.max(count, position));
@@ -1109,10 +1126,10 @@ export function AcquisitionCapture({
                     </button>
                   ))}
                 </div>
-                <label className="text-sm">
+                <label className="text-sm flex min-w-0 max-w-full items-center gap-2">
                   Show cards
                   <select
-                    className={input + " ml-2"}
+                    className={input + " min-w-0 max-w-full"}
                     value={reviewFilter}
                     onChange={(e) => {
                       setReviewFilter(e.target.value as AcquisitionReviewFilter);
@@ -1131,9 +1148,21 @@ export function AcquisitionCapture({
                     <option value="added">
                       Added to Inventory ({reviewCounts.added})
                     </option>
+                    <optgroup label="Review problems">
+                      {(Object.keys(acquisitionReviewProblemLabels) as AcquisitionReviewProblem[]).map(problem =>
+                        <option key={problem} value={problem}>
+                          {acquisitionReviewProblemLabels[problem]} ({problemCounts[problem]})
+                        </option>)}
+                    </optgroup>
                   </select>
                 </label>
               </div>
+              {Object.hasOwn(acquisitionReviewProblemLabels, reviewFilter) &&
+                <p className="text-sm mb-3" role="status">
+                  Problem counts cover the whole batch and can overlap. Unsaved corrections stay visible.
+                  {reviewFilter === "quality" && " These photos have clipped edges or need a crop to check."}
+                  {reviewFilter === "no-match" && " Cards still being checked are not counted as no match."}
+                </p>}
               {reviewMode === "simple" && (
                 <a className="text-sm underline" href="#scan-inventory" onClick={event => { event.preventDefault(); showInventory(); }}>
                   Go to Inventory confirmation
@@ -1179,6 +1208,7 @@ export function AcquisitionCapture({
                       {photo && !photo.purgedAt ? (
                         <AcquisitionPhotoReview
                           userId={userId}
+                          openerChoices={openerChoices}
                           key={photo.id}
                           batchId={batchId}
                           photoId={photo.id}
