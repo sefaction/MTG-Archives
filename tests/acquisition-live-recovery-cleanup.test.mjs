@@ -1,3 +1,4 @@
+import * as ownedFixtureFiles from "./ui/owned-fixture-files.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -22,7 +23,7 @@ function exercise(faults = []) {
     calls.push(name);
     if (faults.includes(name)) { const error = new Error(name); failures.push(error); throw error; }
   };
-  const context = {
+  const context = {...ownedFixtureFiles,
     tag: "ui-recovery-00000000-0000-0000-0000-000000000000", worker: "owned-ocr-worker", stopped: true,
     timer: {}, report: {}, console, AggregateError,
     cancelAndCleanCorrectionFixture: owner => "owned-feedback-sweep:" + owner,
