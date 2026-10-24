@@ -2,8 +2,9 @@
 
 - Owner: thread01a16943 / runfixture-file-failure-692-20261024-01a16943, isolated codex/fixture-file-failure-692 from main9b3add47; #966 under #692/#310, no merge authority.
 - Actual-source negative:1/4files attempted after19 relational deletes. Fix preserves the full original workflow/assertions/deadline/relational-tail text;9host controls pass.
-- Source claim held; no runtime claim or live child between checks. Private current/source/evidence record: `.local-data/fixture-file-failure-692-20261024/` at primary root.
-- Next: exact-source disposable SQL/filesystem and locked types, final CI, independent review, then exact-owned cleanup/release. Root cumulative WIP and existing reviews remain protected.
+- Source ownership/release is recorded in the exact private current record; temporary fixture/runtime retired, no live owned child. Private source/evidence record: `.local-data/fixture-file-failure-692-20261024/` at primary root.
+- Tested source67c1bdc2 / PR967:9locked controls, actual4path failure/retained rows/verified restoration/replay/populated peer/all85tables and corrected type-only check pass. Independent review5637927019 has no findings; all9initial-head CI pass. Original setup/config failures retained.
+- Next: final report-head CI and exact source release/readiness handoff. Root cumulative WIP and existing reviews remain protected.
 
 ## Current work - correction discard focus #916 / PR #917, October 23, 2026
 
