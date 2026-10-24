@@ -48,6 +48,8 @@ export type AcquisitionCommitPreview = {
     finish: string;
     condition: string;
     language: string;
+    openerPlayerId?: string | null;
+    openerName?: string;
   }[];
 };
 export type AcquisitionCommitReceipt = {

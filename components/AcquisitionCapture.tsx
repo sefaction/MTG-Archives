@@ -14,7 +14,9 @@ import { StorageDestinationPicker } from "./StorageDestinationPicker";
 import {
   AcquisitionBatchDefaults,
   AcquisitionPhotoReview,
+  AcquisitionOpenerSelect,
 } from "./AcquisitionReviewControls";
+import {emptyAcquisitionDefaults, acquisitionOpenerName, type AcquisitionOpenerChoice} from "@/lib/acquisition-review";
 import {
   filterButtonClass as button,
   filterPrimaryButtonClass as primary,
@@ -91,6 +93,7 @@ export function AcquisitionCapture({
   recent,
   initialSetup = null,
   setupMessage = "",
+  openerChoices = [],
 }: {
   userId: string;
   locations: StorageLocation[];
@@ -100,6 +103,7 @@ export function AcquisitionCapture({
   recent: { id: string; batchNumber: number; phase: string }[];
   initialSetup?: ScannerContinuation | null;
   setupMessage?: string;
+  openerChoices?: AcquisitionOpenerChoice[];
 }) {
   const [locationId, setLocationId] = useState(initialSetup?.locationId ?? "");
   const [section, setSection] = useState(initialSetup?.section ?? "");
@@ -121,6 +125,10 @@ export function AcquisitionCapture({
   const [retiredSetup, setRetiredSetup] = useState<PendingScannerStart | null>(null);
   const [setupNotice, setSetupNotice] = useState("");
   const setupDefaults = retiredSetup?.defaults ?? initialSetup?.defaults;
+  const [newOpenerPlayerId, setNewOpenerPlayerId] = useState(initialSetup?.defaults?.openerPlayerId ?? null);
+  useEffect(() => {
+    if (retiredSetup) setNewOpenerPlayerId(retiredSetup.defaults?.openerPlayerId ?? null);
+  }, [retiredSetup]);
   const [checkingStart, setCheckingStart] = useState(true);
   const [startStorageError, setStartStorageError] = useState(false);
   const sourceIdentity = useRef("");
@@ -456,7 +464,7 @@ export function AcquisitionCapture({
       if (!createKey.current) createKey.current = captureUuid();
       const value = {
         ...(scannerChoice ? { ...scannerChoice, action: "create" } : {}),
-        ...(scannerChoice && setupDefaults ? { defaults: setupDefaults } : {}),
+        defaults: {...(setupDefaults ?? emptyAcquisitionDefaults), openerPlayerId: newOpenerPlayerId},
         requestKey: createKey.current,
         locationId,
         section,
@@ -792,6 +800,11 @@ export function AcquisitionCapture({
           </div><div className="min-w-0">
           {photoInput ? <p className="text-sm my-3">One card per photo. JPEG, PNG and WebP are supported. Review the saved cards before adding them to Inventory.</p> : <ScannerSourceFields key={pendingScanner?.requestKey ?? "setup"} initialEnabled={pendingScanner || retiredSetup ? true : initialScanner} initialChoice={pendingScanner ?? retiredSetup ?? initialSetup?.scanner} onChange={scannerChanged} disabled={busy || checkingStart || !!pendingScanner || startStorageError || refreshingCapacity} remaining={customLimit ? Math.min(quantity,remaining??quantity) : remaining} />}
           </div></div>
+          <div className="my-3"><AcquisitionOpenerSelect label="Batch original opener"
+            value={pendingScanner ? pendingScanner.defaults?.openerPlayerId ?? null : newOpenerPlayerId}
+            choices={openerChoices} onChange={setNewOpenerPlayerId}
+            disabled={busy || checkingStart || !!pendingScanner || startStorageError} />
+            <p className="text-sm mt-1">Who originally opened these cards. Leave Unknown if you do not know.</p></div>
           <button
             className={primary}
             disabled={
@@ -1058,16 +1071,17 @@ export function AcquisitionCapture({
             </section>
           )}
           <details className="min-w-0" open={reviewMode === "advanced"}>
-          <summary className="cursor-pointer text-sm">Batch defaults: {progress.defaults.finish.toLowerCase()} · {progress.defaults.condition ?? "condition unset"} · Change</summary>
+          <summary className="cursor-pointer text-sm">Batch defaults: {progress.defaults.finish.toLowerCase()} · {progress.defaults.condition ?? "condition unset"} · Original opener: {acquisitionOpenerName(progress.defaults.openerPlayerId, openerChoices)} · Change</summary>
           <AcquisitionBatchDefaults
             key={`defaults:${batchId}`}
             batchId={batchId}
             defaults={progress.defaults}
+            openerChoices={openerChoices}
             revision={progress.defaultsRevision}
             refresh={() => void refresh()}
           />
           </details>
-          <AcquisitionBulkReview key={`bulk:${batchId}`} batchId={batchId} slots={progress.slots} defaults={progress.defaults} refresh={refresh}
+          <AcquisitionBulkReview key={`bulk:${batchId}`} batchId={batchId} slots={progress.slots} defaults={progress.defaults} openerChoices={openerChoices} refresh={refresh}
             blockedPhotos={blockedPhotos} draftsReady={cachedDrafts.ready} canUsePhotos={canUsePhotos}
             onOpenChange={setBulkOpen} onConfirmed={ids => { setSelectedPhotos(previous => [...new Set([...previous, ...ids])]); showInventory(); }}
             onInspect={position => { setReviewFilter("all"); setVisibleCount(count => Math.max(count, position));
@@ -1194,6 +1208,7 @@ export function AcquisitionCapture({
                       {photo && !photo.purgedAt ? (
                         <AcquisitionPhotoReview
                           userId={userId}
+                          openerChoices={openerChoices}
                           key={photo.id}
                           batchId={batchId}
                           photoId={photo.id}

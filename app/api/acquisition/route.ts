@@ -10,6 +10,7 @@ import {
   getAcquisitionProgress,
 } from "@/lib/acquisition-store";
 import { z } from "zod";
+import {acquisitionDefaultsSchema} from "@/lib/acquisition-review";
 export async function POST(request: Request) {
   try {
     const actor = await acquisitionActor(request);
@@ -19,6 +20,7 @@ export async function POST(request: Request) {
         locationId: z.string().min(1),
         section: z.string().max(100),
         quantity: z.number().int().min(1).max(2147483647).nullable(),
+        defaults: acquisitionDefaultsSchema.optional(),
       })
       .strict()
       .parse(await request.json());
@@ -31,6 +33,7 @@ export async function POST(request: Request) {
       ownerPlayerId: location.ownerPlayerId,
       locationId: location.id,
       section: input.section,
+      ...(input.defaults ? {defaults: input.defaults} : {}),
       policy:
         input.quantity === null
           ? { kind: "FILL" }
