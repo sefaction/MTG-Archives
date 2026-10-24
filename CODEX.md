@@ -1,5 +1,11 @@
 # Codex local workflow
 
+## No-new-issues freeze - 2026-10-24
+
+Brian's current instruction applies to every local and remote worker: **do not create new issues until Brian explicitly lifts this freeze.** This overrides all earlier bug, audit, qualification, replacement, nested/child, and other ticket-creation instructions in repository guidance, startup prompts, and historical checkpoints, including those preserved below.
+
+Finish existing issues within their agreed scope. Preserve tests, failure evidence, and acceptance criteria; do not weaken tests or close issues with unresolved acceptance. Report newly discovered concerns and blockers to Brian instead of creating replacement or nested issues. Existing ownership, coordination, review, and individual merge-approval requirements still apply.
+
 This project is MTG-Archives, a Next.js + Prisma app running locally with Docker Desktop on Windows. This file is a command reference; [AGENTS.md](AGENTS.md) owns authority, queue, verification and resource policy. See [the autonomous workflow](docs/AUTONOMOUS_WORKFLOW.md) for current execution and handoff guidance.
 
 Commands below are examples, not instructions to rebuild every change. Verify the target project, actual installed Compose overlay chain and runtime owner before mutations. The base/local pair alone may not describe the installed review stack.

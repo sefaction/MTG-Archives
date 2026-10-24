@@ -1,5 +1,11 @@
 # Issue workflow safeguards
 
+## No-new-issues freeze - 2026-10-24
+
+Brian's current instruction applies to every local and remote worker: **do not create new issues until Brian explicitly lifts this freeze.** This overrides all earlier bug, audit, qualification, replacement, nested/child, and other ticket-creation instructions in repository guidance, startup prompts, and historical checkpoints, including those preserved below.
+
+Finish existing issues within their agreed scope. Preserve tests, failure evidence, and acceptance criteria; do not weaken tests or close issues with unresolved acceptance. Report newly discovered concerns and blockers to Brian instead of creating replacement or nested issues. Existing ownership, coordination, review, and individual merge-approval requirements still apply.
+
 [AGENTS.md](../AGENTS.md#github-issue-organization-and-upkeep) is the canonical policy. Public reporters choose **Report a problem**, **Suggest an idea** or **Something else**. GitHub supplies its normal title field; each form adds one required plain-language description and one optional details box. Reproduction, expected behavior, screenshots and environment can go in that optional box. No form assigns labels or asks for internal planning. The general form is the fallback; the maintenance/validation/improvement choices and internal policy link are removed from the public chooser.
 
 These use GitHub's supported [`textarea` validation](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/syntax-for-githubs-form-schema#textarea). No `render` option is set, preserving Markdown editing and attachments. A top-level `title` only prefills a default title, so no duplicate title input or synthetic title validation is added. See [issue form syntax](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/syntax-for-issue-forms). `blank_issues_enabled: false` leaves the three forms available; GitHub still exposes a [maintainer-only blank option](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository). API/CLI submissions can bypass forms. These constraints are platform behavior, not additional reporter obligations.
