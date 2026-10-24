@@ -1,3 +1,10 @@
+## Current work - scanner-crop outer cleanup #970 / PR #971, October 24, 2026
+
+- Branch `codex/scanner-crop-outer-cleanup`, current tested sourcee35b8b8e from main9b3add47; isolated implementation worker owns the source batch. Exact owner/run and creation receipt remain private. No live children or runtime resource; four disposable containers/two sole volumes/two internal networks are retired and both runtime claims released after exact checks. Source claim remains held through final readiness/handoff.
+- Reproduced first-sweep bypass/error masking, repaired three independent actions and primary/falsy causes. Entire outside-helper/owner-wrapper source,78 expectation expressions, deadlines and legacy SQL/file template are exact. Eleven corrected controls pass; initial standalone and actual two-file composed969 SQL/85-table/peer/replay/type evidence retain separate bindings. Reviewer adapter-binding P2 is corrected in e35; original negative retained.
+- Source911b all9CI40093270788 pass. All9 corrected e35 CI40093855062 pass and independent5638237099 confirms the repaired adapter/P2; final report-head CI and evidence review remain pending. No app build/layout reload or original optical workflow is required or claimed for this fixture-only change. [Portable report](SCANNER_CROP_FIXTURE_CLEANUP.md) and [PR971](https://github.com/sefaction/MTG-Archives/pull/971) own exact live gates.
+- Next: final report-head CI/review, readiness and source release; Brian's individual approval/explicit merge remain required. Narrow970 and broad692/310 remain OPEN; no production, hardware, deployment or user acceptance claim. Prior checkpoint history follows unchanged.
+
 ## Current work - correction discard focus #916 / PR #917, October 23, 2026
 
 - Laptop owner/thread `01a16943-ac96-7b93-89ea-c178f02100db`, run `laptop-cancel-focus-20261023-01a16943`; branch `codex/acquisition-cancel-focus`, base04b49133, product/test95a67040. Brian's October23shared-queue correction authorizes this bounded #308focus remainder; #913/914 remains desktop-owned. No merge, production, scanner or schedule authority.

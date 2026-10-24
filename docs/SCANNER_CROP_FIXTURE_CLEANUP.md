@@ -36,6 +36,30 @@ types/build/client guards and27 issue-guideline checks. Hosted logs are bounded;
 the complete new case and its full conservation pair are present and inspected.
 The outer repair is hosted alongside the unchanged existing acquisition suite.
 
+Independent review then found that the source adapter omitted the actual
+file-helper binding introduced by969. The clean text merge alone did not prove
+execution: its actual composed source raised ReferenceError and skipped the
+legacy action. The original failure and review are retained. Correctede35b8b8e
+binds the real optional named exports, supports aliases and refuses missing
+exports before any database query; an eleventh actual-source regression covers
+that integration boundary. Independent re-review repeats the real composition
+probe rather than treating the prior standalone checks as sufficient.
+
+All nine corrected e35 checks in Verify40093855062 pass.
+[Independent correction review5638237099](https://github.com/sefaction/MTG-Archives/pull/971#pullrequestreview-5638237099)
+confirms the actual composed source, ordered causes and pre-query missing-export
+refusal, with no remaining source finding. The original P2 thread is resolved
+with both the failure and correction retained. Final report-head checks and any
+remaining independent evidence review stay separately recorded on the PR.
+
+Corrected local evidence is separate: e35/archivee3980e7c runs11 controls, then
+loads exactly the crop spec and shared helper from composed treee3c9212d
+(e35 plus ready969f8). Both overlay hashes are checked before use. Actual
+composed PostgreSQL/filesystem cleanup, peer/replay/all85-table equality and
+focused types pass in46.18seconds, exit0/noOOM. These two files are explicit
+qualification inputs; no whole-feature-tree runtime claim is made for that
+composed execution. Earlier standalone911b evidence retains its original scope.
+
 Only the helper and existing owner-fixture wrapper change in the original spec:
 every other byte after newline normalization, all78 original expectation
 expressions, stage/fixture clocks and the complete legacy SQL/file template are
@@ -43,16 +67,18 @@ exact. A synthetic merge composes this with ready969 unchanged. Its first attemp
 exposed an additive runner-call conflict; moving the new call after existing
 snapshot coverage resolves that conflict without changing either verifier.
 
-Both temporary containers, the sole disposable database volume and internal
-network are retired after current counts match all85 baseline counts, zero other
-database clients and exact ownership/reference checks. The exact runtime claim
-is released. Existing reviews, shared images and data are preserved. An initial
+Each qualification's two temporary containers, sole disposable database volume
+and internal network are retired after current counts match all85 baseline
+counts, zero other database clients and exact ownership/reference checks. Both
+exact runtime claims are released. Existing reviews, shared images and data are
+preserved. An initial
 private mapping harness assumed every file repair used the same shared export;
 its binding refusals preceded the eight successful source sequencing probes and
 are retained. No application or test assertion was relaxed.
 
 Final report-head CI and independent review are recorded on PR #971 before
-readiness. Report-only changes reuse the explicitly bound911b local evidence;
+readiness. Report-only changes reuse the explicitly bound e35 composition and
+earlier standalone evidence;
 they do not claim that a later complete source tree was loaded into this image.
 
 The original 28-candidate audit maps to21 original fixtures in ready969,
