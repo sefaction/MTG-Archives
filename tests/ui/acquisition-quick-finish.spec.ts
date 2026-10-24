@@ -30,6 +30,7 @@ for (const width of [1366, 390]) test(`direct finish buttons preserve review aut
   const bytes = await sharp({ create: { width: 300, height: 420, channels: 3, background: "#335577" } }).png().toBuffer();
   const digest = createHash("sha256").update(bytes).digest("hex");
   let batch = "", refreshes = 0; const photos: string[] = [];
+  const workflowFailures: unknown[] = [];
   try {
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box'}});for(const card of ${JSON.stringify(printings)})await p.card.create({data:{...card,scryfallId:require('crypto').randomUUID(),typeLine:'Creature',rarity:'common'}});`);
     await page.goto("/login"); await page.getByLabel(/username or email/i).fill(tag); await page.getByLabel(/^password$/i).fill(password);
@@ -131,6 +132,9 @@ for (const width of [1366, 390]) test(`direct finish buttons preserve review aut
     expect((await read()).finish).toBe("NONFOIL"); expect(inventory()).toBe(1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: `test-results/quick-finish-${width}.png` });
+  } catch (error) {
+    workflowFailures.push(error);
+    throw error;
   } finally {
     // Block new authenticated polling and retain every cleanup failure.
     const failures: unknown[] = [];
@@ -149,6 +153,6 @@ for (const width of [1366, 390]) test(`direct finish buttons preserve review aut
     });
     // Remove feedback that completed while the original teardown was running.
     await cleanup(() => { database(cancelAndCleanCorrectionFixture(tag)); });
-    if (failures.length) throw new AggregateError(failures, "acquisition-quick-finish.spec.ts cleanup failed");
+    if (failures.length) throw new AggregateError([...workflowFailures, ...failures], "acquisition-quick-finish.spec.ts cleanup failed");
   }
 });

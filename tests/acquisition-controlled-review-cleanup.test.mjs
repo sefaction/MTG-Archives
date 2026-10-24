@@ -8,7 +8,7 @@ for(const file of ['acquisition-quick-finish.spec.ts','acquisition-processing-re
   const tree=ts.createSourceFile(file,source,ts.ScriptTarget.Latest,true);let block;
   function visit(node){if(ts.isTryStatement(node)&&node.finallyBlock?.getText(tree).includes('Block new authenticated polling'))block=node.finallyBlock;ts.forEachChild(node,visit)}visit(tree);
   assert.ok(block,'Exercise the actual finally block, not a copied cleanup implementation');
-  const code=ts.transpileModule(block.getText(tree),{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
+  const code=ts.transpileModule('{ const workflowFailures: unknown[] = [];'+block.getText(tree)+'}',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
   const expected=['early-feedback','unroute','leave-review','acquisition-teardown','late-feedback'];
   async function exercise(faults=[]){
     const calls=[],failures=[];let sweep=0;const step=name=>{calls.push(name);if(faults.includes(name)){const error=new Error(name);failures.push(error);throw error}};

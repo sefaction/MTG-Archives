@@ -14,6 +14,7 @@ for(const width of [1366,390]) test(`terminal scan states offer safe manual reco
   const printing={id:tag,name:`Recovery fixture ${tag}`,setCode:"tst",collectorNumber:"1",lang:"en",finishes:["nonfoil","foil"],imageUri:"/processing-fixture.svg"};
   const bytes=await sharp({create:{width:300,height:420,channels:3,background:"#667788"}}).png().toBuffer();const digest=createHash("sha256").update(bytes).digest("hex");
   let batch="",photo="",status:any={recognitionStatus:"FAILED",visualStatus:"COMPLETE",printingStatus:"COMPLETE",catalog:null},reads=0;
+  const workflowFailures: unknown[] = [];
   try{
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box'}});await p.card.create({data:{...${JSON.stringify(printing)},scryfallId:require('crypto').randomUUID(),typeLine:'Creature',rarity:'common'}});`);
     await page.goto("/login");await page.getByLabel(/username or email/i).fill(tag);await page.getByLabel(/^password$/i).fill(password);await page.getByRole("button",{name:/^log in$/i}).click();await page.waitForURL(/\/dashboard/);
@@ -48,6 +49,9 @@ for(const width of [1366,390]) test(`terminal scan states offer safe manual reco
     await page.reload();await card.scrollIntoViewIfNeeded();await expect(card).toContainText("Unsaved correction restored");await expect(card.getByRole("combobox",{name:"Card condition",exact:true})).toHaveValue("LP");
     await card.getByRole("button",{name:"Save card review",exact:true}).click();await expect(card).toContainText("Review saved. Not yet added to Inventory.");expect(await saved()).toMatchObject({cardId:printing.id,condition:"LP",finish:"NONFOIL"});expect(inventory()).toBe(0);await expect(recovery).toHaveCount(0);await expect(compact).toHaveText("Review saved");
     await page.reload();await card.scrollIntoViewIfNeeded();await expect(compact).toHaveText("Review saved");await expect(recovery).toHaveCount(0);await original();expect(inventory()).toBe(0);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await card.screenshot({path:`test-results/processing-recovery-${width}.png`});
+  } catch (error) {
+    workflowFailures.push(error);
+    throw error;
   } finally {
     // Block new authenticated polling and retain every cleanup failure.
     const failures: unknown[] = [];
@@ -62,6 +66,6 @@ for(const width of [1366,390]) test(`terminal scan states offer safe manual reco
     });
     // Remove feedback that completed while the original teardown was running.
     await cleanup(() => { database(cancelAndCleanCorrectionFixture(tag)); });
-    if (failures.length) throw new AggregateError(failures, "acquisition-processing-recovery.spec.ts cleanup failed");
+    if (failures.length) throw new AggregateError([...workflowFailures, ...failures], "acquisition-processing-recovery.spec.ts cleanup failed");
   }
 });
