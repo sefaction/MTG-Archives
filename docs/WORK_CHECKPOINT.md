@@ -1,3 +1,9 @@
+## Current integration - approved PR #974 after #971, October 24, 2026
+
+Both owner checkpoint histories are preserved verbatim below. Their latest reviews and release receipts establish readiness; these historical pending statements do not replace live GitHub status. This documentation integration retains both reviewed P7 maps and all existing main changes and requires fresh final-head checks before merge. Broad #309/#310/#302 remain open; no runtime or deployment action is implied.
+
+## Preserved owner checkpoint histories
+
 ## Current integration — approved PR #971, October 24, 2026
 
 PR #969 is merged at 82b81aa6eb3f0892366c749cc666d45a8565b4ee. This integration preserves its inner file-cleanup repair and every current-main change, adds PR #971's reviewed outer cleanup, and retains both checkpoint histories below. Fresh final-head CI remains required before the individually approved merge. Broad #692/#310, deployment and independent user acceptance remain separate.
@@ -12,6 +18,14 @@ PR #969 is merged at 82b81aa6eb3f0892366c749cc666d45a8565b4ee. This integration 
 - Next: final report-head CI/review, readiness and source release; Brian's individual approval/explicit merge remain required. Narrow970 and broad692/310 remain OPEN; no production, hardware, deployment or user acceptance claim. Prior checkpoint history follows unchanged.
 
 ## Preserved current-main checkpoint history
+## Current work — #309 finite P7 reconciliation, October 24, 2026
+
+- Owner: chat `01a16e31-dc58-76b3-8ce6-24d6b4b80fc5`, run `p7-reconciliation-309-20261024-01a16e31`; branch `codex/p7-reconciliation-309`, base `751e1764`. Existing issue claim: [6385119500](https://github.com/sefaction/MTG-Archives/issues/309#issuecomment-6385119500). Scope is the explicitly remaining finite map reconciliation under #309/#310/#302; no phase closure or product/runtime change.
+- Brian's current chat instructions authorize continuing agreed open issues and prohibit creating any new issues until he explicitly lifts that restriction. No issue was created; no merge authority was granted.
+- The writer map now binds six verified resolving merges, original P7 batches/criteria and the current verifier invocation paths. It retires stale missing-writer/pending-merge directions and distinguishes merged browser/database/web-server recovery from remaining release requirements. The earlier closure refusal and all original source/failure/acceptance limits remain visible.
+- Completed: nine cited P7/recovery merge identities and base ancestry; 22 local links; six verifier invocation bindings; whitespace checks. Documentation only, so no application build, Docker reload or duplicate runtime qualification. Final-head CI and independent review remain pending at publication; keep the PR draft until its applicable gates pass.
+- Owned resources: isolated worktree and exact lightweight source claim only; no owned runtime/process/container/database. Private receipts: primary-root `.local-data/p7-reconciliation-20261024/`. Next: publish one PR, inspect exact-head checks/review, resolve findings, then release this exact source claim and continue an eligible existing issue. Preserve all earlier workers' checkpoint context below.
+
 
 ## Current integration - approved PRs #967 and #969, October 24, 2026
 

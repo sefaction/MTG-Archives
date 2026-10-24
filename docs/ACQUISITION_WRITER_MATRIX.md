@@ -1,5 +1,72 @@
 # P7 Inventory writer acceptance map
 
+## Current reconciliation — October 24, 2026
+
+Related to [#309](https://github.com/sefaction/MTG-Archives/issues/309),
+[#310](https://github.com/sefaction/MTG-Archives/issues/310) and
+[#302](https://github.com/sefaction/MTG-Archives/issues/302). Reconciled against
+main `751e1764`, the original P7 batches/acceptance/tests in #309 and the current
+verifier entry points. The named complete-writer schedules below are merged.
+Earlier statements that these deliveries await approval or integration describe
+their original qualification dates; they are not current queue blockers.
+
+| Delivered requirement | Verified resolving merge | Evidence and remaining limit |
+| --- | --- | --- |
+| Complete CSV-first/acquisition schedule | [#920](https://github.com/sefaction/MTG-Archives/pull/920), `3b06f208` | [Commit verifier](../scripts/verify-acquisition-commit.ts) observes the exact blocking pair, stale refusal and fresh reasoned overfill. Reverse ordering is delivered by #950 below. |
+| Changed owner/layout/saved finish and receipt-create rollback | [#925](https://github.com/sefaction/MTG-Archives/pull/925), `9cd09484` | [Invalidation report](ACQUISITION_COMMIT_INVALIDATION.md): scoped full-row refusal/rollback and fresh finish preview. Persisted fixture changes do not establish every editing-route interleaving. |
+| 263-to-258 subset, five-pending reassignment and fresh overfill | [#927](https://github.com/sefaction/MTG-Archives/pull/927), `55d10d32` | [Desktop/phone handoff](ACQUISITION_CAPACITY_HANDOFF.md) includes the separate Add5, immutable first receipt and frozen replay. The 263 inputs are controlled persisted reviews, not 263 native captures. |
+| Complete manual-add-first/acquisition schedule | [#944](https://github.com/sefaction/MTG-Archives/pull/944), `effa5fd8` | [Manual-writer report](ACQUISITION_MANUAL_WRITER.md) and [verifier](../scripts/verify-acquisition-manual-writer.ts): exact PID wait, stale refusal, fresh consent and replay. Domain-service qualification, not browser authentication. |
+| Acquisition-first manual addition; both storage-move, deck-return and layout orders | [#948](https://github.com/sefaction/MTG-Archives/pull/948), `6f02b2e5` | [Seven complete schedules](../scripts/verify-acquisition-writers.ts). Whole-lot move/return and the actual layout statement retain the limits below; arbitrary partial/merge and multi-statement histories are not inferred. |
+| Both complete physical-trade-action orders, transfer rollback and acquisition-first CSV | [#950](https://github.com/sefaction/MTG-Archives/pull/950), `8bdfed46` | [Trade/reverse-import report](ACQUISITION_TRADE_WRITER.md) and [trade verifier](../scripts/verify-acquisition-trade.ts). Full action effects and explicit existing admin recovery are checked; physical exchange and every transport failure are separate. |
+
+All six merge commits are ancestors of the reconciled main. Their reviewed
+qualification reports and merge/CI records retain their original source,
+environment, conservation denominators and failures. This documentation change
+does not turn those separate runs into one new cumulative runtime execution.
+The current hosted [Acquisition PostgreSQL entry point](../scripts/verify-acquisition-store.ts)
+invokes the commit, manual-writer and trade-composition verifiers; the commit
+verifier invokes the seven ordinary-writer schedules. The
+[import CI job](../.github/workflows/verify.yml) runs
+[`verify-import-commit.ts`](../scripts/verify-import-commit.ts), which invokes
+the shared receipt and capacity verifiers before its import checks.
+
+### Original requirements and completion boundary
+
+The two tables below retain the finite original writer and other P7 requirements.
+Together with the merged ledger above, they map all four original batches:
+transaction-aware receipts/provenance; actual writer coordination; immutable
+exactly-once selected membership; and fresh capacity/subset/reassignment UX.
+The [shared receipt verifier](../scripts/verify-inventory-receipts.ts) covers
+1,200-copy quantity, opener/source/notes/pull/round distinctions, compatible
+manual merging and insert/increment audit rollback. Acquisition's separate
+500-photo transaction limit remains intentional. Neither a helper pass nor the
+bounded one-printing collection fixture establishes every mixed workload.
+
+Keep #309 OPEN. Its current issue summary records an earlier automatic approval
+review refusal of phase closure; this reconciliation does not retry that action
+or change its labels. Named writer delivery is complete within the recorded
+schedules. Acceptance of the finite phase map and the broader phase/release
+boundary remains pending. No remaining work is silently transferred or declared
+accepted merely by linking #310.
+
+| Existing release/phase requirement | Delivered boundary to reuse | Still unqualified / next action |
+| --- | --- | --- |
+| Response loss and restart recovery | Merged [browser #960](ACQUISITION_BROWSER_LOSS.md), [database #962](ACQUISITION_DATABASE_LOSS.md) and [web-server #963](ACQUISITION_SERVER_LOSS_QUALIFICATION.md) cover their declared desktop/phone interruptions, rollback/durable receipt and explicit retry. | #310 retains host/power/storage loss and other source/native recovery. Browser controller-retained requests do not establish arbitrary in-flight UI persistence. Do not rerun the three delivered cases just because this map changed. |
+| Capture-consistent backup and usable restore | [Capture restore](ACQUISITION_CAPTURE_RESTORE.md), merged #923, verifies a quiescent archive, exact source/target rows/files, revoked credentials and safe upload/receipt replay. #926 repairs the separate drill's guard/time interpretation. | #305/#310 retain broader installation restoration and failure boundaries. A quiescent synthetic route fixture does not qualify online backup, power loss or an installed user workflow. |
+| Integrated throughput, sustained mixed workload and resources | Retain the dated 100/300-input and 150,000-copy results and failures under #310; the capacity fixture here is a bounded occupancy/write measurement. | #310/#760 retain current integrated sustained/varied native and resource acceptance. Select one missing revision/scenario from their evidence matrix after fresh ownership/capacity checks; do not enlarge the writer matrix with speculative combinations. |
+| Recognition, saved decisions and installation/release acceptance | Existing source/database/manual-review fences and the separately delivered native integration remain scoped evidence. | #304/#307/#308/#302 and #310 retain their own accuracy, review/default and installed-release acceptance. The desktop owns the open language-default correction #958. Other capture methods stay deferred under #442/#443/#312; ordinary fi-7160 operation does not need broad requalification. |
+
+The next safe P7 action is review of this reconciled map against #309's original
+criteria. If a concrete original scenario is found missing, record that bounded
+remainder on the existing issue with its inputs, expected conserved state and
+stopping criterion. Otherwise continue an eligible existing release requirement;
+phase closure still requires its acceptance/transfer boundary to be settled.
+Brian's current instruction prohibits creating any new issue. Individual PR
+approval, merge, named-installation deployment and user acceptance remain
+separate. No product/runtime/data change or new runtime evidence is claimed.
+
+## Preserved qualification context
+
 This reconciles #309's recorded all-writer requirement against current source,
 not just the original phase delivery. It is a partial acceptance map, not closure
 of #309/#302, named-installation deployment or independent user acceptance.
@@ -107,7 +174,7 @@ not count it as a type pass or host/Docker OOM. Required Core CI is the current
 full typecheck gate. No app build/reload is required for test/documentation-only
 changes; a disposable local database is isolated from all current review data.
 
-## Remaining acceptance and next safe step
+## Historical remaining-work handoff before the final resolving merges
 
 The final named trade/reverse-import schedules and finite original P7 acceptance
 reconciliation are in [ACQUISITION_TRADE_WRITER.md](ACQUISITION_TRADE_WRITER.md).
@@ -120,15 +187,14 @@ The subsequent persisted preview and receipt-create controls are documented in
 the explicitly mapped owner/finish/layout and receipt-create evidence without
 claiming a concurrent complete writer schedule or changing the earlier CSV case.
 
-Keep #309 open. The table distinguishes direct source mechanisms, helper/service
-controls, composed writer schedules, UI and historical acceptance. Next select
-one specifically missing complete writer composition or explicit invalidation
-case; preserve original requirements and link existing reports instead of
-continually widening this matrix. The whole-trade feature remains its owner's
-batch. Other-provider/phone-device acceptance stays #442; release/host-loss and
-capture-consistent recovery stay #310. Any deployment or merge needs its own
-current authority. An individually approved merge of this test batch would add
-one schedule and this map, not claim all P7 criteria complete.
+That earlier handoff selected a missing complete writer composition or explicit
+invalidation case and left the whole-trade feature with its author. The merged
+ledger and current completion boundary at the top now supersede that selection
+instruction: the named cases are delivered, and no missing writer should be
+invented to keep this phase busy. Original evidence, failures and acceptance
+limits remain preserved. #309 stays open under its current criteria;
+other-provider/phone-device acceptance remains #442 and cross-layer release
+acceptance remains #310. Merge and deployment still need their own authority.
 
 ## Preserved manual-first acceptance row before the seven-schedule integration
 
