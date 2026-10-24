@@ -4,6 +4,8 @@ on:
     paths:
       - 'tools/scanner-agent/**'
       - 'tools/scanner-twain-count/**'
+      - 'lib/scanner-run-protocol.ts'
+      - 'tests/scanner-helper-identity.test.ts'
       - '.github/workflows/scanner.yml'
   workflow_dispatch:
 permissions:
@@ -22,6 +24,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - run: npm ci --ignore-scripts
+      - run: npx prisma generate
       - run: dotnet restore tools/scanner-agent/ScannerAgent.csproj --locked-mode
       - name: Verify counted-feed diagnostic policy without hardware
         shell: pwsh
@@ -33,6 +37,21 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Settings-only inspector policy selftest failed' }
           & tools/scanner-twain-count/test-loop-lifecycle.ps1
       - run: dotnet build tools/scanner-agent/ScannerAgent.csproj --no-restore --configuration Release
+      - run: dotnet tools/scanner-agent/bin/Release/net8.0-windows/Mtg.ScannerAgent.dll identity-selftest
+      - name: Independently match reported identity to actual source-build payload
+        shell: pwsh
+        run: |
+          $payload = 'tools/scanner-agent/bin/Release/net8.0-windows/Mtg.ScannerAgent.dll'
+          $versionJson = (& dotnet $payload version) -join "`n"
+          $report = ($versionJson | ConvertFrom-Json).helperIdentity
+          if ($LASTEXITCODE -ne 0 -or $report.payloadKind -ne 'MANAGED_ASSEMBLY' -or
+              $report.sha256 -ne (Get-FileHash -LiteralPath $payload).Hash.ToLowerInvariant() -or
+              $report.moduleVersionId -eq ([guid]::Empty).ToString()) { throw 'Actual helper payload identity differs' }
+          [IO.File]::WriteAllText((Join-Path $env:RUNNER_TEMP 'scanner-helper-identity.json'), $versionJson, [Text.UTF8Encoding]::new($false))
+      - name: Actual Windows producer report through the production site protocol
+        env:
+          SCANNER_HELPER_IDENTITY_REPORT: ${{ runner.temp }}/scanner-helper-identity.json
+        run: npx tsx --test tests/scanner-helper-identity.test.ts
       - run: dotnet tools/scanner-agent/bin/Release/net8.0-windows/Mtg.ScannerAgent.dll connection-selftest
       - run: dotnet tools/scanner-agent/bin/Release/net8.0-windows/Mtg.ScannerAgent.dll native-selftest
       - run: dotnet tools/scanner-agent/bin/Release/net8.0-windows/Mtg.ScannerAgent.dll discovery-selftest
@@ -54,7 +73,7 @@ jobs:
           if (-not (Test-Path $helper) -or -not (Test-Path (Join-Path $env:RUNNER_TEMP 'scanner-publish/NAPS2.Worker.exe'))) {
             throw 'Self-contained helper is incomplete'
           }
-          foreach ($check in @('connection-selftest', 'native-selftest', 'discovery-selftest')) {
+          foreach ($check in @('identity-selftest', 'connection-selftest', 'native-selftest', 'discovery-selftest')) {
             $process = Start-Process -FilePath $helper -ArgumentList $check -Wait -PassThru -WindowStyle Hidden
             if ($process.ExitCode -ne 0) { throw "$check failed: $($process.ExitCode)" }
           }

@@ -149,7 +149,7 @@ export async function pollScannerRun(db: PrismaClient, authorization: string | n
     const { agent } = await authenticateScanner(tx, authorization, new Date());
     const run = await tx.scannerRun.findFirst({ where: { agentId: agent.id, status: { in: ["QUEUED", "STARTED", "ERROR"] },
       reconciliation: { equals: Prisma.DbNull }, NOT: cancelledSettledScannerTransfer }, include, orderBy: { createdAt: "asc" } });
-    return { version: 1, agentId: agent.id, epoch, run: run ? command(run) : null };
+    return { version: 1, agentId: agent.id, epoch, helperIdentityReporting: true, run: run ? command(run) : null };
   });
 }
 export async function claimScannerRun(db: PrismaClient, authorization: string | null, value: unknown, epoch: string) {
@@ -164,8 +164,11 @@ export async function claimScannerRun(db: PrismaClient, authorization: string | 
     const current = await tx.scannerRun.findUniqueOrThrow({ where: { id: run.id }, include });
     if (await scannerStartRetired(run.id)) throw denied();
     if (current.status === "STARTED" && current.executionId === input.executionId) {
+      if (scannerCanonical(current.helperIdentity ?? null) !== scannerCanonical(input.helperIdentity ?? null))
+        throw new ScannerRunConflict("Scanner helper identity changed for this execution; no new feed authorized");
       await persistScannerStartMarker(run.id, epoch, input.executionId);
-      return { version: 1, runId: run.id, executionId: input.executionId, feedAuthorized: true, replay: true };
+      return { version: 1, runId: run.id, executionId: input.executionId, feedAuthorized: true, replay: true,
+        ...(current.helperIdentity ? { helperIdentity: current.helperIdentity } : {}) };
     }
     if (current.status !== "QUEUED" || current.stopRequestedAt) throw denied();
     if (current.counted) currentCountedSource(await tx.scannerAgent.findUniqueOrThrow({ where: { id: current.agentId } }), current.deviceId);
@@ -185,11 +188,15 @@ export async function claimScannerRun(db: PrismaClient, authorization: string | 
     // File write deliberately occurs under the short serialized claim lock.
     // If DB commit fails, the marker persists and denies automatic refeeding.
     if (!await persistScannerStartMarker(run.id, epoch, input.executionId)) {
+      // A marker left by an uncommitted older attempt cannot establish its
+      // original helper binary. Do not backfill it from this retry's process.
       await tx.scannerRun.update({ where: { id: run.id }, data: { status: "RECONCILIATION", executionId: input.executionId } });
       return { version: 1, runId: run.id, executionId: input.executionId, feedAuthorized: false, reconciliationRequired: true, replay: false };
     }
-    await tx.scannerRun.update({ where: { id: run.id }, data: { status: "STARTED", executionId: input.executionId, preflightProblem: Prisma.DbNull } });
-    return { version: 1, runId: run.id, executionId: input.executionId, feedAuthorized: true, replay: false };
+    await tx.scannerRun.update({ where: { id: run.id }, data: { status: "STARTED", executionId: input.executionId,
+      helperIdentity: input.helperIdentity ?? Prisma.DbNull, preflightProblem: Prisma.DbNull } });
+    return { version: 1, runId: run.id, executionId: input.executionId, feedAuthorized: true, replay: false,
+      ...(input.helperIdentity ? { helperIdentity: input.helperIdentity } : {}) };
   });
 }
 export async function reportScannerPreflightProblem(db: PrismaClient, authorization: string | null, value: unknown, epoch: string) {
@@ -239,7 +246,8 @@ export async function receiveScannerImage(db: PrismaClient, authorization: strin
   });
   const { run, actor, slot } = assigned;
   const sourceMetadata = { ...input, backend: (run.device as Prisma.JsonObject).backend, device: run.device,
-    requestedSettings: run.settings, negotiatedSettings: "UNKNOWN" } as Prisma.InputJsonObject;
+    requestedSettings: run.settings, negotiatedSettings: "UNKNOWN",
+    ...(run.helperIdentity ? { helperIdentity: run.helperIdentity } : {}) } as Prisma.InputJsonObject;
   let photo;
   try {
     photo = await beginAcquisitionPhoto(db, actor, run.acquisitionRun.sessionId, {
