@@ -12,12 +12,20 @@ public record NativeSettings(int Dpi, decimal WidthInches, decimal HeightInches,
 public record NativeInstruction(int Version, Guid RunId, Guid Epoch, string SessionId,
     string DeviceId, int? LoadedCount, NativeSettings Settings, int? PhysicalTarget,
     bool StopRequested, string Status, Guid? ExecutionId, bool Counted = false, int SequenceOffset = 0, int Segment = 0);
-public record NativeBinding(int Version, NativeInstruction Instruction, Guid ExecutionId);
+public record NativeBinding(int Version, NativeInstruction Instruction, Guid ExecutionId, HelperIdentity? HelperIdentity = null);
 
 // Generic outbound acquisition transport; the existing backend owns all driver
 // calls. A durable run directory is never reopened for a second physical feed.
 public static class ScannerNativeRunner
 {
+    internal static Dictionary<string, object> ClaimPayload(NativeBinding binding)
+    {
+        var run = binding.Instruction;
+        var payload = new Dictionary<string, object> { ["action"] = "claim", ["version"] = 1,
+            ["runId"] = run.RunId, ["epoch"] = run.Epoch, ["executionId"] = binding.ExecutionId };
+        if (binding.HelperIdentity != null) payload["helperIdentity"] = binding.HelperIdentity;
+        return payload;
+    }
     private sealed class PreparedSource(IScannerBackend backend, FileStream deviceLock, ScanRequest request, Capabilities capabilities) : IDisposable
     {
         public IScannerBackend Backend => backend;
@@ -142,11 +150,13 @@ public static class ScannerNativeRunner
         }
         if (run.Status != "QUEUED" || run.StopRequested || run.ExecutionId != null)
             throw new InvalidOperationException("Started scanner run has no local journal; manual reconciliation required");
+        var helperIdentity = poll.TryGetProperty("helperIdentityReporting", out var reporting) && reporting.ValueKind == JsonValueKind.True
+            ? ScannerHelperIdentity.Current : null;
         using var prepared = await PrepareSource(client, token, run, root, devices, backendFactory);
         if (prepared == null) return;
         var backend = prepared.Backend;
         using var spool = new RunSpool(runsRoot, prepared.Request, new { description = (backendDescription ?? Naps2Backend.Describe)(), capabilities = prepared.Capabilities });
-        var saved = new NativeBinding(1, run, Guid.NewGuid());
+        var saved = new NativeBinding(1, run, Guid.NewGuid(), helperIdentity);
         RunSpool.WriteNew(Path.Combine(directory, "binding.json"), saved);
         // Existing run.lock/binding before network or motor: restart cannot feed.
         JsonElement claim;
@@ -154,11 +164,11 @@ public static class ScannerNativeRunner
         {
             if (stop.IsCancellationRequested) return;
             try {
-                claim = await Post(client, "api/scanner-agent/runs", token, new { action = "claim", version = 1,
-                    runId = run.RunId, epoch = run.Epoch, executionId = saved.ExecutionId });
+                claim = await Post(client, "api/scanner-agent/runs", token, ClaimPayload(saved));
                 Identity(claim, run.RunId);
                 if (claim.GetProperty("executionId").GetGuid() != saved.ExecutionId || !claim.GetProperty("feedAuthorized").GetBoolean())
                     throw new InvalidDataException("Start claim requires physical reconciliation; no feed started");
+                ScannerHelperIdentity.VerifyAcknowledgement(saved.HelperIdentity, claim);
                 break;
             }
             catch (Exception error) when (error is not ScannerConnectionRejected &&
