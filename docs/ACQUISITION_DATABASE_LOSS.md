@@ -1,218 +1,171 @@
 # Inventory addition across a disposable database process loss
 
-Fixes #961; related to #310 and #302. This is one named software-recovery boundary from the
-release matrix, not broad release acceptance. No production or physical operation.
+Fixes #961; related to #310/#302. This is one named software-recovery boundary,
+not broad release acceptance. No production or physical operation.
 
-## Existing evidence and missing scenario
+## Result and product change
 
-| Scenario | Existing evidence | Remaining boundary |
-| --- | --- | --- |
-| Stock/audit/receipt/member rollback and replay | Merged P7 PostgreSQL transaction/writer checks | An actual PostgreSQL process loss during staged writes |
-| Photo publication/file faults and interrupted writers | Merged #934/#942/#949/#957 and correction recovery | Do not substitute file/child failures for a postmaster crash |
-| Capture-consistent archive/restore | Existing acquisition capture/archive verifier | Restore success does not prove a live transaction survives interruption |
-| Browser process loss after server success | PR #960, separately reviewed at3d0eb9d5 | Database/web remain alive in that case |
-| Uncommitted addition across PostgreSQL SIGKILL | New isolated scenario below | Pending qualification |
-| Durable addition across PostgreSQL SIGKILL with HTTP reply held | New isolated scenario below | Pending qualification |
+The actual application passes desktop1366 and phone320 recovery after two owned
+PostgreSQL process interruptions per case. Uncommitted stock/audit/receipt/member
+writes roll back; a completed addition survives a second interruption while its
+HTTP reply is held. Explicit retry keeps the same frozen request across503→200
+and has no duplicate effects. The next ordinary addition succeeds. Three copies,
+three receipts/members/audits and one pending card remain, with saved reviews,
+processing jobs, original bytes, owner/foreign privacy and web lifetime conserved.
+Both current85-table baselines restore exactly. All three browser tests pass,
+including the separate POST-history contract, in2.0minutes (53.5s/52.3s/1.4s).
 
-## Declared scenario
+Two product changes support recovery:
 
-Use the actual application, newly migrated disposable PostgreSQL and generated
-uploads. Save three explicit manual reviews and one pending card; no recognition
-worker is present. Run at desktop1366 and phone320.
+- Page and global/root-layout boundaries share a self-contained error screen.
+  It starts an explicit same-origin GET for the same path/query and tells the
+  operator to check the latest outcome before repeating an action. Clearing an
+  absent/empty/named fragment cannot repeat a document POST or merely navigate
+  within the failed document. Raw errors, SQL, database details and credentials
+  are not passed into the screen.
+- Only the commit route classifies a closed Prisma connection (P1017) as a
+  sanitized503 transport failure. The existing UI retains its frozen request
+  for explicit retry. A409 semantic refusal previously cleared that request.
+  Authorization/semantic403/409 handling and other routes/upload retry hints
+  are unchanged.
 
-1. At a test-only AFTER-member-insert advisory barrier, observe the actual web
-   transaction waiting on the exact known blocker. Stock/audit/receipt/member
-   statements have run but are uncommitted. Kill only this fixture's exact
-   PostgreSQL container; require exit137/no OOM, restart its same data volume and
-   inspect real PostgreSQL crash recovery. Verify complete relational rollback,
-   unchanged source/reviews and no implicit Inventory. Complete the next explicit
-   UI preview/addition and verify effect-free replay.
-2. Forward the next real UI commit and hold its successful HTTP reply. Verify the
-   durable receipt and ledger, kill/restart only the same PostgreSQL instance,
-   then release the held response as a network failure. Retry the original UI
-   addition using the same frozen request; no additional stock or ledger entries.
-3. Perform the next ordinary explicit UI addition, preserving one pending card,
-   all original photo bytes and saved reviews/jobs. Verify owner/foreign privacy,
-   unchanged web lifetime and all85 public-table full-row baseline fingerprints
-   after cleanup. Stop at the first unresolved failure and retain its evidence.
+There is no automatic Inventory replay, shared-client disconnect, recovery
+transaction, pool/lifetime setting, schema, authentication or write-policy change.
 
-Every fault/restart/removal requires full container/image/run/nonce identity,
-the sole expected named data volume, exact private network, no published port or
-privilege and an observed valid running/terminal state. A name, timeout or old
-claim alone never authorizes interruption. The SQL barrier belongs only to this
-empty isolated fixture and is removed before ordinary recovery/retry.
+## Qualified source and evidence
 
-This controlled process failure preserves storage. It is not operating-system
-power loss, corrupted/lost storage, every database failure point, natural-fault
-acceptance, native/optical accuracy, installation deployment or user acceptance.
-Required final-head CI, actual source/runtime binding, layout results, failed
-attempts, independent review and exact-owned retirement must be recorded before
-review readiness. Existing successful workload gates are not rerun or redefined.
+| Binding | Actual local qualification |
+| --- | --- |
+| Application and harness source | caf31917d7b3848e38074f34b085e6fe195ab0b3 |
+| Application image | a7c3c5392f7632181e1d41f712e24b1a26d34852086e538f0996be2e06e4b762 |
+| Git source archive SHA256 | c69116ec3a5cb058104d77badf3e5b683825e05a51234a0f87864a2dc7be6117 |
+| Build manifest / inputs | 5b66524b34b6e374f1cd96d7b060a021a326af2d9b8099385b0ce87ea2dd8bf0 /1297 |
+| Browser harness archive / files | bc4548e0280889f280ac4260f0947765a19d680c215454f63ea745ec26383f00 /9 |
 
-## Reproduced recovery-UI defect
+The archive is byte-identical to git archive caf319; all1297 manifest entries match
+that archive and the loaded web filesystem. The nine executed harness inputs match
+its Git archive after CRLF→LF normalization only. Later documentation updates do
+not change those application/harness/dependency/schema inputs; do not describe the
+local image as having a later full source tree. Required final-head hosted checks
+and independent review are recorded on the PR separately.
 
-The first observation-SQL typo stopped before a declared interruption; its
-baseline85-table pair restored. After correcting that typo, the actual old
-application completed PostgreSQL recovery and relational rollback but the next
-scan-page navigation threw P1017 in root-layout authentication. The default
-exception page had no recovery control. The card locator reached the unchanged
-180-second case deadline; cleanup still restored all85 table fingerprints.
+Seventeen focused ownership/navigation/commit-error controls, exact-source local
+generation/types/build/client manifests pass. All ten caf checks pass in Verify
+40074049008 and pool40074048958: actual Core1666unit passes/one existing Windows
+helper skip, types/build/client and27issue-guideline checks; the pool report is
+MEASURED with no failures and cleanuptrue. Hosted9f58af98(base9b3+headcaf) has the
+exact feature tree673d222f. These results do not substitute for final-head CI.
 
-The repair adds page and global/root-layout error boundaries sharing a small
-self-contained recovery screen. The operator explicitly starts a fresh same-origin
-GET for the same path/query and checks the latest outcome before repeating an
-action. Fragment removal uses history replacement before document navigation, so
-neither a document POST replay nor a fragment-only navigation is used. An actual
-browser contract covers no fragment, an empty fragment and a named fragment. Raw error details are
-never passed into its UI. Authentication, database pools, transactions and write
-retry policy are unchanged. This does not diagnose the separate #808/#844 reports.
+The actual1366 recovery uses one explicit GET200. Phone320 uses GET500 then GET200;
+the error control remains available. Both original commit retries receive503 then
+200 with the exact same body/key and unchanged durable ledger after each attempt.
+Screenshots of the recovery screen and retry controls at both widths were inspected.
+The browser POST-history server records POST→GET for all three fragment histories.
+Its private initial-action negative records POST→POST and fails the same assertion.
+That negative is the first draft action, not an old production recovery control.
 
-The test now bounds ordinary locator waits at15seconds instead of exhausting the
-whole180-second scenario on a missing card. No recovery assertion/deadline is
-weakened; the old application failure remains evidence. Corrected product build
-and the same declared desktop/phone cases are pending.
+Private compact evidence remains under .local-data/database-loss-310-20261024:
+source/build/image/harness bindings, final-browser-summary, all-browser-conservation,
+per-case barrier/lifecycle/ledger/GET/retry/settings/original records and screenshots.
+Seven full browser85-table pairs match, including all five failed attempts. Two
+additional native diagnostic85-table pairs match independently. Do not publish
+private payloads, credentials or images from unrelated installations.
 
-## Ownership and reproduction
+## Declared scenario and reproduction
 
-The controller needs locked Playwright/Chromium, Sharp, Docker CLI and a Docker
-socket. Its browser and own ephemeral POST-contract HTTP listener share only
-loopback with the fixture web; no port is published. The web uses a private
-uploads root and the database uses one freshly created named volume. Both carry
-matching run/nonce/role labels; the network is internal and the volume/network
-labels and references are rechecked at each declared interruption and restart.
+Use newly migrated disposable PostgreSQL and the actual application with generated
+JPEG uploads, three explicit manual reviews and one pending card. No recognition
+worker is present. Run one Chromium worker at1366 and320 with max-failures1.
+
+1. A test-only AFTER-member-insert trigger checks the in-transaction stock,
+   audit, receipt and member, then waits on the exact owned advisory blocker.
+   Observe the actual web INSERT waiting on that PID before killing only the
+   fixture PostgreSQL container. Require137/no OOM and terminal blocker/helper.
+2. Consume the failed commit response, then navigate the existing batch while
+   that database remains down. Require the actual root error boundary. Restore
+   the same container/volume, inspect real PostgreSQL automatic crash recovery
+   with fsync/full_page_writes/synchronous_commit stillon, and verify full rollback.
+3. Use the visible recovery button. Each click must navigate with GET to the
+   same path/query. Preview/add explicitly, then verify effect-free exact replay.
+4. Forward the second real commit and hold its successful HTTP reply. Check the
+   durable two-copy ledger, interrupt/recover the same PostgreSQL again, and
+   require identical stock/audit/receipt/member rows afterward. Abort the held
+   reply; explicitly retry its original frozen request through transient503.
+5. Add the third reviewed card normally. Verify the one pending card, original
+   metadata/bytes, all saved reviews/jobs, owner200/foreign403 and unchanged web
+   lifetime. Remove only owned fixtures; compare all85 full-row baselines.
+
+The case remains bounded at180seconds, ordinary locator waits at15seconds and at
+most five explicit GET/retry clicks five seconds apart. No fixture query warms the
+application process's pool. Stop on the first unresolved failure and retain it.
+If boundary navigation fails before PostgreSQL restart, leave the stopped graph
+and records intact; the owner must recover the exact fixture before cleanup/release.
+
+Every fault/restart/removal checks immutable container/image/run/nonce identity,
+the sole expected data volume, exact internal network, references, no published
+port/privilege and valid running/terminal state. SQL barriers belong only to the
+new empty fixture and are removed before ordinary recovery/retry. A name, elapsed
+time, expired claim or later passing test never authorizes another owner's target.
 
 | Variable | Required value |
 | --- | --- |
-| `MTG_DATABASE_LOSS_TEST` | `1` |
-| `MTG_REVIEW_ACCEPTANCE_TEST` | `1` |
-| `PLAYWRIGHT_BASE_URL` | `http://127.0.0.1:3000` inside the fixture namespace |
-| `MTG_INVENTORY_TEST_CONTAINER` | Full immutable owned web ID |
-| `MTG_INVENTORY_TEST_DATABASE` | Exact newly created `review\w+` database |
-| `MTG_DATABASE_LOSS_POSTGRES` | Full immutable owned PostgreSQL ID |
-| `MTG_DATABASE_LOSS_IMAGE` | Exact PostgreSQL image SHA256 |
-| `MTG_DATABASE_LOSS_RUN` | `acquisition-database-loss-310-...` owner run |
-| `MTG_DATABASE_LOSS_NONCE` | Matching32hex label on web/database/network/volume |
-| `MTG_DATABASE_LOSS_NETWORK` | Full immutable internal network ID |
-| `MTG_DATABASE_LOSS_VOLUME` | Sole `mtg-database-loss-data-...` named volume |
+| MTG_DATABASE_LOSS_TEST / MTG_REVIEW_ACCEPTANCE_TEST | 1 /1 |
+| PLAYWRIGHT_BASE_URL | http://127.0.0.1:3000 inside the private fixture namespace |
+| MTG_INVENTORY_TEST_CONTAINER | Full immutable owned web ID |
+| MTG_INVENTORY_TEST_DATABASE | Exact new review database |
+| MTG_DATABASE_LOSS_POSTGRES / IMAGE | Full owned PostgreSQL ID / exact image SHA256 |
+| MTG_DATABASE_LOSS_RUN / NONCE | acquisition-database-loss-310 owner / matching32hex |
+| MTG_DATABASE_LOSS_NETWORK / VOLUME | Full internal network ID / sole owned data volume |
 
-Run the two named database-loss and page-load-recovery specs with one Chromium
-worker and `--max-failures=1`. Save source/image/archive and lifecycle/barrier/
-ledger fingerprints. After the test, require browser/helper/request termination,
-zero transactions, removal of its test-only barrier, exact85-table baselines and
-empty uploads before retiring only the owned fixture. A failed or uncertain
-termination preserves recovery records. This is not a production command.
+The controller needs locked Playwright/Chromium, Sharp and Docker CLI/socket. The
+web uses private uploads; no browser/helper/SQL client or active transaction may
+remain at retirement. Require removed barriers, restored fingerprints, empty
+uploads and sole exact volume/network references before retiring owned resources.
+The current qualified image and compact source/failure evidence remain for review.
 
-## Draft review correction
+## Preserved failures and rejected hypotheses
 
-Independent source review5637104548 found that the initial draft's history reload
-could repeat a document POST. Corrected source uses an explicit same-origin GET
-replacement after clearing even an empty fragment without navigation. Four focused
-navigation/ownership controls and strict harness types pass. A real Chromium
-form-POST history contract passes all three absent/empty/named-fragment cases
-(17.9seconds), with each server trace exactly POST then GET. The private old-action
-control repeats POST then POST and fails the unchanged recovery assertion. This
-negative is the initial draft action, not a claim about an old production control
-that did not yet exist.
+The first observation-SQL typo failed before an interruption. The corrected old
+application then rolled back/recovered PostgreSQL but showed a generic root
+exception without recovery controls (P1017 in authentication). Its card locator
+reached the original180-second deadline. Both85-table pairs restored.
 
-The full database scenario requires an observed recovery-screen reload and saves
-its screenshot; it cannot pass by silently skipping that branch. Corrected exact
-product build, complete desktop/phone matrix, final-head CI and independent final
-readiness remain pending. The POST contract uses the actual helper with a private
-HTTP fixture; it does not itself qualify the full application or database case.
-## Subsequent corrected-image failures (preserved)
+The corrected daf image had two post-recovery navigation failures: one fresh GET,
+then five rapid GETs still returned500. A third run recovered its first addition
+and replay, then preserved a second durable addition across a crash but lost the
+original retry after a409. All three failed workflows restored85 tables. Phone
+and the next addition were not reached; do not count them as passes. The final
+scenario deliberately renders the boundary during the outage rather than requiring
+the recovered driver to fail nondeterministically afterward.
 
-Exact source daf94e73 compiled successfully into image bd39e8f7 (1297 inputs,
-manifest afebcdc9, archive 7dc46564). Its first1366 run rolled back correctly and
-showed the recovery control, but one explicit GET still received P1017. A second
-bounded run made five rapid separate GETs, all500. Both restored all85 tables.
-Neither reached the durable window or phone layout. Their traces do not prove
-whether the pool, query preparation or a different layer owns the failure.
+A locked Prisma6.19.3/enginec299 native diagnostic reproduces repeated cold-prepare
+P1017 until a previously cached path retires the closed channel. Independent source
+review corrected an incomplete lower-builder interpretation: the effective query
+engine already enables checkout health checks at15-second intervals. Paired
+30-second-lifetime and explicit0 controls both fail three times then recover on
+attempt4 after about15seconds. Each preserves a healthy same-client writer beyond
+35seconds, with exactly one insert and all85 table fingerprints restored. This
+does not establish indefinite failure, a need for new pool policy or a cause for
+#846/#859. The proposed lifetime/helper/tests were withdrawn completely.
 
-A subsequent run allowed five explicitly clicked GETs five seconds apart. It did
-not show the page fallback in that run: ordinary first addition and exact replay
-passed. The second addition's stock/audit/receipt/member ledger remained identical
-across a second real PostgreSQL SIGKILL/recovery. However the browser's original
-retry then received P1017 as generic HTTP409. The commit UI treats409 as a semantic
-refusal and clears its frozen request, losing the original retry control. All85
-baseline tables restored again. This remains a failed workflow, not a matrix pass;
-the phone case and next ordinary addition were not reached.
+An empty health-transaction proposal was also rejected: its options do not bound
+every BEGIN/rollback path. It is absent from product source. Retained setup failures
+include the diagnostic module loader,84-vs85 migration-table count and encoded-space
+URL assertion; each is separate from product qualification. Prepared zero-control
+marker mistakes were caught before allocation. An independent named pool run also
+refused the historical source equality before allocations; moving its allowed
+pre-existing builder inventory read earlier fixes the misleading cleanup comparison
+without removing the original source, route, observation or owned cleanup checks.
 
-The scoped correction classifies P1017 as503 only in the commit route. The browser
-already preserves its frozen request for such transport failures; no automatic
-commit replay or shared-client disconnect is introduced. Other routes, upload retry
-hints, authorization and semantic403/409 handling remain unchanged. Focused
-classification controls, a new compiled image and the original desktop/phone
-recovery gates are pending. Five explicit GET attempts remain bounded; no dead
-connection cause or complete database-recovery repair is claimed from this change.
-## Historical lifetime proposal (withdrawn)
+## Other release boundaries
 
-A separate native-client diagnostic on locked Prisma6.19.3/enginec2990dca
-reproduces the cold-prepare failure. After a controlled PostgreSQL interruption,
-a new SELECT fails repeatedly with P1017; executing a previously prepared SELECT
-fails once, and the new SELECT then succeeds. The engine source obtains prepared
-statements before its connection-health-marking I/O wrapper. This supports that
-bounded mechanism in this diagnostic; it is not a claim about every historical
-incident or a passing application workflow.
+Existing merged P7 transaction/writer controls, capture/file-fault and consistent
+archive/restore evidence remain separate. PR960 covers actual browser-process loss
+at3d0eb9d5 while PostgreSQL/web stay alive; this case interrupts PostgreSQL while
+browser/web stay alive. Neither substitutes for the other.
 
-An empty health-transaction proposal is rejected and remains private only:
-maxWait/timeout do not bound every BEGIN/rollback path. No such health action,
-shared-client disconnect or automatic operation replay is included.
-
-The rejected8a/243 proposal defaulted the supported absolute max_connection_lifetime to30seconds
-when PostgreSQL has no explicit lifetime setting. Explicit installation policy,
-including0, remains byte-preserved. Connection limits, socket/pool timeouts and
-other URL settings are preserved. The native pool retires expired idle leases at
-checkout rather than terminating an active query or transaction. This is a finite
-availability mitigation for the reproduced reuse problem, not an upstream engine
-patch or a cause/repair claim for #846/#859.
-
-The actual30-setting diagnostic terminated only its exact owned idle backend while
-a healthy transaction on the same two-connection client held a single insert open.
-Cold SELECT failed three times and then succeeded on attempt4, about15seconds after
-the first refusal. The healthy writer retained its PID through35,013milliseconds
-and committed exactly one insert. All85 public-table full-row fingerprints restored;
-the private diagnostic schema was removed. Observed recovery timing is recorded,
-not asserted as an exact lease-age boundary or universal deadline. An initial
-fingerprint count guard excluded the migration table (84); it stopped before writes
-and was corrected to the same85-table scope.
-
-The application regression retains its180-second case deadline. Recovery uses at
-most five explicit GET clicks and five original frozen-request retry clicks,
-spaced five seconds apart, recording each method/status and preserving the durable
-ledger after every attempt. It requires an actually observed page recovery screen;
-no fixture query warms the application pool. Full new-source build, desktop/phone
-results, final-head CI and independent review remain pending.
-## Current correction and unchanged policy
-
-Independent review traced the effective query-engine caller, not only the lower
-pool builder: lockedc299 PostgreSQL enables test_on_check_out and a15-second health
-check interval. The earlier~16-second read recovery cannot be attributed to the
-proposed30-second lifetime. The absolute-lifetime change/helper/tests are withdrawn;
-lib/prisma.ts is restored exactly to its original baseline. The paired0-setting
-control remains a bounded diagnostic, not a new application policy. Existing
-cached-prepare failures and all earlier experiments remain preserved; no indefinite
-failure or historical #846/#859 cause is established.
-
-Current product changes are the explicit POST-safe recovery screen and commit-route
-P1017→503, preserving the frozen request for operator retry. No pool settings,
-authentication, active transaction behavior, automatic retry or client lifetime
-change remains. The actual current-source local build and full matrix are pending;
-the compiled243 lifetime proposal remains separately bound evidence/cache only.
-
-The browser now renders the actual root boundary by navigating while the first
-owned PostgreSQL interruption is still present, after observing the interrupted
-commit reply. Then it restarts the same database and uses the visible control.
-This makes boundary coverage deterministic without requiring the recovered driver
-to fail on every later read. It retains observed fallback/reload, exact rollback,
-all durable-before/after ledgers, original frozen-request retries, next ordinary
-addition, privacy/originals/reviews and85-table cleanup checks at both widths.
-There is no private fixture query that warms the application pool. Each explicit
-GET/retry is recorded, at most five clicks spaced five seconds, within the unchanged
-180-second case bound. Prior post-recovery-only navigation failures remain evidence
-of their original scenarios and are not rewritten as passes.
-
-The named pool CI keeps its original historical unchanged-Prisma-source equality
-and all canonical image/route/process/connection/cleanup controls. Only the allowed
-pre-existing builder inventory/context read moves before source checks, so an early
-source refusal compares with the actual starting inventory. The intermediate57
-current-source measurement rewrite is withdrawn. No unrelated builder is removed.
+Controlled SIGKILL preserves storage. This is not OS/power loss, corrupted or lost
+storage, every failure point, natural-fault acceptance, scanner/native/optical
+accuracy, installation deployment, production or user acceptance. #310/#302 and the
+unresolved #808/#844 incident causes remain open. Close #961 only after its approved
+resolving merge; individual approval and an explicit merge request are still required.
