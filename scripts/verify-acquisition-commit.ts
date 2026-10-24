@@ -53,6 +53,7 @@ export async function verifyAcquisitionCommit(
   const tag = `commit-${randomUUID()}`,
     runs: string[] = [],
     locations: string[] = [],
+    openerIds: string[] = [],
     importBatches: string[] = [];
   const card = await db.card.create({
     data: {
@@ -810,7 +811,7 @@ export async function verifyAcquisitionCommit(
     await saveAcquisitionReview(db, actor, auto.id, {
       action: "defaults",
       revision: 1,
-      defaults: { finish: "NONFOIL", condition: "NM" },
+      defaults: { finish: "NONFOIL", condition: "NM", openerPlayerId: base.ownerPlayerId },
     });
     // Old OCR evidence predates the stamped-reprint ambiguity guard. It must
     // not be auto-confirmed later merely because defaults became available.
@@ -914,6 +915,8 @@ export async function verifyAcquisitionCommit(
     );
     assert.equal(confirmed.review?.source, "AUTO_STRONG_MATCH");
     assert.equal(confirmed.review?.condition, "NM");
+    assert.equal(confirmed.review?.openerPlayerId, base.ownerPlayerId,
+      "automatic review freezes the explicitly chosen batch opener");
     assert.equal(
       (await getAcquisitionCardReview(db, actor, auto.id, auto.photos[3].id))
         .review,
@@ -968,6 +971,8 @@ export async function verifyAcquisitionCommit(
       overfillReason: null,
     });
     assert.equal(added.count, 1);
+    assert.equal((await db.inventoryItem.findUniqueOrThrow({where:{id:added.inventoryItemIds[0]}})).originalOpenerId,
+      base.ownerPlayerId, "later manual correction preserves the automatic review's explicit opener");
     assert.equal(
       (
         await db.inventoryItem.findUniqueOrThrow({
@@ -983,6 +988,68 @@ export async function verifyAcquisitionCommit(
     console.log(
       "PASS: explicit scan subset commit, atomic receipt/audit/membership rollback, retry replay, immutable membership, fresh capacity/overfill, competing sessions and seven-day expiry, exact private-file removal and crash-safe purge retry",
     );
+    // Explicit provenance is separate from collection ownership and the actor.
+    const openerA = await db.player.create({data: {name: tag+"-opener-a", displayName: "Original opener A"}});
+    openerIds.push(openerA.id);
+    const openerB = await db.player.create({data: {name: tag+"-opener-b", displayName: "Original opener B", active: false}});
+    openerIds.push(openerB.id);
+    const openerDestination = await location(10);
+    const provenance = await capture(openerDestination, 5);
+    const provenanceRun = await db.acquisitionRun.findUniqueOrThrow({where:{sessionId:provenance.id}});
+    const originalStock = await db.inventoryItem.findMany({orderBy:{id:"asc"}});
+    const beforeInvalid = await db.acquisitionSession.findUniqueOrThrow({where:{id:provenance.id}});
+    await assert.rejects(saveAcquisitionReview(db, actor, provenance.id, {action:"defaults", revision:0,
+      defaults:{finish:"NONFOIL",condition:"NM",openerPlayerId:"missing-"+tag}}), /existing original opener/);
+    assert.deepEqual(await db.acquisitionSession.findUniqueOrThrow({where:{id:provenance.id}}),beforeInvalid);
+    await saveAcquisitionReview(db,actor,provenance.id,{action:"defaults",revision:0,
+      defaults:{finish:"NONFOIL",condition:"NM",openerPlayerId:openerA.id}});
+    for (const [index, openerPlayerId] of [openerA.id,null,openerB.id,undefined].entries()) {
+      const photoId=provenance.photos[index].id;
+      const view=await getAcquisitionCardReview(db,actor,provenance.id,photoId);
+      const body={action:"accept",photoId,revision:view.revision,
+        decision:{...decision,...(openerPlayerId===undefined?{}:{openerPlayerId})}};
+      await assert.rejects(saveAcquisitionReview(db,stranger,provenance.id,body),/unavailable|permission|owner|access/i);
+      await saveAcquisitionReview(db,actor,provenance.id,body);
+    }
+    await review(provenance.id,provenance.photos[0].id);
+    assert.equal((await getAcquisitionCardReview(db,actor,provenance.id,provenance.photos[0].id)).review?.openerPlayerId,openerA.id,
+      "older client edits retain a known opener");
+    const savedCandidates=await db.acquisitionCandidate.findMany({where:{runId:provenanceRun.id},orderBy:{id:"asc"}});
+    await saveAcquisitionReview(db,actor,provenance.id,{action:"defaults",revision:1,
+      defaults:{finish:"NONFOIL",condition:"NM",openerPlayerId:openerB.id}});
+    assert.deepEqual(await db.acquisitionCandidate.findMany({where:{runId:provenanceRun.id},orderBy:{id:"asc"}}),savedCandidates,
+      "changing batch provenance never rewrites existing reviews");
+    const lastPhotoId=provenance.photos[4].id;
+    const last=await getAcquisitionCardReview(db,actor,provenance.id,lastPhotoId);
+    await assert.rejects(saveAcquisitionReview(db,actor,provenance.id,{action:"accept",photoId:lastPhotoId,revision:last.revision,
+      decision:{...decision,openerPlayerId:"missing-"+tag}}),/existing original opener/);
+    assert.equal((await getAcquisitionCardReview(db,actor,provenance.id,lastPhotoId)).revision,last.revision);
+    await saveAcquisitionReview(db,actor,provenance.id,{action:"accept",photoId:lastPhotoId,revision:last.revision,
+      decision:{...decision,openerPlayerId:last.defaults.openerPlayerId}});
+    await stop(provenance.id);
+    assert.deepEqual(await db.inventoryItem.findMany({orderBy:{id:"asc"}}),originalStock,
+      "defaults and per-card provenance review never create stock");
+    const openerSelection={photoIds:provenance.photos.map(p=>p.id),locationId:openerDestination,section:"A"};
+    const openerPreview=await previewAcquisitionCommit(db,actor,provenance.id,openerSelection);
+    assert.deepEqual(openerPreview.cards.map(p=>p.openerPlayerId??null),[openerA.id,null,openerB.id,null,openerB.id]);
+    assert.deepEqual(openerPreview.cards.map(p=>p.openerName??null),[openerA.displayName,null,openerB.displayName,null,openerB.displayName]);
+    const openerRequest={...openerSelection,requestKey:randomUUID(),previewToken:openerPreview.token,overfillReason:null};
+    const openerReceipt=await commitAcquisitionCards(db,actor,provenance.id,openerRequest);
+    const lots=await db.inventoryItem.findMany({where:{id:{in:openerReceipt.inventoryItemIds}},orderBy:{id:"asc"}});
+    const quantities=new Map(lots.map(lot=>[lot.originalOpenerId,lot.quantity]));
+    assert.equal(lots.length,3);assert.equal(quantities.get(openerA.id),1);assert.equal(quantities.get(openerB.id),2);assert.equal(quantities.get(null),2);
+    assert(lots.every(lot=>lot.currentOwnerId===base.ownerPlayerId&&lot.sourceType==="ACQUISITION"));
+    const audits=await db.inventoryAuditLog.findMany({where:{inventoryItemId:{in:openerReceipt.inventoryItemIds}},orderBy:{id:"asc"}});
+    const receiptBefore=await db.acquisitionCommit.findUniqueOrThrow({where:{id:openerReceipt.id},include:{members:true}});
+    assert.equal(audits.length,3);assert.equal(receiptBefore.members.length,5);
+    assert.deepEqual(new Map(receiptBefore.members.map(member=>{const snapshot=member.snapshot as {photoId:string;decision:{openerPlayerId?:string|null}};
+      return [snapshot.photoId,snapshot.decision.openerPlayerId??null];})),
+      new Map(provenance.photos.map((photo,index)=>[photo.id,[openerA.id,null,openerB.id,null,openerB.id][index]])));
+    assert.equal((await commitAcquisitionCards(db,actor,provenance.id,openerRequest)).replay,true);
+    assert.deepEqual(await db.inventoryItem.findMany({where:{id:{in:openerReceipt.inventoryItemIds}},orderBy:{id:"asc"}}),lots);
+    assert.deepEqual(await db.inventoryAuditLog.findMany({where:{inventoryItemId:{in:openerReceipt.inventoryItemIds}},orderBy:{id:"asc"}}),audits);
+    assert.deepEqual(await db.acquisitionCommit.findUniqueOrThrow({where:{id:openerReceipt.id},include:{members:true}}),receiptBefore);
+    console.log("PASS: explicit batch/per-card opener, legacy Unknown and saved-provenance preservation, missing/foreign refusal, exact preview/three lots/five memberships and replay");
   } finally {
     await db.importBatchItem.deleteMany({ where: { importBatchId: { in: importBatches } } });
     await db.importBatch.deleteMany({ where: { id: { in: importBatches } } });
@@ -998,6 +1065,7 @@ export async function verifyAcquisitionCommit(
       },
     });
     await db.inventoryItem.deleteMany({ where: { cardId: card.id } });
+    await db.player.deleteMany({where:{id:{in:openerIds}}});
     await db.inventoryLocation.deleteMany({ where: { id: { in: locations } } });
     await db.card.delete({ where: { id: card.id } });
     if (oldRoot === undefined) delete process.env.UPLOADS_DATA_PATH;

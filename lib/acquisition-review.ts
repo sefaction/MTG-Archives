@@ -7,9 +7,13 @@ export const acquisitionDefaultsSchema = z
   .object({
     finish: z.enum(["UNKNOWN", "NONFOIL", "FOIL", "ETCHED"]),
     condition: z.enum(["NM", "LP", "MP", "HP", "DMG"]).nullable(),
+    openerPlayerId: z.string().min(1).max(200).nullable().optional(),
   })
   .strict();
 export type AcquisitionDefaults = z.infer<typeof acquisitionDefaultsSchema>;
+export type AcquisitionOpenerChoice = {id: string; displayName: string};
+export const acquisitionOpenerName = (id: string | null | undefined, choices: AcquisitionOpenerChoice[]) =>
+  id ? choices.find(choice => choice.id === id)?.displayName ?? "Unavailable player" : "Unknown";
 export const emptyAcquisitionDefaults: AcquisitionDefaults = {
   finish: "NONFOIL",
   condition: "NM",
@@ -20,8 +24,22 @@ export const acquisitionReviewDecisionSchema = z
     language: z.string().trim().min(2).max(20),
     finish: z.enum(["NONFOIL", "FOIL", "ETCHED"]),
     condition: z.enum(["NM", "LP", "MP", "HP", "DMG"]),
+    openerPlayerId: z.string().min(1).max(200).nullable().optional(),
   })
   .strict();
+// Missing provenance on an older review means Unknown, independently of later
+// batch changes. Only unreviewed cards start with the chosen batch default.
+export function acquisitionReviewOpener(defaults: AcquisitionDefaults,
+  review: {openerPlayerId?: string | null} | null) {
+  return review ? review.openerPlayerId ?? null : defaults.openerPlayerId ?? null;
+}
+// Older clients cannot see this new field. Their unrelated edits must retain
+// an already saved opener; an explicit null remains an intentional Unknown.
+export function preserveAcquisitionReviewOpener(
+  decision: z.infer<typeof acquisitionReviewDecisionSchema>, review: {openerPlayerId?: string | null} | null) {
+  return decision.openerPlayerId === undefined && review?.openerPlayerId !== undefined
+    ? {...decision, openerPlayerId: review.openerPlayerId} : decision;
+}
 export const acquisitionReviewRequestSchema = z.discriminatedUnion("action", [
   z
     .object({

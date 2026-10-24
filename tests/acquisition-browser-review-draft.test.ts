@@ -17,6 +17,14 @@ test("correction draft restores exact decision and original revision, isolated b
   assert.notEqual(acquisitionDraftKey({ ...scope, userId: "a:b" }), acquisitionDraftKey({ ...scope, userId: "a", batchId: "b:batch" }));
   clearAcquisitionDraft(cache, scope); assert.equal(readAcquisitionDraft(cache, scope), null);
 });
+
+test("opener corrections survive browser draft reload, including explicit Unknown", () => {
+  const cache = storage();
+  for (const openerPlayerId of ["chosen-person", null]) {
+    saveAcquisitionDraft(cache, scope, {...draft, openerPlayerId});
+    assert.equal(readAcquisitionDraft(cache, scope)!.openerPlayerId, openerPlayerId);
+  }
+});
 test("untrusted and unavailable browser storage cannot turn a draft into a valid server decision", () => {
   const cache = storage(); const writeId = saveAcquisitionDraft(cache, scope, draft);
   assert.throws(() => saveAcquisitionDraft(cache, scope, { ...draft, secret: "unexpected" }));
