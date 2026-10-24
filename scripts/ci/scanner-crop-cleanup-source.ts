@@ -5,8 +5,8 @@ import { cancelAndCleanCorrectionFixture } from "../../tests/ui/correction-fixtu
 
 // Execute the actual browser fixture wrappers without importing Playwright or
 // running its optical workflow. Database calls remain explicit caller adapters.
-export function scannerCropCleanupSource() {
-  const file = ts.createSourceFile("crop", readFileSync("tests/ui/acquisition-scanner-crop.spec.ts", "utf8"), ts.ScriptTarget.Latest, true);
+export function scannerCropCleanupSource(inputs: { specText?: string; ownedFilesText?: string } = {}) {
+  const file = ts.createSourceFile("crop", inputs.specText ?? readFileSync("tests/ui/acquisition-scanner-crop.spec.ts", "utf8"), ts.ScriptTarget.Latest, true);
   const helper = file.statements.find((node): node is ts.FunctionDeclaration => ts.isFunctionDeclaration(node) && node.name?.text === "cleanupScannerOwner");
   const wrappers: ts.ArrowFunction[] = [];
   function visit(node: ts.Node) {
@@ -16,9 +16,22 @@ export function scannerCropCleanupSource() {
   visit(file);
   assert.ok(helper); assert.equal(wrappers.length, 1);
   const compile = (text: string) => ts.transpileModule(text, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
+  const names: string[] = [], values: string[] = [];
+  for (const node of file.statements) {
+    if (!ts.isImportDeclaration(node) || !ts.isStringLiteral(node.moduleSpecifier) || node.moduleSpecifier.text !== "./owned-fixture-files") continue;
+    const bindings = node.importClause?.namedBindings;
+    assert.ok(bindings && ts.isNamedImports(bindings), "Expected actual named file-cleanup bindings");
+    const exports: Record<string, unknown> = {};
+    new Function("exports", compile(inputs.ownedFilesText ?? readFileSync("tests/ui/owned-fixture-files.ts", "utf8")))(exports);
+    for (const element of bindings.elements) {
+      const value = exports[element.propertyName?.text ?? element.name.text];
+      assert.equal(typeof value, "string", "Actual embedded file-cleanup export is required");
+      names.push(element.name.text); values.push(value as string);
+    }
+  }
   return {
     cleanup(database: (sql: string) => unknown) {
-      return new Function("database", "cancelAndCleanCorrectionFixture", compile(helper.getText(file) + ";return cleanupScannerOwner;"))(database, cancelAndCleanCorrectionFixture) as (tag: string, primaryFailed?: boolean, primaryError?: unknown) => void;
+      return new Function("database", "cancelAndCleanCorrectionFixture", ...names, compile(helper.getText(file) + ";return cleanupScannerOwner;"))(database, cancelAndCleanCorrectionFixture, ...values) as (tag: string, primaryFailed?: boolean, primaryError?: unknown) => void;
     },
     workflow(cleanup: (tag: string, primaryFailed?: boolean, primaryError?: unknown) => void, uuid: () => string) {
       return new Function("cleanupScannerOwner", "randomUUID", compile("return (" + wrappers[0].getText(file) + ");"))(cleanup, uuid) as (context: object, use: (owner: { tag: string; needsCleanup: boolean }) => Promise<void>) => Promise<void>;

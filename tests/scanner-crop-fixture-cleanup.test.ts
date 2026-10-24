@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { scannerCropCleanupSource } from "../scripts/ci/scanner-crop-cleanup-source";
 
 const source = scannerCropCleanupSource();
@@ -56,4 +57,23 @@ test("unstarted fixture preserves the existing no-cleanup guard", async () => {
 });
 test("successful original wrapper returns after all original cleanup actions", async () => {
   const f = fixture(); await source.workflow(f.cleanup, () => uuid)({}, async owner => { owner.needsCleanup = true; }); assert.deepEqual(f.seen, order);
+});
+test("actual helper binds file-phase exports when composed with the separate repair", () => {
+  const original = readFileSync("tests/ui/acquisition-scanner-crop.spec.ts", "utf8");
+  const marker = "/* actual imported file-phase marker */";
+  for (const alias of ["cleanupOwnedPhotoFixtureFiles", "boundPhotoFiles"]) {
+    const needle = "const photos=await p.acquisitionPhoto.findMany({where});";
+    assert.ok(original.includes(needle));
+    const specText = `import { cleanupOwnedPhotoFixtureFiles as ${alias} } from "./owned-fixture-files";\n` + original.replace(needle, needle + "${" + alias + "}");
+    const ownedFilesText = `export const cleanupOwnedPhotoFixtureFiles = ${JSON.stringify(marker)};`;
+    const sql: string[] = [];
+    const compiled = scannerCropCleanupSource({ specText, ownedFilesText });
+    compiled.cleanup(body => { sql.push(body); })(tag);
+    assert.equal(sql.length, 3); assert.ok(sql[1].includes(marker));
+    let calls = 0; const early = Error("first sweep");
+    assert.throws(() => compiled.cleanup(() => { if (++calls === 1) throw early; })(tag),
+      (error: unknown) => error instanceof AggregateError && assert.deepEqual(error.errors, [early]) === undefined);
+    assert.equal(calls, 3);
+    assert.throws(() => scannerCropCleanupSource({ specText, ownedFilesText: "export const missing = '';" }), /Actual embedded file-cleanup export is required/);
+  }
 });
