@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {randomUUID, createHash} from "node:crypto";
-import {mkdtemp, mkdir, rm, writeFile, access} from "node:fs/promises";
+import {mkdtemp, mkdir, rm, writeFile, access, link, readFile} from "node:fs/promises";
 import path from "node:path";
 import type {PrismaClient} from "@prisma/client";
 import {purgeAcquisitionPhotosUnderPressure} from "../lib/acquisition-photo-pressure";
@@ -20,6 +20,7 @@ export async function verifyPhotoPressure(db: PrismaClient) {
   process.env.ACQUISITION_PHOTO_OWNER_LIMIT_GIB = "1";
   const bytes = Buffer.from("synthetic pressure-cleanup original"), digest = createHash("sha256").update(bytes).digest("hex");
   const file = (id: string) => path.join(root,"acquisition-v1",id+".original");
+  const temporaries = new Map<string,string>();
   const sessions: string[] = [], runIds: string[] = [];
   try {
     for (const id of [tag,other]) {
@@ -50,6 +51,8 @@ export async function verifyPhotoPressure(db: PrismaClient) {
         const candidate = await db.acquisitionCandidate.create({data: {runId,physicalId: slot.id,identityKind: "NATIVE",acquisitionOrder: position,spatialOrder: 0,expectedSides: ["FRONT"],provisional: false,uncertainty: [],revision: 0}});
         if (commit) await db.acquisitionCommitMember.create({data: {runId,candidateId: candidate.id,commitId: commit.id,inventoryItemId: inventory.id,snapshot: {}}});
         await writeFile(file(photo.id),bytes); await writeFile(path.join(root,"acquisition-v1",photo.id+".preview.jpg"),bytes);
+        const temporary=path.join(root,"acquisition-v1",`${photo.id}.${randomUUID()}.part`);
+        await link(file(photo.id),temporary);temporaries.set(photo.id,temporary);
         photos.push({artifactId: slot.requestKey,photoId: photo.id,digest});
       }
       return {id,runId,scanId,photos};
@@ -78,10 +81,12 @@ export async function verifyPhotoPressure(db: PrismaClient) {
       assert.equal((await db.acquisitionSession.findUniqueOrThrow({where: {id: b.id}})).deletedAt,null);
       assert.equal(await db.acquisitionPhoto.count({where: {runId: b.runId,purgedAt: {not: null}}}),0);
       await access(file(b.photos[0].photoId));
+      assert.deepEqual(await readFile(temporaries.get(b.photos[0].photoId)!),bytes);
     }
     for (const p of [...complete.photos,...trash.photos]) {
       await assert.rejects(access(file(p.photoId)));
       await assert.rejects(access(path.join(root,"acquisition-v1",p.photoId+".preview.jpg")));
+      await assert.rejects(access(temporaries.get(p.photoId)!));
     }
     assert.equal((await db.inventoryItem.findUniqueOrThrow({where: {id: inventory.id}})).quantity,30);
     assert.equal(await db.acquisitionCommitMember.count({where: {runId: complete.runId}}),30);

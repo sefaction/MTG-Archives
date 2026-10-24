@@ -72,15 +72,18 @@ internal static class ScannerAuthorizationSelfTest
                 switch (body.GetProperty("action").GetString()) {
                     case "poll":
                         if (Failure == "poll") return Denied(HttpStatusCode.Unauthorized);
-                        response = new { version = 1, agentId = agent, epoch = Run.Epoch, run = Run }; break;
+                        response = new { version = 1, agentId = agent, epoch = Run.Epoch, helperIdentityReporting = true, run = Run }; break;
                     case "preflight":
                         if (Failure == "preflight") return Denied(HttpStatusCode.Forbidden);
                         throw new InvalidDataException("Unexpected preflight");
                     case "claim":
+                        if (body.GetProperty("helperIdentity").GetProperty("sha256").GetString() != ScannerHelperIdentity.Current.Sha256)
+                            throw new InvalidDataException("Negotiated claim lost actual helper payload identity");
                         Claims++;
                         if (Failure == "claim") return Denied(HttpStatusCode.Forbidden);
                         Run = Run with { Status = "STARTED", ExecutionId = body.GetProperty("executionId").GetGuid() };
-                        response = new { version = 1, runId = Run.RunId, executionId = Run.ExecutionId, feedAuthorized = true }; break;
+                        response = new { version = 1, runId = Run.RunId, executionId = Run.ExecutionId, feedAuthorized = true,
+                            helperIdentity = body.GetProperty("helperIdentity") }; break;
                     case "finish":
                         Finishes++;
                         if (Failure == "finish") return Denied(HttpStatusCode.Forbidden);
