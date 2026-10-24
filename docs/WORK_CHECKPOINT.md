@@ -1,3 +1,10 @@
+## Current work - remaining fixture file phases #968, October 24, 2026
+
+- Owner laptop/root01a16522, runremaining-fixture-files-692-20261024-01a16522, isolated codex/remaining-fixture-file-cleanup from main9b3add47. Source claim held; no runtime claim/live child between checks. No merge/production/physical authority.
+- Demonstrated25 remaining phases across24 original-audit fixtures; excludes pending965/967 and mergednative957. One shared helper attempts every prevalidated owned path before relational deletion, preserving ordered failures and recovery rows.
+- All128 source/retry controls pass; original925 expect calls, full outer workflows and exact database-call/query sequences preserved. Original context/navigation failures remain recorded. Real25-case SQL/filesystem recovery, types, final-head CI/review and exact retirement pending; keep DRAFT.
+- Detailed private source/creation/negative/resource/check evidence: .local-data/remaining-fixture-files-692-20261024/ at primary root. Root cumulative WIP and other owners protected. Next source-bound real disposable qualification, final checks/review and exact-owned cleanup/handoff.
+
 ## Current work - correction discard focus #916 / PR #917, October 23, 2026
 
 - Laptop owner/thread `01a16943-ac96-7b93-89ea-c178f02100db`, run `laptop-cancel-focus-20261023-01a16943`; branch `codex/acquisition-cancel-focus`, base04b49133, product/test95a67040. Brian's October23shared-queue correction authorizes this bounded #308focus remainder; #913/914 remains desktop-owned. No merge, production, scanner or schedule authority.
