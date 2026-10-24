@@ -13,6 +13,8 @@ export async function acquisitionActor(request?: Request) {
 }
 export function acquisitionError(error: unknown) {
   const message = error instanceof Error ? error.message : "";
+  const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
+  const storageFull = code === "ENOSPC" || code === "EDQUOT";
   const unavailable = /unavailable|Login required|not accepting/.test(message);
   const safe =
     /^(Choose |Use |Photo |Capture |Retry |The file |Processing |Private photo |Request origin|Login required|Destination changed|Stale capture|Run cannot|Cannot |Too many)/.test(
@@ -20,13 +22,15 @@ export function acquisitionError(error: unknown) {
     );
   return Response.json(
     {
-      error: safe
+      error: storageFull
+        ? "Photo storage is full. Free storage space or ask the administrator, then retry."
+        : safe
         ? message
         : "The scan request could not be completed. Refresh and retry.",
       ...(isRetryableAcquisitionConflict(error) ? { retryable: true } : {}),
     },
     {
-      status: unavailable ? 403 : 409,
+      status: !storageFull && unavailable ? 403 : 409,
       headers: { "Cache-Control": "no-store" },
     },
   );

@@ -12,6 +12,7 @@ import { verifyAcquisitionCommit } from "./verify-acquisition-commit";
 import { verifyAcquisitionManualWriter } from "./verify-acquisition-manual-writer";
 import { verifyScannerConnections } from "./verify-scanner-connections";
 import { verifyScannerRuns } from "./verify-scanner-runs";
+import { verifyNativeScannerCleanup } from "./verify-scanner-native-cleanup";
 import { verifyBackupScannerSettlement } from "./verify-backup-scanner-settlement";
 import { verifyRestoreCredentials } from "./verify-restore-credentials";
 import { verifyRestoreWorkers } from "./verify-restore-workers";
@@ -115,6 +116,7 @@ const known = {
 };
 
 async function run() {
+  await verifyNativeScannerCleanup(db);
   await verifyRecognitionSnapshot(db);
   await verifyPrimaryCatalogFreshness(db);
   await verifyCorrectionFairness(db);

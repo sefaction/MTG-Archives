@@ -239,6 +239,9 @@ model ScannerRun {
   seriesStoppedAt DateTime?
   status          String @default("QUEUED")
   executionId     String?
+  // Frozen, authenticated helper self-report at first claim. Null is legacy
+  // unknown provenance, never reconstructed from the agent's latest pulse.
+  helperIdentity  Json?
   stopRequestedAt DateTime?
   outcome         Json?
   preflightProblem Json?

@@ -215,11 +215,8 @@ async function main() {
     created.push(runner);
     // The drill helper can evolve without rebuilding/restarting the live app.
     // Only this disposable container receives the checked-out test helper.
-    docker([
-      "cp",
-      resolve(scriptDirectory, "verify-backup-restore-container.ts"),
-      `${runner}:/app/scripts/verify-backup-restore-container.ts`,
-    ]);
+    for (const helper of ["verify-backup-restore-container.ts", "restore-worker-projection.ts", "restore-correction-projection.ts"])
+      docker(["cp", resolve(scriptDirectory, helper), `${runner}:/app/scripts/${helper}`]);
     if (process.argv.includes("--test-working-library")) {
       // Development-only negative-control iteration; final evidence must be
       // rerun without this option against a rebuilt image.

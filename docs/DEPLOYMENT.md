@@ -102,6 +102,8 @@ raw retention off. Check the rendered configuration and ordinary service health
 after loading; [Pricing archive activation](PRICING_ARCHIVE_ACTIVATION.md)
 records the later approval and recovery gates.
 
+For the operator-selected maintenance profile, the [startup policy and installation handoff](PRICING_MAINTENANCE_STARTUP.md#selected-profile-startup-policy) explain how normal project startup includes maintenance and its verifier while preserving other selections, the refusal/restart policy and archive permissions. Record the actual installed profile/startup state before applying that proposal; a repository update alone is not installation verification.
+
 Photo scanning also requires the updated flat file's preparation worker, model
 initializer and recognition worker. Keep photos at the existing
 `UPLOADS_DATA_PATH` and set `ACQUISITION_MODELS_PATH` to
