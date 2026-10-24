@@ -21,7 +21,7 @@ from baseline import geometry
 from manual_card_region import manual_card_region, manual_card_source
 from photo_input import decode_photo_input
 from catalog_index import load_published_index
-from catalog_references import sha256
+from catalog_references import MAX_IMAGE_BYTES, sha256
 
 INDEX = Path('/visual/index/index.json')
 if '--manifest' in sys.argv:
@@ -137,10 +137,18 @@ def recognize(data, desc):
         row = records[i]
         if i not in _reference_features:
             path = (REFERENCES / row['file']).resolve()
-            if not path.is_relative_to(REFERENCES.resolve()) or sha256(path) != row['sha256']:
+            if not path.is_relative_to(REFERENCES.resolve()):
                 raise ValueError('Public reference path/digest mismatch')
-            with Image.open(path) as source:
-                reference = cv2.cvtColor(np.asarray(ImageOps.exif_transpose(source).convert('RGB')), cv2.COLOR_RGB2BGR)
+            with path.open('rb') as stream:
+                reference_bytes = stream.read(MAX_IMAGE_BYTES + 1)
+            if len(reference_bytes) > MAX_IMAGE_BYTES or hashlib.sha256(reference_bytes).hexdigest() != row['sha256']:
+                raise ValueError('Public reference path/digest mismatch')
+            # Decode the verified snapshot even if the public path changes now.
+            # Release encoded storage before feature extraction/cache retention.
+            with io.BytesIO(reference_bytes) as encoded:
+                del reference_bytes
+                with Image.open(encoded) as source:
+                    reference = cv2.cvtColor(np.asarray(ImageOps.exif_transpose(source).convert('RGB')), cv2.COLOR_RGB2BGR)
             _reference_features[i] = features(reference, 1000)
             if len(_reference_features) > 128:
                 _reference_features.popitem(last=False)
