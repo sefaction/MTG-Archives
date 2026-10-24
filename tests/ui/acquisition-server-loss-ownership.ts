@@ -30,3 +30,15 @@ export function requireServerLossOwnership(value:unknown, expected:ServerLossIde
     throw Error("Web process state is uncertain or not in the declared phase");
   return item;
 }
+/** A close rejection is not proof that browser requests have stopped. */
+export async function observeServerLossPageClosure(page:{close():Promise<void>;isClosed():boolean}) {
+  let error:unknown;
+  try{await page.close();}catch(reason){error=reason;}
+  const closed=page.isClosed();
+  return {closed,error:error??(closed?undefined:Error("Page closure was not positively observed"))};
+}
+/** Keep destructive fixture helpers unreachable until every terminal proof agrees. */
+export async function withServerLossCleanup(terminal:{pageClosed:boolean;blockerClosed:boolean;databaseSafe:boolean},cleanup:()=>Promise<void>) {
+  if(terminal.pageClosed!==true||terminal.blockerClosed!==true||terminal.databaseSafe!==true)return false;
+  await cleanup();return true;
+}

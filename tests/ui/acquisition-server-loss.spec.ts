@@ -4,7 +4,7 @@ import {createHash,randomBytes,randomUUID} from "node:crypto";
 import {readFileSync,writeFileSync} from "node:fs";
 import sharp from "sharp";
 import {reviewDatabase,reviewFingerprint,reviewSourceState,cleanupReviewFixture} from "./review-acceptance-fixture";
-import {requireServerLossOwnership,SERVER_LOSS_UPLOADS_ROOT,type ServerLossIdentity} from "./acquisition-server-loss-ownership";
+import {requireServerLossOwnership,observeServerLossPageClosure,withServerLossCleanup,SERVER_LOSS_UPLOADS_ROOT,type ServerLossIdentity} from "./acquisition-server-loss-ownership";
 
 test.skip(process.env.MTG_SERVER_LOSS_TEST!=="1","Requires a newly owned disposable server-restart fixture");
 const docker=(...args:string[])=>execFileSync("docker",args,{encoding:"utf8",windowsHide:true,timeout:30000}).trim();
@@ -225,17 +225,18 @@ for(const width of [1366,320])test(`Inventory rollback and durability across own
   }catch(error){failed=true;primary=error;}
   if(heldRoute)try{await heldRoute.abort("failed");}catch(error){cleanup.push(error);}
   if(failed)try{await page.screenshot({path:test.info().outputPath("failed-state.png")});}catch(error){cleanup.push(error);}
-  try{await page.close();}catch(error){cleanup.push(error);}
+  const pageClosure=await observeServerLossPageClosure(page);if(pageClosure.error)cleanup.push(pageClosure.error);
   if(!blockerClosed&&blockerDone)try{await deadline(blockerDone,35000,"Owned blocker remains live; preserve recovery graph");}catch(error){cleanup.push(error);}
-  let safe=blockerClosed;
+  let safe=blockerClosed&&pageClosure.closed;
   try{owned("running");expect(sql("SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND backend_type='client backend' AND xact_start IS NOT NULL")).toBe("0");}catch(error){safe=false;cleanup.push(error);}
   if(safe){
     try{dropBarrier();expect(sql("SELECT count(*) FROM pg_trigger WHERE tgname='ServerLossBarrier'")).toBe("0");}catch(error){safe=false;cleanup.push(error);}
   }
-  if(safe){
+  const cleaned=await withServerLossCleanup({pageClosed:pageClosure.closed,blockerClosed,databaseSafe:safe},async()=>{
     try{cleanupReviewFixture(tag,card);}catch(error){cleanup.push(error);}
     try{reviewDatabase(`const id=${JSON.stringify(foreign)};await p.authSession.deleteMany({where:{userId:id}});await p.user.deleteMany({where:{id}});await p.player.deleteMany({where:{id}});return true;`);}catch(error){cleanup.push(error);}
     try{const after=reviewFingerprint();writeFileSync(test.info().outputPath("after.json"),JSON.stringify(after));expect(after).toEqual(before);}catch(error){cleanup.push(error);}
-  }else cleanup.push(Error("Uncertain database/request/helper state preserves fixture recovery records"));
+  });
+  if(!cleaned)cleanup.push(Error("Uncertain database/request/helper state preserves fixture recovery records"));
   if(failed||cleanup.length)throw new AggregateError([...(failed?[primary]:[]),...cleanup],"Server-loss qualification or cleanup failed",{cause:failed?primary:cleanup[0]});
 });
