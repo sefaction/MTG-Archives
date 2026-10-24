@@ -8,7 +8,7 @@ import type {PrismaClient} from "@prisma/client";
 import {createAcquisitionSession,executeAcquisitionCommand,reserveAcquisitionCaptureSlot,beginAcquisitionPhoto,finalizeAcquisitionPhoto} from "../lib/acquisition-store";
 import {inspectAcquisitionPhoto,writeAcquisitionPhotoBytes} from "../lib/acquisition-files";
 import {cancelAndCleanCorrectionFixture} from "../tests/ui/correction-fixture";
-import {loadLegacyFixtureCleanups} from "../tests/legacy-fixture-cleanup-sources";
+import {loadLegacyFixtureCleanups,loadReviewFixtureCleanups} from "../tests/legacy-fixture-cleanup-sources";
 
 export async function retryVerifiedLegacyFixtureCleanup(restored:boolean,recoveryPending:boolean,cleanup:()=>Promise<void>){
   assert.equal(restored,true,"Original restoration unverified; preserve fixture graph");
@@ -18,10 +18,19 @@ export async function retryVerifiedLegacyFixtureCleanup(restored:boolean,recover
 
 /** Real file refusal and SQL recovery for the finite original-audit remainder. */
 export async function verifyLegacyFixtureFiles(db:PrismaClient){
+  const sources=loadLegacyFixtureCleanups();assert.equal(sources.length,25);
+  await verifyFixtureFiles(db,sources);
+}
+
+export async function verifyReviewFixtureFiles(db:PrismaClient){
+  const sources=loadReviewFixtureCleanups();assert.equal(sources.length,3);
+  await verifyFixtureFiles(db,sources);
+}
+
+async function verifyFixtureFiles(db:PrismaClient,sources:ReturnType<typeof loadLegacyFixtureCleanups>){
   const url=new URL(process.env.DATABASE_URL||"http://invalid");
   assert.equal(process.env.MTG_LOCAL_PILOT_TEST,"1");
   assert.ok(["localhost","127.0.0.1","[::1]"].includes(url.hostname));assert.ok(url.pathname.startsWith("/acquisition_"));
-  const sources=loadLegacyFixtureCleanups();assert.equal(sources.length,25);
   const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
   let beforeFirstUnlink:(()=>Promise<void>)|undefined;
   const observedFs={...fs,unlink:async(file:Parameters<typeof fs.unlink>[0])=>{const observe=beforeFirstUnlink;beforeFirstUnlink=undefined;if(observe)await observe();return fs.unlink(file);}};

@@ -18,8 +18,16 @@ export const legacyFixtureFiles = [
   "scanner-preflight", "scanner-rejected-start", "scanner-start-replay",
 ] as const;
 
-export function loadLegacyFixtureCleanups(root = process.cwd()) {
-  return legacyFixtureFiles.flatMap(name => {
+export const reviewFixtureFiles = [
+  "acquisition-capacity-handoff", "acquisition-correction-focus", "acquisition-save-focus",
+] as const;
+
+export function loadReviewFixtureCleanups(root = process.cwd()) {
+  return loadLegacyFixtureCleanups(root, reviewFixtureFiles);
+}
+
+export function loadLegacyFixtureCleanups(root = process.cwd(), files: readonly string[] = legacyFixtureFiles) {
+  return files.flatMap(name => {
     const file = `tests/ui/${name}.spec.ts`;
     const source = ts.createSourceFile(file,readFileSync(path.join(root,file),"utf8"),ts.ScriptTarget.Latest,true);
     const expressions: string[] = [];
