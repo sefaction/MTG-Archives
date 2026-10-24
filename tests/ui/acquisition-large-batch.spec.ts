@@ -135,6 +135,7 @@ test('large scan-image batches retain every input through ordinary native queues
   let timer:ReturnType<typeof setInterval>|undefined;
   let qualified=false;
   const inventoryBaselines: unknown[]=[];
+  const workflowFailures: unknown[] = [];
   try{
     report.existingInventoryBefore=database(inventoryFingerprintBody());save();
     report.workersBefore=workerSnapshots();save();
@@ -240,6 +241,9 @@ test('large scan-image batches retain every input through ordinary native queues
     report.workersAfter=workerSnapshots();
     for(const [i,worker] of report.workersAfter.entries())assertNativeWorkerContinuity(report.workersBefore[i],worker);
     qualified=true;
+  } catch (error) {
+    workflowFailures.push(error);
+    throw error;
   }finally{
     const cleanupErrors: unknown[]=[];
     const attempt=async(action:()=>unknown|Promise<unknown>)=>{
@@ -307,6 +311,6 @@ test('large scan-image batches retain every input through ordinary native queues
     for (const owner of owners) await attempt(()=>database(cancelAndCleanCorrectionFixture(owner.tag) + "console.log('{}');"));
     report.finishedAt=new Date().toISOString();
     await attempt(()=>finalizeQualificationReport(writeReport,report,qualified&&cleanupErrors.length===0));
-    if(cleanupErrors.length)throw new AggregateError(cleanupErrors,'Large-batch fixture cleanup failed');
+    if(cleanupErrors.length)throw new AggregateError([...workflowFailures, ...cleanupErrors],'Large-batch fixture cleanup failed');
   }
 });
