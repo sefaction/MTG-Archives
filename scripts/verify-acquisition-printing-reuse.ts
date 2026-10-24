@@ -21,13 +21,22 @@ export async function verifyAcquisitionPrintingReuse(db: PrismaClient, original:
   await db.player.create({data: {id: otherOwner, name: otherOwner, displayName: otherOwner}});
   const worker = {request: async () => {requests++; return expected.printingNative;}};
   async function attempt(output = template.output) {
-    const source = await db.acquisitionProcessingJob.create({data: {
-      runId: template.runId, artifactId: template.artifactId, candidateId: template.candidateId,
-      candidateRevision: template.candidateRevision, stage: template.stage, versionKey: randomUUID(),
-      input: template.input as Prisma.InputJsonObject, status: "COMPLETE", output: output as Prisma.InputJsonObject,
-      createdAt: new Date(template.createdAt.getTime() + ++sequence * 1000),
-    }});
+    const source = await db.$transaction(async tx=>{
+      const created = await tx.acquisitionProcessingJob.create({data: {
+        runId: template.runId, artifactId: template.artifactId, candidateId: template.candidateId,
+        candidateRevision: template.candidateRevision, stage: template.stage, versionKey: randomUUID(),
+        input: template.input as Prisma.InputJsonObject, status: "COMPLETE",
+        createdAt: new Date(template.createdAt.getTime() + ++sequence * 1000),
+      }});
+      // Seed the same exact evidence that production publication preserves.
+      await tx.$executeRaw`UPDATE "AcquisitionProcessingJob"
+        SET output=CASE WHEN ${output===null} THEN NULL ELSE ${JSON.stringify(output)}::jsonb END
+        WHERE id=${created.id}`;
+      return created;
+    });
     owned.push(source.id);
+    assert.deepEqual((await db.acquisitionProcessingJob.findUniqueOrThrow({where:{id:source.id}})).output,output,
+      "printing reuse fixture must seed exact source evidence");
     const job = await db.acquisitionProcessingJob.create({data: {
       runId: original.runId, artifactId: original.artifactId, candidateId: original.candidateId,
       candidateRevision: original.candidateRevision, stage: PRINTING_STAGE, versionKey: randomUUID(),

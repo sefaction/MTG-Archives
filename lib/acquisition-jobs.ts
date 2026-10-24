@@ -347,12 +347,20 @@ export async function completeAcquisitionJob(
       },
       data: {
         status: "COMPLETE",
-        output,
         leaseToken: null,
         leaseExpiresAt: null,
       },
     });
-    if (completed.count) { await captureCorrectionPublication(tx, job, output); return "COMPLETE" as const; }
+    if (completed.count) {
+      // The guarded update holds this row lock until the transaction commits.
+      // Bind JSON text: Prisma's JSON-object conversion can round finite native
+      // values, changing immutable observations copied into descendant jobs.
+      const saved = await tx.$executeRaw`UPDATE "AcquisitionProcessingJob"
+        SET output=${JSON.stringify(output)}::jsonb WHERE id=${job.id}`;
+      if (saved !== 1) throw new Error("Processing output publication failed");
+      await captureCorrectionPublication(tx, job, output);
+      return "COMPLETE" as const;
+    }
     const superseded = await tx.acquisitionProcessingJob.updateMany({
       where: lease(job, now),
       data: {

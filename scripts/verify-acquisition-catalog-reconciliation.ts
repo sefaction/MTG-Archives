@@ -85,7 +85,10 @@ export async function verifyAcquisitionCatalogReconciliation(
     photoDigest: photo.digest,
     text: observations[0].text,
     orientations: observations,
-    geometry: { status: "ACCEPTED" },
+    geometry: { status: "ACCEPTED", normalizedBoundary: [
+      [0.022283614160397525, 0.016075611114501953],
+      [0.1296570897102356, 0.9777163858396025],
+    ] },
     lines: [],
     milliseconds: 1,
     automaticAcceptance: false,
@@ -169,6 +172,11 @@ export async function verifyAcquisitionCatalogReconciliation(
       ),
       "COMPLETE",
     );
+    assert.deepEqual((await db.acquisitionProcessingJob.findUniqueOrThrow({where: {id: rawJob.id}})).output,
+      JSON.parse(JSON.stringify(source)), "job publication must preserve every finite native geometry value");
+    const [sourceText] = await db.$queryRaw<{output: string}[]>`
+      SELECT output::text FROM "AcquisitionProcessingJob" WHERE id=${rawJob.id}`;
+    assert.deepEqual(JSON.parse(sourceText.output), JSON.parse(JSON.stringify(source)), "PostgreSQL must retain the exact JSON observation");
     await verifyAcquisitionClaimDiagnostics(db, rawJob);
     await verifyAcquisitionClaimTrace(db,rawJob);
     await verifyImmediateCatalogClaims(db,rawJob);
@@ -261,6 +269,8 @@ export async function verifyAcquisitionCatalogReconciliation(
     );
     assert.equal(providerCalls, 5);
     assert.equal(await completeAcquisitionJob(db, job, output), "COMPLETE");
+    assert.deepEqual((await db.acquisitionProcessingJob.findUniqueOrThrow({where: {id: job.id}})).output,
+      JSON.parse(JSON.stringify(output)), "catalog publication must preserve the complete handler output");
     const review = await getAcquisitionCardReview(
       db,
       actor,
