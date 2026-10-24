@@ -1,4 +1,6 @@
 "use client";
+import {AcquisitionLanguageSelect} from "./AcquisitionLanguageSelect";
+import {emptyAcquisitionDefaults} from "@/lib/acquisition-review";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ScannerContinuation } from "@/lib/scanner-continuation";
@@ -121,6 +123,8 @@ export function AcquisitionCapture({
   const [retiredSetup, setRetiredSetup] = useState<PendingScannerStart | null>(null);
   const [setupNotice, setSetupNotice] = useState("");
   const setupDefaults = retiredSetup?.defaults ?? initialSetup?.defaults;
+  const [newLanguage,setNewLanguage]=useState<string|null>(initialSetup?.defaults?.language??null);
+  useEffect(()=>{if(retiredSetup)setNewLanguage(retiredSetup.defaults?.language??null);},[retiredSetup]);
   const [checkingStart, setCheckingStart] = useState(true);
   const [startStorageError, setStartStorageError] = useState(false);
   const sourceIdentity = useRef("");
@@ -456,7 +460,7 @@ export function AcquisitionCapture({
       if (!createKey.current) createKey.current = captureUuid();
       const value = {
         ...(scannerChoice ? { ...scannerChoice, action: "create" } : {}),
-        ...(scannerChoice && setupDefaults ? { defaults: setupDefaults } : {}),
+        defaults:{...(setupDefaults??emptyAcquisitionDefaults),language:newLanguage},
         requestKey: createKey.current,
         locationId,
         section,
@@ -792,6 +796,11 @@ export function AcquisitionCapture({
           </div><div className="min-w-0">
           {photoInput ? <p className="text-sm my-3">One card per photo. JPEG, PNG and WebP are supported. Review the saved cards before adding them to Inventory.</p> : <ScannerSourceFields key={pendingScanner?.requestKey ?? "setup"} initialEnabled={pendingScanner || retiredSetup ? true : initialScanner} initialChoice={pendingScanner ?? retiredSetup ?? initialSetup?.scanner} onChange={scannerChanged} disabled={busy || checkingStart || !!pendingScanner || startStorageError || refreshingCapacity} remaining={customLimit ? Math.min(quantity,remaining??quantity) : remaining} />}
           </div></div>
+          <div className="my-3"><AcquisitionLanguageSelect
+            value={pendingScanner ? pendingScanner.defaults?.language??null : newLanguage}
+            onChange={value=>{setNewLanguage(value);createKey.current="";}} disabled={busy||checkingStart||!!pendingScanner||startStorageError}/>
+            <p className="text-sm mt-1">Choose only when you know the batch language. It can confirm an unreadable language;
+              a readable conflict still needs individual review.</p></div>
           <button
             className={primary}
             disabled={
@@ -1058,7 +1067,7 @@ export function AcquisitionCapture({
             </section>
           )}
           <details className="min-w-0" open={reviewMode === "advanced"}>
-          <summary className="cursor-pointer text-sm">Batch defaults: {progress.defaults.finish.toLowerCase()} · {progress.defaults.condition ?? "condition unset"} · Change</summary>
+          <summary className="cursor-pointer text-sm">Batch defaults: {progress.defaults.finish.toLowerCase()} · {progress.defaults.condition ?? "condition unset"} · {progress.defaults.language?.toUpperCase()??"language from printing evidence"} · Change</summary>
           <AcquisitionBatchDefaults
             key={`defaults:${batchId}`}
             batchId={batchId}

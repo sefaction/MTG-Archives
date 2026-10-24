@@ -15,6 +15,7 @@ import {
   emptyAcquisitionDefaults,
   acquisitionPrintingSelect,
   acquisitionReviewRequestSchema,
+  preserveAcquisitionDefaultLanguage,
   type AcquisitionCardReview,
 } from "./acquisition-review";
 import { VISUAL_STAGE } from "./acquisition-visual";
@@ -993,7 +994,7 @@ export async function getAcquisitionProgress(
           printings: reviewedNames,
           visualEnabled: process.env.ACQUISITION_VISUAL_ENABLED === "1",
           printingEnabled: process.env.ACQUISITION_PRINTING_ENABLED === "1",
-          defaultsFinish: state.defaults.finish, photoReady: Boolean(photo),
+          defaultsFinish: state.defaults.finish, defaultsLanguage: state.defaults.language, photoReady: Boolean(photo),
           physicalReasons: physicalReasons.get(slot.id) ?? ["UNAVAILABLE"],
           jobs: photo ? problemJobs.get(photo.id) ?? [] : []}),
         physicalReadiness: {
@@ -1399,10 +1400,12 @@ export async function saveAcquisitionReview(
         throw new Error(
           "Capture batch defaults changed; reload them before saving",
         );
+      const defaults=preserveAcquisitionDefaultLanguage(input.defaults,
+        acquisitionDefaultsSchema.parse(row.reviewDefaults??emptyAcquisitionDefaults));
       await tx.acquisitionSession.update({
         where: { id: sessionId },
         data: {
-          reviewDefaults: input.defaults,
+          reviewDefaults: defaults,
           defaultsRevision: { increment: 1 },
         },
       });
@@ -1415,7 +1418,7 @@ export async function saveAcquisitionReview(
             action: "REVIEW_DEFAULTS",
             actorId: actor.userId,
             before: row.reviewDefaults,
-            after: input.defaults,
+            after: defaults,
           }),
         },
       });

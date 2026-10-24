@@ -22,3 +22,9 @@ test("malformed intent and unexpected secrets fail closed instead of generating 
   assert.throws(() => saveScannerStart(saved, "owner", { ...intent(), secret: "unexpected" } as PendingScannerStart));
   assert.throws(() => saveScannerStart({ ...saved, setItem() { throw new Error("unavailable"); } }, "owner", intent()), /unavailable/);
 });
+
+test("explicit confirmed batch language stays frozen in scanner Start across reload",()=>{
+  const saved=storage(),first={...intent(),defaults:{finish:"NONFOIL" as const,condition:"NM" as const,language:"fr" as const}};
+  saveScannerStart(saved,"owner",first);assert.deepEqual(readScannerStart(saved,"owner"),first);
+  assert.equal(readScannerStart(saved,"owner")?.defaults?.language,"fr");
+});

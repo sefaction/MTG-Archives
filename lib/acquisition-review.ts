@@ -3,13 +3,18 @@ import type { AcquisitionReviewEvidence } from "./acquisition-review-evidence";
 import type { AcquisitionCatalogStatus } from "./acquisition-catalog-status";
 import { acquisitionManualRegionSchema, type AcquisitionManualRegion } from "./acquisition-manual-region";
 import { correctionDisplayTokensSchema } from "./acquisition-correction-display";
+import {acquisitionBatchLanguageSchema} from "./acquisition-batch-language";
 export const acquisitionDefaultsSchema = z
   .object({
     finish: z.enum(["UNKNOWN", "NONFOIL", "FOIL", "ETCHED"]),
     condition: z.enum(["NM", "LP", "MP", "HP", "DMG"]).nullable(),
+    language: acquisitionBatchLanguageSchema.nullable().optional(),
   })
   .strict();
 export type AcquisitionDefaults = z.infer<typeof acquisitionDefaultsSchema>;
+export function preserveAcquisitionDefaultLanguage(next:AcquisitionDefaults,previous:AcquisitionDefaults) {
+  return next.language===undefined && previous.language!==undefined ? {...next,language:previous.language} : next;
+}
 export const emptyAcquisitionDefaults: AcquisitionDefaults = {
   finish: "NONFOIL",
   condition: "NM",
@@ -63,6 +68,11 @@ export type AcquisitionPrinting = {
   imageUri: string | null;
   finishes: unknown;
 };
+export function acquisitionPreferredPrinting(record:Pick<AcquisitionCardReview,"printing"|"review"|"defaults"|"suggestions">) {
+  return record.printing ?? (!record.review && record.defaults.language
+    ? record.suggestions.find(row=>row.printing.lang?.toLowerCase()===record.defaults.language)?.printing : null)
+    ?? record.suggestions[0]?.printing ?? null;
+}
 export const acquisitionPrintingSelect = {
   id: true,
   name: true,

@@ -1,5 +1,7 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
-import { acquisitionRecognitionDto } from "./acquisition-recognition-dto";
+import { acquisitionRecognitionDto, acquisitionProposalSchema } from "./acquisition-recognition-dto";
+import {z} from "zod";
+import {acquisitionBatchLanguageSchema,acquisitionBatchLanguageAgrees} from "./acquisition-batch-language";
 import { captureCorrectionReview } from "./acquisition-correction-library";
 import {
   CATALOG_RECONCILIATION_STAGE,
@@ -32,7 +34,9 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" newer WHERE newer."candidateId"=c.id
         AND newer."candidateRevision"=c.revision AND newer.stage IN ('photo-recognition-v1', ${CATALOG_RECONCILIATION_STAGE})
         AND newer."createdAt">j."createdAt")
-      AND j.output->'proposals'->>'status' = 'STRONG_MATCH'
+      AND (j.output->'proposals'->>'status' = 'STRONG_MATCH'
+        OR (s."reviewDefaults"->>'language' IS NOT NULL
+          AND j.output->'batchLanguageProposals'->>'version'='1'))
       AND j.output->'proposals'->>'version' = '4'
       AND j."candidateRevision" = c.revision AND c.review IS NULL AND NOT c.excluded
       AND COALESCE(j.input->'manualAnalysis'->'region','null'::jsonb)='null'::jsonb
@@ -112,15 +116,19 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
             include: { slot: true },
           })
         : null;
-      const result = acquisitionRecognitionDto("COMPLETE", job.output).result;
+      const defaults = acquisitionDefaultsSchema.safeParse(session.reviewDefaults);
+      const languageOptions=z.object({batchLanguageProposals:z.object({version:z.literal(1),options:z.array(
+        z.object({language:acquisitionBatchLanguageSchema,proposals:acquisitionProposalSchema})).max(11)})}).safeParse(job.output);
+      const confirmedLanguage=defaults.success ? defaults.data.language : null;
+      const projected=confirmedLanguage && languageOptions.success
+        ? languageOptions.data.batchLanguageProposals.options.find(option=>option.language===confirmedLanguage)?.proposals : null;
+      const machine=acquisitionRecognitionDto("COMPLETE",job.output).result;
+      const result = projected ?? machine;
       const exact =
         result?.proposals.filter((p) =>
           p.reasons.includes("SET_AND_COLLECTOR_TEXT"),
         ) ?? [];
       const proposal = exact.length === 1 ? exact[0] : null;
-      const defaults = acquisitionDefaultsSchema.safeParse(
-        session.reviewDefaults,
-      );
       const card = proposal
         ? await tx.card.findUnique({ where: { id: proposal.card.id } })
         : null;
@@ -174,6 +182,9 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
         card.setCode === proposal.card.setCode &&
         card.collectorNumber === proposal.card.collectorNumber &&
         card.lang === proposal.card.lang &&
+        (!confirmedLanguage || card.lang?.toLowerCase()===confirmedLanguage) &&
+        (!confirmedLanguage || acquisitionBatchLanguageAgrees(job.output,confirmedLanguage)) &&
+        (!projected || proposal.reasons.includes("LANGUAGE_FROM_CONFIRMED_BATCH")) &&
         decision.success &&
         Array.isArray(card.finishes) &&
         card.finishes.includes(decision.data.finish.toLowerCase());
@@ -195,6 +206,8 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
             photoId: photo?.id,
             jobId: job.id,
             defaultsRevision: session.defaultsRevision,
+            ...(confirmedLanguage ? {languageConfirmation:{source:"CONFIRMED_BATCH",language:confirmedLanguage,
+              defaultsRevision:session.defaultsRevision,usedForUnreadableLanguage:Boolean(projected)}} : {}),
             outcome: review ? "CONFIRMED" : "REVIEW_REQUIRED",
             after: review,
           }),
