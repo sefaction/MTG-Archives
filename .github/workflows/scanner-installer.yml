@@ -47,9 +47,16 @@ jobs:
           $setup = Join-Path $env:GITHUB_WORKSPACE 'scanner-installer/MTGArchivesScannerSetup.exe'
           $process = Start-Process -FilePath $setup -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/TASKS=""', "/DIR=`"$installed`"") -PassThru -Wait -WindowStyle Hidden
           if ($process.ExitCode -ne 0) { throw 'Installer smoke failed' }
-          foreach ($check in @('connection-selftest', 'native-selftest', 'discovery-selftest')) {
+          foreach ($check in @('identity-selftest', 'connection-selftest', 'native-selftest', 'discovery-selftest')) {
             $process = Start-Process -FilePath (Join-Path $installed 'Mtg.ScannerAgent.exe') -ArgumentList $check -PassThru -Wait -WindowStyle Hidden
             if ($process.ExitCode -ne 0) { throw "Installed $check failed" }
+          }
+          $identityOutput = Join-Path $env:RUNNER_TEMP 'installed-helper-identity.json'
+          $version = Start-Process -FilePath (Join-Path $installed 'Mtg.ScannerAgent.exe') -ArgumentList 'version' -PassThru -Wait -WindowStyle Hidden -RedirectStandardOutput $identityOutput
+          if ($version.ExitCode -ne 0) { throw 'Installed helper version report failed' }
+          $identity = (Get-Content -LiteralPath $identityOutput -Raw | ConvertFrom-Json).helperIdentity
+          if ($identity.sha256 -ne (Get-FileHash -LiteralPath (Join-Path $installed 'Mtg.ScannerAgent.dll')).Hash.ToLowerInvariant()) {
+            throw 'Installed running payload differs from its reported identity'
           }
           $inventory = Get-Content (Join-Path $installed 'third-party/inventory.json') -Raw | ConvertFrom-Json
           if (-not $inventory.distributionMaterialsComplete -or -not (Test-Path (Join-Path $installed 'third-party/sources/REBUILD.md'))) { throw 'Installed source/notice materials missing' }

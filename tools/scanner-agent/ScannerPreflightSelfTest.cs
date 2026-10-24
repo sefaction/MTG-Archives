@@ -50,6 +50,7 @@ internal static class ScannerPreflightSelfTest
                     Problems.Add(body.GetProperty("code").GetString()!);
                     result = new { version = 1, runId = instruction.RunId, retryable = true }; break;
                 case "claim":
+                    if (body.TryGetProperty("helperIdentity", out _)) throw new InvalidDataException("Older site received an unnegotiated field");
                     Claims++; result = new { version = 1, runId = instruction.RunId,
                         executionId = body.GetProperty("executionId").GetGuid(), feedAuthorized = true }; break;
                 case "finish":
