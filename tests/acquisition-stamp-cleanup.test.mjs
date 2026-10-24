@@ -14,7 +14,7 @@ for (const [file, report] of [["acquisition-stamp-expectations.spec.ts", false],
     ts.forEachChild(node,visit);
   }
   visit(tree);assert.ok(block,"Exercise the actual fixture cleanup");
-  const code=ts.transpileModule(block.getText(tree),{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
+  const code=ts.transpileModule('{ const workflowFailures: unknown[] = [];'+block.getText(tree)+'}',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
   const expected=report?["early-feedback","write-report","acquisition-teardown","late-feedback"]:["early-feedback","acquisition-teardown","late-feedback"];
   async function exercise(faults=[]){
     const calls=[],failures=[];let sweep=0;
