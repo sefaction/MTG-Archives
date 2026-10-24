@@ -117,6 +117,10 @@ in that opt-in log. A closed or failing private log does not suppress the safe
 error journal. Default website diagnostics still omit messages and paths.
 Logs may contain native paths/device details and must not be published.
 See [TWAIN footer investigation](../../docs/SCANNER_TWAIN_FOOTER.md).
+For existing private Windows crash-event XML, the hardware-free
+[offline evidence helper](../../docs/SCANNER_CRASH_EVENT_EVIDENCE.md) correlates
+fault PID/time/module fields without publishing paths or message/stack content.
+It does not establish the historical settings crash's cause or start a scanner.
 
 The tested SDK has no distinct public graceful feeder-stop method. **PS286 WIA cancellation after image 1 emitted two cards and left a third partly transported.** No damaged cards were reported after manual clearance, but one emitted card had no returned image.
 
