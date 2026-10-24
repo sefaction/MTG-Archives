@@ -165,6 +165,8 @@ jobs:
         run: npx tsx --test tests/acquisition-session-order.test.ts
       - name: Real acquisition database ownership, concurrency, rollback and replay
         run: npx tsx scripts/verify-acquisition-store.ts
+      - name: Interrupted photo writer retention and same-identity recovery
+        run: npx tsx scripts/verify-acquisition-interrupted-storage.ts --verify
 
   core:
     name: Core verification

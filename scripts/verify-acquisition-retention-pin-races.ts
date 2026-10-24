@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import * as fs from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import type { PrismaClient } from "@prisma/client";
@@ -13,7 +14,7 @@ import { ensureCorrectionExample } from "../lib/acquisition-correction-library";
 import { beginCorrectionBackup } from "../lib/acquisition-correction-backup";
 import { claimCorrectionCapture, completeCorrectionCapture, releasePreservedCorrectionPins } from "../lib/acquisition-correction-worker";
 import { prepareCorrectionBlob, readCorrectionBlob } from "../lib/acquisition-correction-files";
-import { purgeCommittedAcquisitionPhotos, purgeTrashedAcquisitionPhotos } from "../lib/acquisition-photo-retention";
+import { purgeCommittedAcquisitionPhotos, purgeTrashedAcquisitionPhotos, repairPurgedAcquisitionPhotoTemporaries } from "../lib/acquisition-photo-retention";
 
 /** Real SQL and files; adapters only insert a committed peer operation after
  * the actual selection query, before the existing locked recheck. Seeded aged
@@ -53,6 +54,8 @@ export async function verifyAcquisitionRetentionPinRaces(db: PrismaClient, actor
       await finalizeAcquisitionPhoto(db, actor, id, photo.id);
       const preview = await canonicalizeAcquisitionPhoto(photo.id, photo.digest, new AbortController().signal);
       const previewBytes = await readAcquisitionPhotoBytes(photo.id, "preview", preview.previewDigest);
+      const temporaryAlias = path.join(root, "acquisition-v1", `${photo.id}.${randomUUID()}.part`);
+      await fs.link(path.join(root, "acquisition-v1", `${photo.id}.original`), temporaryAlias);
       const candidate = await db.acquisitionCandidate.findFirstOrThrow({ where: { runId: photo.runId, physicalId: slot.id } });
       await manageAcquisitionBatch(db, actor, id, "cancel");
       if (kind === "trash") await manageAcquisitionBatch(db, actor, id, "trash", past);
@@ -101,6 +104,7 @@ export async function verifyAcquisitionRetentionPinRaces(db: PrismaClient, actor
       const pin = await db.correctionRetentionPin.findFirstOrThrow({ where: { photoId: photo.id, releasedAt: null } });
       assert.deepEqual(await readAcquisitionPhotoBytes(photo.id, "raw", photo.digest), bytes);
       assert.deepEqual(await readAcquisitionPhotoBytes(photo.id, "preview", preview.previewDigest), previewBytes);
+      assert.deepEqual(await fs.readFile(temporaryAlias), bytes);
       assert.deepEqual(await graph(), immutable);
 
       // Begin backup after the actual raw copy is staged but before its real
@@ -120,6 +124,7 @@ export async function verifyAcquisitionRetentionPinRaces(db: PrismaClient, actor
       assert.deepEqual(await readCorrectionBlob(base.ownerPlayerId, photo.digest, bytes.length), bytes);
       assert.equal(await releasePreservedCorrectionPins(db), 0);
       assert.equal((await purge(db)).purged, 0);
+      assert.deepEqual(await fs.readFile(temporaryAlias), bytes);
       await backup.release(); guards.splice(guards.indexOf(backup), 1);
 
       // A new backup wins after release enumerates preserved pins, before its
@@ -149,9 +154,29 @@ export async function verifyAcquisitionRetentionPinRaces(db: PrismaClient, actor
       assert.equal((await purge(db)).purged, 1);
       await assert.rejects(readAcquisitionPhotoBytes(photo.id, "raw"), { code: "ENOENT" });
       await assert.rejects(readAcquisitionPhotoBytes(photo.id, "preview"), { code: "ENOENT" });
+      await assert.rejects(fs.lstat(temporaryAlias), { code: "ENOENT" });
       assert.ok((await db.acquisitionPhoto.findUniqueOrThrow({ where: { id: photo.id } })).purgedAt);
       assert.equal((await purge(db)).purged, 0);
       assert.equal(await releasePreservedCorrectionPins(db), 0);
+      // Older code could mark a photo purged while leaving this exact alias.
+      // Explicit legacy repair must still respect a restored active pin and
+      // committed-source age before deleting the selected private bytes.
+      await fs.writeFile(temporaryAlias, bytes);
+      const releasedPin = await db.correctionRetentionPin.findUniqueOrThrow({where:{id:pin.id}});
+      await db.correctionRetentionPin.update({where:{id:pin.id},data:{releasedAt:null}});
+      assert.equal((await repairPurgedAcquisitionPhotoTemporaries(db,base.ownerPlayerId,[photo.id],true,now)).eligible,0);
+      assert.deepEqual(await fs.readFile(temporaryAlias),bytes);
+      await db.correctionRetentionPin.update({where:{id:pin.id},data:{releasedAt:releasedPin.releasedAt}});
+      if(kind === "committed") {
+        const purgedPhoto = await db.acquisitionPhoto.findUniqueOrThrow({where:{id:photo.id}});
+        await db.acquisitionPhoto.update({where:{id:photo.id},data:{purgeAfter:new Date(now.getTime()+1)}});
+        assert.equal((await repairPurgedAcquisitionPhotoTemporaries(db,base.ownerPlayerId,[photo.id],true,now)).eligible,0);
+        assert.deepEqual(await fs.readFile(temporaryAlias),bytes);
+        await db.acquisitionPhoto.update({where:{id:photo.id},data:{purgeAfter:purgedPhoto.purgeAfter}});
+      }
+      const repair = await repairPurgedAcquisitionPhotoTemporaries(db,base.ownerPlayerId,[photo.id],true,now);
+      assert.equal(repair.failed,0);assert.equal(repair.repaired,1);
+      await assert.rejects(fs.lstat(temporaryAlias),{code:"ENOENT"});
       assert.deepEqual(await readCorrectionBlob(base.ownerPlayerId, photo.digest, bytes.length), bytes);
       assert.deepEqual(await graph(), immutable);
       assert.deepEqual(await db.inventoryItem.findMany({ orderBy: { id: "asc" } }), stock);
