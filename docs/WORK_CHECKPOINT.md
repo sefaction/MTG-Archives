@@ -20,6 +20,20 @@ Both owner checkpoint histories are preserved verbatim below. Their latest revie
 
 ## Current work - correction discard focus #916 / PR #917, October 23, 2026
 
+## No-new-issues freeze - 2026-10-24
+
+Brian's current instruction applies to every local and remote worker: **do not create new issues until Brian explicitly lifts this freeze.** This overrides all earlier bug, audit, qualification, replacement, nested/child, and other ticket-creation instructions in repository guidance, startup prompts, and historical checkpoints, including those preserved below.
+
+Finish existing issues within their agreed scope. Preserve tests, failure evidence, and acceptance criteria; do not weaken tests or close issues with unresolved acceptance. Report newly discovered concerns and blockers to Brian instead of creating replacement or nested issues. Existing ownership, coordination, review, and individual merge-approval requirements still apply.
+
+## Freeze documentation preparation - 2026-10-24
+
+- Branch: `docs/no-new-issues-freeze-2026-10-24`; isolated worktree: `C:/Users/Admin/Documents/Codex/2026-10-24/task/mtg-issue-freeze`; base: `b4daf3d4ccadffc128e224d12bfc7d711c9e1397`.
+- Scope: six documentation entry points only; no new issue or affected issue/parent closure. Existing worker checkouts, claims, runtime, schedules, production, and credentials are untouched.
+- Checks: whitespace/diff review and verification that removing the additive notices/checkpoint restores each original document. No runtime tests are required for prose-only changes.
+- Brian explicitly approved pushing this documentation branch and opening a draft PR after initial local preparation. Next safe step: validate and publish the draft, verify its remote contents, then wait for separate approval of that PR before merge. Publication/merge completion must be verified separately; local edits do not establish remote-worker visibility.
+- Foundry hub at its documented path is unavailable. Repository guidance was inspected; prior checkpoint history below is preserved.
+
 - Laptop owner/thread `01a16943-ac96-7b93-89ea-c178f02100db`, run `laptop-cancel-focus-20261023-01a16943`; branch `codex/acquisition-cancel-focus`, base04b49133, product/test95a67040. Brian's October23shared-queue correction authorizes this bounded #308focus remainder; #913/914 remains desktop-owned. No merge, production, scanner or schedule authority.
 - Actual old-client Simple1366negative loses correction focus; exact cleanup restores all84table fingerprints. Fixed Simple/Advanced1366/320 matrix passes4cases/32.6s, failed-discard draft preservation, next keyboard action, delayed outside focus, saved-state/original-byte and no-extra-write controls. Eight focused tests/lint and seven product/test-headCI39978359486 pass. Initial unconfigured-storage harness failure/recovery preserved separately, with no initial global snapshot claim.
 - Source-bound local production compilation/types/static/client checks pass. Candidate image57a6536d,1227inputs/digest33560fff8c8e943cefe7430864b5556dae2a701f074ce4fbabbd2be081074685, loopback13017, isolatedDBreview905_01a16522. Retired owned builder/cache3.835GB; original previews and root WIP preserved. Full evidence/adaptations: [ACQUISITION_CORRECTION_FOCUS.md](ACQUISITION_CORRECTION_FOCUS.md); privatecurrent `.local-data/laptop-worker-setup-20261022/current-cancel-focus-01a16943.json` records actual live ownership/cleanup.
