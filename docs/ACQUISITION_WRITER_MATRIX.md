@@ -123,3 +123,10 @@ batch. Other-provider/phone-device acceptance stays #442; release/host-loss and
 capture-consistent recovery stay #310. Any deployment or merge needs its own
 current authority. An individually approved merge of this test batch would add
 one schedule and this map, not claim all P7 criteria complete.
+
+## Preserved manual-first acceptance row before the seven-schedule integration
+
+The following dated delivery evidence remains applicable through PR #944; the current table above composes it with PR #948. The earlier storage-move limitation is superseded only by the separately qualified schedules above.
+
+| Manual add | addInventoryCardToLocation executes behind the gate; writer-first serializable capacity read retries | Existing helper/transaction checks remain. [The complete writer-first acquisition composition](ACQUISITION_MANUAL_WRITER.md) additionally observes the exact manual writer PID blocking the actual commit, stale/unreasoned refusal, distinct reasoned receipt and effect-free replay; see that report/PR for executed status and limits. |
+| Storage move | moveInventoryStorageBatch executes behind the gate | Actual service gate-first lock wait, verify-inventory-capacity.ts. Opposite-order complete acquisition/move composition is not asserted. |
