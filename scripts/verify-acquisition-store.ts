@@ -1,3 +1,5 @@
+import {verifyPhotoIntakeFileCleanup} from "./verify-photo-intake-file-cleanup";
+import {verifyLegacyFixtureFiles} from "./verify-legacy-fixture-files";
 import {verifyPrimaryCatalogFreshness} from "./verify-primary-catalog-freshness";
 import {verifyRecognitionSnapshot} from "./verify-acquisition-recognition-snapshot";
 import { verifyCorrectionReviewHistory } from "./verify-acquisition-correction-history";
@@ -118,6 +120,8 @@ const known = {
 };
 
 async function run() {
+  await verifyPhotoIntakeFileCleanup(db);
+  await verifyLegacyFixtureFiles(db);
   await verifyNativeScannerCleanup(db);
   await verifyScannerStorageFileCleanup(db);
   await verifyRecognitionSnapshot(db);
