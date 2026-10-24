@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {acquisitionBatchLanguageCandidates,acquisitionObservedLanguages,acquisitionBatchLanguageAgrees} from "../lib/acquisition-batch-language";
+import {acquisitionBatchLanguageCandidates,acquisitionObservedLanguages,acquisitionBatchLanguageAgrees,acquisitionObservedLanguageEvidence} from "../lib/acquisition-batch-language";
+import {acquisitionFooterObservations} from "../lib/acquisition-footer";
 import {createAcquisitionRecognitionIndex,proposeOrientedAcquisitionPrintings,type RecognitionCard,type RecognitionText} from "../lib/acquisition-recognition";
 import {acquisitionDefaultsSchema,acquisitionPreferredPrinting,preserveAcquisitionDefaultLanguage,type AcquisitionCardReview} from "../lib/acquisition-review";
 import {acquisitionReviewEvidence} from "../lib/acquisition-review-evidence";
@@ -61,6 +62,46 @@ test("batch language cannot supply title, set, collector, layout, orientation, s
   assert.equal(proposeOrientedAcquisitionPrintings(stamped,directions(text),12,"en").automaticAcceptance,false);
   const numeric=createAcquisitionRecognitionIndex([{...card,setCode:"c13"}]);
   assert.equal(proposeOrientedAcquisitionPrintings(numeric,directions({...text,footer:["R 123a","C13"]}),12,"en").automaticAcceptance,false);
+});
+
+test("split language observations veto borrowed confirmation without creating a set/language identifier",()=>{
+  const inputs=[
+    directions({...text,footer:["R 123a","ABC","FR"]}),
+    directions({...text,footer:["R 123a","ABC\nFR"]}),
+    directions({...text,footer:["R 123a","ABC","(FR)"]}),
+    directions({...text,footer:["R 123a","ABC","FR."]}),
+    directions({...text,footerSupplemental:["FR"]}),
+    directions({...text,footerSourceIdentifiers:[" FR "]}),
+    directions(text,{title:[],footer:["FR"]}),
+    directions({...text,footer:["R 123a","ABC EN"]},{title:[],footer:["ZZZ","FR"]}),
+  ];
+  for(const input of inputs){
+    const before=structuredClone(input),ordinary=proposeOrientedAcquisitionPrintings(index,input);
+    assert(acquisitionObservedLanguages(input).includes("fr"));
+    assert.deepEqual(acquisitionBatchLanguageCandidates(index,input),[]);
+    const result=proposeOrientedAcquisitionPrintings(index,input,12,"en");
+    assert.equal(result.automaticAcceptance,false);assert.equal(result.status,"CONFLICT");
+    assert.equal(acquisitionBatchLanguageAgrees({native:{orientations:input}},"en"),false);
+    assert.deepEqual(input,before);assert.deepEqual(proposeOrientedAcquisitionPrintings(index,input),ordinary);
+  }
+  const split={...text,footer:["R 123a","ABC","FR"]};
+  assert.deepEqual(acquisitionFooterObservations(split.footer).identifiers,[]);
+  assert.equal(proposeOrientedAcquisitionPrintings(index,directions(split),12,"fr").automaticAcceptance,false,
+    "agreement with an isolated code must not fabricate a positive identifier");
+  const positioned=directions(split).map(row=>({...row,footerLines:row.text.footer.map((value,i)=>({text:value,
+    polygon:[[20+i*50,1300],[60+i*50,1300],[60+i*50,1320],[20+i*50,1320]]}))}));
+  assert.equal(proposeOrientedAcquisitionPrintings(index,positioned,12,"en").automaticAcceptance,false);
+});
+
+test("isolated supported language codes are bounded observations across channels and reading directions",()=>{
+  for(const language of ["EN","FR","DE","IT","ES","PT","JA","KO","RU","ZHS","ZHT"]){
+    const input=directions({...text,footer:["R 123a","ABC",` · ${language.toLowerCase()} • `]});
+    assert.deepEqual(acquisitionObservedLanguages(input),[language.toLowerCase()]);
+    assert.deepEqual(acquisitionBatchLanguageCandidates(index,input),[]);
+  }
+  for(const orientations of [[],directions(text).slice(0,1)])
+    assert.equal(acquisitionObservedLanguageEvidence({native:{orientations}}),null);
+  assert.equal(acquisitionObservedLanguageEvidence({native:{orientations:directions({...text,footer:Array(101).fill("FR")})}}),null);
 });
 
 test("optional batch language is explicit and legacy defaults retain their representation",()=>{

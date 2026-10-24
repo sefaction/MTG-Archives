@@ -1,7 +1,7 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { acquisitionRecognitionDto, acquisitionProposalSchema } from "./acquisition-recognition-dto";
 import {z} from "zod";
-import {acquisitionBatchLanguageSchema,acquisitionBatchLanguageAgrees} from "./acquisition-batch-language";
+import {acquisitionBatchLanguageSchema,acquisitionBatchLanguageAgrees,acquisitionObservedLanguageEvidence} from "./acquisition-batch-language";
 import { captureCorrectionReview } from "./acquisition-correction-library";
 import {
   CATALOG_RECONCILIATION_STAGE,
@@ -184,7 +184,8 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
         card.lang === proposal.card.lang &&
         (!confirmedLanguage || card.lang?.toLowerCase()===confirmedLanguage) &&
         (!confirmedLanguage || acquisitionBatchLanguageAgrees(job.output,confirmedLanguage)) &&
-        (!projected || proposal.reasons.includes("LANGUAGE_FROM_CONFIRMED_BATCH")) &&
+        (!projected || (proposal.reasons.includes("LANGUAGE_FROM_CONFIRMED_BATCH") &&
+          acquisitionObservedLanguageEvidence(job.output)?.length===0)) &&
         decision.success &&
         Array.isArray(card.finishes) &&
         card.finishes.includes(decision.data.finish.toLowerCase());

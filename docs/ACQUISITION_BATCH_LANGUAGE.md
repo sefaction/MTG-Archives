@@ -1,5 +1,64 @@
 # Confirmed batch language (#308)
 
+## Split-language correction qualification
+
+Independent review5636732457 / P2 inline4365910698 found that separate readable
+set/language OCR entries could be mistaken for missing language. The initial
+qualification below did not cover this segmentation case; that earlier ready
+handoff is superseded. The corrected author evidence follows; final-head CI and
+independent re-review remain recorded on PR958.
+
+The correction retains isolated supported language codes as bounded veto
+observations across footer channels and both directions, including separate
+positioned boxes and punctuation. It never joins them into a positive printing
+identifier. The conditional producer requires genuinely missing language; the
+locked consumer also refuses prior conditional options when saved language is
+readable, even if that code agrees with the batch default. Ordinary complete
+matching identifiers remain usable. Both saved reading directions must validate.
+Bulk review disables readable/default conflicts and explains individual review.
+
+- The new seven-test file run against unchanged pre-fix application source
+  fails two tests and passes five. Corrected32 focused policy/footer/evidence/
+  problem/scanner checks pass. Full Windows suite:1,652 executions,1,646 pass,
+  zero failures and six existing platform skips. Types/lint and the canonical
+  production build pass.
+- Corrected product source62e82fd2, exported public tree
+  `855b1ed5fd8d60e6bce39f9397e27ef218d1386e`, builds image
+  `sha256:be9804ac0e90ebfcd616825e8272d9b072e58874de2d80389edd8f6873876343`.
+  All1,290 declared inputs match its Git export; digest
+  `08769bafb1ca8b98cbd518ace64c1b12ff6406ebc22442e2cbe1ad51e169a163`.
+  The separate export index restores the public base checkpoint; private
+  checkpoint text is excluded without altering the working copy.
+- Full actual acquisition PostgreSQL verification passes. The expanded12-card
+  helper covers split primary/opposite language and a simulated persisted
+  pre-fix conditional option whose isolated code agrees with the default.
+  The current producer refuses borrowed interpretations; the locked consumer
+  independently leaves all three pending. Ordinary unreadable confirmation,
+  full readable agreement, human/default/receipt/source protections still pass.
+  All85 table counts/digests restore. Verification-only source additions are
+  read back and hashed; runtime application files are not replaced.
+- The retained old2b562ea9 image fails the declared desktop1366/phone320
+  regression specifically by automatically saving English on controlled split
+  readable French evidence: two automatic reviews instead of one. Each actual
+  saved review is recorded before failure. Three relevant old runtime library
+  files match its original source manifest. Both negative cases restore all85
+  table fingerprints; this is downstream controlled-OCR workflow evidence,
+  not a native optical-language experiment.
+- Against correctedbe9804ac, the same expanded six-photo workflow passes both
+  layouts in24.6s. Verifier-only sourcebc037f1c then adds explicit bulk-open
+  overflow and explanation screenshots; both complete workflows pass in23.8s.
+  The split French card remains pending, visible as a conflict and disabled in
+  bulk review, even after a default change. The other five still produce
+  EN3/FR2, two lots/two audits/five members and unchanged replay. Original bytes
+  and processing jobs stay exact; all four corrected cases restore all85
+  fingerprints. Phone/desktop explanation screenshots were visually inspected.
+
+Later changes after this product build are the browser overflow/screenshot check
+and this guide. Application inputs remain unchanged. Initial pre-review results
+below retain only their original scope and do not qualify the split case.
+
+## Confirmed product policy
+
 Brian's October 23, 2026 answer to the batch-language policy question was:
 “Yes, use the confirmed batch language.” A language explicitly selected by the
 operator may supply missing language confirmation for an otherwise strong exact
@@ -57,7 +116,7 @@ the built catalog/automatic-review services with controlled saved OCR/local
 catalog responses, readable conflict, draft reload, manual override, frozen bulk
 recovery, later default, final explicit Inventory addition and replay.
 
-## Author qualification, October 23, 2026
+## Initial author qualification, October 23, 2026 (historical)
 
 - Product source `2c8e1786d33f971934be4570ffe3a737354a5f44` passed the
   canonical root Dockerfile production build, including compilation, types,

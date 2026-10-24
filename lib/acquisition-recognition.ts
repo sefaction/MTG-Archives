@@ -368,9 +368,11 @@ export function proposeOrientedAcquisitionPrintings(
   // Resolve complete observations independently. Never take a title from one
   // orientation and a collector number from another to manufacture agreement.
   const confirmed=acquisitionBatchLanguageSchema.safeParse(confirmedBatchLanguage);
-  const languageConflict=confirmed.success && acquisitionObservedLanguages(orientations).some(language=>language!==confirmed.data);
+  const observedLanguages=acquisitionObservedLanguages(orientations);
+  const languageConflict=confirmed.success && observedLanguages.some(language=>language!==confirmed.data);
+  const missingLanguage=confirmed.success && !observedLanguages.length ? confirmed.data : undefined;
   const resolve=(orientation:typeof orientations[number],fuzzy:boolean)=>{
-    const result=resolveAcquisitionPrintings(index,orientation.text,Math.max(1,index.cards),fuzzy,orientation,confirmedBatchLanguage);
+    const result=resolveAcquisitionPrintings(index,orientation.text,Math.max(1,index.cards),fuzzy,orientation,missingLanguage);
     if(languageConflict){
       result.status="CONFLICT";result.automaticAcceptance=false;
       for(const proposal of result.proposals)proposal.reasons=[...new Set([

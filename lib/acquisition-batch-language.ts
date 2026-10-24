@@ -22,14 +22,23 @@ export function acquisitionUntranslatedSetMarkers(lines:string[], knownSets:Set<
 }
 
 export function acquisitionObservedLanguages(orientations:{text:RecognitionText}[]) {
-  return [...new Set(orientations.flatMap(({text})=>acquisitionFooterObservations(
-    text.footer,text.footerSupplemental,text.footerSourceIdentifiers).identifiers.map(value=>value.language)))];
+  return [...new Set(orientations.flatMap(({text})=>{
+    const footer=acquisitionFooterObservations(text.footer,text.footerSupplemental,text.footerSourceIdentifiers);
+    // OCR may put the language in its own box/line. Preserve that observation
+    // as a veto; never join it to another line/channel to invent an identifier.
+    const isolated=[text.footer,text.footerSupplemental??[],text.footerSourceIdentifiers??[]].flatMap(lines=>
+      lines.flatMap(line=>line.split(/\r?\n/)).flatMap(line=>{
+        const code=acquisitionBatchLanguageSchema.safeParse(line.trim().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu,"").toLowerCase());
+        return code.success?[code.data]:[];
+      }));
+    return [...footer.identifiers.map(value=>value.language),...isolated];
+  }))];
 }
 
 const footerWords=z.array(z.string().max(2000)).max(100);
 const readableSource=z.object({native:z.object({orientations:z.array(z.object({text:z.object({
   footer:footerWords,footerSupplemental:footerWords.optional(),footerSourceIdentifiers:footerWords.optional(),
-}).refine(text=>text.footer.length+(text.footerSupplemental?.length??0)+(text.footerSourceIdentifiers?.length??0)<=100)})).max(2)})});
+}).refine(text=>text.footer.length+(text.footerSupplemental?.length??0)+(text.footerSourceIdentifiers?.length??0)<=100)})).length(2)})});
 export function acquisitionObservedLanguageEvidence(output:unknown) {
   const source=readableSource.safeParse(output);
   if(!source.success)return null;

@@ -82,10 +82,12 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
     } finally { if (current()) setLoading(false); }
   }
   const choice = (row: Proposal) => acquisitionPreferredPrinting(row.record);
+  const readableLanguageConflict = (row: Proposal) => Boolean(defaults.language &&
+    row.record.evidence?.identifiers.languages.some(language=>language!==defaults.language));
   const eligible = (row: Proposal) => {
     const printing = choice(row);
     return Boolean(draftsReady && !blockedPhotos.has(row.photoId) && printing && !row.record.review && !row.saved && printing.lang && defaults.condition &&
-      (!defaults.language||printing.lang.toLowerCase()===defaults.language) && finishForPrinting(defaults.finish, printing));
+      (!defaults.language||printing.lang.toLowerCase()===defaults.language) && !readableLanguageConflict(row) && finishForPrinting(defaults.finish, printing));
   };
   const selected = rows.filter(row => row.checked && eligible(row));
   const pending = rows.filter(row => row.pendingConfirmation);
@@ -185,6 +187,7 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
                 }}>Inspect or correct</a>
               </div>
               {printing && <p className="text-sm">{printing.setCode.toUpperCase()} #{printing.collectorNumber} · {printing.lang?.toUpperCase() ?? "language unknown"} · {row.record.recognitionStatus.replaceAll("_", " ").toLowerCase()}</p>}
+              {!row.pendingConfirmation && readableLanguageConflict(row) && <p className="text-sm">Readable language conflicts with the batch language. Inspect or correct this card individually.</p>}
               {row.pendingConfirmation && <p className="text-sm">Original confirmation: {row.pendingConfirmation.finish.toLowerCase()} · {row.pendingConfirmation.condition} · {row.pendingConfirmation.language?.toUpperCase()??printing?.lang?.toUpperCase()??"language unknown"}. Later default changes do not alter this confirmation.</p>}
               {proposedFinish && proposedFinish !== defaults.finish && <p className="text-sm">This printing supports only {proposedFinish.toLowerCase()}; bulk review will use that finish.</p>}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 max-w-3xl">
