@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Prisma } from "@prisma/client";
-import { acquisitionError } from "../lib/acquisition-api";
+import { acquisitionError, acquisitionCommitError } from "../lib/acquisition-api";
 import {
   isRetryableAcquisitionConflict,
   uploadAcquisitionPhoto,
@@ -224,4 +224,22 @@ test("slot reservation reuses its one request key after a conflict or lost ackno
   assert.deepEqual(JSON.parse(String(calls[0].body)), {
     action:"reserve",requestKey:"a7251f4d-5bfb-45b3-85e5-312023964733",
   });
+});
+
+test("closed commit connections retain an unknown outcome without leaking or enabling upload retries", async () => {
+  const error=new Prisma.PrismaClientKnownRequestError("private SQL postgresql://credential",{code:"P1017",clientVersion:"fixture"});
+  const response=acquisitionCommitError(error);
+  assert.equal(response.status,503);
+  assert.equal(response.headers.get("cache-control"),"no-store");
+  assert.deepEqual(await response.json(),{error:"The database connection was interrupted. Wait a moment, then retry the same request."});
+  // Other acquisition routes retain their existing classification/retry policy.
+  assert.equal(acquisitionError(error).status,409);
+});
+
+test("commit transport handling preserves authorization and semantic refusals", async () => {
+  for(const error of [new Error("Login required"),new Error("Destination changed; refresh"),new Error("P1017"),{code:"P2034"},{code:"P2002"},null]){
+    const expected=acquisitionError(error),actual=acquisitionCommitError(error);
+    assert.equal(actual.status,expected.status);
+    assert.deepEqual(await actual.json(),await expected.json());
+  }
 });
