@@ -1,3 +1,10 @@
+## Current work — laptop photo-intake fixture cleanup
+
+- Owner: thread01a16943 / runfixture-file-failure-692-20261024-01a16943, isolated codex/fixture-file-failure-692 from main9b3add47; #966 under #692/#310, no merge authority.
+- Actual-source negative:1/4files attempted after19 relational deletes. Fix preserves the full original workflow/assertions/deadline/relational-tail text;9host controls pass.
+- Source claim held; no runtime claim or live child between checks. Private current/source/evidence record: `.local-data/fixture-file-failure-692-20261024/` at primary root.
+- Next: exact-source disposable SQL/filesystem and locked types, final CI, independent review, then exact-owned cleanup/release. Root cumulative WIP and existing reviews remain protected.
+
 ## Current work - correction discard focus #916 / PR #917, October 23, 2026
 
 - Laptop owner/thread `01a16943-ac96-7b93-89ea-c178f02100db`, run `laptop-cancel-focus-20261023-01a16943`; branch `codex/acquisition-cancel-focus`, base04b49133, product/test95a67040. Brian's October23shared-queue correction authorizes this bounded #308focus remainder; #913/914 remains desktop-owned. No merge, production, scanner or schedule authority.

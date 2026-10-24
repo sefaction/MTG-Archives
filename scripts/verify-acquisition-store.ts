@@ -1,3 +1,4 @@
+import {verifyPhotoIntakeFileCleanup} from "./verify-photo-intake-file-cleanup";
 import {verifyPrimaryCatalogFreshness} from "./verify-primary-catalog-freshness";
 import {verifyRecognitionSnapshot} from "./verify-acquisition-recognition-snapshot";
 import { verifyCorrectionReviewHistory } from "./verify-acquisition-correction-history";
@@ -117,6 +118,7 @@ const known = {
 };
 
 async function run() {
+  await verifyPhotoIntakeFileCleanup(db);
   await verifyNativeScannerCleanup(db);
   await verifyRecognitionSnapshot(db);
   await verifyPrimaryCatalogFreshness(db);
