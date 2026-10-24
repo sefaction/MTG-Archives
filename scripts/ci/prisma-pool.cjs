@@ -134,16 +134,20 @@ async function phase(image, observed, name) {
 }
 (async () => {
   try {
-    const head = git('rev-parse', 'HEAD'); assert.equal(head, process.env.EXPECTED_SOURCE);
-    assert.equal(git('status', '--porcelain'), '');
-    report.source = {head, tree: git('rev-parse','HEAD^{tree}'), prismaBlob: git('rev-parse','HEAD:lib/prisma.ts'),
-      baseline: 'f32ebffbec91d5488e7e3318510d446bdc3d80d7', dockerfile: git('rev-parse','HEAD:Dockerfile')};
-    assert.equal(report.source.prismaBlob, git('rev-parse', `${report.source.baseline}:lib/prisma.ts`), 'Unchanged-source control');
-    assert.equal(report.source.dockerfile, git('rev-parse', `${report.source.baseline}:Dockerfile`));
     const endpoint = JSON.parse(docker('context','inspect',docker('context','show'),'--format','{{json .Endpoints.docker.Host}}'));
     assert.match(endpoint, /^unix:\/\//);
     initial = docker('ps','-aq').split('\n').filter(Boolean).map(id => inspect('container',id).Id);
     assert(initial.every(id => inspect('container',id).Name.startsWith(`/buildx_buildkit_${process.env.QUALIFICATION_BUILDER}`)));
+    const head = git('rev-parse', 'HEAD'); assert.equal(head, process.env.EXPECTED_SOURCE);
+    assert.equal(git('status', '--porcelain'), '');
+    report.source = {head, tree: git('rev-parse','HEAD^{tree}'), prismaBlob: git('rev-parse','HEAD:lib/prisma.ts'),
+      baseline: 'f32ebffbec91d5488e7e3318510d446bdc3d80d7', dockerfile: git('rev-parse','HEAD:Dockerfile')};
+    report.source.historicalPrismaBlob = git('rev-parse', `${report.source.baseline}:lib/prisma.ts`);
+    report.source.unchangedFromHistoricalPrisma = report.source.prismaBlob === report.source.historicalPrismaBlob;
+    report.source.measurement = 'Current exact source, with and without the forwarding observer';
+    assert.equal(git('hash-object','lib/prisma.ts'), report.source.prismaBlob, 'Current source equals selected head');
+    assert.equal(report.source.dockerfile, git('rev-parse', `${report.source.baseline}:Dockerfile`));
+
     const builder = process.env.QUALIFICATION_BUILDER; assert(builder);
     assert(docker('buildx','build','--help').includes('--resource'));
     run('docker', ['buildx','build','--builder',builder,'--load','--resource','memory=4g','--resource','memory-swap=4g',
@@ -184,8 +188,10 @@ async function phase(image, observed, name) {
     while(cp.spawnSync('docker',['exec',database,'pg_isready','-U','fixture','-d','pool846']).status!==0){assert(Date.now()<deadline);await sleep(500);}
     report.database={id:database,image:owned(database).Image,maxConnections:Number(sql('SHOW max_connections'))};
     assert.equal(report.database.maxConnections,100);
-    await phase(image,false,'unchanged-uninstrumented');
-    await phase(image,true,'unchanged-observed');
+    await phase(image,false,'current-uninstrumented');
+    await phase(image,true,'current-observed');
+    assert.equal(git('hash-object','lib/prisma.ts'), report.source.prismaBlob, 'Measured source remains unchanged');
+    assert.equal(git('status','--porcelain'), '');
     report.status='MEASURED';
   } catch(e) {report.status='FAILED';report.failures.push({name:e.name,message:e.message});process.exitCode=1;}
   finally {

@@ -182,3 +182,19 @@ spaced five seconds apart, recording each method/status and preserving the durab
 ledger after every attempt. It requires an actually observed page recovery screen;
 no fixture query warms the application pool. Full new-source build, desktop/phone
 results, final-head CI and independent review remain pending.
+The named hosted pool workflow also applies because lib/prisma.ts changes. Its
+historical hardcoded f32 source-equality check correctly identified changed source
+but prevented any current-source measurement. Preserve that baseline and both blob
+identities as explicit historical comparison metadata, while binding measurement to
+the selected clean current head and the canonical image's complete input manifest.
+Current uninstrumented/observed phases retain the same ordinary routes, fixed
+concurrency, process/topology/connection samples and owned cleanup assertions.
+The pre-existing allowed-builder inventory is captured before source refusals, so
+an early source failure no longer compares that builder against an uninitialized
+empty baseline. No unrelated builder is removed. Earlier failed run artifacts and
+source-control failures remain evidence; a new current-head pool run is required.
+
+The final local application build is24346032. Later CI-measurement/documentation
+integration does not change application, dependency or schema inputs; retain that
+specific reuse binding rather than claiming the local image has the later full
+source tree. Final-head hosted builds/checks remain independently required.
