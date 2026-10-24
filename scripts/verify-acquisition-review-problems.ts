@@ -40,8 +40,11 @@ export async function verifyAcquisitionReviewProblems(db: PrismaClient, actor: A
     native: {geometry: {status: geometryStatus}, omittedPrivateObservation: secret},
   });
   let failed = false, primary: unknown;
+  const enabledBefore = {ACQUISITION_VISUAL_ENABLED: process.env.ACQUISITION_VISUAL_ENABLED,
+    ACQUISITION_PRINTING_ENABLED: process.env.ACQUISITION_PRINTING_ENABLED};
   const errors: unknown[] = [];
   try {
+    process.env.ACQUISITION_VISUAL_ENABLED = "0"; process.env.ACQUISITION_PRINTING_ENABLED = "0";
     await db.acquisitionProcessingJob.create({data: {id, runId: photo.runId, candidateId: candidate.id,
       artifactId: artifact.id, candidateRevision: candidate.revision, stage: "photo-recognition-v1",
       versionKey: createHash("sha256").update(id).digest("hex"), status: "COMPLETE", input,
@@ -58,6 +61,11 @@ export async function verifyAcquisitionReviewProblems(db: PrismaClient, actor: A
     assert((await flags()).includes("conflict"));
     await db.acquisitionProcessingJob.update({where: {id}, data: {output: output("NO_MATCH", [])}});
     assert((await flags()).includes("no-match"));
+    for (const name of ["ACQUISITION_VISUAL_ENABLED", "ACQUISITION_PRINTING_ENABLED"]) {
+      process.env[name] = "1";
+      assert(!(await flags()).includes("no-match"), "enabled stage awaiting admission is unfinished");
+      process.env[name] = "0";
+    }
     await db.acquisitionProcessingJob.update({where: {id}, data: {status: "RUNNING",
       leaseToken: "owned-problem-fixture", leaseExpiresAt: new Date(Date.now() + 60000)}});
     assert(!(await flags()).includes("no-match"));
@@ -66,6 +74,10 @@ export async function verifyAcquisitionReviewProblems(db: PrismaClient, actor: A
     assert(!(await flags()).includes("no-match"), "malformed result cannot become a no-match signal");
     await db.acquisitionProcessingJob.update({where: {id}, data: {output: output("REVIEW_REQUIRED", [proposal], "NEEDS_CROP")}});
     assert((await flags()).includes("quality"));
+    const other = await db.acquisitionCandidate.findFirstOrThrow({where: {runId: photo.runId, id: {not: candidate.id}}});
+    await db.acquisitionProcessingJob.update({where: {id}, data: {candidateId: other.id}});
+    assert(!(await flags()).includes("quality"), "another physical candidate cannot supply this photo's problem");
+    await db.acquisitionProcessingJob.update({where: {id}, data: {candidateId: candidate.id}});
     // Wrong immutable input and a newer physical generation cannot supply flags.
     await db.acquisitionProcessingJob.update({where: {id}, data: {input: {...input, digest: "0".repeat(64)}}});
     assert(!(await flags()).includes("quality"));
@@ -84,7 +96,7 @@ export async function verifyAcquisitionReviewProblems(db: PrismaClient, actor: A
     assert(Buffer.byteLength(JSON.stringify([...projected])) < Buffer.byteLength(secret) / 2, "projection omits large native observation");
     await assert.rejects(getAcquisitionProgress(db, stranger, sessionId), /unavailable/);
     assert.deepEqual(await db.acquisitionPhoto.findUniqueOrThrow({where: {id: photoId}}), photo);
-    console.log("PASS: actual progress problem classification, compact private projection, malformed/pending refusal, current photo/digest/manual-intent fencing and foreign-owner denial");
+    console.log("PASS: actual progress problem classification, compact private projection, malformed/pending/enabled-stage refusal, current physical candidate/photo/digest/manual-intent fencing and foreign-owner denial");
   } catch (error) { failed = true; primary = error; }
   try { await db.acquisitionProcessingJob.deleteMany({where: {id, runId: photo.runId}}); } catch (error) { errors.push(error); }
   try { await db.acquisitionCandidate.update({where: {id: candidate.id}, data: {manualAnalysis: Prisma.DbNull}}); } catch (error) { errors.push(error); }
@@ -95,5 +107,8 @@ export async function verifyAcquisitionReviewProblems(db: PrismaClient, actor: A
     assert.deepEqual(after, baseline, "classification fixture restores all original public rows");
     console.log(`PASS: review problem fixture restored all ${Object.keys(after).length} public-table fingerprints`);
   } catch (error) { errors.push(error); }
+  for (const [name, value] of Object.entries(enabledBefore)) {
+    if (value === undefined) delete process.env[name]; else process.env[name] = value;
+  }
   if (failed || errors.length) throw new AggregateError([...(failed ? [primary] : []), ...errors], "Review problem qualification failed");
 }

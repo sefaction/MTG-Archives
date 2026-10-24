@@ -19,7 +19,7 @@ function seedProblems(tag: string, batch: string) {
     const candidates=await p.acquisitionCandidate.findMany({where:{runId:run.id},orderBy:{acquisitionOrder:'asc'}});
     if(candidates.length!==300)throw Error('Expected bounded300-card presentation fixture');
     const crypto=require('crypto'),jobs=[];let visualJob='';
-    for(let position=0;position<24;position++){
+    for(let position=0;position<300;position++){
       const candidate=candidates[position],photo=await p.acquisitionPhoto.findFirstOrThrow({where:{runId:run.id,slotId:candidate.physicalId}});
       const artifact=await p.acquisitionArtifact.findFirstOrThrow({where:{runId:run.id,sourceId:photo.id}});
       if(position<23)await p.acquisitionCandidate.update({where:{id:candidate.id},data:{review:Prisma.DbNull}});
@@ -27,11 +27,11 @@ function seedProblems(tag: string, batch: string) {
       const empty=[16,17,18,22].includes(position),status=position<16?'CONFLICT':empty?'NO_MATCH':'REVIEW_REQUIRED';
       const proposals=empty?[]:[{card:{id:card.id,name:card.name,setCode:card.setCode,collectorNumber:card.collectorNumber,lang:card.lang},reasons:['TITLE_TEXT'],nameDistance:0}];
       const input={photoId:photo.id,digest:position===20?'0'.repeat(64):photo.digest,manualAnalysis:null};
-      const output={catalog:{status:'RESOLVED',printingCoverage:'CHECKED'},proposals:{status,automaticAcceptance:false,totalProposals:proposals.length,truncated:false,proposals},native:{geometry:{status:[19,23].includes(position)?'NEEDS_CROP':'PROPOSED'}}};
+      const output={catalog:{status:'RESOLVED',printingCoverage:'CHECKED'},proposals:{status,automaticAcceptance:false,totalProposals:proposals.length,truncated:false,proposals},native:{geometry:{status:[19,23].includes(position)?'NEEDS_CROP':'PROPOSED'},omittedPrivateObservation:'private-projection-marker-'+crypto.randomBytes(16384).toString('hex')}};
       jobs.push({id:crypto.randomUUID(),runId:run.id,candidateId:candidate.id,artifactId:artifact.id,candidateRevision:candidate.revision,stage:'photo-recognition-v1',versionKey:crypto.createHash('sha256').update(tag+position).digest('hex'),status:position===18?'PENDING':'COMPLETE',input,output,createdAt:new Date(Date.now()+60000+position)});
       if(position===22){visualJob=crypto.randomUUID();jobs.push({id:visualJob,runId:run.id,candidateId:candidate.id,artifactId:artifact.id,candidateRevision:candidate.revision,stage:'photo-visual-retrieval-v1',versionKey:crypto.createHash('sha256').update(tag+'visual').digest('hex'),status:'PENDING',input,createdAt:new Date(Date.now()+61000)});}
     }
-    await p.acquisitionProcessingJob.createMany({data:jobs});return {visualJob};
+    for(let start=0;start<jobs.length;start+=25)await p.acquisitionProcessingJob.createMany({data:jobs.slice(start,start+25)});return {visualJob};
   `);
 }
 
@@ -46,7 +46,13 @@ for (const width of [1366, 390, 320]) test(`whole-batch problem filters preserve
     const fixture = await setupReviewFixture(page, baseURL!, tag, 300);
     const seeded = seedProblems(tag, fixture.batch), source = reviewSourceState(fixture.batch);
     writeFileSync(test.info().outputPath("source-before.json"), JSON.stringify(source));
-    const progress = await (await page.request.get(`/api/acquisition/${fixture.batch}`)).json();
+    const started = performance.now();
+    const progress = await (await page.request.get(`/api/acquisition/${fixture.batch}`, {timeout: 15_000})).json();
+    const progressBytes = Buffer.byteLength(JSON.stringify(progress));
+    expect(JSON.stringify(progress)).not.toContain("private-projection-marker-");
+    expect(progressBytes).toBeLessThan(300 * 32768 / 5);
+    writeFileSync(test.info().outputPath("progress-projection.json"), JSON.stringify({cards:300,
+      syntheticNativeBytesAtLeast:300*32768,progressBytes,milliseconds:Math.round(performance.now()-started)}));
     expect(progress.slots).toHaveLength(300);
     anonymous = await request.newContext({baseURL});
     const denied = await anonymous.get(`/api/acquisition/${fixture.batch}`);

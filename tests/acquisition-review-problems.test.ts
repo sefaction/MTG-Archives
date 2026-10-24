@@ -45,6 +45,16 @@ test("a completed result with no still-available local printing remains no match
   assert.deepEqual(problems([job({resultStatus: "REVIEW_REQUIRED", proposalCount: 1, proposalIds: ["card"]})]), []);
 });
 
+test("enabled stages waiting for admission are not a final no-match result", () => {
+  assert.deepEqual(problems([job()], {visualEnabled: true}), []);
+  assert.deepEqual(problems([job()], {printingEnabled: true}), []);
+  assert.deepEqual(problems([job({id: "visual", stage: VISUAL_STAGE}), job()],
+    {visualEnabled: true}), ["no-match"]);
+  assert.deepEqual(problems([job({id: "printing", stage: PRINTING_STAGE,
+    output: {sourceCatalogJobId: "catalog", referenceAdmission: {status: null}}}), job()],
+    {printingEnabled: true}), ["no-match"]);
+});
+
 test("overlapping unresolved problems stay distinct and do not change source observations", () => {
   const jobs = [job({resultStatus: "CONFLICT", proposalCount: 1, proposalIds: ["card"], framing: "CLIPPED"})];
   const before = JSON.stringify(jobs);

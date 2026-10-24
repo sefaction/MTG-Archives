@@ -42,6 +42,8 @@ export async function readAcquisitionProblemJobs(tx: Prisma.TransactionClient, r
         left(work.output#>>'{native,geometry,framing}',40) AS framing
       FROM "AcquisitionProcessingJob" work
       JOIN "AcquisitionArtifact" artifact ON artifact.id=work."artifactId" AND artifact."runId"=work."runId"
+      JOIN "AcquisitionCandidate" checked ON checked.id=work."candidateId" AND checked."runId"=work."runId"
+        AND checked."physicalId"=p."slotId"
       WHERE work."runId"=p."runId" AND artifact."sourceId"=p.id
         AND work.input->>'photoId'=p.id AND work.input->>'digest'=p.digest
         AND COALESCE(work.input->'manualAnalysis','null'::jsonb)=COALESCE(selected."manualAnalysis",'null'::jsonb)

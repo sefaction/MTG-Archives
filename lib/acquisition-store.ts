@@ -991,6 +991,8 @@ export async function getAcquisitionProgress(
         review,
         reviewProblems: acquisitionReviewProblems({committed, review,
           printings: reviewedNames,
+          visualEnabled: process.env.ACQUISITION_VISUAL_ENABLED === "1",
+          printingEnabled: process.env.ACQUISITION_PRINTING_ENABLED === "1",
           defaultsFinish: state.defaults.finish, photoReady: Boolean(photo),
           physicalReasons: physicalReasons.get(slot.id) ?? ["UNAVAILABLE"],
           jobs: photo ? problemJobs.get(photo.id) ?? [] : []}),
