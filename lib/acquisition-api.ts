@@ -36,6 +36,17 @@ export function acquisitionError(error: unknown) {
   );
 }
 
+/** An interrupted commit has an unknown outcome, not a rejected preview.
+ * Keep the browser's frozen request for explicit idempotent recovery. */
+export function acquisitionCommitError(error: unknown) {
+  if (error && typeof error === "object" && "code" in error && error.code === "P1017") {
+    return Response.json(
+      {error: "The database connection was interrupted. Wait a moment, then retry the same request."},
+      {status: 503, headers: {"Cache-Control": "no-store"}},
+    );
+  }
+  return acquisitionError(error);
+}
 export function acquisitionProgressDto(
   state: Awaited<
     ReturnType<typeof import("./acquisition-store").getAcquisitionProgress>
