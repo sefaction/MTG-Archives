@@ -142,11 +142,37 @@ export async function writeAcquisitionPhotoBytes(
   if (bytes.length > PHOTO_MAX_BYTES || photoDigest(bytes) !== digest)
     throw new Error("Photo integrity check failed");
   const { directory, file } = await filePath(id, variant);
+  const failures: unknown[] = [];
+  async function syncDirectory() {
+    // A complete file may come from a publication whose directory sync failed.
+    // Retry that durability barrier before acknowledging existing bytes too.
+    if (process.platform === "win32") return;
+    let dir;
+    try {
+      dir = await open(directory, "r");
+      await dir.sync();
+    } catch (error) { failures.push(error); }
+    try { await dir?.close(); } catch (error) { failures.push(error); }
+  }
+  function finish() {
+    if (failures.length === 1) throw failures[0];
+    if (failures.length > 1) {
+      const code = (failures[0] as NodeJS.ErrnoException | null)?.code;
+      throw Object.assign(new AggregateError(failures, "Photo write and cleanup failed", { cause: failures[0] }),
+        typeof code === "string" ? { code } : {});
+    }
+  }
+  let existing = false;
   try {
     await readChecked(file, digest);
-    return;
+    existing = true;
   } catch (error: any) {
     if (error.code !== "ENOENT") throw error;
+  }
+  if (existing) {
+    await syncDirectory();
+    finish();
+    return;
   }
   const disk = await statfs(directory);
   if (disk.bavail * disk.bsize < 2 * 1024 ** 3 + bytes.length)
@@ -155,7 +181,6 @@ export async function writeAcquisitionPhotoBytes(
     );
   const temporary = path.join(directory, `${id}.${randomUUID()}.part`);
   let handle;
-  const failures: unknown[] = [];
   try {
     handle = await open(temporary, "wx", 0o600);
     await handle.writeFile(bytes);
@@ -168,14 +193,7 @@ export async function writeAcquisitionPhotoBytes(
       if (error.code !== "EEXIST") throw error;
       await readChecked(file, digest);
     }
-    // Sync the directory on Linux (the Docker runtime). Windows may not support it.
-    if (process.platform !== "win32") {
-      const dir = await open(directory, "r");
-      try {
-        await dir.sync();
-      } catch (error) { failures.push(error); }
-      try { await dir.close(); } catch (error) { failures.push(error); }
-    }
+    await syncDirectory();
   } catch (error) {
     failures.push(error);
   } finally {
@@ -186,12 +204,7 @@ export async function writeAcquisitionPhotoBytes(
       if ((error as NodeJS.ErrnoException | null)?.code !== "ENOENT") failures.push(error);
     }
   }
-  if (failures.length === 1) throw failures[0];
-  if (failures.length > 1) {
-    const code = (failures[0] as NodeJS.ErrnoException | null)?.code;
-    throw Object.assign(new AggregateError(failures, "Photo write and cleanup failed", { cause: failures[0] }),
-      typeof code === "string" ? { code } : {});
-  }
+  finish();
 }
 export async function canonicalizeAcquisitionPhoto(
   id: string,
