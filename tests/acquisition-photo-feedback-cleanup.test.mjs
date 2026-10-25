@@ -4,22 +4,23 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import {compileWorkflowCleanup, registerWorkflowControls} from './fixture-workflow-controls.mjs';
 
 for(const file of ['acquisition-photo-text.spec.ts','acquisition-photo-text-streaming.spec.ts']){
   const source=fs.readFileSync(new URL('./ui/'+file,import.meta.url),'utf8');
   const tree=ts.createSourceFile(file,source,ts.ScriptTarget.Latest,true),blocks=[];
   function visit(node){if(ts.isTryStatement(node)&&node.finallyBlock?.getText(tree).includes('Block new authenticated polling'))blocks.push(node.finallyBlock);ts.forEachChild(node,visit);}
   visit(tree);assert.equal(blocks.length,1);
-  const code=ts.transpileModule(blocks[0].getText(tree),{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
+  const code=compileWorkflowCleanup(source,tree,blocks[0]);
   const expected=file.includes('streaming')?['early-feedback','save-report','acquisition-teardown','late-feedback']:['early-feedback','acquisition-teardown','late-feedback'];
-  async function exercise(faults=[]){
+  async function exercise(faults=[],options={}){
     const calls=[],failures=[];let sweep=0;
     const step=name=>{calls.push(name);if(faults.includes(name)){const error=new Error(name);failures.push(error);throw error;}};
-    const report={};const context={...ownedFixtureFiles,tag:'ui-photo-cleanup-00000000-0000-0000-0000-000000000000',AggregateError,Date,report,
+    const report={};const context={...ownedFixtureFiles,workflow:async()=>{if(options.workflowFails)throw options.primary;},tag:'ui-photo-cleanup-00000000-0000-0000-0000-000000000000',AggregateError,Date,report,
       save:()=>{assert.ok(report.finishedAt);step('save-report');},cancelAndCleanCorrectionFixture:()=> 'owned-feedback:',
       database:body=>step(body.startsWith('owned-feedback:')?(++sweep===1?'early-feedback':'late-feedback'):'acquisition-teardown')};
-    let error;try{await vm.runInNewContext('(async()=>'+code+')()',context);}catch(caught){error=caught;}
-    return {calls,failures,error};
+    let error,threw=false;try{await vm.runInNewContext('(async()=>{'+code+'})()',context);}catch(caught){threw=true;error=caught;}
+    return {calls,failures,error,threw};
   }
   for(const fault of expected)test(`${file}: later cleanup survives ${fault}`,async()=>{
     const result=await exercise([fault]);assert.deepEqual(result.calls,expected);
@@ -32,4 +33,5 @@ for(const file of ['acquisition-photo-text.spec.ts','acquisition-photo-text-stre
   test(`${file}: normal cleanup completes`,async()=>{
     const result=await exercise();assert.deepEqual(result.calls,expected);assert.equal(result.error,undefined);
   });
+  registerWorkflowControls(file,exercise,expected);
 }

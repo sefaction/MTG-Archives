@@ -44,6 +44,7 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
     .jpeg()
     .toBuffer();
   let committed = 0;
+  const workflowFailures: unknown[] = [];
   try {
     database(
       `const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:2,sections:[{name:'A',capacity:2}]}}});`,
@@ -441,6 +442,9 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
         ),
       ),
     ).toBe(committed);
+  } catch (error) {
+    workflowFailures.push(error);
+    throw error;
   } finally {
     // Block new authenticated polling and retire only this fixture owner.
     const cleanupFailures: unknown[] = [];
@@ -454,6 +458,6 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
     ); });
     // A final sweep also catches writes completed during legacy teardown.
     await cleanup(() => { database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');"); });
-    if (cleanupFailures.length) throw new AggregateError(cleanupFailures, "acquisition-photo-intake.spec.ts cleanup failed");
+    if (cleanupFailures.length) throw new AggregateError([...workflowFailures, ...cleanupFailures], "acquisition-photo-intake.spec.ts cleanup failed");
   }
 });

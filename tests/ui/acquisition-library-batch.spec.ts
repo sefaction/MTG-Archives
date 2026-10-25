@@ -47,6 +47,7 @@ test("library selections stream past ten without exceeding capacity or upload bo
   });
   let active = 0,
     maximum = 0;
+  const workflowFailures: unknown[] = [];
   try {
     database(
       `const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:14,sections:[]}}});`,
@@ -199,6 +200,9 @@ test("library selections stream past ten without exceeding capacity or upload bo
         capacity: 14,
       }),
     );
+  } catch (error) {
+    workflowFailures.push(error);
+    throw error;
   } finally {
     // Block new authenticated polling and retire only this fixture owner.
     const cleanupFailures: unknown[] = [];
@@ -213,6 +217,6 @@ test("library selections stream past ten without exceeding capacity or upload bo
     ); });
     // A final sweep also catches writes completed during legacy teardown.
     await cleanup(() => { database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');"); });
-    if (cleanupFailures.length) throw new AggregateError(cleanupFailures, "acquisition-library-batch.spec.ts cleanup failed");
+    if (cleanupFailures.length) throw new AggregateError([...workflowFailures, ...cleanupFailures], "acquisition-library-batch.spec.ts cleanup failed");
   }
 });
