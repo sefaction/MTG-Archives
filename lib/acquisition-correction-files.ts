@@ -53,11 +53,22 @@ export async function readCorrectionBlob(ownerPlayerId: string, digest: string, 
   const info = await lstat(file);
   if (info.isSymbolicLink() || !info.isFile() || info.size !== expectedBytes) throw new Error("Photo correction integrity check failed");
   const handle = await open(file, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  const failures: unknown[] = [];
+  let bytes!: Buffer;
   try {
-    const bytes = await handle.readFile();
+    bytes = await handle.readFile();
     if (bytes.length !== expectedBytes || photoDigest(bytes) !== digest) throw new Error("Photo correction integrity check failed");
-    return bytes;
-  } finally { await handle.close(); }
+  } catch (error) { failures.push(error); }
+  // Closing must not hide a failed read or integrity check, or change the
+  // storage code used by correction capture to classify a recoverable failure.
+  try { await handle.close(); } catch (error) { failures.push(error); }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) {
+    const code = (failures[0] as NodeJS.ErrnoException | null)?.code;
+    throw Object.assign(new AggregateError(failures, "Correction read and close failed", { cause: failures[0] }),
+      typeof code === "string" ? { code } : {});
+  }
+  return bytes;
 }
 
 // Preparation is outside the database transaction. Only the current leased
