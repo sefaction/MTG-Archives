@@ -34,6 +34,7 @@ test(compactOnly ? "compact review replays one native basic-land scan with saved
   if(basicLandPath) entries.push({file:path.basename(basicLandPath),
     sha256:'c612250b17dbb4ef3b4cb45fda99f3d525a6efe4a642bea8c941c893be873ced',
     scryfallId:'d061b9a8-e95d-48ec-a1c9-337433b62dfc'});
+  const workflowFailures: unknown[] = [];
   try {
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:${entries.length},sections:[]}}});`);
     await page.goto('/login');
@@ -217,6 +218,9 @@ test(compactOnly ? "compact review replays one native basic-land scan with saved
     await expect(card.getByRole('img',{name:'Original scan 1',exact:true})).toBeVisible();
     await expect(card.getByRole('img',{name:/^Printing: Timberland Ancient /})).toBeVisible();
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
+  } catch (error) {
+    workflowFailures.push(error);
+    throw error;
   } finally {
     // Block new authenticated polling and retire only this fixture owner.
     const cleanupFailures: unknown[] = [];
@@ -237,6 +241,6 @@ test(compactOnly ? "compact review replays one native basic-land scan with saved
     await cleanup(async () => { database(`const n=${JSON.stringify(tag)};const sessions=await p.acquisitionSession.findMany({where:{ownerPlayerId:n},select:{id:true}});const runs=await p.acquisitionRun.findMany({where:{sessionId:{in:sessions.map(s=>s.id)}},select:{id:true}});const where={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where});${cleanupOwnedPhotoFixtureFiles}await p.acquisitionProcessingJob.deleteMany({where});await p.acquisitionPhoto.deleteMany({where});await p.acquisitionCommand.deleteMany({where});await p.acquisitionCaptureSlot.deleteMany({where});await p.acquisitionCountCorrection.deleteMany({where});await p.acquisitionObservation.deleteMany({where});await p.acquisitionEvent.deleteMany({where});await p.acquisitionCandidate.deleteMany({where});await p.acquisitionArtifact.deleteMany({where});await p.acquisitionRun.deleteMany({where:{id:{in:runs.map(r=>r.id)}}});await p.acquisitionSession.deleteMany({where:{id:{in:sessions.map(s=>s.id)}}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});`); });
     // A final sweep also catches writes completed during legacy teardown.
     await cleanup(() => { database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');"); });
-    if (cleanupFailures.length) throw new AggregateError(cleanupFailures, "acquisition-printing.spec.ts cleanup failed");
+    if (cleanupFailures.length) throw new AggregateError([...workflowFailures, ...cleanupFailures], "acquisition-printing.spec.ts cleanup failed");
   }
 });

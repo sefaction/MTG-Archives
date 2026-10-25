@@ -22,6 +22,7 @@ test("real stamped scans resolve List identity while reference annotations stay 
   const tag=`ui-stamp-${randomUUID()}`,password=randomUUID();
   const manifest=JSON.parse(readFileSync(path.join(root!,"label-manifest.json"),"utf8"));
   const entries=["scan-test.22.jpg","scan-test.42.jpg"].map(file=>manifest.entries.find((e:any)=>e.file===file));
+  const workflowFailures: unknown[] = [];
   try {
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:2,sections:[]}}});`);
     await page.goto('/login');
@@ -69,6 +70,9 @@ test("real stamped scans resolve List identity while reference annotations stay 
       await page.screenshot({path:`test-results/stamp-expectations-${width}.png`});
     }
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
+  } catch (error) {
+    workflowFailures.push(error);
+    throw error;
   } finally {
     // Block new authenticated polling and retire only this fixture owner.
     const cleanupFailures: unknown[] = [];
@@ -84,6 +88,6 @@ test("real stamped scans resolve List identity while reference annotations stay 
       // A final sweep also catches writes completed during legacy teardown.
       database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
     });
-    if (cleanupFailures.length) throw new AggregateError(cleanupFailures, "Stamp expectations fixture cleanup failed");
+    if (cleanupFailures.length) throw new AggregateError([...workflowFailures, ...cleanupFailures], "Stamp expectations fixture cleanup failed");
   }
 });

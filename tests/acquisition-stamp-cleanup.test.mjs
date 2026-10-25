@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
+import {compileWorkflowCleanup, registerWorkflowControls} from './fixture-workflow-controls.mjs';
 
 for (const [file, report] of [["acquisition-stamp-expectations.spec.ts", false], ["acquisition-stamp-visibility.spec.ts", true]]) {
   const source=fs.readFileSync(new URL("./ui/"+file,import.meta.url),"utf8");
@@ -14,21 +15,22 @@ for (const [file, report] of [["acquisition-stamp-expectations.spec.ts", false],
     ts.forEachChild(node,visit);
   }
   visit(tree);assert.ok(block,"Exercise the actual fixture cleanup");
-  const code=ts.transpileModule('{ const workflowFailures: unknown[] = [];'+block.getText(tree)+'}',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
+  const code=compileWorkflowCleanup(source,tree,block);
   const expected=report?["early-feedback","write-report","acquisition-teardown","late-feedback"]:["early-feedback","acquisition-teardown","late-feedback"];
-  async function exercise(faults=[]){
+  async function exercise(faults=[],options={}){
     const calls=[],failures=[];let sweep=0;
     const step=name=>{calls.push(name);if(faults.includes(name)){const error=new Error(name);failures.push(error);throw error;}};
-    const context={...ownedFixtureFiles,tag:"ui-stamp-00000000-0000-0000-0000-000000000000",console,AggregateError,page:{isClosed:()=>true},process:{env:{MTG_ACQUISITION_STAMP_EDGE_REPORT:"owned-report"}},started:0,evidence:{},writeFileSync:()=>step("write-report"),cleanupCorrectionFixture:"legacy-feedback:",cancelAndCleanCorrectionFixture:()=>"owned-feedback-sweep:",database:body=>{
+    const context={...ownedFixtureFiles,workflow:async()=>{if(options.workflowFails)throw options.primary;},tag:"ui-stamp-00000000-0000-0000-0000-000000000000",console,AggregateError,page:{isClosed:()=>true},process:{env:{MTG_ACQUISITION_STAMP_EDGE_REPORT:"owned-report"}},started:0,evidence:{},writeFileSync:()=>step("write-report"),cleanupCorrectionFixture:"legacy-feedback:",cancelAndCleanCorrectionFixture:()=>"owned-feedback-sweep:",database:body=>{
       if(body.startsWith("owned-feedback-sweep:"))step(++sweep===1?"early-feedback":"late-feedback");
       else{if(body.includes("legacy-feedback:"))step("early-feedback");step("acquisition-teardown");}
     }};
-    let error;try{await vm.runInNewContext("(async()=>"+code+")()",context);}catch(caught){error=caught;}
-    return{calls,failures,error};
+    let error,threw=false;try{await vm.runInNewContext("(async()=>{"+code+"})()",context);}catch(caught){threw=true;error=caught;}
+    return{calls,failures,error,threw};
   }
   for(const fault of expected)test(`${file} still attempts later cleanup after ${fault} fails`,async()=>{
     const result=await exercise([fault]);assert.deepEqual(result.calls,expected);assert.ok(result.error instanceof AggregateError);assert.deepEqual(result.error.errors,result.failures);
   });
   test(`${file} retains every cleanup failure`,async()=>{const result=await exercise(expected);assert.deepEqual(result.calls,expected);assert.ok(result.error instanceof AggregateError);assert.deepEqual(result.error.errors,result.failures);});
   test(`${file} completes normal cleanup`,async()=>{const result=await exercise();assert.deepEqual(result.calls,expected);assert.equal(result.error,undefined);});
+  if(!report)registerWorkflowControls(file,exercise,expected);
 }
