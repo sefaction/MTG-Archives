@@ -4,6 +4,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { writeFileSync } from "node:fs";
 import { cleanupCorrectionFixture } from "./correction-fixture";
+import { cleanupOwnedPhotoFixtureFiles } from "./owned-fixture-files";
 
 const container = process.env.MTG_INVENTORY_TEST_CONTAINER || "";
 const databaseName = process.env.MTG_INVENTORY_TEST_DATABASE || "";
@@ -39,7 +40,7 @@ for (const width of [1366, 320]) for (const mode of ["Simple", "Advanced"] as co
     const printing = { id: `${tag}-card`, name: "Correction focus fixture", setCode: "tst", collectorNumber: "1", lang: "en", imageUri: null, finishes: ["nonfoil"] };
     const headers = { origin: baseURL! };
     writeFileSync(test.info().outputPath("fixture-before.json"), JSON.stringify({ tag, before }));
-    let primaryError: unknown;
+    let primaryFailed = false; let primaryError: unknown;
     const savedState = () => database(`const tag=${JSON.stringify(tag)};return {candidate:await p.acquisitionCandidate.findFirst({where:{run:{session:{ownerPlayerId:tag}}}}),events:await p.correctionReviewEvent.findMany({where:{ownerPlayerId:tag},orderBy:{id:'asc'}}),inventory:await p.inventoryItem.findMany({where:{currentOwnerId:tag}}),commits:await p.acquisitionCommit.findMany({where:{run:{session:{ownerPlayerId:tag}}}})};`);
     try {
       database(`const tag=${JSON.stringify(tag)},passwordHash=require('crypto').randomBytes(32).toString('hex');await p.$transaction(async tx=>{await tx.player.create({data:{id:tag,name:tag,displayName:tag}});await tx.user.create({data:{id:tag,username:tag,displayName:tag,playerId:tag,passwordHash}});await tx.inventoryLocation.create({data:{id:tag,name:tag,normalizedName:tag,ownerPlayerId:tag,type:'Box',storageLayout:{capacity:2,sections:[]}}});await tx.card.create({data:{...${JSON.stringify(printing)},scryfallId:require('crypto').randomUUID(),typeLine:'Artifact',rarity:'common'}});await tx.authSession.create({data:{tokenHash:${JSON.stringify(tokenHash)},userId:tag,credentialHash:require('crypto').createHash('sha256').update(passwordHash).digest('hex'),expiresAt:new Date(Date.now()+300000)}});});return true;`);
@@ -111,7 +112,7 @@ for (const width of [1366, 320]) for (const mode of ["Simple", "Advanced"] as co
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await page.screenshot({ path: test.info().outputPath("cancel-focus.png"), fullPage: true });
     } catch (error) {
-      primaryError = error;
+      primaryFailed = true; primaryError = error;
       throw error;
     } finally {
       try {
@@ -119,13 +120,13 @@ for (const width of [1366, 320]) for (const mode of ["Simple", "Advanced"] as co
       try { await page.unrouteAll({ behavior: "wait" }); await page.goto("about:blank"); }
       finally {
         await page.context().clearCookies();
-        database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{ownerPlayerId:n},data:{phase:'CANCELLED'}});const w={run:{session:{ownerPlayerId:n}}};if(await p.acquisitionProcessingJob.count({where:{...w,status:'RUNNING'}}))throw Error('Live owned job prevents cleanup');const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});${cleanupCorrectionFixture}await p.acquisitionCommitMember.deleteMany({where:{candidate:w}});await p.acquisitionCommit.deleteMany({where:w});for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{session:{ownerPlayerId:n}}});await p.acquisitionSession.deleteMany({where:{ownerPlayerId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});await p.card.deleteMany({where:{id:${JSON.stringify(printing.id)}}});const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;if(!root||!paths.isAbsolute(root))throw Error('Missing fixture root');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw Error('Unexpected fixture photo');for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e});}return true;`);
+        database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{ownerPlayerId:n},data:{phase:'CANCELLED'}});const w={run:{session:{ownerPlayerId:n}}};if(await p.acquisitionProcessingJob.count({where:{...w,status:'RUNNING'}}))throw Error('Live owned job prevents cleanup');const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});${cleanupOwnedPhotoFixtureFiles}${cleanupCorrectionFixture}await p.acquisitionCommitMember.deleteMany({where:{candidate:w}});await p.acquisitionCommit.deleteMany({where:w});for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{session:{ownerPlayerId:n}}});await p.acquisitionSession.deleteMany({where:{ownerPlayerId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});await p.card.deleteMany({where:{id:${JSON.stringify(printing.id)}}});return true;`);
         const after = fingerprint();
         writeFileSync(test.info().outputPath("fixture-after.json"), JSON.stringify({ tag, after }));
         expect(after).toEqual(before);
       }
       } catch (cleanupError) {
-        if (primaryError) throw new AggregateError([primaryError, cleanupError], "Correction focus check and owned cleanup both failed");
+        if (primaryFailed) throw new AggregateError([primaryError, cleanupError], "Correction focus check and owned cleanup both failed");
         throw cleanupError;
       }
     }
