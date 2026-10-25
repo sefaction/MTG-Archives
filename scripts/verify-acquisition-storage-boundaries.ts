@@ -40,6 +40,7 @@ export async function verifyAcquisitionStorageBoundaries(db: PrismaClient, actor
   try {
     for (const boundary of ["free-space", "partial-write", "publication", "directory-sync"] as const) {
       let injected = 0;
+      let directoryFailureEnabled = true;
       const fault = () => { injected++; return Object.assign(new Error("owned filesystem fault; never expose this detail"),
         { code: boundary === "partial-write" ? "ENOSPC" : "EIO" }); };
       const directory = path.join(root, "acquisition-v1");
@@ -65,7 +66,7 @@ export async function verifyAcquisitionStorageBoundaries(db: PrismaClient, actor
               return target.writeFile(data);
             };
             if (key === "sync" && String(args[0]) === directory) return async () => {
-              if (boundary === "directory-sync" && !injected) throw fault();
+              if (boundary === "directory-sync" && directoryFailureEnabled) throw fault();
               return target.sync();
             };
             const value = Reflect.get(target, key, target);
@@ -112,6 +113,19 @@ export async function verifyAcquisitionStorageBoundaries(db: PrismaClient, actor
       assert.equal(names.some(name => name.startsWith(pending.id) && name.endsWith(".part")), false);
       if (boundary === "directory-sync") assert.deepEqual(await readAcquisitionPhotoBytes(pending.id, "raw", photoDigest(bytes)), bytes);
       else await assert.rejects(fs.lstat(path.join(directory, `${pending.id}.original`)), { code: "ENOENT" });
+      if (boundary === "directory-sync") {
+        const repeated = await post();
+        assert.equal(repeated.status, 409, "Existing complete bytes cannot bypass persistent directory failure");
+        assert.deepEqual(await repeated.json(), failure);
+        assert.equal(injected, 2, "Same-identity retry must actually retry directory sync");
+        assert.deepEqual(await db.acquisitionPhoto.findUniqueOrThrow({ where: { id: pending.id } }), pending);
+        assert.equal(await db.acquisitionPhoto.count({ where: own }), 1);
+        for (const model of [db.acquisitionArtifact, db.acquisitionCandidate, db.acquisitionProcessingJob])
+          assert.equal(await (model as any).count({ where: own }), 0);
+        assert.deepEqual(await readAcquisitionPhotoBytes(pending.id, "raw", photoDigest(bytes)), bytes);
+        assert.equal((await fs.readdir(directory)).some(name => name.startsWith(pending.id) && name.endsWith(".part")), false);
+        directoryFailureEnabled = false;
+      }
       const recovered = await post();
       assert.equal(recovered.status, 200);
       const ack = await recovered.json();
@@ -126,9 +140,10 @@ export async function verifyAcquisitionStorageBoundaries(db: PrismaClient, actor
       }
       assert.deepEqual(await readAcquisitionPhotoBytes(ack.id, "raw", ack.digest), bytes);
       assert.deepEqual(await (await post()).json(), ack);
-      assert.equal(injected, 1);
+      assert.equal(injected, boundary === "directory-sync" ? 2 : 1);
       assert.equal(await db.acquisitionProcessingJob.count({ where: own }), 1);
       console.log(`PASS: actual upload ${boundary} failure leaves non-READY state and no partial file; same-identity retry/ACK replay saves one photo/candidate/job`);
+      if (boundary === "directory-sync") console.log("PASS: persistent directory failure refuses the same upload twice with unchanged pending row; successful sync then creates one photo/candidate/job and effect-free ACK replay");
       const progress = await getAcquisitionProgress(db, actor, sessionId);
       await executeAcquisitionCommand(db, actor, sessionId, { requestKey: "fixture-finished", revision: progress.revision, command: "CANCEL" });
     }
