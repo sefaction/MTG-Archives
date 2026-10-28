@@ -39,7 +39,7 @@ async function fixture(fn, platform = "linux") {
       }
       step("file-open"); assert.equal(flags, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
       const h = await fsp.open(p, flags);
-      return { readFile: async () => { const b = await h.readFile(); step("read"); return b; }, close: async () => { await h.close(); step("file-close"); } };
+      return { read: async (...args) => { const result = await h.read(...args); step("read"); return result; }, close: async () => { await h.close(); step("file-close"); } };
     }, unlink: async p => { step(p.endsWith(".original") ? "unlink-raw" : "unlink-preview"); await fsp.unlink(p); } };
   const api = vm.runInNewContext(actual + "\n({readAcquisitionPhotoBytes,removeAcquisitionPhotoBytes})", context);
   try { await fn({ api, id, bytes, faults, calls, file, directory });

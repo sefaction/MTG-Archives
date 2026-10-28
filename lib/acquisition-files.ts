@@ -113,7 +113,19 @@ async function readChecked(file: string, digest?: string) {
   const failures: unknown[] = [];
   let bytes!: Buffer;
   try {
-    bytes = await handle.readFile();
+    // Path metadata can become stale before or during the descriptor read.
+    // Read at most the limit plus one detection byte, even without a digest.
+    const chunks: Buffer[] = [];
+    let total = 0;
+    while (true) {
+      const chunk = Buffer.allocUnsafe(Math.min(64 * 1024, PHOTO_MAX_BYTES - total + 1));
+      const { bytesRead } = await handle.read(chunk, 0, chunk.length, null);
+      if (!bytesRead) break;
+      total += bytesRead;
+      if (total > PHOTO_MAX_BYTES) throw new Error("Photo file is unavailable");
+      chunks.push(chunk.subarray(0, bytesRead));
+    }
+    bytes = Buffer.concat(chunks, total);
     if (digest && photoDigest(bytes) !== digest)
       throw new Error("Photo integrity check failed; restore the original");
   } catch (error) { failures.push(error); }
