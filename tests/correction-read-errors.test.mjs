@@ -28,11 +28,11 @@ const capture = async work => {
   catch (error) { return { failed: true, error }; }
 };
 
-async function fixture(work) {
+async function fixture(work, original = Buffer.from("immutable synthetic correction original")) {
   const parent = path.resolve(".local-data");
   await fsp.mkdir(parent, { recursive: true });
   const root = await fsp.mkdtemp(path.join(parent, "correction-read-"));
-  const owner = "synthetic-owner", bytes = Buffer.from("immutable synthetic correction original"), digest = digestOf(bytes);
+  const owner = "synthetic-owner", bytes = original, digest = digestOf(bytes);
   const directory = path.join(root, "correction-library-v1", digestOf(owner));
   const file = path.join(directory, digest + ".original");
   const neighbor = path.join(root, "independent.original"), neighborBytes = Buffer.from("protected peer");
@@ -40,7 +40,8 @@ async function fixture(work) {
   await fsp.writeFile(file, bytes);
   await fsp.writeFile(neighbor, neighborBytes);
   const faults = new Map(), calls = [], hooks = {};
-  let closed = 0;
+  let closed = 0, consumed = 0;
+  const reads = [];
   const step = stage => { calls.push(stage); if (faults.has(stage)) throw faults.get(stage); };
   const api = vm.runInNewContext(reader + "\nreadCorrectionBlob", {
     AggregateError, Error, Buffer, Object, constants, createHash, path, z,
@@ -53,19 +54,89 @@ async function fixture(work) {
       assert.equal(flags, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
       const handle = await fsp.open(target, flags);
       return {
-        readFile: async () => { await hooks.beforeRead?.(); const data = await handle.readFile(); step("read"); return data; },
+        readFile: async () => { await hooks.beforeRead?.(); const data = await handle.readFile(); consumed += data.length; step("read"); return data; },
+        read: async (buffer, offset, length, position) => {
+          await hooks.beforeRead?.();
+          reads.push({ offset, length, position, allocation: buffer.length });
+          const result = await handle.read(buffer, offset, Math.min(length, hooks.chunkSize ?? length), position);
+          consumed += result.bytesRead; step("read"); return result;
+        },
         close: async () => { await handle.close(); closed++; step("close"); },
       };
     },
   });
   try {
-    await work({ api, owner, bytes, digest, file, directory, root, faults, calls, hooks, closed: () => closed });
+    await work({ api, owner, bytes, digest, file, directory, root, faults, calls, hooks, reads, consumed: () => consumed, closed: () => closed });
     assert.deepEqual(await fsp.readFile(neighbor), neighborBytes);
   } finally {
     assert(root.startsWith(parent + path.sep) && path.basename(root).startsWith("correction-read-"));
     await fsp.rm(root, { recursive: true, force: true });
   }
 }
+
+for (const fragmented of [false, true]) test("growth after the size check consumes only expected bytes plus one" + (fragmented ? " with short reads" : ""), () => fixture(async f => {
+  if (fragmented) f.hooks.chunkSize = 3;
+  f.hooks.beforeRead = async () => {
+    delete f.hooks.beforeRead;
+    await fsp.appendFile(f.file, Buffer.alloc(1024 * 1024, 120));
+  };
+  await assert.rejects(f.api(f.owner, f.digest, f.bytes.length), /Photo correction integrity check failed/);
+  assert.equal(f.consumed(), f.bytes.length + 1);
+  assert.equal(f.closed(), 1);
+  assert.ok(f.reads.length > 0);
+  for (const read of f.reads) {
+    assert.equal(read.allocation, f.bytes.length + 1);
+    assert.ok(read.length <= read.allocation - read.offset);
+    assert.equal(read.position, null);
+  }
+  assert.equal((await fsp.stat(f.file)).size, f.bytes.length + 1024 * 1024);
+}));
+
+test("short reads preserve every byte and require EOF before accepting a correction", () => fixture(async f => {
+  f.hooks.chunkSize = 3;
+  const result = await f.api(f.owner, f.digest, f.bytes.length);
+  assert.deepEqual(result, f.bytes);
+  assert.equal(f.consumed(), f.bytes.length);
+  assert.equal(f.closed(), 1);
+}));
+
+test("an overgrown correction and close failure preserve integrity as the primary cause", () => fixture(async f => {
+  f.hooks.beforeRead = async () => { delete f.hooks.beforeRead; await fsp.appendFile(f.file, Buffer.from("extra")); };
+  const close = fault("ENOENT"); f.faults.set("close", close);
+  const r = await capture(() => f.api(f.owner, f.digest, f.bytes.length));
+  assert.equal(r.failed, true); assert.ok(r.error instanceof AggregateError);
+  assert.match(r.error.cause.message, /Photo correction integrity check failed/);
+  assert.deepEqual(r.error.errors, [r.error.cause, close]);
+  assert.equal(Object.hasOwn(r.error, "code"), false);
+  assert.equal(f.consumed(), f.bytes.length + 1); assert.equal(f.closed(), 1);
+}));
+
+test("the full 10 MiB original is accepted byte for byte", () => fixture(async f => {
+  assert.deepEqual(await f.api(f.owner, f.digest, f.bytes.length), f.bytes);
+  assert.equal(f.consumed(), 10 * 1024 * 1024);
+  assert.equal(f.closed(), 1);
+}, Buffer.alloc(10 * 1024 * 1024, 123)));
+
+test("the recorded size rejects zero and over-limit inputs before opening", () => fixture(async f => {
+  for (const size of [0, -1, 1.5, 10 * 1024 * 1024 + 1]) await assert.rejects(f.api(f.owner, f.digest, size));
+  assert.deepEqual(f.calls, []);
+  assert.deepEqual(await fsp.readFile(f.file), f.bytes);
+}));
+
+test("capture refuses an overgrown correction without completing preservation or releasing source pins", () => fixture(async f => {
+  f.hooks.beforeRead = async () => { delete f.hooks.beforeRead; await fsp.appendFile(f.file, Buffer.alloc(1024)); };
+  const claim = { blob: { ownerPlayerId: f.owner, digest: f.digest, bytes: f.bytes.length } }, failures = [];
+  const run = vm.runInNewContext(worker + "\nrunCorrectionCaptureOnce", {
+    claimCorrectionCapture: async () => claim, readCorrectionBlob: f.api,
+    failCorrectionCapture: async (_db, actual, code) => { assert.equal(actual, claim); failures.push(code); },
+    completeCorrectionCapture: async () => assert.fail("Integrity failure cannot release preservation pins"),
+    prepareCorrectionBlob: async () => assert.fail("Corruption cannot trigger replacement"),
+  });
+  const result = await run({ correctionRetentionPin: { findMany: async () => assert.fail("Corruption is not a missing source") } });
+  assert.equal(result.failed, 1); assert.equal(result.preserved, 0);
+  assert.deepEqual(failures, ["ORIGINAL_COPY_FAILED"]);
+  assert.equal(f.consumed(), f.bytes.length + 1); assert.equal(f.closed(), 1);
+}));
 
 test("correction read and close failures retain ordered causes and primary code", () => fixture(async f => {
   const read = fault("EACCES"), close = fault("EIO");

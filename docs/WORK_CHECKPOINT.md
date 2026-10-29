@@ -1,3 +1,13 @@
+## Correction-library bounded reads - October 29, 2026
+
+- Owner task `01a18965-f399-76c4-a6cd-87faf6ef80e1`, isolated branch `codex/correction-read-bound-305-20261029`, base main `0b514d2a`; related #305/#310. Brian requested existing issues be worked to completion. No new issue or merge authority.
+- Reproduced and corrected unbounded `readCorrectionBlob` after pathname-size check. At most recorded length plus one byte is read/allocated; exact bytes/digest, owner/no-follow and ordered read/close failures remain. Excludes #979's unpublished patches, the desktop correction-directory durability claim and #958.
+- Final 26 controls: old source 22 pass/four byte-budget failures, corrected 26 pass. Windows related 141 pass/four platform skips; Linux 145 pass/no skips; focused strict types pass. See [source/evidence limits](BOUNDED_CORRECTION_READS.md). Initial archive/version-probe/client-generation setup failures remain private evidence.
+- Sole networkless temporary container retired, both exact runtime reservations released; no owned live children or database/browser/production operation. Existing runtime, root WIP and other authors' work remain protected. Private evidence is in this clone's `.local-data/evidence/`.
+- Next publish one draft, obtain required full current-head CI, affected compiled workflow evidence and independent review. Brian's individual approval/explicit merge remains required; keep broad #305/#310 open. This is a substantive bounded fix, not complete storage/release acceptance.
+
+## Preserved checkpoint history
+
 ## Current integration - approved PR #974 after #971, October 24, 2026
 
 Both owner checkpoint histories are preserved verbatim below. Their latest reviews and release receipts establish readiness; these historical pending statements do not replace live GitHub status. This documentation integration retains both reviewed P7 maps and all existing main changes and requires fresh final-head checks before merge. Broad #309/#310/#302 remain open; no runtime or deployment action is implied.
