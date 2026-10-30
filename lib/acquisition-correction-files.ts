@@ -56,8 +56,18 @@ export async function readCorrectionBlob(ownerPlayerId: string, digest: string, 
   const failures: unknown[] = [];
   let bytes!: Buffer;
   try {
-    bytes = await handle.readFile();
-    if (bytes.length !== expectedBytes || photoDigest(bytes) !== digest) throw new Error("Photo correction integrity check failed");
+    // The pathname size can change after lstat. Bound descriptor reads by the
+    // recorded size plus one detection byte, including across short reads.
+    const buffer = Buffer.alloc(expectedBytes + 1);
+    let total = 0;
+    while (total < buffer.length) {
+      const { bytesRead } = await handle.read(buffer, total, buffer.length - total, null);
+      if (!bytesRead) break;
+      total += bytesRead;
+    }
+    if (total !== expectedBytes) throw new Error("Photo correction integrity check failed");
+    bytes = buffer.subarray(0, total);
+    if (photoDigest(bytes) !== digest) throw new Error("Photo correction integrity check failed");
   } catch (error) { failures.push(error); }
   // Closing must not hide a failed read or integrity check, or change the
   // storage code used by correction capture to classify a recoverable failure.
