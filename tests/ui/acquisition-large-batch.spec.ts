@@ -221,7 +221,7 @@ test('large scan-image batches retain every input through ordinary native queues
     // No priority, label, provider, native-result or deadline override. This is
     // a new bounded large-batch measurement, not a relaxation of the 7-input gate.
     await expect.poll(async()=>{
-      const groups=owners.map(owner=>acquisitionLoadProgress(database(`console.log(JSON.stringify(await p.acquisitionProcessingJob.findMany({where:{run:{session:{ownerPlayerId:${JSON.stringify(owner.tag)}}}},select:{id:true,candidateId:true,stage:true,status:true,input:true}})));`),referenceRefinementEnabled));
+      const groups=owners.map(owner=>acquisitionLoadProgress(database(`const jobs=await p.acquisitionProcessingJob.findMany({where:{run:{session:{ownerPlayerId:${JSON.stringify(owner.tag)}}}},select:{id:true,candidateId:true,stage:true,status:true,input:true}});console.log(JSON.stringify(jobs.map(j=>({...j,input:{referenceSource:j.input?.referenceSource?{referenceJobId:j.input.referenceSource.referenceJobId}:undefined,parents:j.input?.parents?{printingJobId:j.input.parents.printingJobId}:undefined}}))));`),referenceRefinementEnabled));
       report.progress.push({at:new Date().toISOString(),owners:groups});save();
       return groups.reduce((sum,group)=>sum+group.readyCandidates,0);
     },{timeout:count===100?1200000:2700000,intervals:[1000,5000,10000]}).toBe(count);

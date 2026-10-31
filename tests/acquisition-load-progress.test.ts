@@ -79,5 +79,21 @@ test('actual large-batch poll counts four owners and waits for a reference desce
   includeDescendant = true;
   assert.equal(await callback(), 4, 'Two printing jobs for owner zero still count one card');
   assert.equal(calls.length, 8); assert.equal(report.progress.length, 2);
+  // Execute the actual emitted database query body. Ordinary job inputs can be
+  // large; only lineage IDs should cross the synchronous Docker output pipe.
+  const largeJobs = [printing(), reference, refined(), ...Array.from({length: 2100}, (_,i) =>
+    ({...printing('job-'+i, 'card-'+i), input: {unusedNativeDetail: 'x'.repeat(4096)}}))];
+  assert.ok(Buffer.byteLength(JSON.stringify(largeJobs)) > 1024*1024, 'Unprojected job inputs exceed the original output bound');
+  let emitted = '';
+  await vm.runInNewContext('(async()=>{' + calls[0] + '})()', {
+    p: {acquisitionProcessingJob: {findMany: async () => largeJobs}},
+    console: {log: (data: string) => {emitted = data;}},
+  });
+  assert.ok(Buffer.byteLength(emitted) < 1024*1024, 'Full300-input progress fits the unchanged Docker output bound');
+  const projected = JSON.parse(emitted);
+  assert.equal(projected.length, largeJobs.length);
+  assert.equal(projected[1].input.parents.printingJobId, 'original');
+  assert.equal(projected[2].input.referenceSource.referenceJobId, 'reference');
+  assert.equal(emitted.includes('unusedNativeDetail'), false);
   assert.match(source, /timeout:count===100\?1200000:2700000,intervals:\[1000,5000,10000\]/, 'Original native deadlines remain');
 });
