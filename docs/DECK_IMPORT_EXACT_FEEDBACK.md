@@ -7,6 +7,8 @@ shows the duplicated “Exact set/collector number was not found” message, and
 excluding those entries still produces an error with no cards saved on the
 production installation. That production save failure remains unresolved.
 
+The supplied production screenshot shows the app’s full “This page couldn’t load” boundary, with no visible diagnostic reference. Its underlying save exception remains unknown.
+
 The complete new fixture is `tests/fixtures/deck-paste-user-2026-10-31.txt`:
 87 rows, 100 copies and one explicit foil annotation. It differs substantially
 from the earlier October 21 sample; that sample's success is not a reproduction
@@ -30,9 +32,11 @@ when unsuccessful. After linked inventory becomes available, successful retries
 clear the old restriction message. The review displays identical feedback once
 and gives it readable width inside the existing horizontally scrollable table.
 
+Unexpected save exceptions now retain the complete review, pasted text and selection state instead of escaping to the generic error page. Feedback deliberately says the import could not be confirmed: a reply can be lost after a successful commit. There is no automatic retry, and the user is told to check the deck before retrying. Only a bounded numeric production digest is shown as a reference; arbitrary server exception text is not exposed. Normal redirects and returned actionable League errors retain their behavior.
+
 ## Validation and limits
 
-- Focused importer and parser checks:16 pass, zero failures/skips. The final
+- Focused importer, actual save-handler and parser checks:26 pass, zero failures/skips. Unchanged exact-resolver source:3 pass/10 intended failures; unchanged save handler:7 pass/3 intended exception failures. The final
   regression file can run against an untouched source tree with
   `DECK_IMPORT_SOURCE_ROOT`; its database reads and public API transport are
   controlled, while the real parser/importer/catalog client execute.
@@ -55,8 +59,10 @@ and gives it readable width inside the existing horizontally scrollable table.
   corrected harness explicitly accepts only the expected fixture confirmation;
   both complete desktop/phone sequences pass.
 - Visual inspection found duplicate messages and an excessively narrow status
-  column; final presentation changes require the final image/browser readback.
-  Required exact-head CI and final presentation qualification remain pending.
+  column; final compiled desktop/phone readback confirms one message at least192px wide, with no page overflow.
+- Final cumulative image includes merged #979/#983 on main59275d70, plus the unchanged draft #984/#985 files and this repair. Image `sha256:39d2439f0982e2825463c6fd90ccd1c9a462ea9b03037a6e49af22ad0e9fcd6d` binds1,334 inputs, digest `634eb17c96f911c155611a5483f27284435c5deb714d0783d8a75bc7dde45388`, source0db17931. Its normal82/100-card imports pass at1366px/320px.
+- Four actual compiled save-error cases pass: before-write interruption and reply lost after a real82-copy commit, each at1366px/320px. Review/text/selections remain unchanged, feedback stays inline, no automatic retry occurs, and exactly82 copies persist after explicit retry or checking the successful deck. Each case restores all85 tables; imports preserve pool/Inventory/audits. The first save harness matched both the form alert and Next.js route announcer; its failed locator run is retained, and the corrected scoped run passes all four cases.
+- Exact-head CI and current draft readiness are recorded on the live PR. Earlier source-head checks do not replace final-head checks.
 
 The controlled pool state demonstrates a misleading-feedback defect; it does
 not establish the actual production inventory state or explain production's

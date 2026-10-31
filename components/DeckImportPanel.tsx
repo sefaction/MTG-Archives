@@ -376,6 +376,20 @@ export function DeckImportPanel({
       try {
         const result = await commitDeckImport(formData);
         if (result?.error) setCommitError(result.error);
+      } catch (error) {
+        // A lost reply can follow a committed import. Keep review available,
+        // but do not automatically retry or claim that nothing was saved.
+        const reference =
+          error instanceof Error &&
+          "digest" in error &&
+          typeof error.digest === "string" &&
+          /^\d{1,20}$/.test(error.digest)
+            ? ` Reference: ${error.digest}.`
+            : "";
+        setCommitError(
+          "The import could not be confirmed. Your review is still available. Check the deck before retrying to avoid adding cards twice." +
+            reference,
+        );
       } finally {
         commitPending.current = false;
       }
