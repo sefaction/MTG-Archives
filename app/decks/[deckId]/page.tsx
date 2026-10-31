@@ -42,6 +42,7 @@ import {
   getLocationsForOwner,
 } from "@/lib/inventory-locations";
 import { prisma } from "@/lib/prisma";
+import { getLeaguePoolAvailability } from "@/lib/commander-league-inventory";
 import { activeDeckTradeStatuses } from "@/lib/deck-write-fence";
 import { resolveDeckVisibility, visibilityLabel } from "@/lib/visibility";
 import { deckTagsText } from "@/lib/deck-tags";
@@ -360,6 +361,13 @@ export default async function DeckDetailPage({
     : null;
   const usesCommander =
     deck.format === DeckFormat.COMMANDER || sectionTotals.COMMANDER > 0;
+  const leaguePool = leagueDeck
+    ? await getLeaguePoolAvailability(leagueDeck.leagueId, deck.cards.map((entry) => ({
+        id: entry.cardId ?? entry.id,
+        name: entry.cardName,
+        oracleId: entry.oracleId,
+      })))
+    : null;
   const editorRows = deck.cards.map((deckCard) => {
     const rowInventoryItems = candidatesForDeckCard(deckCard, inventoryMaps);
     const owned = summarizeDeckCardOwnership(
@@ -406,6 +414,7 @@ export default async function DeckDetailPage({
     return {
       id: deckCard.id,
       cardName: deckCard.cardName,
+      leaguePoolStatus: leaguePool?.get(deckCard.cardId ?? deckCard.id)?.status,
       section: deckCard.section,
       quantity: deckCard.quantity,
       notes: deckCard.notes,

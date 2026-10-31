@@ -1,0 +1,24 @@
+# League paste: pool availability is feedback
+
+On October 31, 2026 Brian chose that a missing exact inventory printing must not make League paste fail. He then explicitly chose to add a card with no League copy to the decklist and show that it is outside the pool. This supersedes the earlier paste-only exact-pool gate from #849/#986. Related issue: #844; the global PostgreSQL investigation remains #846.
+
+## Behavior
+
+Recognized exact printings remain importable. With the default owned-first policy, an unavailable pasted edition uses an available printing of the same card, ordered by the existing quantity/price/deterministic rules. The original pasted identifier remains visible with the substitution explanation. If no printing is available, the recognized card stays selected and is marked outside the League pool. Name-only default resolution can fall back to the general catalogue. Explicit owned-only choices, genuinely unknown printings, ambiguity and catalogue failures retain their meaning.
+
+Final list-only imports no longer depend on current pool membership. A saved-deck warning names cards with no same-card printing in linked positive stock, using one bounded inventory query for the deck. It refreshes after stock/link changes; it is not persisted into user notes. Known oracle identities distinguish cards; legacy records without oracle identity fall back to exact case-insensitive names. Ordinary decks do not request League availability. Physical inventory creation/commitment remains prohibited for League decks, and management, submitted-match and transactional write fences remain. Other League editing/submission rules are outside this paste change.
+
+## Source-bound qualification
+
+Application/test source af1812c22c764aca822151f3bdf0a05f650ff83c was built from its canonical Git archive with the unchanged Dockerfile. All 1,335 build inputs match the running image: manifest25009f8d9cf4491534cf55e5789f281634fb016452c4eeed06404815208511aa; image12da2dcb67c5b9f7f067e1abedcad1a2f43bc690a8f6e181a49736612970e270. Later documentation and the browser-test title do not change the qualified application or assertions. Exact public-head CI is separate.
+
+- Type checking and full unit suite: 2,349 pass, zero failures, six existing skips. Focused importer/action/pool/feedback set:43 pass. The old source yields9passes/12expected new-policy/feedback failures, not12 independently observed production bugs.
+- Actual supplied87-entry/100-copy list at1366px and320px: all copies import, four alternate same-card printings are selected, Sol Ring remains selected with outside-pool feedback, one commander is retained, and Inventory/audits/pool links are conserved by import. The87 exact-printing metadata responses are the prior hash-verified recording; four additional printings are explicitly synthetic same-oracle controls, not claimed public printing metadata. Screenshots inspected with no horizontal overflow.
+- Both widths: unlink the pool after review, replace/save all100copies successfully, display87 outside-pool rows, relink/reload to show only Sol Ring. Each complete case restores all85 table fingerprints after exact-owned cleanup.
+- Updated tracked browser fixture:100 distinct League rows, removed-pool save/live warning/relink,1366/320 warning layout, ordinary3-copy list import, then explicit physical-copy import with committed quantities1/2 and four audits. PASS in9.8s; exact fixture cleanup restores all85 table fingerprints.
+
+## Failed setup and limits
+
+Failures remain local: initial missing action-harness enum; edit-script quoting failure before mutation; first source-byte check rejected Windows CRLF until canonical LF identity was verified; omitted finite catalogue server caused the original90s browser deadline; restart reached the app before readiness. Both browser failures restored85tables; first failure's JSON paths were overwritten by the initial adapted harness, while its full failure log and terminal restoration verification remain. The corrected cases use the same product and deadlines. Supplemental fixture guards correctly refused the wrong database name and a nonempty bootstrap-user fixture; a separate fresh database and removal of only its verified synthetic bootstrap admin satisfy those guards unchanged.
+
+Four owned temporary containers/two networks are retired, the exact runtime claim released, and the four existing stopped containers/mounts unchanged. Local images and compact evidence remain. No production import, Inventory repair, deployment or user acceptance is claimed. #844 stays open for approved delivery and reporter validation; #808 remains separate.

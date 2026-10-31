@@ -8,7 +8,7 @@ import type { Card } from "@prisma/client";
 // Substitute only database reads before loading the actual importer. Prisma's
 // generated delegate proxies do not expose descriptors for node:test mocks.
 const unexpectedRead = async (..._args: unknown[]): Promise<any> => { throw new Error("Unexpected database read"); };
-const prisma = {card: {findMany: unexpectedRead}, inventoryItem: {findFirst: unexpectedRead, aggregate: unexpectedRead}};
+const prisma = {card: {findMany: unexpectedRead}, inventoryItem: {findMany: unexpectedRead, findFirst: unexpectedRead, aggregate: unexpectedRead}};
 const globals = globalThis as typeof globalThis & {prisma?: unknown};
 const previousPrisma = globals.prisma;
 globals.prisma = prisma;
@@ -29,7 +29,7 @@ const reported = [
 const source = readFileSync(new URL("./fixtures/deck-paste-user-2026-10-31.txt", import.meta.url), "utf8");
 const card = (name: string, setCode: string, collectorNumber: string) => ({
   id: `${setCode}-${collectorNumber}`, scryfallId: `${setCode}-${collectorNumber}`,
-  name, setCode, collectorNumber, setName: setCode, rarity: "common", prices: {},
+  name, oracleId: name, setCode, collectorNumber, setName: setCode, rarity: "common", prices: {},
 } as Card);
 
 afterEach(() => { mock.restoreAll(); __resetScryfallClientForTests(); });
@@ -47,23 +47,23 @@ test("October 31 reporter list retains all 100 copies and exact failing identifi
 });
 
 for (const [name, set, number, quantity] of reported) {
-  test(`${name}: recognized exact printing outside League pool requires actionable review`, async () => {
+  // October31 user policy supersedes the earlier rejection: keep recognized
+  // cards even when no printing exists in the pool, with explicit feedback.
+  test(`${name}: recognized printing outside League pool remains importable`, async () => {
     mock.method(prisma.card, "findMany", async () => [card(name, set, number)]);
-    mock.method(prisma.inventoryItem, "findFirst", async (query: unknown) => {
-      assert.deepEqual(query, {where: {quantity: {gt: 0}, location: {commanderLeagueLinks: {some: {leagueId: "league"}}}, cardId: `${set}-${number}`}, select: {id: true}});
-      return null;
-    });
+    mock.method(prisma.inventoryItem, "findMany", async () => []);
+    mock.method(prisma.inventoryItem, "findFirst", async () => null);
     mock.method(globalThis, "fetch", async () => { throw new Error("Local exact match must not use external lookup"); });
     const result = await resolveParsedDecklist(parseDecklistText(`${quantity} ${name} (${set}) ${number}`), "owner", "owned-then-cheapest", "league");
     const line = result.lines[0];
-    assert.equal(line.resolutionStatus, "NEEDS_REVIEW");
-    assert.match(line.resolutionMessage, /recognized.*not.*League.*linked inventory/i);
-    assert.match(line.resolutionMessage, /choose.*League printing/i);
-    assert.equal(line.selectedCardId, null);
+    assert.equal(line.resolutionStatus, "RESOLVED_EXACT_PRINTING");
+    assert.equal(line.leaguePoolStatus, "OUTSIDE_POOL");
+    assert.equal(line.selectedCardId, `${set}-${number}`);
+    assert.deepEqual(line.errors, []);
     assert.equal(line.quantity, quantity);
     assert.equal(line.rawLine, `${quantity} ${name} (${set}) ${number}`);
     assert.equal(result.summary.notFound, 0);
-    assert.equal(result.summary.readyToCommit, 0);
+    assert.equal(result.summary.readyToCommit, 1);
   });
 }
 
@@ -71,11 +71,13 @@ test("available League printing still resolves with exact quantity and League-ow
   mock.method(prisma.card, "findMany", async () => [card("Forest", "ust", "216")]);
   mock.method(prisma.inventoryItem, "findFirst", async () => ({id: "stock"}));
   mock.method(prisma.inventoryItem, "aggregate", async () => ({_sum: {quantity: 8}}));
+  mock.method(prisma.inventoryItem, "findMany", async () => [{cardId: "ust-216", quantity: 8, card: {name: "Forest", oracleId: "Forest"}}]);
   const result = await resolveParsedDecklist(parseDecklistText("8 Forest (UST) 216"), "owner", "owned-then-cheapest", "league");
   assert.equal(result.lines[0].resolutionStatus, "RESOLVED_EXACT_PRINTING");
   assert.equal(result.lines[0].selectedCardId, "ust-216");
   assert.equal(result.lines[0].ownedQuantity, 8);
   assert.equal(result.lines[0].quantity, 8);
+  assert.equal(result.lines[0].leaguePoolStatus, "IN_POOL");
 });
 
 test("ordinary deck exact printing does not require League membership", async () => {
@@ -86,11 +88,12 @@ test("ordinary deck exact printing does not require League membership", async ()
   assert.equal(result.lines[0].selectedCardId, "ust-216");
 });
 
-test("retry after restoring pool membership replaces old restriction feedback", async () => {
+test("retry after restoring pool membership refreshes outside-pool feedback", async () => {
   let available = false;
   mock.method(prisma.card, "findMany", async () => [card("Forest", "ust", "216")]);
   mock.method(prisma.inventoryItem, "findFirst", async () => available ? {id: "stock"} : null);
   mock.method(prisma.inventoryItem, "aggregate", async () => ({_sum: {quantity: 8}}));
+  mock.method(prisma.inventoryItem, "findMany", async () => available ? [{cardId: "ust-216", quantity: 8, card: {name: "Forest", oracleId: "Forest"}}] : []);
   const rejected = await resolveParsedDecklist(parseDecklistText("8 Forest (UST) 216"), "owner", "owned-then-cheapest", "league");
   available = true;
   const retried = await resolveParsedDecklist(rejected.lines, "owner", "owned-then-cheapest", "league");
@@ -98,6 +101,36 @@ test("retry after restoring pool membership replaces old restriction feedback", 
   assert.deepEqual(retried.lines[0].errors, []);
   assert.equal(retried.summary.errors, 0);
   assert.equal(retried.lines[0].quantity, 8);
+  assert.equal(rejected.lines[0].leaguePoolStatus, "OUTSIDE_POOL");
+  assert.equal(retried.lines[0].leaguePoolStatus, "IN_POOL");
+});
+
+test("missing pasted edition selects a same-card League printing without changing quantity", async () => {
+  const exact = card("Shadowheart, Dark Justiciar", "clb", "146");
+  const alternate = card(exact.name, "clb", "392");
+  mock.method(prisma.card, "findMany", async () => [exact]);
+  mock.method(prisma.inventoryItem, "findFirst", async () => null);
+  mock.method(prisma.inventoryItem, "findMany", async (query: any) => query.include
+    ? [{cardId: alternate.id, quantity: 1, card: alternate, location: {name: "League stock"}}]
+    : [{cardId: alternate.id, quantity: 1, card: {name: alternate.name, oracleId: alternate.oracleId}}]);
+  const result = await resolveParsedDecklist(parseDecklistText("1 Shadowheart, Dark Justiciar (CLB) 146"), "owner", "owned-then-cheapest", "league");
+  const line = result.lines[0];
+  assert.equal(line.selectedCardId, alternate.id);
+  assert.equal(line.resolutionStatus, "RESOLVED_OWNED_PRINTING");
+  assert.equal(line.leaguePoolStatus, "IN_POOL");
+  assert.match(line.resolutionMessage, /pasted CLB #146.*same card/i);
+  assert.equal(line.parsedCollectorNumber, "146");
+  assert.equal(line.quantity, 1);
+});
+
+test("name-only League paste falls back to catalog even with no pool copy", async () => {
+  const sol = card("Sol Ring", "slc", "19");
+  mock.method(prisma.card, "findMany", async () => [sol]);
+  mock.method(prisma.inventoryItem, "findMany", async () => []);
+  const result = await resolveParsedDecklist(parseDecklistText("1 Sol Ring"), "owner", "owned-then-cheapest", "league");
+  assert.equal(result.lines[0].selectedCardId, sol.id);
+  assert.equal(result.lines[0].leaguePoolStatus, "OUTSIDE_POOL");
+  assert.equal(result.summary.readyToCommit, 1);
 });
 
 test("multiple local matches retain ambiguity and manual-selection guidance", async () => {
