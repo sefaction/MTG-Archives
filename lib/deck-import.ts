@@ -362,18 +362,6 @@ async function cheapestPrintingForName(
   return candidates;
 }
 
-async function exactPrinting(line: DeckImportReviewLine) {
-  if (!line.parsedSetCode || !line.parsedCollectorNumber || !line.parsedName)
-    return null;
-  const match = await findOrImportCard({
-    name: line.parsedName,
-    setCode: line.parsedSetCode,
-    collectorNumber: line.parsedCollectorNumber,
-  });
-  if (match.card) return match.card as Card;
-  return null;
-}
-
 function cardSummary(card: Card): DeckImportCardSummary {
   return {
     cardId: card.id,
@@ -449,18 +437,37 @@ export async function resolveParsedDecklist(
     try {
       let card: Card | null = null;
       if (line.parsedSetCode && line.parsedCollectorNumber) {
-        card = await exactPrinting(line);
+        // This attempt replaces prior lookup feedback, including failed retries.
+        const exactLine = { ...line, errors: [] as string[] };
+        const match = await findOrImportCard({
+          name: line.parsedName,
+          setCode: line.parsedSetCode,
+          collectorNumber: line.parsedCollectorNumber,
+        });
+        card = match.card;
         if (
           card &&
           leagueId &&
           !(await isPrintingInLeague(leagueId, card.id))
         ) {
-          card = null;
+          const message =
+            "This exact printing was recognized, but it is not in this League's linked inventory. Choose an available League printing or check linked locations.";
+          resolved.push({
+            ...exactLine,
+            selectedCardId: null,
+            selectedCardSummary: null,
+            ownedQuantity: 0,
+            locationSummary: null,
+            resolutionStatus: "NEEDS_REVIEW",
+            resolutionMessage: message,
+            errors: [message],
+          });
+          continue;
         }
         if (card) {
           resolved.push(
             await withSelectedCard(
-              line,
+              exactLine,
               card,
               "RESOLVED_EXACT_PRINTING",
               "Exact printing selected.",
@@ -470,13 +477,19 @@ export async function resolveParsedDecklist(
           );
         } else {
           resolved.push({
-            ...line,
-            resolutionStatus: "NOT_FOUND",
-            resolutionMessage: "Exact set/collector number was not found.",
-            errors: [
-              ...line.errors,
-              "Exact set/collector number was not found.",
-            ],
+            ...exactLine,
+            selectedCardId: null,
+            selectedCardSummary: null,
+            ownedQuantity: 0,
+            locationSummary: null,
+            resolutionStatus:
+              match.status === "ambiguous"
+                ? "AMBIGUOUS"
+                : match.errorKind && match.errorKind !== "NOT_FOUND"
+                  ? "ERROR"
+                  : "NOT_FOUND",
+            resolutionMessage: match.message,
+            errors: [match.message],
           });
         }
         continue;

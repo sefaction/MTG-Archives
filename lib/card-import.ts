@@ -13,6 +13,7 @@ import {
   searchCardPrintsResult,
   searchCardsResult,
   ScryfallCard,
+  type ScryfallClientError,
 } from "./scryfall";
 
 export function normalizeCardName(name: string) {
@@ -258,6 +259,7 @@ export type CardImportMatch = {
   requestsMade?: number;
   cacheHit?: boolean;
   retryable?: boolean;
+  errorKind?: ScryfallClientError["kind"];
 };
 
 function withMatchDetails(
@@ -296,6 +298,7 @@ async function importFromResult(
       method,
       confidence: 0,
       retryable: result.error.retryable,
+      errorKind: result.error.kind,
     },
     { requestsMade: result.requestsMade },
   );
