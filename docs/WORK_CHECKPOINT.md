@@ -1,10 +1,14 @@
-## Current authorized review-reload draft — October 31, 2026
+## Current review-reload draft985 — October31,2026
 
-Owner chat 01a19026-efc8-7c21-94d7-b143ca1ad404; branch codex/review-reload-current-review-308, existing #308/#302. Five carried source/test files are byte-identical to original author 766b6472 and preserve #958 language/FR Alice ownership. Original C: checkout and branch remain untouched.
+Owner chat01a19026-efc8-7c21-94d7-b143ca1ad404, branch codex/review-reload-current-review-308, existing308/302. Current-main59275d70 integration includes merged979/983. All five carried source/test files remain byte-identical to original766b6472 and initial published draft3ba95659. Original C: checkout/branch and958 language/FR Alice work are untouched.
 
-Brian explicitly answered “Allow draft publication” for this existing fix and correction-retry through the connected GitHub access, no broader account permissions, no merge. Earlier specific publication pause is lifted for these drafts only.
+Brian explicitly answered “Allow draft publication” using the connected GitHub access, no broader account permissions and no merging. The earlier specific pause is lifted for these two drafts only.
 
-Current-base focused actual-component and controlled-review-target checks:35 pass, zero failures/skips. Prior author's source-bound compiled desktop1366/phone320 normal/lost-response flows and 85-table conservation remain distinct evidence. New integrated final-head CI/runtime qualification remain pending. No active process/container/database or runtime claim. Next: integrate current main, publish draft and qualify affected behavior. No merge, deployment or user acceptance.
+Focused actual-component/controlled-target35 pass without failures/skips; all9 initial published-head checks pass3ba95659 (Verify41211547581). New integrated final-head CI is required; older checks do not substitute.
+
+Current-main cumulative production image39d2439f (1,334 inputs/digest634eb17c, source0db17931) passes all four actual1366/320 normal/lost-response browser cases in21.8s with no skips/retries, full85-table before/after equality and inspected source-identical status layouts. Initial author/earlier image results remain distinct. Same cumulative image qualifies correction SQL and separate844 feedback/save controls. No production deployment, merge or user acceptance.
+
+All owned disposable containers/networks retired; four original stopped containers/all four volumes preserved, exact desktop runtime claim released after terminal children. Qualified image/private logs retained. Next: publish integrated tree, verify exact final-head CI, retain draft for review/individual approval.
 
 ## Preserved current-main history
 
