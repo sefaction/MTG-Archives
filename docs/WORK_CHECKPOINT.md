@@ -1,3 +1,14 @@
+## Overnight upload-body memory - October 30, 2026
+
+- Owner: chat `01a19026-efc8-7c21-94d7-b143ca1ad404`; branch `codex/overnight-pending-20261030`, base main `8deb01a7`; draft PR #981, existing #305/#310. Brian requested autonomous pending-issue repairs until his morning report request. No individual PR merge approval or new-issue authority.
+- Reproduced excessive retained backing storage and fragment entries in `readBoundedPhotoBody`; now packs bytes into owned 64 KiB chunks. Existing descriptor-reader #979 and correction-library durability claims remain untouched. See [evidence and limits](PHOTO_UPLOAD_MEMORY.md).
+- Old production declaration: seven pass/three expected failures. Fixed: eleven focused controls, including real Request stream. Full suite: 2,216 pass, zero failures, six existing platform skips; current-schema typecheck, production build and all client-manifest checks pass. Initial restricted-filesystem and stale generated-client failures remain recorded; normal file access/private dependency copy resolves those checks.
+- All nine hosted checks pass at source head `c7fbf3e3` (Verify41168073543). Docker starts with the established test app-data environment. Canonical production image `1680ca012eae` matches all 1,322 inputs/digest `a0d43d35`; actual 1366/320 streamed upload/refusal/replay/browser upload/canonical/private original+preview/owner denial/no Inventory workflows pass. Four complete 85-table conservation pairs pass across the initial and focused-screenshot runs; screenshots inspected. Initial fixture rarity/generation and default-path Docker failures remain recorded.
+- Owned temporary web/PostgreSQL/network are retired and exact desktop runtime owner `upload981-local-review-20261030` released. Four prior stopped containers and all volumes remain conserved; qualified image, private dependency copy and compact evidence stay available. No active child/process/database remains owned. Foundry unavailable; chat project move acknowledged by app tool but membership readback remains unverified.
+- Next: publish this evidence-only update, verify actual final-head CI, then obtain independent review while continuing eligible queue work. Keep #981 draft and #305/#310 open; no merge, production, native/hardware or historical repair authority. No unanswered product decision for this repair.
+
+## Preserved checkpoint history
+
 ## Correction-library bounded reads - October 29, 2026
 
 - Owner task `01a18965-f399-76c4-a6cd-87faf6ef80e1`, isolated branch `codex/correction-read-bound-305-20261029`, base main `0b514d2a`; related #305/#310. Brian requested existing issues be worked to completion. No new issue or merge authority.
