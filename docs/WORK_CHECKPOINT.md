@@ -1,3 +1,9 @@
+## Current — October31,2026: draft985 integrated on merged League repair
+
+Owner root/thread01a19026-efc8-7c21-94d7-b143ca1ad404. Review reload busy/request-version/lifecycle fence. Main3484b2a0/#986 is integrated; the only conflict was this checkpoint. All5 carried source/verifier/test files retain their prior exact blob identities. 35 focused controls and four compiled1366/320 normal/lost-reply cases pass;all85tables restore. Earlier compiled cumulative0a5867d4/image3d6de06c contains both drafts plus the merged986 application changes; reuse is limited to unchanged affected behavior, not new exact-head CI or standalone deployment. Exact-head CI is pending after integration. No application edits, runtime reload or production action is introduced by this integration. Brian authorized draft publication only; retain draft and do not merge. Full main and draft checkpoint additions below are preserved over one shared historical base.
+
+## Preserved main checkpoint additions before integration
+
 ## Current #844 connection-burst repair — October 31, 2026
 
 Owner chat 01a19026-efc8-7c21-94d7-b143ca1ad404, branch codex/league-paste-printing-feedback-844; draft #986, main 59275d70. Brian supplied the new 87-entry/100-copy list, five exact NOT_FOUND rows, exclusion/import failure with no additions and generic error screenshot. Separate explicit approvals permit read-only existing production app/browser details and MTG container logs through Unraid; no imports, commands, restarts, settings, deployment or data changes. The temporary log viewer is closed. Original author correction/reload checkouts remain untouched.
@@ -13,6 +19,23 @@ All owned disposable containers/networks retired; exact desktop claim league844-
 Next: publish the coherent batch into #986, verify final-head checks and seek individual merge approval only when reviewable. Production delivery remains separately authorized; keep #844 open for named-installation and reporter validation, including the five-printing pool feedback. #808 remains separate; no new issue or merge.
 
 ## Preserved current-main checkpoint history
+
+
+## Preserved draft checkpoint additions before integration
+
+## Current review-reload draft985 — October31,2026
+
+Owner chat01a19026-efc8-7c21-94d7-b143ca1ad404, branch codex/review-reload-current-review-308, existing308/302. Current-main59275d70 integration includes merged979/983. All five carried source/test files remain byte-identical to original766b6472 and initial published draft3ba95659. Original C: checkout/branch and958 language/FR Alice work are untouched.
+
+Brian explicitly answered “Allow draft publication” using the connected GitHub access, no broader account permissions and no merging. The earlier specific pause is lifted for these two drafts only.
+
+Focused actual-component/controlled-target35 pass without failures/skips; all9 initial published-head checks pass3ba95659 (Verify41211547581). New integrated final-head CI is required; older checks do not substitute.
+
+Current-main cumulative production image39d2439f (1,334 inputs/digest634eb17c, source0db17931) passes all four actual1366/320 normal/lost-response browser cases in21.8s with no skips/retries, full85-table before/after equality and inspected source-identical status layouts. Initial author/earlier image results remain distinct. Same cumulative image qualifies correction SQL and separate844 feedback/save controls. No production deployment, merge or user acceptance.
+
+All owned disposable containers/networks retired; four original stopped containers/all four volumes preserved, exact desktop runtime claim released after terminal children. Qualified image/private logs retained. Next: publish integrated tree, verify exact final-head CI, retain draft for review/individual approval.
+
+## Preserved current-main history
 
 ## Overnight upload-body memory - October 30, 2026
 
