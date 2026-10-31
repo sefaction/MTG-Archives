@@ -16,7 +16,7 @@ function database<T=unknown>(body:string):T{
 }
 function fingerprint(){return database(`const result={};for(const {tablename} of await p.$queryRawUnsafe("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename")){if(!/^[A-Za-z_][A-Za-z0-9_]*$/.test(tablename))throw Error('Unexpected table');const rows=await p.$queryRawUnsafe('SELECT row_to_json(t)::text AS row FROM "'+tablename+'" t ORDER BY row_to_json(t)::text COLLATE "C"');result[tablename]={count:rows.length,hash:require('crypto').createHash('sha256').update(JSON.stringify(rows)).digest('hex')};}return result;`);}
 
-for(const width of [1366,320])test(`unfinished photo retry requires directory durability at ${width}px`,async({page,baseURL})=>{
+for(const boundary of ['photo-directory','storage-root'])for(const width of [1366,320])test(`unfinished photo retry requires ${boundary==='storage-root'?'storage-root durability':'directory durability'} at ${width}px`,async({page,baseURL})=>{
   test.setTimeout(180000);page.setDefaultTimeout(15000);
   expect(new URL(baseURL!).hostname).toBe('127.0.0.1');await page.setViewportSize({width,height:900});
   const tag=`ui-photo-sync-${randomUUID()}`,token=randomBytes(32).toString('base64url'),before=fingerprint(),headers={origin:baseURL!};
@@ -24,7 +24,7 @@ for(const width of [1366,320])test(`unfinished photo retry requires directory du
   const requests:{url:string;type:string}[]=[];
   let batch='',failed=false,primary:unknown;
   writeFileSync(test.info().outputPath('before.json'),JSON.stringify({tag,before}));
-  const flag=(enabled:boolean)=>database(`const fs=require('fs/promises');${enabled?"await fs.writeFile('/durability-flags/fail-sync','owned');":"await fs.unlink('/durability-flags/fail-sync').catch(e=>{if(e.code!=='ENOENT')throw e;});"}return true;`);
+  const flag=(enabled:boolean)=>database(`const fs=require('fs/promises');${boundary==='storage-root'?"await fs.writeFile('/durability-flags/target-root','owned');":"await fs.unlink('/durability-flags/target-root').catch(e=>{if(e.code!=='ENOENT')throw e;});"}${enabled?"await fs.writeFile('/durability-flags/fail-sync','owned');":"await fs.unlink('/durability-flags/fail-sync').catch(e=>{if(e.code!=='ENOENT')throw e;});"}return true;`);
   const events=()=>database<string[]>(`const fs=require('fs/promises');return (await fs.readFile('/durability-flags/events','utf8').catch(e=>{if(e.code==='ENOENT')return '';throw e;})).trim().split('\\n').filter(Boolean);`);
   const state=()=>database<{photos:{id:string;ready:boolean;readyAt:string|null;digest:string;bytes:number;slotId:string;uploadKey:string}[];counts:number[];stock:unknown[]}>(`const w={run:{sessionId:${JSON.stringify(batch)}}};return {photos:await p.acquisitionPhoto.findMany({where:w,orderBy:{id:'asc'}}),counts:await Promise.all(['acquisitionArtifact','acquisitionCandidate','acquisitionProcessingJob','acquisitionCommit'].map(m=>p[m].count({where:w}))),stock:await p.inventoryItem.findMany({where:{currentOwnerId:${JSON.stringify(tag)}},orderBy:{id:'asc'}})};`);
   try{
