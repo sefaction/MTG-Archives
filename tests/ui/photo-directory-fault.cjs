@@ -9,7 +9,9 @@ if (process.env.MTG_PHOTO_DIRECTORY_FAULT !== '1' ||
 const original = promises.open;
 promises.open = async function (file, ...args) {
   const handle = await original.call(this, file, ...args);
-  if (String(file) !== '/durability-uploads/acquisition-v1' || args[0] !== 'r') return handle;
+  const directory = fs.existsSync('/durability-flags/target-root')
+    ? '/durability-uploads' : '/durability-uploads/acquisition-v1';
+  if (String(file) !== directory || args[0] !== 'r') return handle;
   return new Proxy(handle, { get(target, key) {
     if (key === 'sync') return async () => {
       if (fs.existsSync('/durability-flags/fail-sync')) {

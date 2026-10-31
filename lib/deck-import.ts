@@ -16,7 +16,8 @@ import {
   getOwnershipByCard,
 } from "./deck-search";
 import {
-  isPrintingInLeague,
+  getLeaguePoolAvailability,
+  type LeaguePoolStatus,
   leagueInventoryItemWhere,
 } from "./commander-league-inventory";
 
@@ -58,6 +59,7 @@ export type DeckImportReviewLine = {
   selectedCardSummary: DeckImportCardSummary | null;
   ownedQuantity: number;
   locationSummary: string | null;
+  leaguePoolStatus?: LeaguePoolStatus;
   resolutionStatus: DeckImportStatus;
   resolutionMessage: string;
   warnings: string[];
@@ -329,18 +331,11 @@ async function cheapestPrintingForName(
     await prisma.card.findMany({
       where: {
         ...cardOrFaceNameWhere(name),
-        ...(leagueId
-          ? {
-              inventoryItems: {
-                some: leagueInventoryItemWhere(leagueId),
-              },
-            }
-          : {}),
       },
     })
   ).filter((card) => matchesCardOrFaceName(card.name, key));
   let candidates = local;
-  if (candidates.length === 0 && !leagueId) {
+  if (candidates.length === 0) {
     const result = await searchCardsResult(
       `!"${name.trim().replace(/"/g, '\\"')}" unique:prints`,
     );
@@ -383,16 +378,11 @@ async function withSelectedCard(
   ownerPlayerId?: string | null,
   leagueId?: string | null,
 ) {
+  const pool = leagueId
+    ? (await getLeaguePoolAvailability(leagueId, [card])).get(card.id)
+    : undefined;
   const exact = leagueId
-    ? await prisma.inventoryItem
-        .aggregate({
-          where: { ...leagueInventoryItemWhere(leagueId), cardId: card.id },
-          _sum: { quantity: true },
-        })
-        .then((result) => ({
-          quantity: result._sum.quantity ?? 0,
-          locations: [],
-        }))
+    ? { quantity: pool?.exactQuantity ?? 0, locations: [] as string[] }
     : (await getOwnershipByCard(ownerPlayerId, [card.id])).get(card.id);
   return {
     ...line,
@@ -400,6 +390,7 @@ async function withSelectedCard(
     selectedCardSummary: cardSummary(card),
     ownedQuantity: exact?.quantity ?? 0,
     locationSummary: exact?.locations.slice(0, 3).join(", ") ?? null,
+    leaguePoolStatus: pool?.status,
     resolutionStatus: status,
     resolutionMessage: message,
     included: true,
@@ -445,36 +436,26 @@ export async function resolveParsedDecklist(
           collectorNumber: line.parsedCollectorNumber,
         });
         card = match.card;
-        if (
-          card &&
-          leagueId &&
-          !(await isPrintingInLeague(leagueId, card.id))
-        ) {
-          const message =
-            "This exact printing was recognized, but it is not in this League's linked inventory. Choose an available League printing or check linked locations.";
-          resolved.push({
-            ...exactLine,
-            selectedCardId: null,
-            selectedCardSummary: null,
-            ownedQuantity: 0,
-            locationSummary: null,
-            resolutionStatus: "NEEDS_REVIEW",
-            resolutionMessage: message,
-            errors: [message],
-          });
-          continue;
-        }
         if (card) {
-          resolved.push(
-            await withSelectedCard(
+          let selected = await withSelectedCard(
               exactLine,
               card,
               "RESOLVED_EXACT_PRINTING",
               "Exact printing selected.",
               ownerPlayerId,
               leagueId,
-            ),
-          );
+            );
+          if (leagueId && allowOwned && selected.leaguePoolStatus !== "IN_POOL") {
+            const alternatives = await inventoryPrintingsForName({ leagueId, name: card.name });
+            const alternative = alternatives.find((entry) => !card!.oracleId || entry.card.oracleId === card!.oracleId);
+            if (alternative) {
+              selected = await withSelectedCard(exactLine, alternative.card,
+                "RESOLVED_OWNED_PRINTING",
+                `Pasted ${card.setCode.toUpperCase()} #${card.collectorNumber} is not in the League pool. Selected an available printing of the same card.`,
+                ownerPlayerId, leagueId);
+            }
+          }
+          resolved.push(selected);
         } else {
           resolved.push({
             ...exactLine,

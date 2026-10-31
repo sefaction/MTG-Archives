@@ -44,6 +44,12 @@ async function exercise(faults = new Map(), { existing = false, retry = false, p
     process: { platform, env: { UPLOADS_DATA_PATH: root } },
     mkdir: fsp.mkdir, lstat: fsp.lstat, realpath: fsp.realpath, statfs: fsp.statfs,
     open: async (name, flags, mode) => {
+      if (directoryControl && name === root && flags === "r") {
+        // The separately tested containing-root barrier must succeed while
+        // these original controls keep targeting the photo-directory boundary.
+        const handle = process.platform === "win32" ? null : await fsp.open(name, flags, mode);
+        return { sync: async () => { await handle?.sync(); }, close: async () => { await handle?.close(); } };
+      }
       if (directoryControl && name === directory && flags === "r") {
         step("directory-open");
         // Windows has no directory fsync; this adapter exercises Linux control flow
