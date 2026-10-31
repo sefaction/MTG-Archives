@@ -11,6 +11,7 @@ import {finalizeQualificationReport,qualificationReportWriter} from '../qualific
 import { isolatedLoadRoles, parseIsolatedAcquisitionLoadTarget, assertIsolatedAcquisitionLoadRuntime,
   isolatedAcquisitionLoadDatabaseGuard } from '../isolated-acquisition-load-target';
 import { observeIsolatedAcquisitionLoad } from './acquisition-load-resources';
+import { acquisitionLoadProgress } from '../acquisition-load-progress';
 
 const targetFile=process.env.MTG_ACQUISITION_ISOLATED_LOAD_TARGET;
 const isolatedTarget=targetFile?(()=>{
@@ -67,6 +68,8 @@ test('large scan-image batches retain every input through ordinary native queues
     if(!process.env.MTG_ACQUISITION_LARGE_BATCH_REPORT_PATH)throw Error('Isolated load requires a durable report path');
   }
   const targets=count===100?[100]:[160,80,40,20];
+  const referenceRefinementEnabled=(JSON.parse(docker('inspect',nativeTargets[0].container,'--format','{{json .Config.Env}}')) as string[])
+    .includes('ACQUISITION_REFERENCE_REFINEMENT_ENABLED=1');
   const manifestBytes=readFileSync(path.join(root!,'playable-manifest.json'));
   const entries=JSON.parse(manifestBytes.toString('utf8')).entries;
   expect(entries).toHaveLength(67);
@@ -108,7 +111,7 @@ test('large scan-image batches retain every input through ordinary native queues
   const report:any={version:1,scope:inventoryScale?'300_INPUTS_FOUR_OWNERS_150000_COPY_REVIEW':count===100?'100_INPUTS_ONE_OWNER_NATIVE_BATCH':'300_INPUTS_FOUR_UNEVEN_OWNERS_NATIVE_STRESS',
     startedAt:new Date(started).toISOString(),count,ownerTargets:targets,passed:false,
     corpusSha256:createHash('sha256').update(manifestBytes).digest('hex'),samples:[],progress:[],authenticatedInventory:[],
-    isolatedTarget:isolatedTarget??undefined,
+    isolatedTarget:isolatedTarget??undefined,referenceRefinementEnabled,
     limits:['Reused 67 development scans with repetitions, not independent physical/printing accuracy',
       'Logical capture candidates, no physical scanner or Inventory commit',
       inventoryScale?'150,000 physical copies in 16,400 rows across four disposable owners; not 150,000 rows or independent printing accuracy':
@@ -218,20 +221,19 @@ test('large scan-image batches retain every input through ordinary native queues
     // No priority, label, provider, native-result or deadline override. This is
     // a new bounded large-batch measurement, not a relaxation of the 7-input gate.
     await expect.poll(async()=>{
-      const groups=owners.map(owner=>database(`console.log(JSON.stringify(await p.acquisitionProcessingJob.groupBy({by:['stage','status'],where:{run:{session:{ownerPlayerId:${JSON.stringify(owner.tag)}}}},_count:{_all:true}})));`));
+      const groups=owners.map(owner=>acquisitionLoadProgress(database(`console.log(JSON.stringify(await p.acquisitionProcessingJob.findMany({where:{run:{session:{ownerPlayerId:${JSON.stringify(owner.tag)}}}},select:{id:true,candidateId:true,stage:true,status:true,input:true}})));`),referenceRefinementEnabled));
       report.progress.push({at:new Date().toISOString(),owners:groups});save();
-      for(const [i,group] of groups.entries()){
-        if(group.some((row:any)=>row.status==='FAILED'))throw Error(`Native job failed for fixture owner ${i}`);
-      }
-      return groups.reduce((sum,group)=>sum+(group.find((row:any)=>row.stage==='photo-printing-evidence-v1'&&row.status==='COMPLETE')?._count._all??0),0);
+      return groups.reduce((sum,group)=>sum+group.readyCandidates,0);
     },{timeout:count===100?1200000:2700000,intervals:[1000,5000,10000]}).toBe(count);
     report.printingCompleteMilliseconds=Date.now()-started;
     for(const [i,owner] of owners.entries()){
-      const state=database(`const where={run:{session:{ownerPlayerId:${JSON.stringify(owner.tag)}}}};const jobs=await p.acquisitionProcessingJob.findMany({where:{...where,stage:'photo-printing-evidence-v1',status:'COMPLETE'},orderBy:{candidate:{acquisitionOrder:'asc'}},select:{output:true,artifact:{select:{digest:true}}}});console.log(JSON.stringify({photos:await p.acquisitionPhoto.count({where:{...where,ready:true}}),artifacts:await p.acquisitionArtifact.count({where}),slots:await p.acquisitionCaptureSlot.count({where}),candidates:await p.acquisitionCandidate.count({where}),inventory:await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(owner.tag)}}}),rows:jobs.map(j=>({digest:j.artifact.digest,nativeDigest:j.output.printingNative.photoDigest,automatic:j.output.proposals.automaticAcceptance,descriptor:j.output.printingNative.descriptor}))}));`);
+      const state=database(`const where={run:{session:{ownerPlayerId:${JSON.stringify(owner.tag)}}}};const jobs=await p.acquisitionProcessingJob.findMany({where:{...where,stage:'photo-printing-evidence-v1',status:'COMPLETE'},orderBy:{candidate:{acquisitionOrder:'asc'}},select:{output:true,candidateId:true,candidate:{select:{acquisitionOrder:true}},artifact:{select:{digest:true}}}});console.log(JSON.stringify({photos:await p.acquisitionPhoto.count({where:{...where,ready:true}}),artifacts:await p.acquisitionArtifact.count({where}),slots:await p.acquisitionCaptureSlot.count({where}),candidates:await p.acquisitionCandidate.count({where}),inventory:await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(owner.tag)}}}),rows:jobs.map(j=>({candidateId:j.candidateId,acquisitionOrder:j.candidate.acquisitionOrder,digest:j.artifact.digest,nativeDigest:j.output.printingNative.photoDigest,automatic:j.output.proposals.automaticAcceptance,descriptor:j.output.printingNative.descriptor}))}));`);
       for(const key of ['photos','artifacts','slots','candidates'])expect(state[key]).toBe(owner.target);
-      expect(state.rows).toHaveLength(owner.target);expect(state.inventory).toBe(inventoryScale?inventoryScaleOwners[i].rows:0);
-      for(const [n,row] of state.rows.entries()){
-        expect(row.digest).toBe(originals[n%originals.length].digest);expect(row.nativeDigest).toBe(row.digest);
+      expect(new Set(state.rows.map((row:any)=>row.candidateId)).size).toBe(owner.target);
+      expect(new Set(state.rows.map((row:any)=>row.acquisitionOrder))).toEqual(new Set(Array.from({length:owner.target},(_,n)=>n)));
+      expect(state.inventory).toBe(inventoryScale?inventoryScaleOwners[i].rows:0);
+      for(const row of state.rows){
+        expect(row.digest).toBe(originals[row.acquisitionOrder%originals.length].digest);expect(row.nativeDigest).toBe(row.digest);
         expect(row.automatic).toBe(false);
       }
       report[i]=state;await measureInventory(pages[i],i);
