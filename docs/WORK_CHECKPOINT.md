@@ -1,3 +1,13 @@
+## Current authorized review-reload draft — October 31, 2026
+
+Owner chat 01a19026-efc8-7c21-94d7-b143ca1ad404; branch codex/review-reload-current-review-308, existing #308/#302. Five carried source/test files are byte-identical to original author 766b6472 and preserve #958 language/FR Alice ownership. Original C: checkout and branch remain untouched.
+
+Brian explicitly answered “Allow draft publication” for this existing fix and correction-retry through the connected GitHub access, no broader account permissions, no merge. Earlier specific publication pause is lifted for these drafts only.
+
+Current-base focused actual-component and controlled-review-target checks:35 pass, zero failures/skips. Prior author's source-bound compiled desktop1366/phone320 normal/lost-response flows and 85-table conservation remain distinct evidence. New integrated final-head CI/runtime qualification remain pending. No active process/container/database or runtime claim. Next: integrate current main, publish draft and qualify affected behavior. No merge, deployment or user acceptance.
+
+## Preserved current-main history
+
 ## Overnight upload-body memory - October 30, 2026
 
 - Owner: chat `01a19026-efc8-7c21-94d7-b143ca1ad404`; branch `codex/overnight-pending-20261030`, base main `8deb01a7`; draft PR #981, existing #305/#310. Brian requested autonomous pending-issue repairs until his morning report request. No individual PR merge approval or new-issue authority.
