@@ -1,0 +1,15 @@
+# Default printing-search choices
+
+During the authorized pending-issue work, source review found that the shared authenticated deck-card-search route converted an absent limit to zero, clamped it to one, and silently reduced ordinary card searches to one printing. DeckCardPicker, manual deck-paste matching, Wishlist search and single-card Inventory search omit this optional parameter. The search helper already defines the intended default of30. The fixed-card chooser supplies175 explicitly and is unaffected.
+
+The route now distinguishes an absent parameter before numeric conversion. Omitted/invalid limits use the existing helper default; explicit integers retain1..175 clamping. Explicit empty values keep the prior one-result behavior. Authentication, current-owner scope, Scryfall opt-in and response format are unchanged. No basic-land exemption, substitute printing or automatic import is introduced.
+
+Four actual-route controls pass; the unchanged route passes three and fails the intended missing-limit result-count control. Twenty-six focused route/printing-choice/League/query-budget controls pass. The prior compiled imageaf5266bd1fc1 reproduces one result in both1366px and320px actual Add card pickers despite35 cached synthetic printings. The caller omits limit. The repaired image shows30 choices on both widths, selects the second printing and saves exactly that one-copy deck entry without Inventory/audit writes. Explicit limit5 still returns5, and limit175 returns the35 available records. All four completed old/new cases restore all85 table fingerprints.
+
+Local image sha256:7768cc9bb5a21f176da55377cc567c6b8d4022dbeb18712103f15c0050ee2d95 binds all1336 raw inputs at source112edd744ef01f82e171b30023da34fe6d75444d; manifest 8de2ae4bb3bc48f73a458128ac510d9cad455f9ca1349f805e01c4572745d363. The complete raw input manifest matches the host checkout, whose canonical tracked source was clean. Final documentation changes do not alter build inputs. This is local qualification, not production delivery.
+
+One earlier positive attempt found30 choices and selected the second printing, then failed because the harness expected an explicit submit-type attribute that the real button does not render. Its full85-table restoration passed. The corrected accessible-button locator passes both final saves; the failed attempt is not counted as a completed passing case. Both owned containers/network are retired and the exact search-default-limit-20261031 claim released; four protected stopped containers/mounts are unchanged.
+
+The separate League search route supplies limit75 explicitly and is unaffected; this does not repair or diagnose the named League installation's five-printing pool state.
+
+This repair is stacked on the reviewed #987 branch so its pending individual merge approval remains bound to f4418553 unchanged. The review image includes merged #986, #987 and this route repair; it excludes unmerged acquisition drafts984/985 and958. No new GitHub issue is created under the freeze, and no production change or merge is authorized. This local defect is not attribution of the production #844/#808 reports.
