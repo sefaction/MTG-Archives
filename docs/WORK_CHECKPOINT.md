@@ -1,3 +1,19 @@
+## Current #844 connection-burst repair — October 31, 2026
+
+Owner chat 01a19026-efc8-7c21-94d7-b143ca1ad404, branch codex/league-paste-printing-feedback-844; draft #986, main 59275d70. Brian supplied the new 87-entry/100-copy list, five exact NOT_FOUND rows, exclusion/import failure with no additions and generic error screenshot. Separate explicit approvals permit read-only existing production app/browser details and MTG container logs through Unraid; no imports, commands, restarts, settings, deployment or data changes. The temporary log viewer is closed. Original author correction/reload checkouts remain untouched.
+
+Production logs establish inventory findFirst P2037 (too many clients already), followed by session/import-page P1001 connection failures. Viewer lacks per-entry timestamps; the exact full production connection budget/pool state is unverified. Old final League validation fans out per printing. Replace it with one grouped query preserving positive linked stock and every exact-printing restriction. Existing feedback/save-retention repair remains: explicit match outcomes, clean retries, readable deduplicated messages, retained review on unconfirmed saves, safe numeric reference and no automatic retry.
+
+40 focused controls pass. Old exact resolver: 3 pass/10 intended failures; old save handler: 7 pass/3 intended failures; old actual final-branch query budget: 3 pass/1 intended P2037 failure. Real unchanged compiled importer reproduces P2037/zero writes for the exact 82 included rows under 20 database slots, app pool 16 and eight known peers. Batched importer succeeds under identical measured pressure (16 clients before save), rejects a printing removed after review without writes, then succeeds after restoration. Both completed pressure cases conserve all 85 table fingerprints.
+
+Final compiled source 0a5867d4, image 3d6de06c, 1,335 inputs/digest ca586f3c includes current main plus unchanged draft #984/#985 source and this backend/UI repair. Additional actual-branch MJS guard/docs are later non-application inputs; all tested app files match. Desktop1366/phone320 normal 82/100 imports and all four before-write/after-commit reply-loss cases pass with correct quantities and retained review. Completed fixtures conserve all 85 tables and pool/Inventory/audits. Prior harness failures, including interrupted synthetic holder cleanup, remain explicitly recorded in DECK_IMPORT_EXACT_FEEDBACK.md; no false conservation claim for that interval.
+
+All owned disposable containers/networks retired; exact desktop claim league844-pool-repro-20261031 released after terminal children. Four original stopped containers/all four volumes preserved. Qualified images/manifests/logs retained. #984/#985 current published heads each have all nine checks passing; #986 earlier a674f4bc also passed nine, but this final backend change requires refreshed exact-head CI. No earlier-head result substitutes.
+
+Next: publish the coherent batch into #986, verify final-head checks and seek individual merge approval only when reviewable. Production delivery remains separately authorized; keep #844 open for named-installation and reporter validation, including the five-printing pool feedback. #808 remains separate; no new issue or merge.
+
+## Preserved current-main checkpoint history
+
 ## Overnight upload-body memory - October 30, 2026
 
 - Owner: chat `01a19026-efc8-7c21-94d7-b143ca1ad404`; branch `codex/overnight-pending-20261030`, base main `8deb01a7`; draft PR #981, existing #305/#310. Brian requested autonomous pending-issue repairs until his morning report request. No individual PR merge approval or new-issue authority.
