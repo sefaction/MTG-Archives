@@ -1,3 +1,4 @@
+import { cleanupOwnedPhotoFixtureFiles } from "./owned-fixture-files";
 import { cancelAndCleanCorrectionFixture } from "./correction-fixture";
 import {expect, test} from "@playwright/test";
 import {execFileSync} from "node:child_process";
@@ -62,6 +63,7 @@ test("24 real scans retain artifacts and a saved correction across an actual OCR
     } catch {report.samples.push({at:new Date().toISOString(),unavailable:true});}
     saveReport();
   };
+  const workflowFailures: unknown[] = [];
   try {
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:24,sections:[]}}});await p.correctionLibraryAccount.create({data:{ownerPlayerId:n,displayKey:require('crypto').randomBytes(32).toString('hex'),sampleBasisPoints:10000,sampleCap:1}});`);
     // Only this disposable owner samples its first admission deterministically.
@@ -203,6 +205,9 @@ test("24 real scans retain artifacts and a saved correction across an actual OCR
     await expect(page.locator('[data-testid^="capture-card-"]')).toHaveCount(24);
     sample();
     report.passed=true;
+  } catch (error) {
+    workflowFailures.push(error);
+    throw error;
   } finally {
     // Block new authenticated polling and retire only this fixture owner.
     const cleanupFailures: unknown[]=[];
@@ -211,10 +216,10 @@ test("24 real scans retain artifacts and a saved correction across an actual OCR
     cleanup(()=>{if(timer)clearInterval(timer);});
     cleanup(()=>{if(stopped)docker("start",worker);});
     cleanup(()=>{report.finishedAt=new Date().toISOString();saveReport();});
-    cleanup(()=>database(`const n=${JSON.stringify(tag)};const sessions=await p.acquisitionSession.findMany({where:{ownerPlayerId:n},select:{id:true}});const runs=await p.acquisitionRun.findMany({where:{sessionId:{in:sessions.map(s=>s.id)}},select:{id:true}});const where={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where});await p.acquisitionProcessingJob.deleteMany({where});await p.acquisitionPhoto.deleteMany({where});await p.acquisitionCommand.deleteMany({where});await p.acquisitionCaptureSlot.deleteMany({where});await p.acquisitionCountCorrection.deleteMany({where});await p.acquisitionObservation.deleteMany({where});await p.acquisitionEvent.deleteMany({where});await p.acquisitionCandidate.deleteMany({where});await p.acquisitionArtifact.deleteMany({where});await p.acquisitionRun.deleteMany({where:{id:{in:runs.map(r=>r.id)}}});await p.acquisitionSession.deleteMany({where:{id:{in:sessions.map(s=>s.id)}}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});const fs=require('fs/promises'),path=require('path');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw new Error('Invalid fixture path');for(const suffix of ['original','preview.jpg'])await fs.unlink(path.join(process.env.UPLOADS_DATA_PATH,'acquisition-v1',photo.id+'.'+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e})}`));
+    cleanup(()=>database(`const n=${JSON.stringify(tag)};const sessions=await p.acquisitionSession.findMany({where:{ownerPlayerId:n},select:{id:true}});const runs=await p.acquisitionRun.findMany({where:{sessionId:{in:sessions.map(s=>s.id)}},select:{id:true}});const where={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where});${cleanupOwnedPhotoFixtureFiles}await p.acquisitionProcessingJob.deleteMany({where});await p.acquisitionPhoto.deleteMany({where});await p.acquisitionCommand.deleteMany({where});await p.acquisitionCaptureSlot.deleteMany({where});await p.acquisitionCountCorrection.deleteMany({where});await p.acquisitionObservation.deleteMany({where});await p.acquisitionEvent.deleteMany({where});await p.acquisitionCandidate.deleteMany({where});await p.acquisitionArtifact.deleteMany({where});await p.acquisitionRun.deleteMany({where:{id:{in:runs.map(r=>r.id)}}});await p.acquisitionSession.deleteMany({where:{id:{in:sessions.map(s=>s.id)}}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});`));
     // A final sweep also catches writes completed during legacy teardown.
     cleanup(()=>database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');"));
-    if(cleanupFailures.length)throw new AggregateError(cleanupFailures,"Live recovery fixture cleanup failed");
+    if(cleanupFailures.length)throw new AggregateError([...workflowFailures, ...cleanupFailures],"Live recovery fixture cleanup failed");
   }
   console.log(JSON.stringify({scope:report.scope,count:report.count,firstCorrect:report.firstCorrect,
     offered:report.offered,interrupt:report.interrupt,uploadRetries:report.uploadRetries.length,

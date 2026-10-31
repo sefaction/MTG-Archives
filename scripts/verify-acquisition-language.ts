@@ -15,7 +15,7 @@ export async function verifyAcquisitionLanguage(db:PrismaClient,actor:Acquisitio
   const french=await db.card.create({data:{scryfallId:randomUUID(),name:card.name,setCode:card.setCode,
     collectorNumber:card.collectorNumber,lang:"fr",digital:false,finishes:["nonfoil"],typeLine:card.typeLine,rarity:card.rarity}});
   registerCard(french.id);
-  const batch=await capture(12),index=createAcquisitionRecognitionIndex([card,french].map(({id,name,setCode,collectorNumber,lang,digital})=>({id,name,setCode,collectorNumber,lang,digital})));
+  const batch=await capture(16),index=createAcquisitionRecognitionIndex([card,french].map(({id,name,setCode,collectorNumber,lang,digital})=>({id,name,setCode,collectorNumber,lang,digital})));
   const {ownerPlayerId:chosenOpener}=await db.acquisitionSession.findUniqueOrThrow({where:{id:batch.id},select:{ownerPlayerId:true}});
   const stock=()=>db.inventoryItem.aggregate({_count:{_all:true},_sum:{quantity:true}});
   const before=await stock(),outputs:{id:string;output:Prisma.JsonValue}[]=[];
@@ -29,6 +29,12 @@ export async function verifyAcquisitionLanguage(db:PrismaClient,actor:Acquisitio
       : [`C ${card.collectorNumber}`,card.setCode.toUpperCase()+(kind==="readable-fr"?" FR":kind==="other-language"||kind==="split-opposite"?" EN":"")]};
     const orientations=[{rotationDegrees:0,text,lines:[]},
       {rotationDegrees:180,text:kind==="orientation"?text:{title:[],footer:kind==="other-language"?["ZZZ FR"]:kind==="split-opposite"?["ZZZ","FR"]:[]},lines:[]}];
+    if(kind==="word-fr"||kind==="legacy-word-fr"||kind==="legacy-word-en")
+      text.footer=[`C ${card.collectorNumber}`,card.setCode.toUpperCase(),kind==="legacy-word-en"?"EN Alice":"FR Alice"];
+    if(kind==="word-opposite"){
+      text.footer=[`C ${card.collectorNumber}`,card.setCode.toUpperCase()+" EN"];
+      orientations[1].text.footer=["FR Alice"];
+    }
     const native={version:1,descriptor:"a".repeat(64),descriptorDetails:{},photoDigest:(canonical.input as {digest:string}).digest,
       text,orientations,geometry:{status:"ACCEPTED"},lines:[],milliseconds:1,automaticAcceptance:false};
     const source={version:1,photoId:batch.photos[position].id,native,versions:{catalog:"b".repeat(64),model:"a".repeat(64)},
@@ -52,6 +58,14 @@ export async function verifyAcquisitionLanguage(db:PrismaClient,actor:Acquisitio
       // current producer refuses it. The locked consumer must check the saved
       // observations independently, even when the isolated code agrees.
       const missing=orientations.map(row=>({...row,text:{...row.text,footer:row.text.footer.filter(line=>line!=="EN")}}));
+      const legacy=proposeOrientedAcquisitionPrintings(index,missing,12,"en");assert.equal(legacy.automaticAcceptance,true);
+      output={...output,batchLanguageProposals:{version:1,options:[{language:"en",proposals:legacy}]}};
+    }
+    if(kind==="legacy-word-en"||kind==="legacy-word-fr"){
+      // A persisted pre-correction option must not bypass the real locked
+      // consumer, even when its readable code agrees with the saved default.
+      const missing=orientations.map(row=>({...row,text:{...row.text,
+        footer:row.text.footer.filter(line=>line!=="EN Alice"&&line!=="FR Alice")}}));
       const legacy=proposeOrientedAcquisitionPrintings(index,missing,12,"en");assert.equal(legacy.automaticAcceptance,true);
       output={...output,batchLanguageProposals:{version:1,options:[{language:"en",proposals:legacy}]}};
     }
@@ -85,6 +99,7 @@ export async function verifyAcquisitionLanguage(db:PrismaClient,actor:Acquisitio
   assert.equal((await getAcquisitionProgress(db,actor,batch.id)).defaults.language,"en","an older client omitting language cannot clear confirmation");
   assert.equal((await getAcquisitionProgress(db,actor,batch.id)).defaults.openerPlayerId,chosenOpener,"omitting both optional choices preserves them");
   for(const [position,kind] of [[1,"readable-fr"],[2,"orientation"],[3,"title-missing"],[4,"unreadable"],[5,"unreadable"],[7,"provider-error"],[8,"other-language"],[9,"split-fr"],[10,"split-opposite"],[11,"legacy-split-en"]] as const)await publish(position,kind);
+  for(const [position,kind] of [[12,"word-fr"],[13,"word-opposite"],[14,"legacy-word-en"],[15,"legacy-word-fr"]] as const)await publish(position,kind);
   const pending=await review(4);await saveAcquisitionReview(db,actor,batch.id,{action:"pending",photoId:pending.photoId,revision:pending.revision});
   const override=await review(5);await saveAcquisitionReview(db,actor,batch.id,{action:"accept",photoId:override.photoId,revision:override.revision,
     decision:{cardId:french.id,language:"fr",finish:"NONFOIL",condition:"NM",openerPlayerId:chosenOpener}});
@@ -93,6 +108,8 @@ export async function verifyAcquisitionLanguage(db:PrismaClient,actor:Acquisitio
   assert((await getAcquisitionProgress(db,actor,batch.id)).slots[8].reviewProblems.includes("conflict"),"conflicting readable language in another direction is not hidden");
   for(const position of [9,10])assert((await getAcquisitionProgress(db,actor,batch.id)).slots[position].reviewProblems.includes("conflict"),"split readable language remains visible");
   for(const position of [1,2,3,4,7,8,9,10,11])assert.equal((await review(position)).review,null);
+  for(const position of [12,13,14,15])assert.equal((await review(position)).review,null,"readable code words and persisted conditional options stay pending under the locked consumer");
+  for(const position of [12,13,15])assert((await getAcquisitionProgress(db,actor,batch.id)).slots[position].reviewProblems.includes("conflict"),"word-code conflict remains visible");
   console.log("PASS: split primary/opposite language and simulated prior conditional option stay pending under locked confirmation; current producer creates no borrowed interpretation");
   await defaults("fr",3);await publish(6);
   assert.equal(await confirmStrongAcquisitionMatches(db),2,"new explicit language supports missing language and now-agreeing readable evidence");

@@ -1,3 +1,4 @@
+import { cleanupOwnedPhotoFixtureFiles } from "./owned-fixture-files";
 import { cleanupCorrectionFixture, cancelAndCleanCorrectionFixture } from "./correction-fixture";
 import { controlledReviewTarget, verifyControlledReviewTarget } from "./controlled-review-target";
 import { expect, test } from "@playwright/test";
@@ -30,6 +31,7 @@ for (const width of [1366, 390]) test(`direct finish buttons preserve review aut
   const bytes = await sharp({ create: { width: 300, height: 420, channels: 3, background: "#335577" } }).png().toBuffer();
   const digest = createHash("sha256").update(bytes).digest("hex");
   let batch = "", refreshes = 0; const photos: string[] = [];
+  const workflowFailures: unknown[] = [];
   try {
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box'}});for(const card of ${JSON.stringify(printings)})await p.card.create({data:{...card,scryfallId:require('crypto').randomUUID(),typeLine:'Creature',rarity:'common'}});`);
     await page.goto("/login"); await page.getByLabel(/username or email/i).fill(tag); await page.getByLabel(/^password$/i).fill(password);
@@ -131,6 +133,9 @@ for (const width of [1366, 390]) test(`direct finish buttons preserve review aut
     expect((await read()).finish).toBe("NONFOIL"); expect(inventory()).toBe(1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: `test-results/quick-finish-${width}.png` });
+  } catch (error) {
+    workflowFailures.push(error);
+    throw error;
   } finally {
     // Block new authenticated polling and retain every cleanup failure.
     const failures: unknown[] = [];
@@ -141,14 +146,14 @@ for (const width of [1366, 390]) test(`direct finish buttons preserve review aut
     await cleanup(async () => { if (!page.isClosed()) await page.unrouteAll({ behavior: "wait" }); });
     await cleanup(async () => { if (!page.isClosed()) await page.goto("/dashboard"); });
     await cleanup(() => {
-    database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const runs=await p.acquisitionRun.findMany({where:{session:{createdByUserId:n}},select:{id:true}});const w={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});
+    database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const runs=await p.acquisitionRun.findMany({where:{session:{createdByUserId:n}},select:{id:true}});const w={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});${cleanupOwnedPhotoFixtureFiles}
       ${cleanupCorrectionFixture}
       for(const model of ['acquisitionCommitMember','acquisitionCommit','acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});
       await p.inventoryAuditLog.deleteMany({where:{changedByUserId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});await p.card.deleteMany({where:{id:{in:${JSON.stringify(printings.map(p=>p.id))}}}});
-      const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;if(!root||!paths.isAbsolute(root))throw new Error('Private fixture path unavailable');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw new Error('Invalid owned photo identity');for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e;});}`);
+      `);
     });
     // Remove feedback that completed while the original teardown was running.
     await cleanup(() => { database(cancelAndCleanCorrectionFixture(tag)); });
-    if (failures.length) throw new AggregateError(failures, "acquisition-quick-finish.spec.ts cleanup failed");
+    if (failures.length) throw new AggregateError([...workflowFailures, ...failures], "acquisition-quick-finish.spec.ts cleanup failed");
   }
 });

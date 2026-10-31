@@ -27,7 +27,7 @@ for(const width of [1366,320])test(`confirmed batch language, readable conflict,
     await page.getByPlaceholder("Search boxes, vaults, or storage paths…").fill("Language fixture box");
     await page.getByRole("option").filter({hasText:"Language fixture box"}).click();
     await page.getByRole("checkbox",{name:"Set a batch limit (optional)",exact:true}).check();
-    await page.getByRole("spinbutton",{name:"Cards in this batch",exact:true}).fill("6");
+    await page.getByRole("spinbutton",{name:"Cards in this batch",exact:true}).fill("8");
     await page.getByRole("combobox",{name:"Batch language",exact:true}).selectOption("en");
     await expect(page.getByRole("combobox",{name:"Batch original opener",exact:true})).toHaveValue("");
     await page.getByRole("combobox",{name:"Batch original opener",exact:true}).selectOption(tag);
@@ -35,7 +35,7 @@ for(const width of [1366,320])test(`confirmed batch language, readable conflict,
     batch=new URL(page.url()).searchParams.get("batch")!;const headers={origin:baseURL!},endpoint=`/api/acquisition/${batch}/review`;
     const state=await (await page.request.get(`/api/acquisition/${batch}`)).json();expect(state.defaults.language).toBe("en");expect(state.defaults.openerPlayerId).toBe(tag);
     const bytes=await sharp({create:{width:80,height:120,channels:3,background:"#335577"}}).jpeg().toBuffer(),photos:string[]=[];
-    for(let index=0;index<6;index++){
+    for(let index=0;index<8;index++){
       const reserved=await page.request.post(`/api/acquisition/${batch}`,{headers,data:{action:"reserve",requestKey:randomUUID()}});expect(reserved.ok()).toBe(true);
       const {slot}=await reserved.json();const upload=await page.request.post(`/api/acquisition/${batch}/photos?slot=${slot.id}&key=${randomUUID()}&generation=${slot.generation}`,
         {headers:{...headers,"content-type":"image/jpeg"},data:bytes});expect(upload.ok(),await upload.text()).toBe(true);photos.push((await upload.json()).id);
@@ -45,7 +45,7 @@ for(const width of [1366,320])test(`confirmed batch language, readable conflict,
     const source=originals();writeFileSync(test.info().outputPath("originals-before.json"),JSON.stringify(source));
     // Use actual built catalog and auto-confirm services with controlled saved
     // OCR/finite local catalog responses. No native model or provider network.
-    function publish(position:number,kind:"unreadable"|"readable-fr"|"orientation"|"split-fr"){
+    function publish(position:number,kind:"unreadable"|"readable-fr"|"orientation"|"split-fr"|"word-fr"|"word-opposite"){
       return reviewDatabase(`require('tsx/cjs/api').register();const {createCatalogReconciliationHandler}=require('./lib/acquisition-catalog-reconciliation.ts');
         const {createAcquisitionRecognitionIndex,proposeOrientedAcquisitionPrintings}=require('./lib/acquisition-recognition.ts');
         const {CATALOG_RECONCILIATION_STAGE,CATALOG_RESOLVER_VERSION}=require('./lib/acquisition-catalog-status.ts');const {completeAcquisitionJob}=require('./lib/acquisition-jobs.ts');
@@ -54,6 +54,8 @@ for(const width of [1366,320])test(`confirmed batch language, readable conflict,
         const cards=await p.card.findMany({where:{id:{in:${JSON.stringify([english,french])}}}}),kind=${JSON.stringify(kind)};
         const text={title:['Language fixture card'],footer:kind==='split-fr'?['C 1','LGT','FR']:['C 1',kind==='unreadable'?'LGT':'LGT '+(kind==='readable-fr'?'FR':'EN')]};
         const orientations=[{rotationDegrees:0,text,lines:[]},{rotationDegrees:180,text:kind==='orientation'?text:{title:[],footer:[]},lines:[]}];
+        if(kind==='word-fr')text.footer=['C 1','LGT','FR Alice'];
+        if(kind==='word-opposite'){text.footer=['C 1','LGT EN'];orientations[1].text.footer=['FR Alice'];}
         const native={version:1,descriptor:'a'.repeat(64),descriptorDetails:{},photoDigest:canonical.input.digest,text,orientations,geometry:{status:'ACCEPTED'},lines:[],milliseconds:1,automaticAcceptance:false};
         const common={runId:canonical.runId,artifactId:canonical.artifactId,candidateId:canonical.candidateId,candidateRevision:canonical.candidate.revision,input:canonical.input};
         const index=createAcquisitionRecognitionIndex(cards.map(({id,name,setCode,collectorNumber,lang,digital})=>({id,name,setCode,collectorNumber,lang,digital})));
@@ -64,21 +66,24 @@ for(const width of [1366,320])test(`confirmed batch language, readable conflict,
         const output=await handler({...job,leaseToken},AbortSignal.timeout(30000));if(await completeAcquisitionJob(p,{...job,leaseToken},output)!=='COMPLETE')throw Error('Publication lost');return true;`);
     }
     const auto=()=>reviewDatabase<number>(`require('tsx/cjs/api').register();return require('./lib/acquisition-auto-confirm.ts').confirmStrongAcquisitionMatches(p);`);
-    publish(0,"unreadable");publish(1,"readable-fr");publish(3,"orientation");publish(4,"orientation");publish(5,"split-fr");const automatic=auto();
+    publish(0,"unreadable");publish(1,"readable-fr");publish(3,"orientation");publish(4,"orientation");publish(5,"split-fr");publish(6,"word-fr");publish(7,"word-opposite");const automatic=auto();
     const reviewed=async(position:number)=>(await (await page.request.get(`${endpoint}?photoId=${photos[position]}`)).json()).review;
     const initialReviews=await Promise.all(photos.map((_,position)=>reviewed(position)));
     writeFileSync(test.info().outputPath("initial-language-reviews.json"),JSON.stringify({automatic,reviews:initialReviews}));
     expect(initialReviews[5],"split readable FR cannot automatically save an English printing").toBe(null);expect(automatic).toBe(1);
     expect((await reviewed(0)).language).toBe("en");expect(await reviewed(1)).toBe(null);
     expect(await reviewed(5)).toBe(null);
+    for(const position of [6,7])expect(await reviewed(position),"readable word-code conflict cannot automatically save the batch language").toBe(null);
     expect((await (await page.request.get(`/api/acquisition/${batch}`)).json()).slots[1].reviewProblems).toContain("conflict");
     expect((await (await page.request.get(`/api/acquisition/${batch}`)).json()).slots[5].reviewProblems).toContain("conflict");
+    for(const position of [6,7])expect((await (await page.request.get(`/api/acquisition/${batch}`)).json()).slots[position].reviewProblems).toContain("conflict");
     await page.reload();await page.getByRole("button",{name:"Stop capture",exact:true}).click();
     await expect.poll(async()=>(await (await page.request.get(`/api/acquisition/${batch}`)).json()).phase).toMatch(/^(STOPPING|COMPLETE)$/);
     await page.getByRole("button",{name:"Advanced",exact:true}).click();
     const bulk=page.getByRole("region",{name:"Bulk match review",exact:true});await bulk.getByRole("button",{name:"Bulk Confirm Match",exact:true}).click();
     await expect(bulk.getByRole("checkbox",{name:/Card 2:/})).toBeDisabled();
     await expect(bulk.getByRole("checkbox",{name:/Card 6:/})).toBeDisabled();
+    for(const cardNumber of [7,8])await expect(bulk.getByRole("checkbox",{name:new RegExp(`Card ${cardNumber}:`)})).toBeDisabled();
     await expect(bulk).toContainText("Readable language conflicts with the batch language");
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await bulk.getByText("Readable language conflicts with the batch language. Inspect or correct this card individually.",{exact:true}).last()
@@ -109,6 +114,7 @@ for(const width of [1366,320])test(`confirmed batch language, readable conflict,
     expect((await reviewed(0)).language).toBe('en');expect((await reviewed(1)).language).toBe('fr');expect((await reviewed(2)).language).toBe('fr');
     for(const position of [0,1,2,3,4])expect((await reviewed(position)).openerPlayerId).toBe(tag);
     expect(await reviewed(5),"split readable language stays pending after defaults change").toBe(null);
+    for(const position of [6,7])expect(await reviewed(position),"word-code uncertainty stays pending after defaults change").toBe(null);
     expect(reviewDatabase<number>(`return p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}});`)).toBe(0);
     await page.reload();for(let index=0;index<5;index++)await page.getByRole('checkbox',{name:`Select card ${index+1} for Inventory`,exact:true}).check();
     await page.getByRole('link',{name:'Add 5 confirmed cards to Inventory',exact:true}).click();

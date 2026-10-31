@@ -1,6 +1,79 @@
 # Confirmed batch language (#308)
 
-## Current integration with main
+## Readable code-word correction — October 31, 2026
+
+A readable language code sharing an OCR line with artist text (for example,
+`FR Alice`) could bypass the earlier isolated-line conflict safeguard and
+be automatically saved as English. Brian assigned completion and independent
+review of this correction to the current author.
+
+The parser now unions supported complete language words with its unchanged
+isolated-code observations across primary, supplemental and source footer
+channels in both directions. Unicode letters, combining marks, numbers and
+underscores prevent embedded substring matches. Existing punctuation handling
+remains. These observations veto borrowing a default; they never stitch a
+positive identifier or rewrite native OCR and ordinary proposals. Resolver v22
+makes new interpretations use the corrected rule. The real locked consumer
+also refuses persisted conditional choices when matching EN or conflicting FR
+words are already readable.
+
+- Seven new source controls: old one pass/six expected failures. Corrected
+  language/footer/opener/catalog checks:36 distinct Windows and36 Linux passes.
+  Original unit, SQL and browser assertions remain; repeated runs are not summed.
+- The unfixed integration with main59275d70 actually saves both added readable-FR
+  word photos as English at1366/320:three automatic reviews rather than one.
+  Both expected-failure cases independently restore all85 table fingerprints.
+- Corrected full acquisition SQL passes its16-card language matrix, including
+  simulated persisted old conditional choices under the locked consumer. All85
+  table fingerprints restore. The original first12 scenarios, four-copy receipt,
+  lots and replay assertions remain.
+- Corrected production browser matrix passes all4 language/opener cases in1.6m,
+  with original150-second case deadlines. Both added word-code photos stay pending
+  and bulk-disabled across default changes. Original EN3/FR2,2lots/2audits/5members,
+  explicit Inventory addition, frozen retry, original opener, raw sources/jobs,
+  zero-effect replay and populated peers remain verified. Each case independently
+  restores all85 table fingerprints; final uploads are empty. Desktop and phone
+  explanation/preview screenshots were inspected.
+- Exact tested application/test revision40d1ae2829b5f4d622b503fe917e48dba78d5114
+  builds local image9734b8ed9b53b831e7fe15ad0a087e09bca3f500b23d58b5eabb9f7c1d13967f.
+  All1,335 declared LF source inputs match Git/archive/build/final runtime readback,
+  digestb8e6d20932f1c84d4a01d1c0e63dc37984009373664f1b9284205a6fd72f3f9a.
+  Independent review recomputed every file against Git with zero mismatches and
+  independently compared all SQL/browser85-table pairs.
+- This local image uses pinned Next15.5.25 compilation, the same complete Next
+  type/lint validation in a separate process (no ignored type or lint errors),
+  page generation and client-manifest checks. It is a manually phased local
+  production snapshot, not a canonical Dockerfile build. A monolithic build hit
+  its2560MiB cap after successful compilation; full type/lint then passed separately.
+  First page generation hit the isolated256-process limit (EAGAIN); the pinned
+  default worker setting CIRCLE_NODE_TOTAL=2 limits generation to one worker and
+  succeeds. No product config, gate, deadline or shared resource limit changed.
+- First corrected development UI remains failed evidence: desktop hit the original
+  deadline, although independent trace review proves both frozen EN POSTs succeeded
+  and confirming GETs arrived after timeout. Accumulated latency remains unexplained.
+  A separate later phone case lost the development server to its1536MiB cap; this
+  does not explain the earlier deadline. Exact trace-proven fixture owners were
+  recovered through the original helper, all85 baseline/empty files verified;
+  failed traces/logs and the private recovery-probe failure/resume are retained.
+- All owned temporary build/SQL/recovery/browser resources are retired. The final
+  production web, old failed development web, PostgreSQL,2synthetic volumes and
+  2networks are removed after conservation checks. All13 primary service identities,
+  configuration, mounts, start times and restart counts remain unchanged. Review
+  images and compact failure/source evidence remain; exact reservations released.
+
+Latest main3484b2a0 (merged deck-import PR986) is integrated without conflicts.
+Its12 deck-import/checkpoint changes are separate from the source-bound language
+runtime above; this is not a claim that the local image contains PR986. Required
+fresh final-head hosted checks and independent final review are recorded on the PR.
+Earlier source/runtime results retain their original bindings below.
+
+Confirmed defaults, omitted/cleared choices, saved reviews, frozen retries,
+original opener, ownership and explicit Inventory authority are preserved.
+Controlled saved OCR is not native optical accuracy or historical-incident
+causation. Broader #308/#302 acceptance, named deployment and user acceptance
+remain separate. Brian's individual958 merge approval is still required.
+
+## Preserved earlier integration with main
 
 Main9b3add47 now includes opener PR955 and test repairs957/959. The language
 feature is integrated with those deliveries: both default fields and selectors,

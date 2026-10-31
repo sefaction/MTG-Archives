@@ -1,3 +1,4 @@
+import { cleanupOwnedPhotoFixtureFiles } from "./owned-fixture-files";
 import { cancelAndCleanCorrectionFixture } from "./correction-fixture";
 import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
@@ -39,6 +40,7 @@ for (const width of [1366, 390]) test(`scan preview survives leaving the viewpor
     readingZones: { title: { top: 0, bottom: 200 }, footer: { top: 1100, bottom: 1397 } },
     printing: null, imageMatches: null, photoText: null,
   };
+  const workflowFailures: unknown[] = [];
   try {
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:1,sections:[{name:'A',capacity:1}]}}});`);
     await page.goto("/login"); await page.getByLabel(/username or email/i).fill(tag); await page.getByLabel(/^password$/i).fill(password);
@@ -121,6 +123,9 @@ for (const width of [1366, 390]) test(`scan preview survives leaving the viewpor
     await page.screenshot({ path: `test-results/scan-retention-${width}.png` });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
+  } catch (error) {
+    workflowFailures.push(error);
+    throw error;
   } finally {
     // Block new authenticated polling and retire only this fixture owner.
     const cleanupFailures: unknown[] = [];
@@ -129,14 +134,13 @@ for (const width of [1366, 390]) test(`scan preview survives leaving the viewpor
     };
     await cleanup(() => { database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');"); });
     await cleanup(async () => { releaseImage(); });
-    await cleanup(async () => { database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const w={run:{session:{createdByUserId:n}}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});
+    await cleanup(async () => { database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const w={run:{session:{createdByUserId:n}}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});${cleanupOwnedPhotoFixtureFiles}
       for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});
       await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});
       await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});
-      const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;if(!root||!paths.isAbsolute(root))throw new Error('Private fixture path unavailable');
-      for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw new Error('Invalid owned photo identity');for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e;});}`); });
+      `); });
     // A final sweep also catches writes completed during legacy teardown.
     await cleanup(() => { database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');"); });
-    if (cleanupFailures.length) throw new AggregateError(cleanupFailures, "acquisition-scan-retention.spec.ts cleanup failed");
+    if (cleanupFailures.length) throw new AggregateError([...workflowFailures, ...cleanupFailures], "acquisition-scan-retention.spec.ts cleanup failed");
   }
 });

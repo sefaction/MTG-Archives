@@ -1,3 +1,4 @@
+import { cleanupOwnedScannerStartFiles } from "./owned-fixture-files";
 import { cancelAndCleanCorrectionFixture } from "./correction-fixture";
 import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
@@ -131,7 +132,7 @@ test("queued scanner errors explain recovery and clear after authorized start; c
       const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;
       if(!root||!paths.isAbsolute(root))throw new Error('Private fixture storage unavailable');
       const runs=await p.scannerRun.findMany({where:{agent:{userId:n}},select:{id:true}});
-      for(const run of runs){if(!/^[a-f0-9-]{36}$/.test(run.id))throw new Error('Invalid owned fixture identity');await fs.unlink(paths.join(root,'scanner-control-v1',run.id+'.start.json')).catch(e=>{if(e.code!=='ENOENT')throw e;});}
+      {const fixtureScannerIds=(runs).map(row=>row.id);${cleanupOwnedScannerStartFiles}}
       await p.scannerRun.deleteMany({where:{agent:{userId:n}}});
       for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});
       await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});

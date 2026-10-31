@@ -76,28 +76,43 @@ export async function purgeTrashedAcquisitionPhotos(db: PrismaClient, now = new 
     ORDER BY s."trashExpiresAt",s.id LIMIT 5`;
   let purged = 0, failed = 0, expired = 0;
   for (const batch of batches) {
-    await db.$transaction(async tx => {
-      await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id=${batch.id} FOR UPDATE`;
-      const session = await tx.acquisitionSession.findUniqueOrThrow({where: {id: batch.id}, include: {run: true}});
-      if (!session.trashedAt || session.trashedAt > cutoff || !session.trashExpiresAt || session.trashExpiresAt > now || !session.run) return;
-      if (await hasCorrectionRetentionPins(tx, session.id)) return;
-      if (await tx.scannerRun.count({where: {acquisitionRunId: session.run.id, NOT: settledScannerTransfer}})) return;
-      if (!session.deletedAt) {
-        await tx.acquisitionSession.update({where: {id: session.id}, data: {deletedAt: now, phase: "CANCELLED", scannerReserved: 0}});
-        expired++;
-      }
-      const photos = await tx.acquisitionPhoto.findMany({where: {runId: session.run.id, purgedAt: null}, orderBy: {id: "asc"}, take: 25});
+    try {
+      const expiry = await db.$transaction(async tx => {
+        await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id=${batch.id} FOR UPDATE`;
+        const session = await tx.acquisitionSession.findUniqueOrThrow({where: {id: batch.id}, include: {run: true}});
+        if (!session.trashedAt || session.trashedAt > cutoff || !session.trashExpiresAt || session.trashExpiresAt > now || !session.run) return null;
+        if (await hasCorrectionRetentionPins(tx, session.id)) return null;
+        if (await tx.scannerRun.count({where: {acquisitionRunId: session.run.id, NOT: settledScannerTransfer}})) return null;
+        const newlyExpired = session.deletedAt ? 0 : 1;
+        if (newlyExpired) {
+          await tx.acquisitionSession.update({where: {id: session.id}, data: {deletedAt: now, phase: "CANCELLED", scannerReserved: 0}});
+        }
+        return {runId: session.run.id, expired: newlyExpired};
+      }, {timeout: 30000});
+      if (!expiry) continue;
+      // Filesystem deletion cannot roll back. Commit expiry before the first
+      // unlink, and count each database change only after its own commit.
+      expired += expiry.expired;
+      const photos = await db.acquisitionPhoto.findMany({where: {runId: expiry.runId, purgedAt: null}, orderBy: {id: "asc"}, take: 25});
       let temporaryFiles: Map<string, string[]>;
       try { temporaryFiles = await findAcquisitionPhotoTemporaryFiles(photos.map(photo => photo.id)); }
-      catch { failed += photos.length; return; }
+      catch { failed += photos.length; continue; }
       for (const photo of photos) {
         try {
-          await removeAcquisitionPhotoBytes(photo.id, temporaryFiles.get(photo.id));
-          await tx.acquisitionPhoto.update({where: {id: photo.id}, data: {purgedAt: now}});
-          purged++;
+          purged += await db.$transaction(async tx => {
+            await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id=${batch.id} FOR UPDATE`;
+            const session = await tx.acquisitionSession.findUnique({where: {id: batch.id}, include: {run: true}});
+            if (!session?.deletedAt || session.run?.id !== expiry.runId ||
+                await hasCorrectionRetentionPins(tx, session.id)) return 0;
+            const current = await tx.acquisitionPhoto.findUnique({where: {id: photo.id}});
+            if (!current || current.runId !== expiry.runId || current.purgedAt) return 0;
+            await removeAcquisitionPhotoBytes(photo.id, temporaryFiles.get(photo.id));
+            await tx.acquisitionPhoto.update({where: {id: photo.id}, data: {purgedAt: now}});
+            return 1;
+          }, {timeout: 30000});
         } catch { failed++; }
       }
-    }, {timeout: 30000});
+    } catch { failed++; }
   }
   return {expired, purged, failed};
 }

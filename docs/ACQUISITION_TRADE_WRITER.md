@@ -80,15 +80,27 @@ invented qualification tickets. Each result retains its actual source and limit.
 | Fresh override,263-to258 and five pending reassignment | #927 completes real desktop/phone subset, separately confirmed alternate Add5, immutable first receipt, exact258+5membership/replay; independent overfill path remains. |
 | Quantity/capacity collection envelope | Existing capacity test covers150000copies/60000stacks/four uneven owners/400locations/4000sections. This is a bounded occupancy/write result, not sustained full-application latency. |
 
-The named P7 source/database acceptance map is ready for final review once these
-deliveries' gates finish. #309 remains open pending individual approvals,
-required resolving merges and verified reconciliation; no single partial PR
-closes it. Shared-phase/provider/recognition/native integration and installed
-release acceptance are not silently claimed by this table.
+### Current delivery state — October 24, 2026
 
-Long-running mixed-writer/resource workloads, natural process/database/host/
-storage loss and installation acceptance remain #310 release criteria. Existing
-software faults are not proof of every power-loss schedule. Other capture methods
+The named deliveries are now merged: #920 (`3b06f208`), #925 (`9cd09484`),
+#927 (`55d10d32`), #944 (`effa5fd8`), #948 (`6f02b2e5`) and this batch's
+#950 (`8bdfed46`). Their exact qualification runs remain separately bound;
+merging does not establish one new cumulative runtime pass. The
+[current P7 reconciliation](ACQUISITION_WRITER_MATRIX.md) links every delivery,
+original requirement, covered boundary and existing release remainder.
+
+#309 remains OPEN for acceptance of that finite map and its broader
+phase/release completion boundary. Its recorded closure refusal is preserved;
+this reconciliation does not retry closure, change labels or silently transfer
+requirements. Shared-phase/provider/recognition/native integration and installed
+release acceptance are not claimed by this table.
+
+Long-running mixed-writer/resource workloads, host/power/storage loss and
+installation acceptance remain #310 release criteria. Separately merged
+browser #960, database #962 and web-server #963 qualify their declared controlled
+interruption/retry cases, with original source and conservation limits; those
+cases are no longer wholly untested. Existing software faults are not proof of
+every power-loss schedule. Other capture methods
 remain deferred under #442/#443/#312 and the fi-7160 priority decision. This report
 does not demand repeated ordinary physical qualification, change production or
 authorize a merge. Partial/merged-lot browser variants and arbitrary multi-statement

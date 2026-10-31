@@ -1,5 +1,11 @@
 # MTG Archives Project Instructions
 
+## No-new-issues freeze - 2026-10-24
+
+Brian's current instruction applies to every local and remote worker: **do not create new issues until Brian explicitly lifts this freeze.** This overrides all earlier bug, audit, qualification, replacement, nested/child, and other ticket-creation instructions in repository guidance, startup prompts, and historical checkpoints, including those preserved below.
+
+Finish existing issues within their agreed scope. Preserve tests, failure evidence, and acceptance criteria; do not weaken tests or close issues with unresolved acceptance. Report newly discovered concerns and blockers to Brian instead of creating replacement or nested issues. Existing ownership, coordination, review, and individual merge-approval requirements still apply.
+
 This is the canonical operating policy. Use [CODEX.md](CODEX.md) for commands, [the autonomous workflow](docs/AUTONOMOUS_WORKFLOW.md) for execution and handoff details, and [issue intake](docs/ISSUE_INTAKE.md) for triage procedures.
 
 ## Authority and current context

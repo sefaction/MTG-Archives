@@ -113,7 +113,29 @@ async function readChecked(file: string, digest?: string) {
   const failures: unknown[] = [];
   let bytes!: Buffer;
   try {
-    bytes = await handle.readFile();
+    // Path metadata can become stale before or during the descriptor read.
+    // Read at most the limit plus one detection byte, even without a digest.
+    const chunks: Buffer[] = [];
+    let total = 0;
+    let chunk: Buffer | undefined;
+    let used = 0;
+    while (true) {
+      // Short reads fill the same owned buffer instead of retaining one full
+      // backing allocation and array entry for every fragment.
+      chunk ??= Buffer.allocUnsafe(Math.min(64 * 1024, PHOTO_MAX_BYTES - total + 1));
+      const { bytesRead } = await handle.read(chunk, used, chunk.length - used, null);
+      if (!bytesRead) break;
+      used += bytesRead;
+      total += bytesRead;
+      if (total > PHOTO_MAX_BYTES) throw new Error("Photo file is unavailable");
+      if (used === chunk.length) {
+        chunks.push(chunk);
+        chunk = undefined;
+        used = 0;
+      }
+    }
+    if (chunk && used) chunks.push(chunk.subarray(0, used));
+    bytes = Buffer.concat(chunks, total);
     if (digest && photoDigest(bytes) !== digest)
       throw new Error("Photo integrity check failed; restore the original");
   } catch (error) { failures.push(error); }
@@ -142,11 +164,37 @@ export async function writeAcquisitionPhotoBytes(
   if (bytes.length > PHOTO_MAX_BYTES || photoDigest(bytes) !== digest)
     throw new Error("Photo integrity check failed");
   const { directory, file } = await filePath(id, variant);
+  const failures: unknown[] = [];
+  async function syncDirectory() {
+    // A complete file may come from a publication whose directory sync failed.
+    // Retry that durability barrier before acknowledging existing bytes too.
+    if (process.platform === "win32") return;
+    let dir;
+    try {
+      dir = await open(directory, "r");
+      await dir.sync();
+    } catch (error) { failures.push(error); }
+    try { await dir?.close(); } catch (error) { failures.push(error); }
+  }
+  function finish() {
+    if (failures.length === 1) throw failures[0];
+    if (failures.length > 1) {
+      const code = (failures[0] as NodeJS.ErrnoException | null)?.code;
+      throw Object.assign(new AggregateError(failures, "Photo write and cleanup failed", { cause: failures[0] }),
+        typeof code === "string" ? { code } : {});
+    }
+  }
+  let existing = false;
   try {
     await readChecked(file, digest);
-    return;
+    existing = true;
   } catch (error: any) {
     if (error.code !== "ENOENT") throw error;
+  }
+  if (existing) {
+    await syncDirectory();
+    finish();
+    return;
   }
   const disk = await statfs(directory);
   if (disk.bavail * disk.bsize < 2 * 1024 ** 3 + bytes.length)
@@ -155,7 +203,6 @@ export async function writeAcquisitionPhotoBytes(
     );
   const temporary = path.join(directory, `${id}.${randomUUID()}.part`);
   let handle;
-  const failures: unknown[] = [];
   try {
     handle = await open(temporary, "wx", 0o600);
     await handle.writeFile(bytes);
@@ -168,14 +215,7 @@ export async function writeAcquisitionPhotoBytes(
       if (error.code !== "EEXIST") throw error;
       await readChecked(file, digest);
     }
-    // Sync the directory on Linux (the Docker runtime). Windows may not support it.
-    if (process.platform !== "win32") {
-      const dir = await open(directory, "r");
-      try {
-        await dir.sync();
-      } catch (error) { failures.push(error); }
-      try { await dir.close(); } catch (error) { failures.push(error); }
-    }
+    await syncDirectory();
   } catch (error) {
     failures.push(error);
   } finally {
@@ -186,12 +226,7 @@ export async function writeAcquisitionPhotoBytes(
       if ((error as NodeJS.ErrnoException | null)?.code !== "ENOENT") failures.push(error);
     }
   }
-  if (failures.length === 1) throw failures[0];
-  if (failures.length > 1) {
-    const code = (failures[0] as NodeJS.ErrnoException | null)?.code;
-    throw Object.assign(new AggregateError(failures, "Photo write and cleanup failed", { cause: failures[0] }),
-      typeof code === "string" ? { code } : {});
-  }
+  finish();
 }
 export async function canonicalizeAcquisitionPhoto(
   id: string,
@@ -240,8 +275,10 @@ export async function readBoundedPhotoBody(request: Request) {
     throw new Error("Use a photo smaller than 10 MB");
   const reader = request.body?.getReader();
   if (!reader) throw new Error("Choose a photo");
-  const chunks: Uint8Array[] = [];
+  const chunks: Buffer[] = [];
   let total = 0;
+  let pending: Buffer | undefined;
+  let used = 0;
   try {
     while (true) {
       const { done, value } = await reader.read();
@@ -249,8 +286,23 @@ export async function readBoundedPhotoBody(request: Request) {
       total += value.length;
       if (total > PHOTO_MAX_BYTES)
         throw new Error("Use a photo smaller than 10 MB");
-      chunks.push(value);
+      // Own and pack the bytes: retaining each incoming view can keep a much
+      // larger backing buffer alive, even for empty or one-byte fragments.
+      let offset = 0;
+      while (offset < value.length) {
+        pending ??= Buffer.allocUnsafe(64 * 1024);
+        const count = Math.min(pending.length - used, value.length - offset);
+        pending.set(value.subarray(offset, offset + count), used);
+        used += count;
+        offset += count;
+        if (used === pending.length) {
+          chunks.push(pending);
+          pending = undefined;
+          used = 0;
+        }
+      }
     }
+    if (pending) chunks.push(pending.subarray(0, used));
     return Buffer.concat(chunks, total);
   } finally {
     await reader.cancel().catch(() => {});

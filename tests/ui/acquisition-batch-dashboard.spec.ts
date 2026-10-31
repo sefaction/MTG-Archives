@@ -13,6 +13,7 @@ test("batch dashboard keeps card totals distinct and cancels, trashes and restor
   const tag = "ui-batch-dashboard-" + randomUUID(), password = randomUUID(), origin = {origin: baseURL!};
   const conservation = () => database("console.log(JSON.stringify(await p.inventoryItem.aggregate({_count:{_all:true},_sum:{quantity:true}})));");
   const before = conservation();
+  const workflowFailures: unknown[] = [];
   try {
     database("const n=" + JSON.stringify(tag) + ";const hash=await require('bcryptjs').hash(" + JSON.stringify(password) + ",10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:'Dashboard fixture storage',normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:85,sections:[{name:'A',capacity:85}]}}});");
     await page.goto("/login"); await page.getByLabel(/username or email/i).fill(tag); await page.getByLabel(/^password$/i).fill(password);
@@ -92,6 +93,9 @@ test("batch dashboard keeps card totals distinct and cancels, trashes and restor
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await page.screenshot({path: `test-results/batch-dashboard-restored-recovery-${width}.png`, fullPage: true});}
     expect(conservation()).toBe(before);
+  } catch (error) {
+    workflowFailures.push(error);
+    throw error;
   } finally {
     // Block new authenticated polling and retire only this fixture owner.
     const cleanupFailures: unknown[] = [];
@@ -102,7 +106,7 @@ test("batch dashboard keeps card totals distinct and cancels, trashes and restor
     await cleanup(async () => { database("const n=" + JSON.stringify(tag) + ";const sessions=await p.acquisitionSession.findMany({where:{createdByUserId:n},include:{run:true}});const w={runId:{in:sessions.map(s=>s.run.id)}};await p.scannerRun.deleteMany({where:{agent:{userId:n}}});await p.scannerAgent.deleteMany({where:{userId:n}});for(const model of ['acquisitionCommitMember','acquisitionCommit','acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{id:w.runId}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});"); });
     // A final sweep also catches writes completed during legacy teardown.
     await cleanup(() => { database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');"); });
-    if (cleanupFailures.length) throw new AggregateError(cleanupFailures, "acquisition-batch-dashboard.spec.ts cleanup failed");
+    if (cleanupFailures.length) throw new AggregateError([...workflowFailures, ...cleanupFailures], "acquisition-batch-dashboard.spec.ts cleanup failed");
   }
 });
 
@@ -111,6 +115,7 @@ test("batch pages remain available after the last row is cancelled or trashed", 
   expect(baseURL).toBe("http://127.0.0.1:13001"); test.setTimeout(180000);
   const tag = "ui-batch-pages-" + randomUUID(), password = randomUUID(), origin = {origin: baseURL!};
   const before = database("console.log(JSON.stringify(await p.inventoryItem.aggregate({_count:{_all:true},_sum:{quantity:true}})));");
+  const workflowFailures: unknown[] = [];
   try {
     database("const n=" + JSON.stringify(tag) + ";const hash=await require('bcryptjs').hash(" + JSON.stringify(password) + ",10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:'Page recovery storage',normalizedName:n,ownerPlayerId:n,type:'Box'}});");
     await page.goto("/login"); await page.getByLabel(/username or email/i).fill(tag); await page.getByLabel(/^password$/i).fill(password);
@@ -136,6 +141,9 @@ test("batch pages remain available after the last row is cancelled or trashed", 
     await expect(pages).toContainText("Page 1 of 1"); await expect(rows).toHaveCount(0);
     await expect(pages.getByRole("link")).toHaveCount(0);
     expect(database("console.log(JSON.stringify(await p.inventoryItem.aggregate({_count:{_all:true},_sum:{quantity:true}})));" )).toBe(before);
+  } catch (error) {
+    workflowFailures.push(error);
+    throw error;
   } finally {
     // Block new authenticated polling and retire only this fixture owner.
     const cleanupFailures: unknown[] = [];
@@ -146,6 +154,6 @@ test("batch pages remain available after the last row is cancelled or trashed", 
     await cleanup(async () => { database("const n=" + JSON.stringify(tag) + ";const w={run:{session:{createdByUserId:n}}};await p.acquisitionCommand.deleteMany({where:w});await p.acquisitionEvent.deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});"); });
     // A final sweep also catches writes completed during legacy teardown.
     await cleanup(() => { database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');"); });
-    if (cleanupFailures.length) throw new AggregateError(cleanupFailures, "acquisition-batch-dashboard.spec.ts cleanup failed");
+    if (cleanupFailures.length) throw new AggregateError([...workflowFailures, ...cleanupFailures], "acquisition-batch-dashboard.spec.ts cleanup failed");
   }
 });

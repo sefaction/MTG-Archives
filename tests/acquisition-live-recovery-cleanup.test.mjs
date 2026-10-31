@@ -1,8 +1,10 @@
+import * as ownedFixtureFiles from "./ui/owned-fixture-files.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
+import {compileWorkflowCleanup, registerWorkflowControls} from './fixture-workflow-controls.mjs';
 
 const source = fs.readFileSync(new URL("./ui/acquisition-live-recovery.spec.ts", import.meta.url), "utf8");
 const tree = ts.createSourceFile("live-recovery.ts", source, ts.ScriptTarget.Latest, true);
@@ -13,16 +15,16 @@ function visit(node) {
 }
 visit(tree);
 assert.ok(cleanup, "Exercise the actual live-recovery fixture's outer cleanup");
-const code = ts.transpileModule(cleanup.getText(tree), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+const code = compileWorkflowCleanup(source,tree,cleanup,true);
 
-function exercise(faults = []) {
+function exercise(faults = [], options = {}) {
   const calls = [], failures = [];
   let sweep = 0, running = false;
   const step = name => {
     calls.push(name);
     if (faults.includes(name)) { const error = new Error(name); failures.push(error); throw error; }
   };
-  const context = {
+  const context = {...ownedFixtureFiles,workflow:()=>{if(options.workflowFails)throw options.primary;},
     tag: "ui-recovery-00000000-0000-0000-0000-000000000000", worker: "owned-ocr-worker", stopped: true,
     timer: {}, report: {}, console, AggregateError,
     cancelAndCleanCorrectionFixture: owner => "owned-feedback-sweep:" + owner,
@@ -31,9 +33,9 @@ function exercise(faults = []) {
     saveReport: () => step("write-report"),
     database: body => step(body.startsWith("owned-feedback-sweep:") ? (++sweep === 1 ? "early-feedback" : "late-feedback") : "acquisition-teardown"),
   };
-  let error;
-  try { vm.runInNewContext(code, context); } catch (caught) { error = caught; }
-  return { calls, running, failures, error };
+  let error,threw=false;
+  try { vm.runInNewContext('{'+code+'}', context); } catch (caught) { threw=true;error = caught; }
+  return { calls, running, failures, error, threw };
 }
 
 for (const fault of ["early-feedback", "write-report", "acquisition-teardown", "late-feedback"]) {
@@ -56,3 +58,4 @@ test("live recovery normal cleanup restores the worker and completes both feedba
   assert.ok(result.running);
   assert.equal(result.calls.length, 6);
 });
+registerWorkflowControls('live recovery',exercise,['early-feedback','stop-sampling','restore-worker','write-report','acquisition-teardown','late-feedback']);

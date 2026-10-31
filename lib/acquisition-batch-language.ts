@@ -31,7 +31,15 @@ export function acquisitionObservedLanguages(orientations:{text:RecognitionText}
         const code=acquisitionBatchLanguageSchema.safeParse(line.trim().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu,"").toLowerCase());
         return code.success?[code.data]:[];
       }));
-    return [...footer.identifiers.map(value=>value.language),...isolated];
+    // A readable code may share an OCR line with artist/copyright text. Keep
+    // complete words as uncertainty vetoes, without stitching a set identifier.
+    // Retain the isolated parser above, including its punctuation handling.
+    const words=[text.footer,text.footerSupplemental??[],text.footerSourceIdentifiers??[]].flatMap(lines=>
+      lines.flatMap(line=>line.match(/[\p{L}\p{M}\p{N}_]+/gu)??[]).flatMap(word=>{
+        const code=acquisitionBatchLanguageSchema.safeParse(word.toLowerCase());
+        return code.success?[code.data]:[];
+      }));
+    return [...footer.identifiers.map(value=>value.language),...isolated,...words];
   }))];
 }
 

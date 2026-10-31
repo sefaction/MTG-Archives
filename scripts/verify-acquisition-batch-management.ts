@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { createAcquisitionSession, executeAcquisitionCommand, reserveAcquisitionCaptureSlot,
   beginAcquisitionPhoto, finalizeAcquisitionPhoto, getAcquisitionPhoto,
   type AcquisitionActor, type CreateAcquisitionInput } from "../lib/acquisition-store";
@@ -135,8 +135,35 @@ export async function verifyAcquisitionBatchManagement(db: PrismaClient, actor: 
     await manageAcquisitionBatch(db, actor, id, "trash", start);
     await assert.rejects(manageAcquisitionBatch(db, actor, id, "restore", new Date(start.getTime() + 7 * 86400000)), /expired/);
     const expiry = new Date(start.getTime() + 7 * 86400000);
+    // Throw after the real SQL writes but before the transaction commits. The
+    // filesystem is real: rollback must never precede an irreversible unlink.
+    const rejectCommit = (when: (tx: Prisma.TransactionClient) => Promise<boolean>) =>
+      new Proxy(db, {get(target, key) {
+        if (key === "$transaction") return (work: (tx: Prisma.TransactionClient) => Promise<unknown>, options: {timeout?: number}) =>
+          target.$transaction(async tx => {
+            const result = await work(tx);
+            if (await when(tx)) throw new Error("injected precommit transaction failure");
+            return result;
+          }, options);
+        const value = Reflect.get(target, key, target);
+        return typeof value === "function" ? value.bind(target) : value;
+      }}) as PrismaClient;
+    const beforeExpiry = await db.acquisitionSession.findUniqueOrThrow({where: {id}});
+    const beforePhotos = await db.acquisitionPhoto.findMany({where: {runId: run.id}, orderBy: {id: "asc"}});
+    const refusedExpiry = await purgeTrashedAcquisitionPhotos(rejectCommit(async () => true), expiry);
+    assert.deepEqual(refusedExpiry, {expired: 0, purged: 0, failed: 1});
+    assert.deepEqual(await db.acquisitionSession.findUniqueOrThrow({where: {id}}), beforeExpiry);
+    assert.deepEqual(await db.acquisitionPhoto.findMany({where: {runId: run.id}, orderBy: {id: "asc"}}), beforePhotos);
+    for (const photoId of photoIds) assert.deepEqual(await readAcquisitionPhotoBytes(photoId, "raw"), bytes);
     const markingFault = db.$extends({query: {acquisitionPhoto: {async update() {throw new Error("injected Trash marking failure");}}}}) as unknown as PrismaClient;
     assert.equal((await purgeTrashedAcquisitionPhotos(markingFault, expiry)).failed, 2);
+    assert.equal(await db.acquisitionPhoto.count({where: {runId: run.id, purgedAt: null}}), 2);
+    const committedExpiry = await db.acquisitionSession.findUniqueOrThrow({where: {id}});
+    assert.ok(committedExpiry.deletedAt);
+    const refusedMarks = await purgeTrashedAcquisitionPhotos(rejectCommit(async tx =>
+      await tx.acquisitionPhoto.count({where: {runId: run.id, purgedAt: {not: null}}}) > 0), expiry);
+    assert.deepEqual(refusedMarks, {expired: 0, purged: 0, failed: 2});
+    assert.deepEqual(await db.acquisitionSession.findUniqueOrThrow({where: {id}}), committedExpiry);
     assert.equal(await db.acquisitionPhoto.count({where: {runId: run.id, purgedAt: null}}), 2);
     // Missing files after unlink-before-mark are retried without resurrecting
     // restore rights or deleting Inventory/receipts.
@@ -149,7 +176,7 @@ export async function verifyAcquisitionBatchManagement(db: PrismaClient, actor: 
     assert.deepEqual(await db.inventoryItem.aggregate({_sum: {quantity: true}}), inventoryBefore);
     assert.equal(await db.acquisitionCandidate.count({where: {runId: run.id}}), 2);
     for (const job of jobs.filter(job => !owned.includes(job))) await failAcquisitionJob(db, job);
-    console.log("PASS: deterministic numeric-search collision and isolated batch cancellation/replayed Trash, private dashboard, current evaluation counts, lease retirement/late results, explicit restoration and seven-day byte expiry; Inventory conserved");
+    console.log("PASS: deterministic numeric-search collision and isolated batch cancellation/replayed Trash, private dashboard, current evaluation counts, lease retirement/late results, explicit restoration and seven-day byte expiry; real precommit expiry/mark rollbacks preserve bytes/durable expiry and committed-only counters; Inventory conserved");
   } finally {
     if (oldRoot === undefined) delete process.env.UPLOADS_DATA_PATH; else process.env.UPLOADS_DATA_PATH = oldRoot;
     if (path.dirname(root) !== parent || !path.basename(root).startsWith("batch-management-db-")) throw new Error("Fixture root escaped");
