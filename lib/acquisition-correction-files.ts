@@ -81,6 +81,13 @@ export async function readCorrectionBlob(ownerPlayerId: string, digest: string, 
   return bytes;
 }
 
+// An existing original may be left by a publication whose directory sync failed.
+// Verify its bytes and repeat the durability barrier before releasing source pins.
+export async function verifyCorrectionBlobDurability(ownerPlayerId: string, digest: string, expectedBytes: number) {
+  await readCorrectionBlob(ownerPlayerId, digest, expectedBytes);
+  await syncDirectory(await ownerDirectory(ownerPlayerId));
+}
+
 // Preparation is outside the database transaction. Only the current leased
 // worker may invoke publish while holding the library owner/blob lock.
 export async function prepareCorrectionBlob(ownerPlayerId: string, digest: string, bytes: Buffer, leaseToken: string) {
@@ -109,8 +116,7 @@ export async function prepareCorrectionBlob(ownerPlayerId: string, digest: strin
     async publish() {
       try { await link(temporary, file); }
       catch (error: any) { if (error.code !== "EEXIST") throw error; }
-      await readCorrectionBlob(ownerPlayerId, digest, bytes.length);
-      await syncDirectory(directory);
+      await verifyCorrectionBlobDurability(ownerPlayerId, digest, bytes.length);
     },
     async cleanup() { await unlink(temporary).catch(error => { if (error.code !== "ENOENT") throw error; }); },
   };

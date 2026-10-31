@@ -1,3 +1,24 @@
+## Current authorized draft delivery — October 31, 2026
+
+Owner chat 01a19026-efc8-7c21-94d7-b143ca1ad404, branch codex/correction-retry-current-review-305; related #305/#310. Current-main integration includes merged #981/#982 at d6ce90e9. Original author checkout/branch remain untouched.
+
+Brian explicitly answered “Allow draft publication” for the existing correction-retry and review-reload fixes using the already connected GitHub access, with no broader permissions and no merging. This supersedes the specific prior publication pause for these two drafts only. His separate #982 merge approval arrived after #982 had already been merged concurrently; this chat verified its tested complete tree and did not perform that merge.
+
+Five correction repair/verifier/test files remain identical to independently reviewed 4eaa84e0. Focused53-pass/one existing platform skip, negative2-pass/3-expected-fail, type and authority-source proofs remain bound to their named source. Original author Linux/PostgreSQL evidence is separate. Draft final-head CI and integrated runtime qualification remain pending; no deployment or user acceptance claimed. No runtime is active. Next: publish coherent draft, verify exact-head checks and qualify affected current-main interaction.
+
+## Preserved compatibility-review record
+
+## Current-main compatibility review of unpublished correction durability — October 30, 2026
+
+- Review owner: chat `01a19026-efc8-7c21-94d7-b143ca1ad404`, branch `codex/correction-retry-current-review-305`, base main `8deb01a7`. Existing #305/#310. This is a separate compatibility-review copy of original committed `4d839d03`, not takeover of its source claim or permission to bypass its recorded publication restriction.
+- Original checkout at `C:\Users\Admin\Documents\Codex\2026-10-25\task-2\correction-retry-305` is verified clean at `4d839d03`; no matching local Node process. It remains untouched. Author's later `runtime-qualification-report.txt` records successful source-bound Linux/PostgreSQL checks and retired owned resources; publication/authentication remains separately constrained.
+- Applied the original five noncheckpoint files cleanly with three-way integration onto current main, preserving #978 primary-read/close behavior and #980 bounded correction reads. No new implementation policy, ticket, publication, merge, source-claim recovery or runtime change.
+- Current-main negative control reproduces exactly two passes/three expected failures. Integrated focused checks pass 53/zero failures/one existing Windows directory-descriptor skip; full current-schema typecheck passes. Exact source comparison preserves seven storage declarations (including bounded read and ordered-close handling) and all seven worker authority/maintenance functions. Four other carried files match original `4d839d03` after line-ending normalization. No actionable compatibility finding.
+- Private evidence: `.local-data/negative.log`, `focused.log`, `typecheck.log`, `check-source.cjs` and `review-summary.json`. Dependency link points to this chat's private current-schema dependency copy, not the original author's dependencies. All three exact host-review claims are released and processes terminal; no Docker/database resource was created here.
+- Next: retain this local review commit for the original delivery owner/authorized publisher. Do not bypass the original specific publication restriction. Current integrated production/Linux SQL/actual-head CI and any applicable compiled workflow qualification remain pending; older author evidence is bound to `4d839d03`, not a substitute. No new issue, external publication or merge. No user answer is needed to retain the completed review.
+
+## Preserved current-main checkpoint history
+
 ## Overnight upload-body memory - October 30, 2026
 
 - Owner: chat `01a19026-efc8-7c21-94d7-b143ca1ad404`; branch `codex/overnight-pending-20261030`, base main `8deb01a7`; draft PR #981, existing #305/#310. Brian requested autonomous pending-issue repairs until his morning report request. No individual PR merge approval or new-issue authority.

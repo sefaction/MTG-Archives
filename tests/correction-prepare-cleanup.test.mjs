@@ -17,7 +17,8 @@ function actualFunction(file, name) {
     compilerOptions: { target: ts.ScriptTarget.ES2022 },
   }).outputText;
 }
-const prepare = actualFunction("../lib/acquisition-correction-files.ts", "prepareCorrectionBlob");
+const prepare = actualFunction("../lib/acquisition-correction-files.ts", "verifyCorrectionBlobDurability") + "\n" +
+  actualFunction("../lib/acquisition-correction-files.ts", "prepareCorrectionBlob");
 const capture = actualFunction("../lib/acquisition-correction-worker.ts", "runCorrectionCaptureOnce");
 const digestOf = bytes => createHash("sha256").update(bytes).digest("hex");
 const fault = code => Object.assign(Error("bounded storage control"), { code });
