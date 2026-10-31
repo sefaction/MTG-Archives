@@ -52,7 +52,7 @@ export async function purgeAcquisitionPhotosUnderPressure(db: PrismaClient, now 
   let expired = 0, purged = 0, failed = 0;
   for (const batch of batches) {
     try {
-      const runId = await db.$transaction(async tx => {
+      const expiry = await db.$transaction(async tx => {
         const initial = await tx.acquisitionSession.findUnique({where: {id: batch.id}, include: {run: true}});
         if (!initial?.run) return null;
         const roots = await tx.scannerRun.findMany({where: {acquisitionRunId: initial.run.id}, select: {seriesRootId: true}});
@@ -65,7 +65,7 @@ export async function purgeAcquisitionPhotosUnderPressure(db: PrismaClient, now 
         if (await hasCorrectionRetentionPins(tx, session.id)) return null;
         if (session.deletedAt) {
           const marker = await tx.acquisitionCommand.findUnique({where: {runId_requestKey: {runId: initial.run.id, requestKey: PHOTO_PRESSURE_CLEANUP_KEY}}});
-          return marker ? initial.run.id : null;
+          return marker ? {runId: initial.run.id, expired: 0} : null;
         }
         const usage = await tx.acquisitionPhoto.aggregate({where: {run: {session: {ownerPlayerId: session.ownerPlayerId}}, purgedAt: null}, _sum: {bytes: true}});
         if ((usage._sum.bytes ?? 0) <= limits.owner * .8) return null;
@@ -79,10 +79,13 @@ export async function purgeAcquisitionPhotosUnderPressure(db: PrismaClient, now 
           data: {status: "SUPERSEDED", errorCode: "BATCH_STOPPED", leaseToken: null, leaseExpiresAt: null}});
         await tx.acquisitionCommand.create({data: {runId: initial.run.id, requestKey: PHOTO_PRESSURE_CLEANUP_KEY,
           payload: JSON.stringify({reason: "PHOTO_STORAGE_PRESSURE", ownerLimitBytes: limits.owner, retainedBytes: usage._sum.bytes, at: now.toISOString()})}});
-        expired++;
-        return initial.run.id;
+        return {runId: initial.run.id, expired: 1};
       }, {timeout: 30000});
-      if (!runId) continue;
+      if (!expiry) continue;
+      // Report only a committed tombstone, even if SQL work completed before
+      // the transaction was refused. Existing tombstones are retry work.
+      expired += expiry.expired;
+      const runId = expiry.runId;
       const photos = await db.acquisitionPhoto.findMany({where: {runId, purgedAt: null}, orderBy: {id: "asc"}, take: 25});
       let temporaryFiles: Map<string, string[]>;
       try { temporaryFiles = await findAcquisitionPhotoTemporaryFiles(photos.map(photo => photo.id)); }
