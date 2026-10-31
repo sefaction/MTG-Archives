@@ -1,10 +1,14 @@
-## Current authorized draft delivery — October 31, 2026
+## Current correction durability draft984 — October31,2026
 
-Owner chat 01a19026-efc8-7c21-94d7-b143ca1ad404, branch codex/correction-retry-current-review-305; related #305/#310. Current-main integration includes merged #981/#982 at d6ce90e9. Original author checkout/branch remain untouched.
+Owner chat01a19026-efc8-7c21-94d7-b143ca1ad404, branch codex/correction-retry-current-review-305, related305/310. Integrates current main59275d70 including merged979/983. Original author4d839d03 and independent compatibility review4eaa84e0 remain unchanged; all five carried source/verifier/test blobs match the already published draft51b4c141. Original author checkout/branch are untouched.
 
-Brian explicitly answered “Allow draft publication” for the existing correction-retry and review-reload fixes using the already connected GitHub access, with no broader permissions and no merging. This supersedes the specific prior publication pause for these two drafts only. His separate #982 merge approval arrived after #982 had already been merged concurrently; this chat verified its tested complete tree and did not perform that merge.
+Brian explicitly answered “Allow draft publication” through the connected GitHub access, no broader permissions and no merge. His separate982 approval arrived after that PR had merged concurrently; this chat verified the tested complete tree and did not perform that merge. The earlier publication pause is lifted for these two drafts only.
 
-Five correction repair/verifier/test files remain identical to independently reviewed 4eaa84e0. Focused53-pass/one existing platform skip, negative2-pass/3-expected-fail, type and authority-source proofs remain bound to their named source. Original author Linux/PostgreSQL evidence is separate. Draft final-head CI and integrated runtime qualification remain pending; no deployment or user acceptance claimed. No runtime is active. Next: publish coherent draft, verify exact-head checks and qualify affected current-main interaction.
+Original independent focused53 pass/one existing Windows directory skip, unchanged storage/worker authority declarations, negative2 pass/3 intended failures and typecheck remain source-bound. All9 initial published-head checks passed51b4c141 (Verify41211538415). New current-main integration requires its own exact-head CI; earlier results do not substitute.
+
+Current-main cumulative production image39d2439f (1,334 inputs, digest634eb17c, source0db17931) passes the real correction PostgreSQL verifier including directory-sync retry controls, with complete85-table before/after restoration. The same image passes four actual reload browser cases21.8s and the separate844 normal/lost-reply controls. Earlier source-bound author/initial-image qualification remains distinct evidence. No production deployment, merge or user acceptance.
+
+All owned disposable containers/networks retired after conservation; four original stopped containers/all four volumes preserved. Exact desktop runtime claim overnight-integrated-review-20261031 released after terminal children. Qualified image/private logs retained. Next: publish integrated tree with five unchanged source blobs, verify final-head CI and retain draft for review/individual approval.
 
 ## Preserved compatibility-review record
 

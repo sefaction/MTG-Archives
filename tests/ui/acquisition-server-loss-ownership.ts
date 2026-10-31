@@ -32,8 +32,11 @@ export function requireServerLossOwnership(value:unknown, expected:ServerLossIde
 }
 /** A close rejection is not proof that browser requests have stopped. */
 export async function observeServerLossPageClosure(page:{close():Promise<void>;isClosed():boolean}) {
-  let error:unknown;
-  try{await page.close();}catch(reason){error=reason;}
+  let error:unknown,rejected=false;
+  try{await page.close();}catch(reason){error=reason;rejected=true;}
+  // Existing callers collect a truthy error. Preserve every rejected value,
+  // including undefined/null and zero, without changing ordinary Error identity.
+  if(rejected&&!error)error=new AggregateError([error],"Page close rejected",{cause:error});
   const closed=page.isClosed();
   return {closed,error:error??(closed?undefined:Error("Page closure was not positively observed"))};
 }
