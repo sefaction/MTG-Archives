@@ -253,8 +253,10 @@ export async function readBoundedPhotoBody(request: Request) {
     throw new Error("Use a photo smaller than 10 MB");
   const reader = request.body?.getReader();
   if (!reader) throw new Error("Choose a photo");
-  const chunks: Uint8Array[] = [];
+  const chunks: Buffer[] = [];
   let total = 0;
+  let pending: Buffer | undefined;
+  let used = 0;
   try {
     while (true) {
       const { done, value } = await reader.read();
@@ -262,8 +264,23 @@ export async function readBoundedPhotoBody(request: Request) {
       total += value.length;
       if (total > PHOTO_MAX_BYTES)
         throw new Error("Use a photo smaller than 10 MB");
-      chunks.push(value);
+      // Own and pack the bytes: retaining each incoming view can keep a much
+      // larger backing buffer alive, even for empty or one-byte fragments.
+      let offset = 0;
+      while (offset < value.length) {
+        pending ??= Buffer.allocUnsafe(64 * 1024);
+        const count = Math.min(pending.length - used, value.length - offset);
+        pending.set(value.subarray(offset, offset + count), used);
+        used += count;
+        offset += count;
+        if (used === pending.length) {
+          chunks.push(pending);
+          pending = undefined;
+          used = 0;
+        }
+      }
     }
+    if (pending) chunks.push(pending.subarray(0, used));
     return Buffer.concat(chunks, total);
   } finally {
     await reader.cancel().catch(() => {});
