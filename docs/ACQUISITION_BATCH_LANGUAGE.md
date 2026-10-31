@@ -28,8 +28,9 @@ words are already readable.
   table fingerprints restore. The original first12 scenarios, four-copy receipt,
   lots and replay assertions remain.
 - Corrected production browser matrix passes all4 language/opener cases in1.6m,
-  with original150-second case deadlines. Both added word-code photos stay pending
-  and bulk-disabled across default changes. Original EN3/FR2,2lots/2audits/5members,
+  with original150-second case deadlines. Both added word-code photos stay automatically pending
+  across default changes and are bulk-disabled while conflicting with the initial
+  English default. Matching readable evidence can still receive human review. Original EN3/FR2,2lots/2audits/5members,
   explicit Inventory addition, frozen retry, original opener, raw sources/jobs,
   zero-effect replay and populated peers remain verified. Each case independently
   restores all85 table fingerprints; final uploads are empty. Desktop and phone
