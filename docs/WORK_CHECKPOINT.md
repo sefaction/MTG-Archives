@@ -1,3 +1,15 @@
+## Current Commander League paste investigation — October31,2026
+
+Owner chat01a19026-efc8-7c21-94d7-b143ca1ad404, branch codex/league-paste-printing-feedback-844, base bdba8fa6. Existing #844; #808 remains separate. Brian supplied a new87-row/100-copy decklist and the exact five NOT_FOUND rows, then confirmed excluding them still errors with no additions on production. This authorizes investigation/repair within the existing scope; no production connection/deployment or merge authority.
+
+Reproduced lost exact-match outcomes: real printing outside linked League inventory, catalog ambiguity and service failures all collapsed to NOT_FOUND. Preserve outcomes, retain eligibility rules, clear obsolete retry feedback and selections, and deduplicate/readably size the review message. All87 public set/collector lookups returned200; records are hash-verified and no artwork downloaded. Final focused16 pass; unchanged source negative3 pass/10 expected failures.
+
+Initial source-bound cumulative compiled PostgreSQL/browser fixture at1366/320 passes exact five exclusions ->82 saved copies and relink/retry/replace ->100, without import changes to Inventory/pool/audits; each owned fixture restores all85 tables. First harness dismissed the later expected Replace dialog; failed run retained, corrected run passes. Visual inspection found duplicate text/narrow column; final presentation image/browser readback and exact-head CI remain pending. See DECK_IMPORT_EXACT_FEEDBACK.md for source/evidence limits. The production final-apply cause is unproven; keep844 open.
+
+The same owned runtime qualified separately published drafts984/985: all9 checks each, correction SQL and four actual reload browser cases pass; related sources untouched. Initial two disposable containers/network retired, four pre-existing containers/all volumes preserved. Shared desktop claim overnight-integrated-review-20261031 remains held for the serial final build/review; no unrelated services changed. Original correction/reload author checkouts remain untouched. Next: final feedback qualification, publish one coherent draft and continue eligible work; retain unresolved production incident explicitly.
+
+## Preserved current-main checkpoint history
+
 ## Overnight upload-body memory - October 30, 2026
 
 - Owner: chat `01a19026-efc8-7c21-94d7-b143ca1ad404`; branch `codex/overnight-pending-20261030`, base main `8deb01a7`; draft PR #981, existing #305/#310. Brian requested autonomous pending-issue repairs until his morning report request. No individual PR merge approval or new-issue authority.

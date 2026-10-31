@@ -1,0 +1,87 @@
+1 Hamza, Guardian of Arashin (CMR) 278
+1 Shadowheart, Dark Justiciar (CLB) 146
+1 Archangel Elspeth (MOM) 6
+1 Ascend from Avernus (CLB) 5
+1 Avenging Hunter (CLB) 215
+1 Ayara's Oathsworn (MAT) 11
+1 Badlands Revival (OTJ) 194
+1 Barrensteppe Siege (TDM) 171
+1 Biosynthic Burst (EOE) 173
+1 Blasphemous Edict (FDN) 57
+1 Blossoming Sands (TDM) 251
+1 Botanical Brawler (MOM) 220
+1 Bovine Intervention (OTJ) 6
+1 Breach the Multiverse (MOM) 94
+1 Broodguard Elite (EOE) 175
+1 Burnished Hart (CLB) 303
+1 Bushwhack (FDN) 215
+1 Citadel Gate (CLB) 349
+1 Colfenor, the Last Yew (CMR) 274
+1 Command Tower (CLB) 351
+1 Cosmogrand Zenith (EOE) 9
+1 Court of Grace (CMR) 16
+1 Crystal Barricade (FDN) 7
+1 Dalkovan Encampment (TDM) 253
+1 Debt to the Deathless (RVR) 176
+1 Dion, Bahamut's Dominant / Bahamut, Warden of Light (FIN) 16
+1 Dragonfire Blade (TDM) 240
+1 Exemplar of Light (FDN) 11
+1 Fertilid (CMR) 226
+1 Festering Gulch (OTJ) 257
+8 Forest (UST) 216
+1 Fungal Rebirth (RVR) 142
+1 Gnarlid Colony (FDN) 224
+1 Godless Shrine (EOE) 254
+1 Gohn, Town of Ruin (FIN) 278
+1 Golgari Guildgate (RVR) 278
+1 Gond Gate (CLB) 353
+1 Herd Heirloom (TDM) 144
+1 Honest Rutstein (OTJ) 207
+1 Host of the Hereafter (TDM) 193
+1 Insomnia, Crown City (FIN) 282
+1 Inspiring Call (FDN) 226
+1 Inspiring Paladin (FDN) 18
+1 Invasion of Moag / Bloomwielder Dryads (MOM) 237
+1 Jungle Hollow (TDM) 258
+1 Kami of Whispered Hopes (MOM) 196 *F*
+1 Manor Gate (CLB) 356
+1 Mask of Memory (CMR) 324
+1 Master Chef (CLB) 241
+1 Midgar, City of Mako / Reactor Raid (FIN) 286
+1 Mirage Mesa (OTJ) 262
+1 Moogles' Valor (FIN) 27
+1 Mossborn Hydra (FDN) 337
+1 Nadier, Agent of the Duskenel (CMR) 135
+1 Nature's Rhythm (TDM) 349
+1 Newfound Adventure (FCA) 45
+1 Open the Armory (CMR) 34
+1 Open the Gates (RVR) 151
+1 Ordeal of Nylea (CMR) 247
+1 Pest Infestation (OTP) 30
+4 Plains (UST) 212
+1 Prishe's Wanderings (FIN) 193
+1 Progenitor Exarch (MOM) 32
+1 Railway Brawler (OTJ) 175
+1 Requiem Monolith (EOE) 113
+1 Revival of the Ancestors (TDM) 218
+1 Ride the Shoopuf (FIN) 197
+1 Rogue's Passage (FDN) 264
+1 Sazh's Chocobo (FIN) 200
+1 Scoured Barrens (TDM) 267
+1 Selesnya Guildgate (RVR) 286
+1 Sigarda, Font of Blessings (MAT) 47
+1 Sire of Seven Deaths (FDN) 1
+1 Sol Ring (SLC) 19
+1 Stirring Wildwood (EOS) 39
+4 Swamp (UST) 214
+1 Swiftfoot Boots (FDN) 258
+1 Sylvan Scavenging (FDN) 342
+1 Syr Vondam, Sunstar Exemplar (EOE) 231
+1 Szat's Will (CMR) 152
+1 Terror of Towashi (MOM) 331
+1 Tifa's Limit Break (FIN) 207
+1 Vault of Champions (CMR) 360
+1 Verdurous Gearhulk (PLST) KLD-172
+1 Victimize (CMR) 157
+1 Windurst, Federation Center (FIN) 292
+1 Zanarkand, Ancient Metropolis / Lasting Fayth (FIN) 293

@@ -739,7 +739,7 @@ function ReviewLine({
   ) => void;
 }) {
   const [manualOpen, setManualOpen] = useState(false);
-  const message = [line.resolutionMessage, ...line.warnings, ...line.errors]
+  const message = [...new Set([line.resolutionMessage, ...line.warnings, ...line.errors])]
     .filter(Boolean)
     .join(" ");
   return (
@@ -835,7 +835,7 @@ function ReviewLine({
         >
           {statusLabel[line.resolutionStatus]}
         </span>
-        <div className="max-w-xs text-xs text-zinc-500">{message}</div>
+        <div className="min-w-48 max-w-xs text-xs text-zinc-400">{message}</div>
       </td>
       <td className="p-2">
         {line.selectedCardSummary ? (
