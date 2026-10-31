@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import fsPromises from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
@@ -160,6 +162,48 @@ export async function verifyAcquisitionCorrections(db: PrismaClient) {
     assert.equal((await db.correctionCaptureOutbox.findUniqueOrThrow({ where: { id: fresh.id } })).errorCode, "RESTORE_INTERRUPTED");
     await db.correctionCaptureOutbox.updateMany({ where: { blob: { ownerPlayerId: owners[0] } }, data: { availableAt: new Date(0) } });
     await prioritizeOwner(0);
+
+    // Real publication can leave complete bytes after directory fsync fails.
+    // Retrying those bytes must not attach the blob or release its source pins.
+    if (process.platform !== "win32") {
+      const directory = path.join(root, "correction-library-v1", createHash("sha256").update(owners[0]).digest("hex"));
+      const open = fsPromises.open;
+      let syncAttempts = 0;
+      const pendingBlob = await db.correctionBlob.findUniqueOrThrow({ where: { id: fresh.blobId } });
+      const account = await db.correctionLibraryAccount.findUniqueOrThrow({ where: { ownerPlayerId: owners[0] } });
+      const pins = await db.correctionRetentionPin.findMany({ where: { blobId: fresh.blobId }, orderBy: { id: "asc" } });
+      fsPromises.open = (async (...args: Parameters<typeof open>) => {
+        const handle = await open(...args);
+        if (args[0] === directory && args[1] === "r") {
+          handle.sync = async () => { syncAttempts++; throw Object.assign(new Error("controlled correction directory sync"), { code: "EIO" }); };
+        }
+        return handle;
+      }) as typeof open;
+      syncBuiltinESMExports();
+      try {
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          await db.correctionCaptureOutbox.update({ where: { id: fresh.id }, data: { availableAt: new Date(0) } });
+          await prioritizeOwner(0);
+          assert.deepEqual(await runCorrectionCaptureOnce(db), { claimed: 1, preserved: 0, failed: 1 });
+          assert.equal(syncAttempts, attempt, "Every pending retry must repeat directory durability");
+          assert.deepEqual(await db.correctionBlob.findUniqueOrThrow({ where: { id: fresh.blobId } }), pendingBlob);
+          const current = await db.correctionLibraryAccount.findUniqueOrThrow({ where: { ownerPlayerId: owners[0] } });
+          for (const field of ["reservedBytes", "preservedBytes", "evidenceBytes"] as const) assert.equal(current[field], account[field]);
+          assert.deepEqual(await db.correctionRetentionPin.findMany({ where: { blobId: fresh.blobId }, orderBy: { id: "asc" } }), pins);
+          const retry: { status: string; errorCode: string | null; leaseToken: string | null; leaseExpiresAt: Date | null } = await db.correctionCaptureOutbox.findUniqueOrThrow({ where: { id: fresh.id } });
+          assert.equal(retry.status, "PENDING"); assert.equal(retry.errorCode, "ORIGINAL_COPY_FAILED");
+          assert.equal(retry.leaseToken, null); assert.equal(retry.leaseExpiresAt, null);
+          assert.deepEqual(await readCorrectionBlob(owners[0], metadata.digest, metadata.bytes), bytes);
+          for (const photoId of photoIds[0]) assert.deepEqual(await readAcquisitionPhotoBytes(photoId, "raw", metadata.digest), bytes);
+        }
+      } finally {
+        fsPromises.open = open;
+        syncBuiltinESMExports();
+      }
+      await db.correctionCaptureOutbox.update({ where: { id: fresh.id }, data: { availableAt: new Date(0) } });
+      await prioritizeOwner(0);
+      console.log("PASS correction publication and existing-file retry retain pending accounting, source bytes and pins while directory sync fails");
+    }
 
     // An active archive window preserves pending source pins even after a copy.
     guard = await beginCorrectionBackup();
