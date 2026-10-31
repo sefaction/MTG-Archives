@@ -3,8 +3,9 @@
 Related to [#305](https://github.com/sefaction/MTG-Archives/issues/305) and
 [#310](https://github.com/sefaction/MTG-Archives/issues/310). Both remain open.
 This qualifies one explicitly remaining failed-storage-operation/process-recovery
-boundary. It changes an opt-in browser verifier, with no application, schema,
-storage policy, retry policy or resource-setting change.
+boundary. It adds an opt-in browser verifier and repairs close-failure reporting
+in its existing terminal helper, with no application, schema, storage policy,
+retry policy or resource-setting change.
 
 The existing #942 inode-full test already covers a real kernel ENOSPC refusal
 and deliberate same-photo recovery. The separate #963 server-loss cases cover
@@ -45,17 +46,19 @@ row; the peer also has independent protected bytes on the upload filesystem.
 
 ## Results and bindings
 
-- Final actual Chromium 1366/320 cases pass 2/2 in 56.1 seconds (27.0/26.5 seconds).
+- Final actual Chromium 1366/320 cases pass 2/2 in 55.9 seconds (27.4/26.0 seconds).
   Each case independently restores all 85 table fingerprints. Screenshots were
   inspected and the viewport overflow assertions pass.
 - Final executed verifier SHA256 is
   `40e2754b8cc6428f3eae931f589408a2a02cead3822d07a97dba71297749900e`.
-  The earlier passing pair (50.9 seconds) retains its separate binding. Final
-  review then added explicit loopback-anchor, network-membership and database
-  volume guards; the complete final verifier was rerun against a fresh fixture.
-- Six existing destructive-target/browser-terminal controls and focused strict
-  TypeScript for the new verifier pass. The new test reuses those unchanged
-  ownership/terminal and independent photo-cleanup helpers.
+  Earlier pairs at 50.9/56.1 seconds retain their separate bindings. The 56.1-second
+  pair added strict loopback-anchor/network/database-volume guards; the final
+  pair executes the corrected browser-close helper described below.
+- All 22 focused destructive-target/browser-terminal controls pass on Windows
+  Node 24 and Linux Node 22, plus focused strict TypeScript. All six original test
+  bodies remain exact; sixteen new cases cover falsy close rejections. The other
+  target/terminal guard statements and independent file-cleanup helper remain
+  unchanged.
 - Application source is unchanged main
   `8deb01a75068713ecc41f900e0c8f292bc3a3631`. The production snapshot is
   `sha256:89420ad63881d889c4a90878e64822954eb1fc8ce629fcbb87ebd6497fedb7cd`.
@@ -72,12 +75,41 @@ row; the peer also has independent protected bytes on the upload filesystem.
 - All 13 pre-existing primary service IDs/images/lifetimes/restart counters and
   configuration/mount hashes remain unchanged. This is service conservation,
   not a claim that a live background database had no legitimate changes.
-- Across the initial and final fixtures, nine owned containers, four sole-owned
-  synthetic volumes and four empty networks are retired; exact runtime
+- Across the build, three fixtures and the focused Linux check, fourteen owned containers,
+  six sole-owned synthetic volumes and six empty networks are retired; exact runtime
   reservations are released. The current qualified
   image is retained for review, with compact source/failure/fingerprint records.
   No shared service, application data, unrelated volume or production resource
   was changed.
+
+## Browser-close failure preservation
+
+Author follow-up reproduced a failure in the shared terminal helper: if
+`close()` rejected a falsy value such as 0 while `isClosed()` returned true, existing
+callers' truthy-error checks recorded no failure. With unobserved closure,
+cleanup stayed blocked but the original falsy reason could still disappear.
+This is a controlled rejected-promise result, not an observed Playwright incident
+or evidence of unsafe deletion.
+
+The helper now wraps only falsy rejection reasons in an `AggregateError`, keeping
+the exact original value in both its errors list and cause. Ordinary Error
+identity, independently observed closure and all cleanup gates remain unchanged.
+The original helper passes six controls and fails all sixteen new value/state
+cases; the corrected helper passes 22/22 on both platforms. The matrix includes
+undefined, null, false, zero, negative zero, BigInt zero, empty string and NaN,
+with both observed closure states. No original assertion was removed or weakened.
+
+The final controller helper SHA256 is
+`e3a4b3237b783b1cdaa57317c576af90520c9e59462dddc445d7931c9eea3696`;
+the unit-source SHA256 is
+`b3ba8a8acb40795cccd9cfd4ccf419696b5cca88c93ffdab551102facbb99141`.
+The final 55.9-second production workflow pair uses this controller helper and
+the verifier hash above, restoring all 85 tables independently at each width.
+Its server/keeper image remains the unchanged 8deb application snapshot; those
+1,321 image-input checks are separate from these current controller-source
+bindings. No additional application build was needed for a test-only correction.
+New-head hosted CI and independent review are still required after publication;
+the earlier 156c CI pass is not substituted for them.
 
 ## Preserved failures and limits
 
