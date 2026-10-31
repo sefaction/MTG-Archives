@@ -22,6 +22,26 @@ export async function isPrintingInLeague(
   return Boolean(item);
 }
 
+export async function areAllPrintingsInLeague(
+  leagueId: string,
+  cardIds: string[],
+  client: Pick<Prisma.TransactionClient, "inventoryItem"> = prisma,
+) {
+  const requested = [...new Set(cardIds)];
+  if (requested.length === 0) return true;
+  // Check the complete list with one database request. Parallel per-card reads
+  // can exhaust shared PostgreSQL connections before the import starts.
+  const groups = await client.inventoryItem.groupBy({
+    by: ["cardId"],
+    where: {
+      ...leagueInventoryItemWhere(leagueId),
+      cardId: { in: requested },
+    },
+  });
+  const available = new Set(groups.map((group) => group.cardId));
+  return requested.every((cardId) => available.has(cardId));
+}
+
 export async function requireLeaguePrinting(
   leagueId: string,
   cardId: string,
