@@ -39,7 +39,7 @@ function database(body: string) {
     ),
   );
 }
-test("League paste retains review on pool rejection and retries without inventory changes", async ({
+test("League paste saves outside-pool cards and refreshes feedback without inventory changes", async ({
   page,
 }) => {
   test.skip(
@@ -128,98 +128,41 @@ test("League paste retains review on pool rejection and retries without inventor
   database(
     `await p.commanderLeagueLocation.delete({where:{leagueId_locationId:{leagueId:${JSON.stringify(f.leagueId)},locationId:${JSON.stringify(f.locationId)}}}});console.log(JSON.stringify({ownedPoolLinkRemoved:true}));`,
   );
+  // October31 user decision: a changed/empty pool must not reject the paste.
   page.on("dialog", (d) => d.accept());
   await button.click();
-  const feedback = page
-    .getByRole("alert")
-    .filter({ hasText: "The list was not imported." });
+  await page.waitForURL("/decks/" + f.deckId, { timeout: 30000 });
+  const feedback = page.getByRole("status").filter({hasText: "Outside League pool"});
   await expect(feedback).toBeVisible();
-  await expect(feedback).toContainText("not in this League's linked inventory");
-  expect(page.url()).toContain("/decks/" + f.deckId + "/import");
-  await expect(page.getByLabel("Decklist text", { exact: true })).toHaveValue(
-    f.cards.map((c: any) => "1 " + c.name).join("\n"),
+  await expect(feedback.getByRole("listitem")).toHaveCount(100);
+  const accepted = snapshot();
+  expect(accepted.deck.map((c: any) => [c.cardId,c.quantity,c.section,c.isCommander])).toEqual(
+    positive.deck.map((c: any) => [c.cardId,c.quantity,c.section,c.isCommander]),
   );
-  await expect(button).toBeEnabled();
-  await expect(page.locator("select[name=mode]")).toHaveValue("replace");
-  const rejected = snapshot();
-  expect(rejected.deck).toEqual(positive.deck);
-  expect(rejected.inventory).toEqual(before.inventory);
-  expect(rejected.audits).toBe(before.audits);
-  expect(rejected.pool).toHaveLength(0);
+  expect(accepted.inventory).toEqual(before.inventory);
+  expect(accepted.audits).toBe(before.audits);
+  expect(accepted.pool).toHaveLength(0);
   expect(errors).toEqual([]);
-  expect(
-    responses.filter((r) => r.path.endsWith("/import") && r.status >= 500),
-  ).toEqual([]);
+  expect(responses.filter((r) => r.path.endsWith("/import") && r.status >= 500)).toEqual([]);
   for (const width of [1366, 320]) {
-    await page.setViewportSize({ width, height: 900 });
+    await page.setViewportSize({width, height: 900});
     await feedback.scrollIntoViewIfNeeded();
-    await expect(page.locator("select[name=mode]")).toBeInViewport({
-      ratio: 1,
-    });
-    await expect(feedback).toBeInViewport({ ratio: 1 });
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= innerWidth,
-      ),
-    ).toBe(true);
-    await page.screenshot({ path: dir + "/league-feedback-" + width + ".png" });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({path: dir + "/league-outside-pool-" + width + ".png"});
   }
   database(
     `await p.commanderLeagueLocation.create({data:{leagueId:${JSON.stringify(f.leagueId)},locationId:${JSON.stringify(f.locationId)}}});console.log(JSON.stringify({ownedPoolRestored:true}));`,
   );
-  await button.click();
-  await page.waitForURL("/decks/" + f.deckId, { timeout: 30000 });
+  await page.reload();
+  await expect(page.getByRole("status").filter({hasText: "Outside League pool"})).toHaveCount(0);
   const after = snapshot();
-  expect(
-    after.deck.map((c: any) => ({
-      cardId: c.cardId,
-      quantity: c.quantity,
-      isCommander: c.isCommander,
-      section: c.section,
-    })),
-  ).toEqual(
-    positive.deck.map((c: any) => ({
-      cardId: c.cardId,
-      quantity: c.quantity,
-      isCommander: c.isCommander,
-      section: c.section,
-    })),
-  );
+  expect(after.deck).toEqual(accepted.deck);
   expect(after.inventory).toEqual(before.inventory);
   expect(after.audits).toBe(before.audits);
-  expect(
-    after.pool.map((p: any) => ({
-      leagueId: p.leagueId,
-      locationId: p.locationId,
-    })),
-  ).toEqual(
-    before.pool.map((p: any) => ({
-      leagueId: p.leagueId,
-      locationId: p.locationId,
-    })),
-  );
-  expect(after.games).toBe(0);
-  expect(after.submissions).toBe(0);
-  fs.writeFileSync(
-    dir + "/fixed-pool.json",
-    JSON.stringify(
-      {
-        status: "PASS",
-        validDistinctLines: 100,
-        staleReplaceRejectedInForm: true,
-        reviewPreserved: true,
-        no500: true,
-        retryReplacesExactly100Copies: true,
-        oneCommander: true,
-        inventoryAndAuditUnchanged: true,
-        onlyIntendedPoolMutation: true,
-        desktopAndPhone: [1366, 320],
-        actualUnraidCauseUnknown: true,
-      },
-      null,
-      2,
-    ),
-  );
+  expect(after.games).toBe(0);expect(after.submissions).toBe(0);
+  fs.writeFileSync(dir + "/permissive-pool.json",JSON.stringify({status:"PASS",rows:100,
+    missingPoolReplaceSaves:true,liveOutsidePoolWarning:true,relinkedWarningClears:true,
+    inventoryAndAuditsUnchanged:true,desktopAndPhone:[1366,320]},null,2));
   const ordinary = database(
     `const d=await p.deck.create({data:{ownerUserId:${JSON.stringify(tag)},name:'Ordinary compatibility control',format:'STANDARD',visibility:'PRIVATE'}});console.log(JSON.stringify({id:d.id}));`,
   );
