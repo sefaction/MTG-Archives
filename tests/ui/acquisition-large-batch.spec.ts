@@ -3,25 +3,42 @@ import { cancelAndCleanCorrectionFixture } from "./correction-fixture";
 import {expect, test, type Page} from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 import {createHash, randomUUID} from 'node:crypto';
-import {copyFileSync, mkdirSync, readFileSync, rmdirSync, unlinkSync} from 'node:fs';
+import {copyFileSync, lstatSync, mkdirSync, readFileSync, rmdirSync, unlinkSync} from 'node:fs';
 import path from 'node:path';
 import {assertNativeWorkerContinuity, type NativeWorkerSnapshot} from '../native-worker-continuity';
 import {cleanupInventoryScalePageBody, inventoryFingerprintBody, inventoryScaleOwners, seedInventoryScaleBody} from '../acquisition-inventory-scale';
 import {finalizeQualificationReport,qualificationReportWriter} from '../qualification-report';
+import { isolatedLoadRoles, parseIsolatedAcquisitionLoadTarget, assertIsolatedAcquisitionLoadRuntime,
+  isolatedAcquisitionLoadDatabaseGuard } from '../isolated-acquisition-load-target';
+import { observeIsolatedAcquisitionLoad } from './acquisition-load-resources';
+
+const targetFile=process.env.MTG_ACQUISITION_ISOLATED_LOAD_TARGET;
+const isolatedTarget=targetFile?(()=>{
+  const info=lstatSync(targetFile);
+  if(!info.isFile()||info.isSymbolicLink()||info.size>16*1024)throw Error('Expected bounded regular load-target metadata');
+  return parseIsolatedAcquisitionLoadTarget(JSON.parse(readFileSync(targetFile,'utf8')));
+})():null;
+const webContainer=isolatedTarget?.containers.web.id??'mtg-archives-web-1';
+const nativeTargets=([
+  ['acquisition-recognition','acquisition-recognition-worker'],
+  ['acquisition-visual','acquisition-visual-worker'],
+  ['acquisition-printing','acquisition-printing-worker'],
+] as const).map(([name,role])=>({
+  name,container:isolatedTarget?.containers[role].id??`mtg-archives-${name}-worker-1`,
+}));
 
 test.use({trace:'off',video:'off',actionTimeout:15000});
 function docker(...args:string[]) {
   return execFileSync('docker',args,{encoding:'utf8',timeout:30000,windowsHide:true}).trim();
 }
 function database(body:string,timeout=30000) {
-  return JSON.parse(execFileSync('docker',['exec','-i','mtg-archives-web-1','node'],{
-    input:`const{PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().catch(e=>{console.error(e.message);process.exitCode=1}).finally(()=>p.$disconnect());`,
+  return JSON.parse(execFileSync('docker',['exec','-i',webContainer,'node'],{
+    input:`const{PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${isolatedTarget?isolatedAcquisitionLoadDatabaseGuard(isolatedTarget):''}${body}})().catch(e=>{console.error(e.message);process.exitCode=1}).finally(()=>p.$disconnect());`,
     encoding:'utf8',timeout,windowsHide:true,
   }));
 }
 function workerSnapshots(): NativeWorkerSnapshot[] {
-  return ['acquisition-recognition','acquisition-visual','acquisition-printing'].map(name=>{
-    const container=`mtg-archives-${name}-worker-1`;
+  return nativeTargets.map(({name,container})=>{
     const worker=JSON.parse(docker('inspect',container,'--format','{"id":{{json .Id}},"image":{{json .Image}},"state":{{json .State}},"restarts":{{.RestartCount}}}'));
     const events=Object.fromEntries(docker('exec',container,'cat','/sys/fs/cgroup/memory.events').split('\n').map(line=>{
       const [key,value]=line.trim().split(/\s+/);return [key,Number(value)];
@@ -34,7 +51,7 @@ test('large scan-image batches retain every input through ordinary native queues
   const root=process.env.MTG_ACQUISITION_PLAYABLE_SCANS_PATH;
   test.skip(process.env.MTG_LOCAL_PILOT_TEST!=='1'||process.env.MTG_ACQUISITION_LARGE_BATCH_TEST!=='1'||!root,
     'Explicit local-only large-batch opt-in and preserved private development scans required');
-  expect(baseURL).toBe('http://127.0.0.1:13001');
+  expect(baseURL).toBe(isolatedTarget?.baseURL??'http://127.0.0.1:13001');
   const count=Number(process.env.MTG_ACQUISITION_LARGE_BATCH_COUNT??100);
   expect([100,300]).toContain(count);
   const inventoryScale=process.env.MTG_ACQUISITION_LARGE_BATCH_INVENTORY_SCALE==='1';
@@ -43,6 +60,12 @@ test('large scan-image batches retain every input through ordinary native queues
   const endpoint=JSON.parse(docker('context','inspect',docker('context','show'),'--format','{{json .Endpoints.docker.Host}}'));
   expect(endpoint).toMatch(/^(npipe:\/\/|unix:\/\/)/);
   if(process.env.DOCKER_HOST)expect(process.env.DOCKER_HOST).toMatch(/^(npipe:\/\/|unix:\/\/)/);
+  if(isolatedTarget){
+    const containers=JSON.parse(docker('inspect',...isolatedLoadRoles.map(role=>isolatedTarget.containers[role].id)));
+    const network=JSON.parse(docker('network','inspect',isolatedTarget.networkId))[0];
+    assertIsolatedAcquisitionLoadRuntime(isolatedTarget,containers,network);
+    if(!process.env.MTG_ACQUISITION_LARGE_BATCH_REPORT_PATH)throw Error('Isolated load requires a durable report path');
+  }
   const targets=count===100?[100]:[160,80,40,20];
   const manifestBytes=readFileSync(path.join(root!,'playable-manifest.json'));
   const entries=JSON.parse(manifestBytes.toString('utf8')).entries;
@@ -85,6 +108,7 @@ test('large scan-image batches retain every input through ordinary native queues
   const report:any={version:1,scope:inventoryScale?'300_INPUTS_FOUR_OWNERS_150000_COPY_REVIEW':count===100?'100_INPUTS_ONE_OWNER_NATIVE_BATCH':'300_INPUTS_FOUR_UNEVEN_OWNERS_NATIVE_STRESS',
     startedAt:new Date(started).toISOString(),count,ownerTargets:targets,passed:false,
     corpusSha256:createHash('sha256').update(manifestBytes).digest('hex'),samples:[],progress:[],authenticatedInventory:[],
+    isolatedTarget:isolatedTarget??undefined,
     limits:['Reused 67 development scans with repetitions, not independent physical/printing accuracy',
       'Logical capture candidates, no physical scanner or Inventory commit',
       inventoryScale?'150,000 physical copies in 16,400 rows across four disposable owners; not 150,000 rows or independent printing accuracy':
@@ -121,8 +145,7 @@ test('large scan-image batches retain every input through ordinary native queues
   }));
   const sample=()=>{
     try{report.samples.push({at:new Date().toISOString(),workers:docker('stats','--no-stream','--format','{{json .}}',
-      'mtg-archives-web-1','mtg-archives-acquisition-recognition-worker-1','mtg-archives-acquisition-visual-worker-1',
-      'mtg-archives-acquisition-printing-worker-1').split('\n').filter(Boolean).map(line=>{
+      webContainer,...nativeTargets.map(row=>row.container)).split('\n').filter(Boolean).map(line=>{
         const row=JSON.parse(line);return{name:row.Name,memory:row.MemUsage,cpu:row.CPUPerc};
       })});}catch{report.samples.push({at:new Date().toISOString(),unavailable:true});}
     save();
@@ -133,10 +156,12 @@ test('large scan-image batches retain every input through ordinary native queues
     expect(response.status()).toBe(200);save();
   };
   let timer:ReturnType<typeof setInterval>|undefined;
+  let isolatedResources:Awaited<ReturnType<typeof observeIsolatedAcquisitionLoad>>|undefined;
   let qualified=false;
   const inventoryBaselines: unknown[]=[];
   const workflowFailures: unknown[] = [];
   try{
+    if(isolatedTarget)isolatedResources=await observeIsolatedAcquisitionLoad(isolatedTarget,output!+'.resources.json');
     report.existingInventoryBefore=database(inventoryFingerprintBody());save();
     report.workersBefore=workerSnapshots();save();
     for(const worker of report.workersBefore)assertNativeWorkerContinuity(worker,worker);
@@ -249,6 +274,7 @@ test('large scan-image batches retain every input through ordinary native queues
     const attempt=async(action:()=>unknown|Promise<unknown>)=>{
       try{await action();}catch(error){cleanupErrors.push(error);}
     };
+    await attempt(async()=>{if(isolatedResources)report.isolatedResources=await isolatedResources.stop();});
     // Block new authenticated polling and retire only this fixture owner.
     for (const owner of owners) await attempt(()=>database(cancelAndCleanCorrectionFixture(owner.tag) + "console.log('{}');"));
     await attempt(()=>{if(timer)clearInterval(timer);});
@@ -263,8 +289,7 @@ test('large scan-image batches retain every input through ordinary native queues
     // Record resource state even when a throughput/UI assertion fails. These
     // counters cover the container lifetime and may include earlier runs.
     try{
-      report.workerLifetime=['acquisition-recognition','acquisition-visual','acquisition-printing'].map(name=>{
-        const container=`mtg-archives-${name}-worker-1`;
+      report.workerLifetime=nativeTargets.map(({name,container})=>{
         const events=Object.fromEntries(docker('exec',container,'cat','/sys/fs/cgroup/memory.events').split('\n').map(line=>{
           const[key,value]=line.trim().split(/\s+/);return[key,Number(value)];
         }));
