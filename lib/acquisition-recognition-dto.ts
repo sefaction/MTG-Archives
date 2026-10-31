@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { catalogStatusSchema } from "./acquisition-catalog-status";
 const processingStatus = z.enum(["WAITING", "PENDING", "RUNNING", "FAILED", "COMPLETE", "SUPERSEDED"]);
-const proposalSchema = z.object({
+export const acquisitionProposalSchema = z.object({
   status: z.enum(["CONFLICT", "REVIEW_REQUIRED", "NO_MATCH", "STRONG_MATCH"]),
   automaticAcceptance: z.boolean(),
   totalProposals: z.number().int().nonnegative(),
@@ -22,6 +22,7 @@ const proposalSchema = z.object({
     )
     .max(12),
 });
+const proposalSchema = acquisitionProposalSchema;
 export const recognitionResponseSchema = z.object({
   printingStatus: processingStatus.optional(),
   visualStatus: z
