@@ -51,3 +51,21 @@ test("live blocker or unsafe database preserves data even with confirmed browser
   assert.equal(await withServerLossCleanup({pageClosed:true,blockerClosed:true,databaseSafe:true},async()=>{deletions++}),true);
   assert.equal(deletions,1);
 });
+
+const rejectedValues:[string,unknown][]=[["undefined",undefined],["null",null],["false",false],["zero",0],
+  ["negative zero",-0],["BigInt zero",0n],["empty string",""],["NaN",NaN]];
+for(const [label,reason]of rejectedValues)for(const closed of [true,false]){
+  test(`close rejection ${label} remains visible with observed closed=${closed}`,async()=>{
+    const result=await observeServerLossPageClosure({close:async()=>{throw reason},isClosed:()=>closed});
+    assert.equal(result.closed,closed);
+    assert.ok(result.error instanceof AggregateError,"Retain falsy rejection for existing truthy-error callers");
+    assert.equal(result.error.errors.length,1);
+    assert.ok(Object.is(result.error.errors[0],reason));
+    assert.ok(Object.is(result.error.cause,reason));
+    const reported:unknown[]=[];if(result.error)reported.push(result.error);
+    assert.equal(reported.length,1,"Fixture cannot silently pass a failed close");
+    let cleanup=0;
+    assert.equal(await withServerLossCleanup({pageClosed:result.closed,blockerClosed:true,databaseSafe:true},async()=>{cleanup++}),closed);
+    assert.equal(cleanup,closed?1:0,"Failure reporting never manufactures terminal proof");
+  });
+}

@@ -117,14 +117,24 @@ async function readChecked(file: string, digest?: string) {
     // Read at most the limit plus one detection byte, even without a digest.
     const chunks: Buffer[] = [];
     let total = 0;
+    let chunk: Buffer | undefined;
+    let used = 0;
     while (true) {
-      const chunk = Buffer.allocUnsafe(Math.min(64 * 1024, PHOTO_MAX_BYTES - total + 1));
-      const { bytesRead } = await handle.read(chunk, 0, chunk.length, null);
+      // Short reads fill the same owned buffer instead of retaining one full
+      // backing allocation and array entry for every fragment.
+      chunk ??= Buffer.allocUnsafe(Math.min(64 * 1024, PHOTO_MAX_BYTES - total + 1));
+      const { bytesRead } = await handle.read(chunk, used, chunk.length - used, null);
       if (!bytesRead) break;
+      used += bytesRead;
       total += bytesRead;
       if (total > PHOTO_MAX_BYTES) throw new Error("Photo file is unavailable");
-      chunks.push(chunk.subarray(0, bytesRead));
+      if (used === chunk.length) {
+        chunks.push(chunk);
+        chunk = undefined;
+        used = 0;
+      }
     }
+    if (chunk && used) chunks.push(chunk.subarray(0, used));
     bytes = Buffer.concat(chunks, total);
     if (digest && photoDigest(bytes) !== digest)
       throw new Error("Photo integrity check failed; restore the original");
@@ -265,8 +275,10 @@ export async function readBoundedPhotoBody(request: Request) {
     throw new Error("Use a photo smaller than 10 MB");
   const reader = request.body?.getReader();
   if (!reader) throw new Error("Choose a photo");
-  const chunks: Uint8Array[] = [];
+  const chunks: Buffer[] = [];
   let total = 0;
+  let pending: Buffer | undefined;
+  let used = 0;
   try {
     while (true) {
       const { done, value } = await reader.read();
@@ -274,8 +286,23 @@ export async function readBoundedPhotoBody(request: Request) {
       total += value.length;
       if (total > PHOTO_MAX_BYTES)
         throw new Error("Use a photo smaller than 10 MB");
-      chunks.push(value);
+      // Own and pack the bytes: retaining each incoming view can keep a much
+      // larger backing buffer alive, even for empty or one-byte fragments.
+      let offset = 0;
+      while (offset < value.length) {
+        pending ??= Buffer.allocUnsafe(64 * 1024);
+        const count = Math.min(pending.length - used, value.length - offset);
+        pending.set(value.subarray(offset, offset + count), used);
+        used += count;
+        offset += count;
+        if (used === pending.length) {
+          chunks.push(pending);
+          pending = undefined;
+          used = 0;
+        }
+      }
     }
+    if (pending) chunks.push(pending.subarray(0, used));
     return Buffer.concat(chunks, total);
   } finally {
     await reader.cancel().catch(() => {});
