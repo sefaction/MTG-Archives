@@ -1,3 +1,9 @@
+## Current — October31,2026: real byte-exhaustion file-write qualification
+
+Owner root/thread01a19026-efc8-7c21-94d7-b143ca1ad404. Branch codex/photo-byte-exhaustion-305-20261031 over merged3484b2a0; existing305/310 only, no newissue. New opt-in verifier covers actual kernel ENOSPC after a real sufficient-space measurement is interleaved with a filler write; both raw/preview produce16KiB partials, clean them, preserve a neighbor and recover/replay exact1MiB bytes. Published3484 image863a6cd98d7a and source/manifest hashes are bound in docs/PHOTO_BYTE_EXHAUSTION.md. Three host refusal tests plus actual-image populated-root refusal pass. No application/schema/policy changes, database, HTTP/browser, process-loss or production claim. All3 exact ephemeralcontainers retired;runtimeclaimreleased;4protectedstoppedcontainers/mountsunchanged. FinalheadCI/publishedPR pending; individual merge approval still required. Prior986production/987merge questions remain pending and their heads unchanged.
+
+## Preserved earlier checkpoint history
+
 ## Current #844 connection-burst repair — October 31, 2026
 
 Owner chat 01a19026-efc8-7c21-94d7-b143ca1ad404, branch codex/league-paste-printing-feedback-844; draft #986, main 59275d70. Brian supplied the new 87-entry/100-copy list, five exact NOT_FOUND rows, exclusion/import failure with no additions and generic error screenshot. Separate explicit approvals permit read-only existing production app/browser details and MTG container logs through Unraid; no imports, commands, restarts, settings, deployment or data changes. The temporary log viewer is closed. Original author correction/reload checkouts remain untouched.
