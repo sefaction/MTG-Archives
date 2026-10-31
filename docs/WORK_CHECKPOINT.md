@@ -1,3 +1,9 @@
+## Current — October31,2026: bounded search-cache work for #846
+
+Owner root, thread01a19026-efc8-7c21-94d7-b143ca1ad404. Branch codex/card-search-query-budget-846-20261031 over merged main3484b2a0. Three search-cache loops each start independent transactions per result; they now cache sequentially and stop after a failed write. No new issue; #808 attribution and global #846 diagnosis remain unproven. Eight new tests pass (unchanged source2pass/6intended failures),13exact-feedback and50existing controls pass; typecheck passes. See docs/CARD_SEARCH_QUERY_BUDGET.md. Local compiled/pressure review pending under exact search846-query-budget-20261031 claim. PR publication permitted by default; merge still needs individual approval. Production still read-only; separate bounded #986 web-update request is pending.
+
+## Preserved earlier checkpoint history
+
 ## Current #844 connection-burst repair — October 31, 2026
 
 Owner chat 01a19026-efc8-7c21-94d7-b143ca1ad404, branch codex/league-paste-printing-feedback-844; draft #986, main 59275d70. Brian supplied the new 87-entry/100-copy list, five exact NOT_FOUND rows, exclusion/import failure with no additions and generic error screenshot. Separate explicit approvals permit read-only existing production app/browser details and MTG container logs through Unraid; no imports, commands, restarts, settings, deployment or data changes. The temporary log viewer is closed. Original author correction/reload checkouts remain untouched.
