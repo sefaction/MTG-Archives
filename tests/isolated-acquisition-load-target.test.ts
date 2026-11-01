@@ -46,8 +46,8 @@ test("engine selection rejects remote pipes, remote Unix authorities and conflic
     "unix:///var/../run/docker.sock", "unix:///var/./docker.sock", "unix:///var/run/docker.sock?host=other",
     "tcp://127.0.0.1:2375", "ssh://other-host", "npipe:////./pipe/docker_engine/extra"])
     assert.throws(() => assertLocalAcquisitionLoadEngine(endpoint));
-  const input = { DOCKER_CONTEXT: "other-context", DOCKER_HOST: "tcp://other-host:2375", PATH: "kept" };
-  assert.deepEqual(acquisitionLoadDockerEnvironment(input), { PATH: "kept" });
+  const input = { DOCKER_CONTEXT: "other-context", DOCKER_HOST: "tcp://other-host:2375", PATH: "kept", NODE_ENV: "test" as const };
+  assert.deepEqual(acquisitionLoadDockerEnvironment(input), { PATH: "kept", NODE_ENV: "test" });
   assert.equal(input.DOCKER_CONTEXT, "other-context");
 });
 

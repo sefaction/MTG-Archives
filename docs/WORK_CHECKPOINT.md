@@ -1,3 +1,9 @@
+## Current #992 final type-fixture correction — November 1, 2026
+
+The hosted Core check41360017212 found NODE_ENV missing from a synthetic environment object. The fixture now includes/preserves test NODE_ENV. All76 affected controls and app-aware focused strict types pass. A full local type check retains failures from the shared stale generated Prisma client and missing stream-json; those shared dependencies were not changed. Required new-head CI remains pending. Guard code, workloads and native qualification ownership are unchanged; independent final delta review and Brian's individual merge decision remain separate. No owned runtime remains after terminal exact-owner release.
+
+## Preserved prior guard integration status
+
 ## Current #992 guard correction — November 1, 2026
 
 - Owner chat `01a19028-0766-7463-a551-bba4d9d9e3dc`, branch `codex/load-guards-992-20261101`, parent `e29e5be3312604c19debec9b769f3ff3b95223ad`. Brian explicitly transferred only the two reproduced engine/publication guard fixes and authorized independent review. Native-load preparation/qualification remains with its existing owner.
