@@ -2,58 +2,42 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
-import {fileURLToPath, pathToFileURL} from 'node:url';
-import {createRequire} from 'node:module';
+import {fileURLToPath} from 'node:url';
 import test from 'node:test';
 import ts from 'typescript';
 
+// October31 policy replaces pool refusal. Execute the complete real action:
+// absent cards save; physical writes, management and write fences stay intact.
 const root=process.env.DECK_IMPORT_SOURCE_ROOT||path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const filename=path.join(root,'app/decks/actions.ts');
 const tree=ts.createSourceFile(filename,fs.readFileSync(filename,'utf8'),ts.ScriptTarget.Latest,true);
 const commit=tree.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='commitDeckImport');
 assert.ok(commit,'Actual complete import action required');
-const gate=commit.body.statements.find(node=>ts.isIfStatement(node)&&node.expression.getText(tree)==='deck.commanderLeagueDeck'&&node.getText(tree).includes('The list was not imported.'));
-assert.ok(gate,'Actual complete final League availability branch required');
-const code=ts.transpileModule('async function validate(){'+gate.getText(tree)+'\nreturn {ok:true};}',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
-const require=createRequire(pathToFileURL(path.join(root,'tests/league-import-query-budget.test.mjs')));
-const helpers=require('../lib/commander-league-inventory.ts');
-
-async function execute({ids,available=ids,capacity=1,league=true,error}){
-  let active=0,peak=0,queries=0;
-  async function query(where,multiple){
-    queries++;active++;peak=Math.max(peak,active);
-    try{
-      if(error)throw error;
-      if(active>capacity)throw Object.assign(new Error('Too many clients already'),{code:'P2037'});
-      assert.deepEqual(JSON.parse(JSON.stringify(where.quantity)),{gt:0});
-      assert.equal(where.location.commanderLeagueLinks.some.leagueId,'league');
-      await Promise.resolve();
-      const requested=typeof where.cardId==='string'?[where.cardId]:where.cardId.in;
-      const matches=[...new Set(requested.filter(id=>available.includes(id)))];
-      return multiple?matches.map(cardId=>({cardId})):matches.length?{id:'stock'}:null;
-    }finally{active--;}
-  }
-  const client={inventoryItem:{findFirst:({where})=>query(where,false),groupBy:({where})=>query(where,true)}};
-  const context={deck:{commanderLeagueDeck:league?{leagueId:'league'}:null},lines:ids.map(cardId=>({cardId})),isPrintingInLeague:(...args)=>helpers.isPrintingInLeague(...args,client),areAllPrintingsInLeague:(...args)=>helpers.areAllPrintingsInLeague(...args,client)};
-  vm.createContext(context);vm.runInContext(code+'\nglobalThis.run=validate;',context);
-  const result=await context.run();return {result,queries,peak};
+const code=ts.transpileModule(commit.getText(tree).replace(/^export\s+/,''),{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
+async function execute({count=100,mode='merge',league=true,physicalQuantity=0,available=false,managedError,lockError,unresolved=0}={}){
+  const state={poolQueries:0,transactions:0,locks:0,deletes:0,rows:[],paths:[],redirect:null};
+  const lines=Array.from({length:count},(_,i)=>({cardId:'card-'+i,quantity:i===0?8:1,section:i===1?'COMMANDER':'MAINBOARD',physicalQuantity}));
+  const fd=new FormData();for(const [key,value] of Object.entries({deckId:'deck',mode,linesJson:JSON.stringify(lines),unresolvedIncludedCount:String(unresolved)}))fd.set(key,value);
+  const tx={card:{findUnique:async({where})=>({id:where.id,name:where.id,scryfallId:where.id,oracleId:where.id})},deckCard:{deleteMany:async()=>{state.deletes++},findFirst:async()=>null,create:async({data})=>{state.rows.push(data)}}};
+  const redirected={};
+  const context={Error,Number,JSON,Object,DeckSection:{COMMANDER:"COMMANDER"},FoilStatus:{NONFOIL:'NONFOIL',FOIL:'FOIL',ETCHED:'ETCHED'},formString:(form,key)=>String(form.get(key)||''),requireManagedDeck:async()=>{if(managedError)throw managedError;return {user:{id:'owner'},deck:{id:'deck',ownerUserId:'owner',ownerUser:{playerId:'player'},commanderLeagueDeck:league?{leagueId:'league'}:null}}},getDeckCommittedSummary:async()=>({committedQuantity:0}),areAllPrintingsInLeague:async()=>{state.poolQueries++;return available},rejectLeagueInventoryCommitment:()=>{throw new Error('League decks do not support physical inventory commitment.')},lockWritableDeck:async()=>{state.locks++;if(lockError)throw lockError;},prisma:{$transaction:async(callback)=>{state.transactions++;return callback(tx)}},revalidatePath:p=>state.paths.push(p),redirect:p=>{state.redirect=p;throw redirected;}};
+  vm.createContext(context);vm.runInContext(code+'\nglobalThis.run=commitDeckImport;',context);
+  let result;try{result=await context.run(fd);}catch(error){if(error!==redirected)throw error;}
+  return {state,result};
 }
-
-test('actual final import gate can validate82 printings with one available query slot',async()=>{
-  const ids=Array.from({length:82},(_,i)=>'printing-'+i);
-  const value=await execute({ids});assert.equal(value.result.ok,true);assert.equal(value.queries,1);assert.equal(value.peak,1);
+for(const mode of ['merge','replace'])test(`${mode}: all100 League rows save without pool lookup, including absent cards`,async()=>{
+  const {state,result}=await execute({mode});assert.equal(result,undefined);assert.equal(state.redirect,'/decks/deck');
+  assert.equal(state.rows.length,100);assert.equal(state.rows.reduce((n,row)=>n+row.quantity,0),107);
+  assert.equal(state.rows.filter(row=>row.isCommander).length,1);assert.equal(state.poolQueries,0);assert.equal(state.locks,1);
+  assert.equal(state.deletes,mode==='replace'?1:0);assert.deepEqual(state.paths,['/decks/deck']);
 });
-
-test('actual final gate retains whole-list rejection when a printing disappears',async()=>{
-  const value=await execute({ids:['present','gone'],available:['present'],capacity:10});
-  assert.match(value.result.error,/not in this League's linked inventory/);assert.equal(value.result.ok,undefined);
+test('ordinary list-only import stays independent of League pool',async()=>{
+  const {state}=await execute({league:false,count:2});assert.equal(state.rows.length,2);assert.equal(state.poolQueries,0);
 });
-
-test('ordinary deck imports do not consume League-check connections',async()=>{
-  const value=await execute({ids:['ordinary'],league:false});assert.equal(value.result.ok,true);assert.equal(value.queries,0);
+test('League physical-copy request still rejects before starting a write',async()=>{
+  await assert.rejects(execute({physicalQuantity:1,available:true}),/do not support physical inventory commitment/);
 });
-
-test('actual final gate does not fail open when PostgreSQL rejects the lookup',async()=>{
-  const error=Object.assign(new Error('Too many clients already'),{code:'P2037'});
-  await assert.rejects(execute({ids:['card'],error}),caught=>caught===error);
+test('unresolved included cards still refuse import',async()=>{await assert.rejects(execute({unresolved:1}),/Resolve or exclude 1/);});
+test('denied management and later write-fence failures still propagate',async()=>{
+  for(const key of ['managedError','lockError']){const failure=new Error(key);await assert.rejects(execute({[key]:failure}),error=>error===failure);}
 });

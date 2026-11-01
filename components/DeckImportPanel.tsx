@@ -872,6 +872,11 @@ function ReviewLine({
         ) : (
           <span className="text-zinc-500">No printing selected</span>
         )}
+        {line.selectedCardId && line.leaguePoolStatus === "OUTSIDE_POOL" ? (
+          <p className="mt-1 text-xs text-amber-300">Outside League pool · will be added to the decklist</p>
+        ) : line.selectedCardId && line.leaguePoolStatus === "OTHER_PRINTING" ? (
+          <p className="mt-1 text-xs text-amber-300">Another printing is available in the League pool</p>
+        ) : null}
       </td>
       <td className="p-2">
         {line.ownedQuantity ? (
@@ -1094,6 +1099,9 @@ function ManualResolve({
                   priceUsd: result.priceUsd,
                 },
                 ownedQuantity: result.ownedExactQuantity,
+                leaguePoolStatus: current.leaguePoolStatus
+                  ? (result.ownedExactQuantity > 0 ? "IN_POOL" : "OUTSIDE_POOL")
+                  : undefined,
                 locationSummary: result.locationSummary || null,
                 resolutionStatus: "MANUALLY_SELECTED",
                 resolutionMessage: "Printing manually selected during review.",

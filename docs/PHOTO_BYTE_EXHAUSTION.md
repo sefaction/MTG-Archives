@@ -1,5 +1,17 @@
 # Real byte exhaustion during a photo write
 
+## Current-main qualification — November 1, 2026 UTC
+
+Main `7536ea516ad53348a3d69a1b5397dc3304330c02` adds the individually approved #991 photo-directory/root durability barriers to the actual file module. The unchanged verifier now also passes against that current module in immutable web image `ghcr.io/sefaction/mtg-archives-web@sha256:378eaaf2d39df939881d8f0f9820ba179b1dc346d416fff267f6249a645ee581`. Main `799e4b3aac625a6b7f05157734ac20943c801d57` adds only the approved #993 documentation corrections; its executable inputs and this module are identical. The image remains identified by its actual source `7536ea51`.
+
+Actual module SHA-256 `f7f7aa5bc1ad39cf49f861028eac313e06eeedcb1cc90f8ac6361d0f727d8d2f` matches canonical Git and the image manifest. The manifest digest is `18cdaaf127fc2ad7364baa53cd4b2a381ab70445c9e149d668b7c96fae5a94a7`; its raw file SHA-256 is `a085e8e973724fef1ba9f6f18740fa60589b215c972883ed068e706b2f4394b0`. The verifier and host-refusal tests retain their original bytes.
+
+After the full scanner-reference download terminated and released its own claim, a fresh, separately admitted window `scanner760-byte-current-20261031-01af2abb` ran three new isolated controls: image identity, both real kernel-byte-exhaustion variants, and populated-root refusal. Raw and preview again returned native `ENOSPC`/`write` after 16,384-byte partial writes, removed their partials without publishing failed photos, preserved their neighbor, and recovered/replayed exactly 1,048,576 bytes after deliberate filler removal. Their admitted/free/inode/filler measurements equal the explicit values below. The populated-root control preserved its exact neighboring bytes and created no filler or photo.
+
+All three current-source controls exited zero, without OOM kills or restarts. Their exact owned containers were removed; the shared claim was released through its exact-owner release path. All four retained stopped containers' full configuration, host configuration, semantic mounts and state fingerprints were unchanged. No database, application service, browser import or production operation ran in this window. Earlier source `3484b2a0` evidence and its exploratory history remain separately preserved below. Required publication-head CI and individual PR #989 merge approval remain separate from this local runtime result.
+
+## Preserved source3484 qualification and limits
+
 Related to #305 and #310. Both remain open. The existing inode-full/server-loss verifier fails at temporary-file creation, while the existing partial-write control raises an injected error. This opt-in verifier covers a different, explicitly retained boundary: real filesystem capacity consumed between a successful free-space measurement and the subsequent write.
 
 The unchanged published web image for source `3484b2a00601c8253a47e0789920352870b228f8` was used, pinned to `ghcr.io/sefaction/mtg-archives-web@sha256:863a6cd98d7a8e05684bb1562bae48ded225d875918a450a08928bb4513f0201`. No application, schema, storage threshold, quota or retry policy changes are made.
