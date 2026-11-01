@@ -13,6 +13,7 @@ import {
   type CatalogLookupResult,
 } from "./acquisition-catalog-provider";
 import type { ScryfallCard } from "./scryfall";
+import { resolveOfflineAcquisitionCatalog } from "./acquisition-catalog-offline-lookup";
 
 const resultSchema = z.object({
   status: z.enum(["FOUND", "NOT_FOUND", "PROVIDER_ERROR", "INCOMPLETE"]),
@@ -50,16 +51,13 @@ export async function resolveCachedAcquisitionCatalog(
   const key = catalogQueryKey(query);
   const now = new Date();
   signal.throwIfAborted();
-  await db.acquisitionCatalogLookup.upsert({
-    where: { key },
-    update: {},
-    create: { key, request: query },
-  });
-  const previous = await db.acquisitionCatalogLookup.findUniqueOrThrow({
+  const previous = await db.acquisitionCatalogLookup.findUnique({
     where: { key },
   });
-  const saved = resultSchema.safeParse(previous.result);
+  const saved = resultSchema.safeParse(previous?.result);
+  let reusable: CachedCatalogResult | undefined;
   if (
+    previous &&
     previous.status !== "RUNNING" &&
     previous.expiresAt &&
     previous.expiresAt > now &&
@@ -79,14 +77,21 @@ export async function resolveCachedAcquisitionCatalog(
       cards.every((card) => card.success)
     ) {
       const { ids: _ids, ...result } = saved.data;
-      return {
+      reusable = {
         ...result,
         cards: cards.map((card) => card.data as ScryfallCard),
         cacheHit: true,
         lookupKey: key,
       };
+      // Preserve a fresh provider-enumerated family. A newly verified bulk
+      // family may supersede an older negative or provider-error cache entry.
+      if (reusable.status === "FOUND") return reusable;
     }
   }
+  const offline = await resolveOfflineAcquisitionCatalog(db, query, signal);
+  if (offline) return { status: "FOUND", cards: offline.cards, requestsMade: 0,
+    printingCoverage: "CHECKED", sourceCoverage: offline.sourceCoverage, cacheHit: true, lookupKey: key };
+  if (reusable) return reusable;
   // A provider block applies to other uncached queries too. Existing valid
   // cache entries above remain usable while the shared cooldown is active.
   const cooldown = await db.acquisitionCatalogLookup.findFirst({
@@ -115,11 +120,13 @@ export async function resolveCachedAcquisitionCatalog(
       lookupKey: key,
     };
   }
+  await db.acquisitionCatalogLookup.upsert({ where: { key }, update: {}, create: { key, request: query } });
+  const leasePrevious = await db.acquisitionCatalogLookup.findUniqueOrThrow({ where: { key } });
   const token = randomUUID();
   const acquired = await db.acquisitionCatalogLookup.updateMany({
     where: {
       key,
-      updatedAt: previous.updatedAt,
+      updatedAt: leasePrevious.updatedAt,
       OR: [{ status: { not: "RUNNING" } }, { leaseExpiresAt: { lte: now } }],
     },
     data: {

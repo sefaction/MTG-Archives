@@ -334,9 +334,11 @@ export function createCatalogReconciliationHandler(
       snapshot = await loadAcquisitionRecognitionSnapshot(db,snapshot);
       snapshotAt = Date.now();
     }
+    const sourceCoverage = [...new Map(completed.flatMap(result => result.sourceCoverage
+      ? [[result.sourceCoverage.sourceDigest, result.sourceCoverage] as const] : [])).values()];
     const found = completed.some(r=>r.status==="FOUND"&&r.printingCoverage==="CHECKED");
     const status:AcquisitionCatalogStatus["status"] = completed.some(r=>r.status==="PROVIDER_ERROR")
-      ? "PROVIDER_ERROR" : completed.some(r=>r.status==="INCOMPLETE") ? "INCOMPLETE"
+      ? "PROVIDER_ERROR" : completed.some(r=>r.status==="INCOMPLETE") || sourceCoverage.length > 1 ? "INCOMPLETE"
       : found ? "RESOLVED" : attempted.size ? "NOT_FOUND" : "UNREADABLE";
     const resolve = (confirmedBatchLanguage?:string) => {
     let proposals = proposeOrientedAcquisitionPrintings(
@@ -423,6 +425,7 @@ export function createCatalogReconciliationHandler(
       ...(languageOptions.length ? {batchLanguageProposals:{version:1,options:languageOptions}} : {}),
       catalog: {
         status,
+        ...(sourceCoverage.length ? { sourceCoverage } : {}),
         printingCoverage:
           found && status === "RESOLVED" ? "CHECKED" : "UNRESOLVED",
         lookups: attempted.size,

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const CATALOG_RECONCILIATION_STAGE = "photo-catalog-reconciliation-v1";
-export const CATALOG_RESOLVER_VERSION = "catalog-reconciliation-language-words-v22";
+export const CATALOG_RESOLVER_VERSION = "catalog-reconciliation-offline-snapshot-v24";
 export const catalogStatusSchema = z.object({
   status: z.enum([
     "CHECKING",
@@ -13,6 +13,11 @@ export const catalogStatusSchema = z.object({
   ]),
   printingCoverage: z.enum(["CHECKED", "UNRESOLVED"]),
   addedPrintings: z.number().int().nonnegative().optional(),
+  sourceCoverage: z.array(z.object({
+    kind: z.literal("BULK_SNAPSHOT"), version: z.literal(1),
+    sourceDigest: z.string().regex(/^[a-f0-9]{64}$/),
+    sourceUpdatedAt: z.string().datetime({ offset: true }), language: z.literal("en"),
+  }).strict()).max(32).optional(),
 });
 export type AcquisitionCatalogStatus = z.infer<typeof catalogStatusSchema>;
 export function acquisitionCatalogMessage(
@@ -22,6 +27,8 @@ export function acquisitionCatalogMessage(
     case "CHECKING":
       return "Checking the catalog for missing printings…";
     case "RESOLVED":
+      if (value.sourceCoverage?.length)
+        return `English paper printings checked against the saved Scryfall catalog from ${value.sourceCoverage[0].sourceUpdatedAt.slice(0, 10)}.`;
       return value.addedPrintings
         ? "Missing printing information was added from Scryfall. Check the match below."
         : "Printing information checked against Scryfall’s catalog.";

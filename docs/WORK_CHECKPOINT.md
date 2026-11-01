@@ -1,3 +1,25 @@
+## Current offline catalogue family implementation — November 1, 2026 UTC
+
+Owner root, branch `codex/offline-catalog-family-307-20261101`, based on the
+separate draft source-binding repair #995. Related to #307/#310; their broader
+offline lifecycle, recognition and release acceptance remain open.
+
+Cold known-card lookups can use a verified English paper bulk snapshot. Derived
+family metadata stages and resumes in the existing lookup cache and becomes
+usable only after complete source verification. Current member checks preserve
+missing/changed-member uncertainty, punctuation, face aliases, collector suffixes,
+price updates and stable Card identity. The review response retains the dated
+English scope. No schema or migration changes. Implementation and checks are
+described in [the offline catalogue guide](ACQUISITION_OFFLINE_CATALOG.md).
+
+The full host Node suite passes 2,427 tests with seven platform skips, and the
+integrated type check passes. Required publication-head CI and affected product
+review remain pending. Keep the batch draft; individual merge approval is still
+required. Runtime evidence and active-work handoff are tracked separately in the
+owner's local checkpoint. No deployment or broad issue closure is implied.
+
+## Preserved main checkpoint
+
 ## Current byte-exhaustion qualification — November 1, 2026 UTC
 
 Subsequent integration includes external #984/main3c2f95c9. Only the correction-library modules/verification/tests/guide change; the complete photo-file module/imports, verifier and host controls are exact. Reuse the source7536 current-module kernel proof for this boundary only, retain original3484 evidence, and require the new integrated publication head's CI. Prior public1143ddcf/tree825e9315 passes all9checks41263625114 (2370Core passes/0fail/1skip); individual989 approval remains pending. No new kernel run or cumulative application/production claim.
