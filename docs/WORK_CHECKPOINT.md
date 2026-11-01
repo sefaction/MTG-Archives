@@ -1,4 +1,18 @@
-## Private current documentation correction for #883 — November 1, 2026
+## Current #883 documentation delivery — November 1, 2026
+
+Brian approved the ownership handoff to this root chat. The documentation
+correction was published at e585915a and all nine checks in Verify41360173650
+passed for that parent. Existing review4433380378 confirms the corrected League
+evidence boundary; the ordinary #808 historical cause remains separate.
+
+This checkpoint-only revision addresses review4437754116 by explicitly marking
+the former private preparation as dated history. Both report documents and all
+application/test inputs remain unchanged. Current publication, exact-head checks
+and the remaining individual merge decision are tracked in
+[PR #883](https://github.com/sefaction/MTG-Archives/pull/883), branch
+codex/decklist-incident-checkpoint. No production change is included.
+
+## Historical private preparation for #883 — November 1, 2026 (superseded)
 
 Owner root of this separate local support candidate only; the original public
 branch/PR remain unchanged. This combines published a7e63d6b with main5b0a5f6f
