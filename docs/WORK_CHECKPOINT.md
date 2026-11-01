@@ -1,3 +1,16 @@
+## Current acquisition metadata freshness draft - November 1, 2026
+
+Branch codex/acquisition-cache-freshness-307-20261101 is stacked on the
+price-preservation draft. Delayed provider-cache publication now rechecks an
+existing Card fingerprint and lookup-time fence in its UPDATE. A concurrent
+insertion wins without being overwritten. Successful updates retain the shared
+atomic price merge; cache leases and publication remain transactional.
+
+Related to #307/#302. The acquisition integrity suite adds three observed-lock
+overlap cases covering newer metadata, a changed fingerprint and insertion.
+Current-head CI status is recorded on the PR. Keep this draft for independent
+review and Brian's individual merge approval; no production update is included.
+
 ## Current acquisition price-preservation draft - November 1, 2026
 
 Acquisition bulk refresh and provider-cache publication now share the ordinary
