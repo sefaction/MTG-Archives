@@ -1,3 +1,21 @@
+## Current offline catalogue main integration — November 1, 2026
+
+Owner root, local branch codex/offline-catalog-main-307-20261101. Existing draft
+PR #996 is moving from its already merged #995 parent to main b3f4f37b. All
+15 non-checkpoint files contributed by the qualified a6fa37e0 head retain exact
+Git blobs; no offline routing, membership, source/printing authority or version
+logic changes. Main's search/reload, source-binding and browser-test changes are
+retained; this does not add the separately closed #994 change or pending prices.
+
+Original author evidence remains bound to a6fa37e0: full tests/types, real offline
+PostgreSQL controls, and two-photo native/manual review/explicit one-copy commit
+on its own source-bound images. The larger later combined review has separate
+source/evidence and is not relabelled as this branch's exact runtime result.
+New integrated-head CI remains required. Keep #996 draft for independent review
+and Brian's individual merge approval; no new runtime or production operation.
+
+## Preserved source and main checkpoints
+
 ## Current offline catalogue family implementation — November 1, 2026 UTC
 
 Owner root, branch `codex/offline-catalog-family-307-20261101`, based on the
@@ -23,6 +41,22 @@ required. Runtime evidence and active-work handoff are tracked separately in the
 owner's local checkpoint. No deployment or broad issue closure is implied.
 
 ## Preserved main checkpoint
+
+## Current Inventory workflow test alignment — November 1, 2026 UTC
+
+Branch `codex/inventory-test-capture-order-310-20261101`, based on current main
+`8c160686`; related to existing #310. Browser workflows now respect capture
+readiness and the current Inventory navigation. The tests assert the disabled
+pre-stop handoff, stop capture through the UI, and then select reviewed copies.
+The retry helper uses the card handoff in Advanced mode and reopens the folded
+Inventory panel after refresh before checking its persisted receipt count.
+Correction/draft protection, keyboard focus, pending quantities, explicit final
+confirmation, response-loss retry and Inventory/audit assertions remain.
+Application code is unchanged. Author checks and required publication-head CI
+are pending. Detailed local execution evidence is retained separately; keep the
+batch draft and obtain individual approval before merge.
+
+## Preserved earlier checkpoint
 
 ## Current byte-exhaustion qualification — November 1, 2026 UTC
 
