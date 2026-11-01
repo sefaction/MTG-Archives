@@ -9,7 +9,8 @@ import {assertNativeWorkerContinuity, type NativeWorkerSnapshot} from '../native
 import {cleanupInventoryScalePageBody, inventoryFingerprintBody, inventoryScaleOwners, seedInventoryScaleBody} from '../acquisition-inventory-scale';
 import {finalizeQualificationReport,qualificationReportWriter} from '../qualification-report';
 import { isolatedLoadRoles, parseIsolatedAcquisitionLoadTarget, assertIsolatedAcquisitionLoadRuntime,
-  isolatedAcquisitionLoadDatabaseGuard } from '../isolated-acquisition-load-target';
+  isolatedAcquisitionLoadDatabaseGuard, assertLocalAcquisitionLoadEngine,
+  acquisitionLoadDockerEnvironment } from '../isolated-acquisition-load-target';
 import { observeIsolatedAcquisitionLoad } from './acquisition-load-resources';
 import { acquisitionLoadProgress } from '../acquisition-load-progress';
 
@@ -29,11 +30,16 @@ const nativeTargets=([
 }));
 
 test.use({trace:'off',video:'off',actionTimeout:15000});
+let dockerEndpoint: string | undefined;
 function docker(...args:string[]) {
-  return execFileSync('docker',args,{encoding:'utf8',timeout:30000,windowsHide:true}).trim();
+  return execFileSync('docker',dockerEndpoint?['--host',dockerEndpoint,...args]:args,{
+    env:dockerEndpoint?acquisitionLoadDockerEnvironment(process.env):process.env,
+    encoding:'utf8',timeout:30000,windowsHide:true}).trim();
 }
 function database(body:string,timeout=30000) {
-  return JSON.parse(execFileSync('docker',['exec','-i',webContainer,'node'],{
+  if(!dockerEndpoint)throw Error('Local Docker engine must be verified before database access');
+  return JSON.parse(execFileSync('docker',['--host',dockerEndpoint,'exec','-i',webContainer,'node'],{
+    env:acquisitionLoadDockerEnvironment(process.env),
     input:`const{PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${isolatedTarget?isolatedAcquisitionLoadDatabaseGuard(isolatedTarget):''}${body}})().catch(e=>{console.error(e.message);process.exitCode=1}).finally(()=>p.$disconnect());`,
     encoding:'utf8',timeout,windowsHide:true,
   }));
@@ -58,9 +64,9 @@ test('large scan-image batches retain every input through ordinary native queues
   const inventoryScale=process.env.MTG_ACQUISITION_LARGE_BATCH_INVENTORY_SCALE==='1';
   if(inventoryScale)expect(count).toBe(300);
   test.setTimeout(count===100?1800000:3600000);
+  dockerEndpoint=undefined;
   const endpoint=JSON.parse(docker('context','inspect',docker('context','show'),'--format','{{json .Endpoints.docker.Host}}'));
-  expect(endpoint).toMatch(/^(npipe:\/\/|unix:\/\/)/);
-  if(process.env.DOCKER_HOST)expect(process.env.DOCKER_HOST).toMatch(/^(npipe:\/\/|unix:\/\/)/);
+  dockerEndpoint=assertLocalAcquisitionLoadEngine(endpoint,process.env.DOCKER_HOST);
   if(isolatedTarget){
     const containers=JSON.parse(docker('inspect',...isolatedLoadRoles.map(role=>isolatedTarget.containers[role].id),
       ...(isolatedTarget.ingressProxy?[isolatedTarget.ingressProxy.id]:[])));
@@ -166,7 +172,7 @@ test('large scan-image batches retain every input through ordinary native queues
   const inventoryBaselines: unknown[]=[];
   const workflowFailures: unknown[] = [];
   try{
-    if(isolatedTarget)isolatedResources=await observeIsolatedAcquisitionLoad(isolatedTarget,output!+'.resources.json');
+    if(isolatedTarget)isolatedResources=await observeIsolatedAcquisitionLoad(isolatedTarget,output!+'.resources.json',dockerEndpoint);
     report.existingInventoryBefore=database(inventoryFingerprintBody());save();
     report.workersBefore=workerSnapshots();save();
     for(const worker of report.workersBefore)assertNativeWorkerContinuity(worker,worker);

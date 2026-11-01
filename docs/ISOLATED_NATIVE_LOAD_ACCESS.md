@@ -1,5 +1,15 @@
 # Access to the isolated native load target
 
+## Guard corrections — November 1, 2026
+
+Brian transferred the two reproduced #992 guard corrections to chat `01a19028-0766-7463-a551-bba4d9d9e3dc`, with independent review authorized. Native-load preparation and qualification remain with their existing owner.
+
+The load runner now requires an absolute local Unix socket or the Windows `//./pipe/` namespace. Remote named-pipe hosts, Unix authorities and a `DOCKER_HOST` override differing from the selected context fail before container inspections or fixture writes. Every later Docker command, including database work and the resource observer, pins that verified endpoint and removes context/host overrides from its child environment.
+
+Direct targets must publish the declared browser origin on the web container's actual `3000/tcp` loopback binding. Proxy targets must actually publish both declared loopback routes. Requested `HostConfig.PortBindings` alone cannot establish reachability; missing, mismatched, wildcard, extra or ambiguous actual publications fail. Docker's null entries for exposed but unpublished image ports are allowed.
+
+All 76 affected progress, runtime-target, actual command-ordering, resource and cleanup controls pass without skips; focused strict types pass. The nine original target-control bodies remain unchanged, with fixture metadata expanded to describe real publications. The earlier exact-e29 counterexamples and failed native transport attempt remain retained. These metadata checks do not establish native workload acceptance or deployment. Required final-head CI and independent review are recorded on the PR.
+
 Native catalogue reconciliation normally makes public metadata requests. A preloaded bulk catalogue does not replace its query-result cache. An offline-only network therefore does not represent the ordinary workflow. Targets may explicitly declare `networkMode: "ORDINARY_BRIDGE"` to use a separately owned ordinary Docker bridge with exactly the same seven application roles, source and owner identities, resource caps and loopback endpoints. This mode permits ordinary outbound networking; it is not a destination allowlist. It cannot be combined with the optional internal-network ingress proxy. Omitted mode retains the internal-only requirement. Unknown modes, extra peers and extra attachments are rejected.
 
 This changes test-environment validation only. Catalogue resolution, model inputs, workload counts, completion deadlines and fixture cleanup remain unchanged. The three new bridge controls preserve all existing internal/proxy controls. Full native load acceptance remains pending.

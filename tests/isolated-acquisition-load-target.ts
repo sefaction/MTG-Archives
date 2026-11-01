@@ -4,6 +4,27 @@ import { acquisitionLoadProxyProgram } from "./acquisition-load-proxy";
 
 export const acquisitionLoadProxyMemoryBytes = 128 * 1024 ** 2;
 
+/** Resolve CLI selection without contacting an engine. Pin all later commands to
+ * this endpoint so a changed context cannot redirect fixture work. */
+export function assertLocalAcquisitionLoadEngine(endpoint: unknown, dockerHost?: string): string {
+  assert.equal(typeof endpoint, "string", "Expected the selected Docker context endpoint");
+  const local = typeof endpoint === "string" && (
+    /^npipe:\/\/\/\/\.\/pipe\/[A-Za-z0-9_.-]+$/.test(endpoint) ||
+    /^unix:\/\/\/(?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+$/.test(endpoint)
+      && !endpoint.slice(8).split("/").some(part => part === "." || part === "..")
+  );
+  assert.ok(local, "Expected an absolute local Unix socket or local Windows named pipe");
+  assert.ok(!dockerHost || dockerHost === endpoint, "Docker host override disagrees with the selected context");
+  return endpoint as string;
+}
+
+export function acquisitionLoadDockerEnvironment(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const result = { ...environment };
+  delete result.DOCKER_CONTEXT;
+  delete result.DOCKER_HOST;
+  return result;
+}
+
 export const acquisitionLoadRoles = [
   "web", "acquisition-worker", "acquisition-catalog-worker",
   "acquisition-recognition-worker", "acquisition-visual-worker", "acquisition-printing-worker",
@@ -86,7 +107,7 @@ type ContainerInspection = {
     Privileged?: boolean; PortBindings?: unknown; RestartPolicy?: { Name: string } };
   Config: { Labels: Record<string, string> | null; Entrypoint?: string[] | null; Cmd?: string[] | null; Env?: string[] };
   Mounts?: unknown[];
-  NetworkSettings: { Networks: Record<string, { NetworkID: string }> };
+  NetworkSettings: { Networks: Record<string, { NetworkID: string }>; Ports?: unknown };
 };
 type NetworkInspection = { Id: string; Internal: boolean; Containers: Record<string, unknown>;
   Labels?: Record<string, string> | null };
@@ -122,6 +143,10 @@ export function assertIsolatedAcquisitionLoadRuntime(
   }
   if (!target.ingressProxy) {
     assert.equal(ingressNetwork, undefined, "Undeclared ingress network");
+    const web = containers.find(row => row.Id === target.containers.web.id)!;
+    const ports = { "3000/tcp": [{ HostIp: "127.0.0.1", HostPort: new URL(target.baseURL).port }] };
+    assert.deepEqual(web.HostConfig.PortBindings, ports, "Expected the declared loopback web binding");
+    assertPublishedPorts(web.NetworkSettings.Ports, ports);
     return;
   }
   const proxy = target.ingressProxy;
@@ -151,12 +176,21 @@ export function assertIsolatedAcquisitionLoadRuntime(
   assert.ok(Array.isArray(actual.Config.Env), "Expected the verified ingress image environment");
   assert.equal(createHash("sha256").update(JSON.stringify(actual.Config.Env)).digest("hex"), proxy.environmentSHA256,
     "Ingress image environment changed");
-  assert.deepEqual(actual.HostConfig.PortBindings, {
+  const ports = {
     "8080/tcp": [{ HostIp: "127.0.0.1", HostPort: new URL(target.baseURL).port }],
     "15432/tcp": [{ HostIp: "127.0.0.1", HostPort: String(proxy.postgresPort) }],
-  }, "Only exact loopback web/database ingress ports are permitted");
+  };
+  assert.deepEqual(actual.HostConfig.PortBindings, ports, "Only exact loopback web/database ingress ports are permitted");
+  assertPublishedPorts(actual.NetworkSettings.Ports, ports);
   assert.deepEqual(Object.values(actual.NetworkSettings.Networks).map(row => row.NetworkID).sort(),
     [target.networkId, proxy.networkId].sort(), "Ingress network attachments changed");
+}
+
+function assertPublishedPorts(actual: unknown, expected: Record<string, { HostIp: string; HostPort: string }[]>) {
+  assert.ok(actual && typeof actual === "object" && !Array.isArray(actual), "Expected actual published ports");
+  // Docker includes null for image-exposed ports which are not published.
+  const published = Object.fromEntries(Object.entries(actual).filter(([, bindings]) => bindings !== null));
+  assert.deepEqual(published, expected, "Actual loopback publications must match the declared target");
 }
 
 export function isolatedAcquisitionLoadDatabaseGuard(target: IsolatedAcquisitionLoadTarget): string {

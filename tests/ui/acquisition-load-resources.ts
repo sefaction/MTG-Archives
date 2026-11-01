@@ -2,12 +2,15 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { observeLoad, parseLoadCounters, type LoadSample } from "../../tools/acquisition-eval/scanner-load-resources";
 import { acquisitionLoadRoles, acquisitionLoadMemoryBytes, acquisitionLoadProxyMemoryBytes, type IsolatedAcquisitionLoadTarget } from "../isolated-acquisition-load-target";
+import { assertLocalAcquisitionLoadEngine, acquisitionLoadDockerEnvironment } from "../isolated-acquisition-load-target";
 const execute = promisify(execFile);
 
 /** Reuse the qualified interval/error/continuity observer with exact isolated
  * IDs. All six application roles remain part of the measured topology. */
-export function observeIsolatedAcquisitionLoad(target: IsolatedAcquisitionLoadTarget, output: string) {
-  const docker = async (args: string[]) => (await execute("docker", args, {
+export function observeIsolatedAcquisitionLoad(target: IsolatedAcquisitionLoadTarget, output: string, endpoint: string) {
+  assertLocalAcquisitionLoadEngine(endpoint);
+  const docker = async (args: string[]) => (await execute("docker", ["--host", endpoint, ...args], {
+    env: acquisitionLoadDockerEnvironment(process.env),
     windowsHide: true, encoding: "utf8", timeout: 30_000, maxBuffer: 1024 * 1024,
   })).stdout;
   const sample = async (): Promise<LoadSample> => {

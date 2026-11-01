@@ -2,10 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import vm from "node:vm";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import ts from "typescript";
 import { acquisitionLoadProxyProgram } from "./acquisition-load-proxy";
 import {
   isolatedLoadRoles, acquisitionLoadMemoryBytes, parseIsolatedAcquisitionLoadTarget,
   assertIsolatedAcquisitionLoadRuntime, isolatedAcquisitionLoadDatabaseGuard,
+  assertLocalAcquisitionLoadEngine, acquisitionLoadDockerEnvironment,
 } from "./isolated-acquisition-load-target";
 
 function fixture() {
@@ -18,15 +21,129 @@ function fixture() {
   });
   const containers = isolatedLoadRoles.map(role => ({
     Id: target.containers[role].id, Image: target.containers[role].image, State: { Running: true },
-    HostConfig: { Memory: role === "postgres" ? 1024 ** 3 : acquisitionLoadMemoryBytes[role] },
+    HostConfig: { Memory: role === "postgres" ? 1024 ** 3 : acquisitionLoadMemoryBytes[role],
+      PortBindings: role === "web" ? { "3000/tcp": [{ HostIp: "127.0.0.1", HostPort: "23160" }] } : undefined },
     Config: { Labels: { "mtg.fixture.owner": target.owner, "com.docker.compose.project": target.project,
       "com.docker.compose.service": role, "org.opencontainers.image.revision": target.sourceCommit } },
-    NetworkSettings: { Networks: { isolated: { NetworkID: target.networkId } } },
+    NetworkSettings: { Networks: { isolated: { NetworkID: target.networkId } },
+      Ports: role === "web" ? { "3000/tcp": [{ HostIp: "127.0.0.1", HostPort: "23160" }] } : undefined },
   }));
   const network = { Id: target.networkId, Internal: true,
     Containers: Object.fromEntries(containers.map(row => [row.Id, {}])) };
   return { target, containers, network };
 }
+
+test("engine selection rejects remote pipes, remote Unix authorities and conflicting overrides", () => {
+  for (const endpoint of ["npipe:////./pipe/docker_engine", "npipe:////./pipe/dockerDesktopLinuxEngine",
+    "unix:///var/run/docker.sock", "unix:///run/user/1000/docker.sock"]) {
+    assert.equal(assertLocalAcquisitionLoadEngine(endpoint), endpoint);
+    assert.equal(assertLocalAcquisitionLoadEngine(endpoint, endpoint), endpoint);
+    assert.throws(() => assertLocalAcquisitionLoadEngine(endpoint, "unix:///different.sock"));
+  }
+  for (const endpoint of [undefined, null, 1, "", "npipe:////other-host/pipe/docker_engine",
+    "npipe://other-host/pipe/docker_engine", "npipe:////localhost/pipe/docker_engine",
+    "unix://other-host/var/run/docker.sock", "unix://relative.sock", "unix:////other-host/socket",
+    "unix:///var/../run/docker.sock", "unix:///var/./docker.sock", "unix:///var/run/docker.sock?host=other",
+    "tcp://127.0.0.1:2375", "ssh://other-host", "npipe:////./pipe/docker_engine/extra"])
+    assert.throws(() => assertLocalAcquisitionLoadEngine(endpoint));
+  const input = { DOCKER_CONTEXT: "other-context", DOCKER_HOST: "tcp://other-host:2375", PATH: "kept" };
+  assert.deepEqual(acquisitionLoadDockerEnvironment(input), { PATH: "kept" });
+  assert.equal(input.DOCKER_CONTEXT, "other-context");
+});
+
+test("direct web access binds both requested and actual ports before fixture writes", () => {
+  const badPorts = [undefined, {}, { "3000/tcp": null },
+    { "3000/tcp": [{ HostIp: "127.0.0.1", HostPort: "13001" }] },
+    { "3000/tcp": [{ HostIp: "0.0.0.0", HostPort: "23160" }] },
+    { "3000/tcp": [{ HostIp: "::", HostPort: "23160" }] },
+    { "3000/tcp": [{ HostIp: "127.0.0.1", HostPort: "23160" }, { HostIp: "0.0.0.0", HostPort: "23160" }] },
+    { "8080/tcp": [{ HostIp: "127.0.0.1", HostPort: "23160" }] },
+    { "3000/tcp": [{ HostIp: "127.0.0.1", HostPort: "23160" }], "9999/tcp": [] },
+  ];
+  for (const ordinary of [false, true]) {
+    for (const ports of badPorts) {
+      const good = fixture(); good.network.Internal = !ordinary;
+      const target = parseIsolatedAcquisitionLoadTarget({ ...good.target,
+        ...(ordinary ? { networkMode: "ORDINARY_BRIDGE" } : {}) });
+      const web = good.containers.find(row => row.Id === target.containers.web.id)!;
+      (web.NetworkSettings as any).Ports = ports;
+      assert.throws(() => assertIsolatedAcquisitionLoadRuntime(target, good.containers, good.network));
+    }
+    const good = fixture(); good.network.Internal = !ordinary;
+    const target = parseIsolatedAcquisitionLoadTarget({ ...good.target, baseURL: "http://127.0.0.1:13001",
+      ...(ordinary ? { networkMode: "ORDINARY_BRIDGE" } : {}) });
+    assert.throws(() => assertIsolatedAcquisitionLoadRuntime(target, good.containers, good.network));
+  }
+});
+
+test("proxy actual publications must match both declared loopback routes", () => {
+  for (const key of ["8080/tcp", "15432/tcp"]) {
+    for (const bindings of [null, undefined, [], [{ HostIp: "0.0.0.0", HostPort: "23160" }],
+      [{ HostIp: "127.0.0.1", HostPort: "13001" }]]) {
+      const good = proxyFixture(); good.proxy.NetworkSettings.Ports[key] = bindings;
+      assert.throws(() => assertIsolatedAcquisitionLoadRuntime(good.target, good.containers, good.network, good.ingressNetwork));
+    }
+  }
+  for (const ports of [undefined, {}, { "8080/tcp": [{ HostIp: "127.0.0.1", HostPort: "23160" }] }]) {
+    const good = proxyFixture(); good.proxy.NetworkSettings.Ports = ports;
+    assert.throws(() => assertIsolatedAcquisitionLoadRuntime(good.target, good.containers, good.network, good.ingressNetwork));
+  }
+});
+
+test("actual workflow rejects bad engines before inspections and pins fixture commands to the verified engine", () => {
+  const source = readFileSync(new URL("./ui/acquisition-large-batch.spec.ts", import.meta.url), "utf8");
+  const tree = ts.createSourceFile("workflow.ts", source, ts.ScriptTarget.Latest, true);
+  const functions = tree.statements.filter(ts.isFunctionDeclaration)
+    .filter(node => ["docker", "database"].includes(node.name?.text ?? "")).map(node => node.getText(tree));
+  let preflight: string[] = [];
+  function visit(node: ts.Node) {
+    if (ts.isArrowFunction(node) && ts.isBlock(node.body)) {
+      const statements = [...node.body.statements];
+      const start = statements.findIndex(row => row.getText(tree) === "dockerEndpoint=undefined;");
+      if (start >= 0) preflight = statements.slice(start, start + 4).map(row => row.getText(tree));
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(tree); assert.equal(functions.length, 2); assert.equal(preflight.length, 4);
+  function run(endpoint: string, host?: string, badPort = false) {
+    const good = fixture(), calls: Array<{ args: string[]; env: NodeJS.ProcessEnv }> = [];
+    if (badPort) good.containers[1].NetworkSettings.Ports!["3000/tcp"][0].HostPort = "13001";
+    const environment = { DOCKER_CONTEXT: "selected-context", DOCKER_HOST: host, PATH: "kept" };
+    const code = ts.transpileModule(`let dockerEndpoint: string | undefined;${functions.join("\n")}
+      ${preflight.join("\n")}database("fixtureWorkReached=true;");`, {
+      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+    }).outputText;
+    let error: unknown;
+    try {
+      vm.runInNewContext(code, { JSON, isolatedTarget: good.target, isolatedLoadRoles, webContainer: good.target.containers.web.id,
+        assertLocalAcquisitionLoadEngine, acquisitionLoadDockerEnvironment, assertIsolatedAcquisitionLoadRuntime,
+        isolatedAcquisitionLoadDatabaseGuard, process: { env: { ...environment, MTG_ACQUISITION_LARGE_BATCH_REPORT_PATH: "report.json" } },
+        execFileSync: (_command: string, args: string[], options: { env: NodeJS.ProcessEnv }) => {
+          calls.push({ args: [...args], env: { ...options.env } });
+          if (args[0] === "context") return args[1] === "show" ? "selected-context" : JSON.stringify(endpoint);
+          if (args[2] === "inspect") return JSON.stringify(good.containers);
+          if (args[2] === "network") return JSON.stringify([good.network]);
+          if (args[2] === "exec") return "{}";
+          throw Error("Unexpected Docker command");
+        } });
+    } catch (cause) { error = cause; }
+    return { calls, error };
+  }
+  for (const [endpoint, host] of [["npipe:////other-host/pipe/docker_engine", undefined],
+    ["unix:///var/run/docker.sock", "unix:///other.sock"]]) {
+    const result = run(endpoint!, host); assert.ok(result.error);
+    assert.deepEqual(result.calls.map(row => row.args[0]), ["context", "context"]);
+  }
+  const rejected = run("unix:///var/run/docker.sock", undefined, true);
+  assert.ok(rejected.error); assert.ok(rejected.calls.every(row => !row.args.includes("exec")));
+  const healthy = run("unix:///var/run/docker.sock"); assert.equal(healthy.error, undefined);
+  const pinned = healthy.calls.slice(2); assert.equal(pinned.length, 3);
+  for (const row of pinned) {
+    assert.deepEqual(row.args.slice(0, 2), ["--host", "unix:///var/run/docker.sock"]);
+    assert.equal(row.env.DOCKER_CONTEXT, undefined); assert.equal(row.env.DOCKER_HOST, undefined);
+    assert.equal(row.env.PATH, "kept");
+  }
+});
 
 test("isolated load metadata accepts only explicit local immutable targets", () => {
   const { target } = fixture();
@@ -95,7 +212,9 @@ function proxyFixture() {
     Config: { Env: environment, Entrypoint: ["node"], Cmd: ["-e", acquisitionLoadProxyProgram],
       Labels: { "mtg.fixture.owner": target.owner, "com.docker.compose.project": target.project,
         "com.docker.compose.service": "load-ingress-proxy", "org.opencontainers.image.revision": target.sourceCommit } },
-    NetworkSettings: { Networks: { isolated: { NetworkID: target.networkId }, ingress: { NetworkID: ingress.networkId } } } };
+    NetworkSettings: { Networks: { isolated: { NetworkID: target.networkId }, ingress: { NetworkID: ingress.networkId } },
+      Ports: { "8080/tcp": [{ HostIp: "127.0.0.1", HostPort: "23160" }],
+        "15432/tcp": [{ HostIp: "127.0.0.1", HostPort: "15435" }], "3000/tcp": null } } };
   const network = { ...good.network, Containers: { ...good.network.Containers, [ingress.id]: {} } };
   const ingressNetwork = { Id: ingress.networkId, Internal: false, Containers: { [ingress.id]: {} },
     Labels: { "mtg.fixture.owner": target.owner, "com.docker.compose.project": target.project } };
