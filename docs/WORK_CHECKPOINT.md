@@ -1,3 +1,27 @@
+## Current #1000 final-main integration and independent review — November 1, 2026
+
+Brian approved separate reviewer agents for #996/#1000 and the #992/#883
+handoffs. Merging and production changes still require separate approval.
+The #1000 reviewer found no actionable findings at public e4070421/treef072e0b8,
+including independent source, hosted CI, retained source/archive, table/file and
+protected-peer evidence checks. This was evidence review, not another restore run.
+
+This integration adds actual main5b0a5f6f (#998 price and #999 metadata safeguards).
+Both non-checkpoint contribution files remain byte-identical to reviewed e407:
+the 15-row storage acceptance map and actual overflow/archive/restore verifier.
+The synthetic capture case does not invoke those changed catalogue/price writers;
+schema, dependencies, capture and backup/restore inputs are unchanged. Existing
+source-bound local execution remains applicable within its documented limits.
+Both checkpoint prefixes and their complete shared history are preserved once.
+The required nine checks must pass on the new published head, including actual
+hosted capture/restore execution. Narrow independent integration review follows.
+
+The original failed local controller and separate successful archive recovery
+remain distinct; no failed run is relabelled. Broad #305 stays open for its mapped
+remaining/deferred boundaries. Keep this PR draft; no merge or production grant.
+
+## Preserved #1000 checkpoint contribution
+
 ## Current storage acceptance reconciliation — November 1, 2026
 
 Owner root; branch codex/storage-acceptance-map-305-20261101, based on main
@@ -21,6 +45,73 @@ archive recovery and retirement are recorded separately. No failed run is relabe
 No application/schema/policy change, production access or runtime is active.
 Private source/queue receipts are under .local-data. Previous checkpoints below
 remain historical.
+
+
+## Preserved final-main checkpoint contribution
+
+## Current acquisition freshness parent integration — November 1, 2026
+
+Owner root, local branch codex/acquisition-freshness-main-307-20261101. Existing
+draft #999 follows refreshed price parent #998 at60cbc294, including main
+b3f4f37b. All four non-checkpoint #999 contribution files retain their exact
+qualified4d356318 blobs: conditional metadata writer, observed-lock SQL cases,
+runner entrypoints and guide. The price helper/writers remain the parent's
+qualified code; card-import equals the separately tested combined module.
+
+The existing first-lookup response semantics and all concurrency/rollback,
+identity/Inventory and independent-price protections remain. Original runtime
+and UI evidence stay bound to4d356318; this is not a new runtime execution.
+New exact-head CI and independent review remain required. Keep #999 draft and
+stacked on #998 until its approved merge; no production update, historical
+Pricing repair or WAL cause claim is included.
+
+## Preserved freshness, price and main checkpoints
+
+## Current acquisition metadata freshness draft - November 1, 2026
+
+Branch codex/acquisition-cache-freshness-307-20261101 is stacked on the
+price-preservation draft. Delayed provider-cache publication now rechecks an
+existing Card fingerprint and lookup-time fence in its UPDATE. A concurrent
+insertion wins without being overwritten. Successful updates retain the shared
+atomic price merge; cache leases and publication remain transactional.
+
+Related to #307/#302. The acquisition integrity suite adds three observed-lock
+overlap cases covering newer metadata, a changed fingerprint and insertion.
+Current-head CI status is recorded on the PR. Keep this draft for independent
+review and Brian's individual merge approval; no production update is included.
+
+## Current acquisition price main integration — November 1, 2026
+
+Owner root, local branch codex/acquisition-price-main-854-20261101. Existing
+draft #998 integrates main b3f4f37b without changing the atomic price helper,
+bulk/cache writers or their real PostgreSQL verifier. Six non-checkpoint,
+non-card-import contribution files retain their exact qualified cab1a3de blobs.
+Card-import now combines main's sequential search caching with the unchanged
+price writer; its complete blob equals the separately qualified d2df120b
+combined review. That larger runtime remains separate source-bound evidence.
+
+Original SQL and desktop/phone product review stay bound to cab1a3de and its
+recorded images. Required refreshed-head CI and independent review remain
+separate. No closed #994, offline #996 or metadata-race #999 code is added here.
+Keep #998 draft for Brian's individual merge approval; this prevention work
+does not resolve historical Pricing/WAL cause or authorize production changes.
+
+## Preserved source and main checkpoints
+
+## Current acquisition price-preservation draft - November 1, 2026
+
+Acquisition bulk refresh and provider-cache publication now share the ordinary
+Scryfall refresh price writer. Metadata updates retain independent MTGJSON
+projections, ignore caller-supplied projections and preserve cached prices when
+the payload omits them. A losing bulk metadata fence cannot apply prices.
+Card changes and catalogue progress/publication remain atomic.
+
+Related to existing #854/#305/#307; this prevention change does not resolve the
+historical WAL incident or pricing recovery acceptance. The acquisition SQL
+suite now covers both writers, payload variants, stable identities, unchanged
+Inventory, rollback and observed row-lock barriers in both Pricing writer orders.
+Exact-head CI and independent review remain pending. Keep the PR draft; each
+merge requires Brian's individual approval. No production rollout is included.
 
 ## Current Inventory workflow test alignment — November 1, 2026 UTC
 

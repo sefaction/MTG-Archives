@@ -8,6 +8,18 @@ Omitted or null Scryfall prices preserve cached prices and price-fetch time. An 
 
 ## Verification
 
+Acquisition bulk catalogue refreshes and provider-cache publication now use the
+same atomic price writer. Bulk updates merge prices only after their conditional
+metadata update succeeds; a skipped or superseded batch leaves prices alone.
+Cache publication keeps the Card changes and lookup result in one transaction,
+so a rejected price write cannot publish a successful lookup. Both paths retain
+their existing fingerprint, newer-metadata, cursor and lease protections.
+
+`scripts/verify-acquisition-price-preservation.ts` adds real PostgreSQL coverage
+for both acquisition paths to the acquisition integrity suite. It checks price
+payload variants, untrusted projections, stable identities, skipped updates,
+rollback and both Pricing writer orders using observed row-lock barriers.
+
 `scripts/verify-card-price-preservation.ts` runs against an opted-in local/CI PostgreSQL database with the migrated application schema. It owns two randomly identified Card fixtures and deletes them afterward. The current old app source fails specifically because the MTGJSON subtree disappears. The fix covers normal refresh, missing/null/empty prices, stale caller input, creation, SQL-null prices, an explicit JSON-null subtree, returned committed data and identity preservation. Real row-lock barriers exercise both writer orders without guessing timing. An injected price-update rejection verifies that metadata, source fingerprint and timestamps roll back too. The required import-integrity CI job includes the verifier.
 
 No actual shared Card or pricing history was modified by those isolated tests. Pinning the current public pricing feed advanced #854 preparation, but shared catch-up was deferred when this overwrite path was reproduced. That feed's complete downloaded entity is retained privately with its publisher metadata and hash; it is not claimed to be the original interrupted feed. #854 still owns actual source/summary/app reconciliation, old-job history and the unexplained WAL failure. #861 is this narrowly scoped prevention fix.
