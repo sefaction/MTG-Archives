@@ -132,8 +132,8 @@ async function run() {
   const samples = await Promise.all(["jpeg", "png", "webp"].map(format => sharp({ create: {
     width: 80, height: 120, channels: 3, background: "#345678" } }).toFormat(format as "jpeg" | "png" | "webp").toBuffer()));
   const media = ["image/jpeg", "image/png", "image/webp"];
-  const savedSession = await capture(2), photoIds: string[] = [];
-  for (let index = 0; index < 2; index++) {
+  const savedSession = await capture(3), photoIds: string[] = [];
+  for (let index = 0; index < 3; index++) {
     const { slot } = await reserveAcquisitionCaptureSlot(source, actor, savedSession, randomUUID());
     const response = await sourceRoutes.upload.POST(request(savedSession, slot.id, randomUUID(), samples[index], media[index]), { params: Promise.resolve({ sessionId: savedSession }) });
     assert.equal(response.status, 200); photoIds.push((await response.json()).id);
@@ -143,6 +143,23 @@ async function run() {
     decision: { cardId: card.id, language: "en", finish: "NONFOIL", condition: "NM" } });
   const progress = await getAcquisitionProgress(source, actor, savedSession);
   await executeAcquisitionCommand(source, actor, savedSession, { requestKey: randomUUID(), revision: progress.revision, command: "STOP" });
+  // This owned fixture models a retained physical copy beyond a corrected
+  // target. It does not bypass the photo provider's ordinary slot-admission cap.
+  await source.acquisitionSession.update({ where: { id: savedSession }, data: { target: 2 } });
+  const overflowReview = await getAcquisitionCardReview(source, actor, savedSession, photoIds[2]);
+  await saveAcquisitionReview(source, actor, savedSession, { action: "accept", photoId: photoIds[2], revision: overflowReview.revision,
+    decision: { cardId: card.id, language: "en", finish: "NONFOIL", condition: "NM" } });
+  const overflowBefore = await getAcquisitionProgress(source, actor, savedSession);
+  assert.equal(overflowBefore.slots.length, 3);
+  const savedOverflowReview = overflowBefore.slots[2].review;
+  assert.ok(savedOverflowReview, "Overflow fixture must contain its saved review before backup");
+  assert.equal(savedOverflowReview.cardId, card.id);
+  assert.equal(savedOverflowReview.language, "en");
+  assert.equal(savedOverflowReview.finish, "NONFOIL");
+  assert.equal(savedOverflowReview.condition, "NM");
+  assert.ok(overflowBefore.slots[2].physicalReadiness.reasons.includes("OVERFLOW"));
+  const overflowSelection = { locationId: destination.id, section: "A", photoIds: [photoIds[2]] };
+  await assert.rejects(previewAcquisitionCommit(source, actor, savedSession, overflowSelection), /confirmed physical count/);
   const selection = { locationId: destination.id, section: "A", photoIds: [photoIds[0]] };
   const preview = await previewAcquisitionCommit(source, actor, savedSession, selection);
   const commitRequest = { ...selection, requestKey: randomUUID(), previewToken: preview.token, overfillReason: null };
@@ -206,15 +223,26 @@ async function run() {
   equalTables(await snapshot(target), frozen); assert.deepEqual(await files(targetRoot), frozenFiles);
   const pending = await getAcquisitionProgress(target, actor, savedSession);
   assert.equal(pending.slots.filter(value => value.committed).length, 1);
-  assert.equal(pending.slots.filter(value => !value.committed).length, 1);
+  assert.equal(pending.slots.filter(value => !value.committed).length, 2);
+  assert.equal(pending.slots.filter(value => value.physicalReadiness.reasons.includes("OVERFLOW")).length, 1);
+  assert.equal(pending.slots[1].committed, false);
+  assert.equal(pending.slots[1].physicalReadiness.reasons.includes("OVERFLOW"), false);
+  assert.equal(pending.slots[2].id, overflowBefore.slots[2].id);
+  assert.deepEqual(pending.slots[2].review, overflowBefore.slots[2].review);
+  const beforeOverflowRefusal = await snapshot(target);
+  const beforeOverflowFiles = await files(targetRoot);
+  await assert.rejects(previewAcquisitionCommit(target, actor, savedSession, overflowSelection), /confirmed physical count/);
+  equalTables(await snapshot(target), beforeOverflowRefusal);
+  assert.deepEqual(await files(targetRoot), beforeOverflowFiles);
   assert.equal(await target.inventoryItem.count(), 1);
   const another = await reserveAcquisitionCaptureSlot(target, actor, liveSession, randomUUID());
   const duplicate = await targetRoutes.upload.POST(request(liveSession, another.slot.id, randomUUID(), samples[2], media[2]), { params: Promise.resolve({ sessionId: liveSession }) });
   assert.equal(duplicate.status, 200); assert.notEqual((await duplicate.json()).id, unacknowledged.id, "Equal bytes in a new physical slot must remain a distinct copy");
-  assert.equal(await target.inventoryItem.count(), 1); assert.equal(await target.acquisitionPhoto.count(), 4);
+  assert.equal(await target.inventoryItem.count(), 1); assert.equal(await target.acquisitionPhoto.count(), 5);
   equalTables(await snapshot(source), after); assert.deepEqual(await files(sourceRoot), sourceFiles);
-  console.log(JSON.stringify({ passed: true, publicTables: Object.keys(after).length, originalPhotos: 3,
-    formats: ["JPEG", "PNG", "WebP"], committedCopies: 1, retainedPendingCopies: 1, restoredAckReplays: 2,
+  console.log(JSON.stringify({ passed: true, publicTables: Object.keys(after).length, originalPhotos: 4,
+    formats: ["JPEG", "PNG", "WebP"], committedCopies: 1, retainedPendingCopies: 2, retainedOverflowCopies: 1,
+    overflowReviewPreserved: true, restoredOverflowCommitRefusedWithoutWrites: true, restoredAckReplays: 2,
     differentPayloadRefused: true, privateOwnerFence: true, distinctEqualByteCopy: true, sourcePreserved: true,
     archiveSHA256: hash(await readFile(backup.path)), archiveBytes: backup.sizeBytes, elapsedMs: Date.now() - started }));
 }
