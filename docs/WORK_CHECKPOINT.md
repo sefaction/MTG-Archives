@@ -4,15 +4,19 @@ Owner root, branch `codex/offline-catalog-family-307-20261101`, based on the
 separate draft source-binding repair #995. Related to #307/#310; their broader
 offline lifecycle, recognition and release acceptance remain open.
 
-Cold known-card lookups can use a verified English paper bulk snapshot. Derived
-family metadata stages and resumes in the existing lookup cache and becomes
+Ordinary recognition uses a complete verified English paper snapshot without
+live requests. Uncovered requests remain incomplete and manual; explicit online
+lookup callers keep their provider path. Automatic confirmation requires the
+specific checked printing, so an English snapshot cannot authorize a foreign
+language projection or a later printing outside its membership. Derived family
+metadata stages and resumes in the existing lookup cache and becomes
 usable only after complete source verification. Current member checks preserve
 missing/changed-member uncertainty, punctuation, face aliases, collector suffixes,
 price updates and stable Card identity. The review response retains the dated
 English scope. No schema or migration changes. Implementation and checks are
 described in [the offline catalogue guide](ACQUISITION_OFFLINE_CATALOG.md).
 
-The full host Node suite passes 2,427 tests with seven platform skips, and the
+The full host Node suite passes 2,431 tests with seven platform skips, and the
 integrated type check passes. Required publication-head CI and affected product
 review remain pending. Keep the batch draft; individual merge approval is still
 required. Runtime evidence and active-work handoff are tracked separately in the

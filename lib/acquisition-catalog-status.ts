@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const CATALOG_RECONCILIATION_STAGE = "photo-catalog-reconciliation-v1";
-export const CATALOG_RESOLVER_VERSION = "catalog-reconciliation-offline-snapshot-v24";
+export const CATALOG_RESOLVER_VERSION = "catalog-reconciliation-local-snapshot-v26";
 export const catalogStatusSchema = z.object({
   status: z.enum([
     "CHECKING",
@@ -39,6 +39,8 @@ export function acquisitionCatalogMessage(
     case "PROVIDER_ERROR":
       return "Scryfall is unavailable. Your photo and suggestions are saved; the catalog check will retry automatically.";
     case "INCOMPLETE":
+      if (value.sourceCoverage?.length)
+        return `The saved English paper catalog from ${value.sourceCoverage[0].sourceUpdatedAt.slice(0, 10)} could not verify this lookup. It remains incomplete; check the suggestions manually.`;
       return "The printing lookup is incomplete. Check the suggestions manually; this card will not confirm automatically.";
     default:
       return null;

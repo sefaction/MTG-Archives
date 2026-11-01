@@ -13,7 +13,7 @@ import {
   type CatalogLookupResult,
 } from "./acquisition-catalog-provider";
 import type { ScryfallCard } from "./scryfall";
-import { resolveOfflineAcquisitionCatalog } from "./acquisition-catalog-offline-lookup";
+import { resolveOfflineAcquisitionCatalogResult } from "./acquisition-catalog-offline-lookup";
 
 const resultSchema = z.object({
   status: z.enum(["FOUND", "NOT_FOUND", "PROVIDER_ERROR", "INCOMPLETE"]),
@@ -46,6 +46,7 @@ export async function resolveCachedAcquisitionCatalog(
   raw: CatalogQuery,
   signal: AbortSignal,
   fetcher: Fetcher = fetchAcquisitionCatalogQuery,
+  options: { preferCompleteSnapshot?: boolean } = {},
 ): Promise<CachedCatalogResult> {
   const query = catalogQuerySchema.parse(raw);
   const key = catalogQueryKey(query);
@@ -88,9 +89,10 @@ export async function resolveCachedAcquisitionCatalog(
       if (reusable.status === "FOUND") return reusable;
     }
   }
-  const offline = await resolveOfflineAcquisitionCatalog(db, query, signal);
-  if (offline) return { status: "FOUND", cards: offline.cards, requestsMade: 0,
-    printingCoverage: "CHECKED", sourceCoverage: offline.sourceCoverage, cacheHit: true, lookupKey: key };
+  const offline = await resolveOfflineAcquisitionCatalogResult(db, query, signal, options.preferCompleteSnapshot === true);
+  if (offline) return { status: offline.status, cards: offline.cards, requestsMade: 0,
+    printingCoverage: offline.status === "FOUND" ? "CHECKED" : "UNRESOLVED",
+    sourceCoverage: offline.sourceCoverage, cacheHit: true, lookupKey: key };
   if (reusable) return reusable;
   // A provider block applies to other uncached queries too. Existing valid
   // cache entries above remain usable while the shared cooldown is active.

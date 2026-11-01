@@ -36,6 +36,8 @@ export async function verifyAcquisitionCatalogOffline(db: PrismaClient, admin: A
   const unavailable = async () => { providerCalls++; return { status: "PROVIDER_ERROR" as const, cards: [],
     requestsMade: 1, printingCoverage: "UNRESOLVED" as const, errorKind: "NETWORK" as const }; };
   const cached = (q: CatalogQuery) => { ordinaryKeys.add(catalogQueryKey(q)); return resolveCachedAcquisitionCatalog(db, q, AbortSignal.timeout(10000), unavailable); };
+  const snapshotCached = (q: CatalogQuery) => { ordinaryKeys.add(catalogQueryKey(q)); return resolveCachedAcquisitionCatalog(
+    db, q, AbortSignal.timeout(10000), unavailable, { preferCompleteSnapshot: true }); };
   const local = (q: CatalogQuery) => resolveOfflineAcquisitionCatalog(db, q, AbortSignal.timeout(10000));
   const cardState = () => db.card.findMany({ where: { scryfallId: { in: ids } }, orderBy: { scryfallId: "asc" } });
   const json = (value: unknown) => JSON.stringify(value);
@@ -55,6 +57,9 @@ export async function verifyAcquisitionCatalogOffline(db: PrismaClient, admin: A
     await assert.rejects(buildOfflineAcquisitionCatalog(db, { ...admin, adminMode: false }, refreshId, file), /administrator/);
     assert.equal(await local(query), undefined, "Legacy COMPLETE metadata without an index is not coverage");
     assert.equal((await cached(query)).status, "PROVIDER_ERROR"); assert.equal(providerCalls, 1);
+    const unverified = await snapshotCached(query);
+    assert.equal(unverified.status, "PROVIDER_ERROR", "Snapshot preference needs an actually verified index");
+    assert.equal(unverified.sourceCoverage, undefined);
     const first = await db.card.findUniqueOrThrow({ where: { scryfallId: ids[0] } });
     await db.card.update({ where: { id: first.id }, data: {
       ...writeCard({ ...cards[0], prices: { usd: "9.99" } }),
@@ -100,6 +105,16 @@ export async function verifyAcquisitionCatalogOffline(db: PrismaClient, admin: A
     assert.equal(found.requestsMade, 0); assert.equal(found.printingCoverage, "CHECKED");
     assert.equal(found.sourceCoverage?.sourceDigest, digest);
     assert.deepEqual(found.cards.map(card => card.id).sort(), ids.slice(0, 3).sort());
+    for (const q of [{ kind: "name", name: tag + " Outside snapshot" },
+      { kind: "name", name: title, fuzzy: true }] as CatalogQuery[]) {
+      const unresolved = await snapshotCached(q);
+      assert.equal(unresolved.status, "INCOMPLETE");
+      assert.equal(unresolved.requestsMade, 0); assert.equal(unresolved.printingCoverage, "UNRESOLVED");
+      assert.equal(unresolved.sourceCoverage?.sourceDigest, digest);
+      assert.equal(await db.acquisitionCatalogLookup.findUnique({ where: { key: catalogQueryKey(q) } }), null,
+        "Snapshot-only incomplete results do not publish a false negative or lease");
+    }
+    assert.equal(providerCalls, 1, "Complete English snapshot routing makes no unknown/fuzzy provider calls");
     for (const q of [{ kind: "id", id: ids[0] }, { kind: "printing", set: "tst", number: "0001a", language: "en" }] as CatalogQuery[])
       assert.deepEqual((await local(q))!.cards.map(card => card.id).sort(), ids.slice(0, 3).sort());
     assert.deepEqual((await local({ kind: "id", id: ids[2] }))!.cards.map(card => card.id), [ids[2]]);
@@ -113,6 +128,9 @@ export async function verifyAcquisitionCatalogOffline(db: PrismaClient, admin: A
     await db.card.update({ where: { id: originalVariant.id }, data: { rawScryfallJson: originalVariant.rawScryfallJson as Prisma.InputJsonValue } });
     await db.card.delete({ where: { id: originalVariant.id } });
     assert.equal(await local(query), undefined, "A removed member cannot create accidental uniqueness");
+    assert.equal((await snapshotCached(query)).status, "INCOMPLETE",
+      "An invalidated snapshot family stays explicitly incomplete without HTTP");
+    assert.equal(providerCalls, 1);
     await db.card.create({ data: { ...writeCard(cards[1]), id: originalVariant.id, scryfallId: ids[1] } });
     assert.equal((await local(query))!.cards.length, 3);
     const marker = await db.acquisitionCatalogLookup.findUniqueOrThrow({ where: { key: markerKey } });
@@ -140,6 +158,24 @@ export async function verifyAcquisitionCatalogOffline(db: PrismaClient, admin: A
     assert.equal(await db.inventoryAuditLog.count(), auditsBefore);
     const aborted = new AbortController(); aborted.abort();
     await assert.rejects(resolveOfflineAcquisitionCatalog(db, query, aborted.signal));
+    await db.acquisitionCatalogLookup.delete({ where: { key: cooldownKey } });
+    const onlineQuery: CatalogQuery = { kind: "name", name: tag + " New online card" };
+    const callsBeforeOnline = providerCalls;
+    assert.equal((await cached(onlineQuery)).status, "PROVIDER_ERROR");
+    assert.equal(providerCalls, callsBeforeOnline + 1, "Explicit positive-only callers retain online new-card admission");
+    const networkBefore = await db.acquisitionCatalogLookup.findUniqueOrThrow({ where: { key: catalogQueryKey(onlineQuery) } });
+    const offlineUnknown = await snapshotCached(onlineQuery);
+    assert.equal(offlineUnknown.status, "INCOMPLETE");
+    assert.equal(providerCalls, callsBeforeOnline + 1);
+    assert.deepEqual(await db.acquisitionCatalogLookup.findUnique({ where: { key: catalogQueryKey(onlineQuery) } }), networkBefore,
+      "Choosing dated incomplete snapshot evidence never erases recorded provider failure/backoff");
+    const foreign: CatalogQuery = { kind: "printing", set: "tst", number: "6", language: "fr" };
+    assert.equal((await snapshotCached(foreign)).status, "INCOMPLETE");
+    assert.equal(providerCalls, callsBeforeOnline + 1, "Snapshot-only mode cannot invent foreign coverage or make a hidden live request");
+    assert.equal((await cached(foreign)).status, "PROVIDER_ERROR");
+    assert.equal(providerCalls, callsBeforeOnline + 2, "Unsupported foreign scope keeps its explicit provider path");
+    assert.equal((await cached({ kind: "name", name: tag + " Online fuzzy", fuzzy: true })).status, "PROVIDER_ERROR");
+    assert.equal(providerCalls, callsBeforeOnline + 3, "Explicit fuzzy callers retain their provider path");
   } catch (error) { failed = true; primary = error; }
   const cleanup: unknown[] = [];
   const attempt = async (action: () => Promise<unknown>) => { try { await action(); } catch (error) { cleanup.push(error); } };
@@ -154,5 +190,5 @@ export async function verifyAcquisitionCatalogOffline(db: PrismaClient, admin: A
   await attempt(() => unlink(file)); await attempt(() => rmdir(folder));
   if (cleanup.length) throw new AggregateError([...(failed ? [primary] : []), ...cleanup], "Offline catalogue verification/cleanup failed");
   if (failed) throw primary;
-  console.log("PASS: actual offline family publication, rollback, interruption/concurrent resume, exact aliases/languages/punctuation, missing/changed members, prices/IDs/Inventory and legacy provider cache/backoff");
+  console.log("PASS: actual offline family publication, rollback, interruption/concurrent resume, exact aliases/languages/punctuation, missing/changed members, prices/IDs/Inventory, snapshot-only incomplete routing and explicit online/foreign/fuzzy cache/backoff");
 }

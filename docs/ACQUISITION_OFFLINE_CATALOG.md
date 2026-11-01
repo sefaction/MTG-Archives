@@ -42,15 +42,28 @@ newer prices and existing foreign keys are preserved.
 
 A valid fresh provider-enumerated family retains precedence. A verified local
 family can satisfy a cold lookup or supersede an older negative/provider-error
-cache entry without an external request. Unknown or fuzzy names, unsupported
-languages, incomplete sources and missing/invalid index data retain the existing
-provider path and its shared cooldown, negative-cache and fenced-lease behavior.
-An unavailable local family never proves that a card does not exist.
+cache entry without an external request. Ordinary recognition prefers the
+complete dated English snapshot: an uncovered, fuzzy, foreign or changed lookup
+remains explicitly incomplete and review-only, without an external request.
+It never proves that a card does not exist. Feedback names the saved catalogue
+and date instead of claiming that a live provider failed.
+
+Explicit positive-only lookup callers retain their online fallback, including
+new-card admission, foreign and fuzzy lookup. Unverified or incomplete catalogue
+sources also retain the existing provider path, shared cooldown, negative cache
+and fenced leases. An older provider error remains in
+its cache/history when a snapshot-only request uses incomplete local evidence.
 
 Successful local lookup evidence records the source digest, date, format version
 and English language scope. Review feedback retains that evidence and displays
 the saved catalogue date and English paper scope. Ordinary name-only, stamp, language, weak-evidence,
 human-review and explicit Inventory-commit safeguards still apply.
+
+Automatic confirmation also requires that the specific printing belongs to a
+checked lookup result. English snapshot coverage cannot authorize a French
+batch-language projection or a newer local printing outside snapshot membership.
+Those suggestions remain available for manual review. A foreign printing that
+receives its own checked provider result keeps its existing confirmation path.
 
 ## Evidence limits
 
