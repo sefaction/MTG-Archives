@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { resolveCachedAcquisitionCatalog } from "../lib/acquisition-catalog-cache";
 import { catalogQueryKey } from "../lib/acquisition-catalog-queries";
 import type { CatalogLookupResult } from "../lib/acquisition-catalog-provider";
@@ -228,6 +228,50 @@ export async function verifyAcquisitionCatalogCache(db: PrismaClient) {
       (await db.card.findUniqueOrThrow({ where: { scryfallId: ids[0] } })).id,
       local.id,
     );
+    // Existing invalid-response caches must not suppress the corrected name
+    // filter. Query keys and valid/other-error caches retain their identities.
+    const seedLegacy = async (suffix: string, result: Record<string, unknown>) => {
+      const request = { kind: "name" as const, name: `${name} ${suffix}` };
+      const key = catalogQueryKey(request); keys.push(key);
+      await db.acquisitionCatalogLookup.create({ data: { key, request,
+        status: String(result.status), result: result as Prisma.InputJsonObject, expiresAt: new Date(Date.now() + 300000) } });
+      return request;
+    };
+    const legacyInvalid = { status: "PROVIDER_ERROR", ids: [], requestsMade: 2,
+      printingCoverage: "UNRESOLVED", errorKind: "INVALID_RESPONSE" };
+    const legacy = await seedLegacy("legacy-invalid", legacyInvalid);
+    let rechecked = 0;
+    const recovered = await resolveCachedAcquisitionCatalog(db, legacy, signal(), async () => {
+      rechecked++; return fresh;
+    });
+    assert.equal(recovered.status, "FOUND"); assert.equal(recovered.cacheHit, false);
+    assert.equal(rechecked, 1);
+    assert.equal((await db.card.findUniqueOrThrow({ where: { scryfallId: ids[0] } })).id, local.id);
+    const again = await resolveCachedAcquisitionCatalog(db, legacy, signal(), async () => {
+      throw new Error("Recovered lookup must remain cached");
+    });
+    assert.equal(again.status, "FOUND"); assert.equal(again.cacheHit, true);
+    assert.equal(Object.hasOwn(again, "enumerationVersion"), false);
+
+    const stillInvalid = await seedLegacy("still-invalid", legacyInvalid);
+    const invalid: CatalogLookupResult = { status: "PROVIDER_ERROR", cards: [], requestsMade: 2,
+      printingCoverage: "UNRESOLVED", errorKind: "INVALID_RESPONSE" };
+    const checkedInvalid = await resolveCachedAcquisitionCatalog(db, stillInvalid, signal(), async () => invalid);
+    assert.equal(checkedInvalid.cacheHit, false);
+    const cachedInvalid = await resolveCachedAcquisitionCatalog(db, stillInvalid, signal(), async () => {
+      throw new Error("Current invalid responses must retain their backoff");
+    });
+    assert.equal(cachedInvalid.status, "PROVIDER_ERROR"); assert.equal(cachedInvalid.cacheHit, true);
+
+    const legacyValid = await seedLegacy("valid", { status: "FOUND", ids: [ids[0]], requestsMade: 2, printingCoverage: "CHECKED" });
+    const legacyNetwork = await seedLegacy("network", { ...legacyInvalid, errorKind: "NETWORK" });
+    for (const request of [legacyValid, legacyNetwork]) {
+      const reused = await resolveCachedAcquisitionCatalog(db, request, signal(), async () => {
+        throw new Error("Valid and unrelated-error legacy caches must remain reusable");
+      });
+      assert.equal(reused.cacheHit, true);
+      assert.equal(reused.status, request === legacyValid ? "FOUND" : "PROVIDER_ERROR");
+    }
     console.log(
       "Catalog fallback: shared cache, missing-row repair, stable IDs, negative cache, cooldown and stale-lease fencing passed.",
     );

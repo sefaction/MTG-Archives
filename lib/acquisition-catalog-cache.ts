@@ -14,7 +14,9 @@ import {
 } from "./acquisition-catalog-provider";
 import type { ScryfallCard } from "./scryfall";
 
+const catalogEnumerationVersion = 2;
 const resultSchema = z.object({
+  enumerationVersion: z.number().int().positive().optional(),
   status: z.enum(["FOUND", "NOT_FOUND", "PROVIDER_ERROR", "INCOMPLETE"]),
   ids: z.array(z.string().uuid()).max(20000),
   requestsMade: z.number().int().nonnegative(),
@@ -63,7 +65,11 @@ export async function resolveCachedAcquisitionCatalog(
     previous.status !== "RUNNING" &&
     previous.expiresAt &&
     previous.expiresAt > now &&
-    saved.success
+    saved.success &&
+    // Retry old strict-name enumeration failures once under the corrected
+    // filter. Valid cache entries and other provider backoffs remain reusable.
+    !(saved.data.errorKind === "INVALID_RESPONSE" &&
+      saved.data.enumerationVersion !== catalogEnumerationVersion)
   ) {
     const rows = await db.card.findMany({
       where: { scryfallId: { in: saved.data.ids } },
@@ -78,7 +84,7 @@ export async function resolveCachedAcquisitionCatalog(
       rows.length === saved.data.ids.length &&
       cards.every((card) => card.success)
     ) {
-      const { ids: _ids, ...result } = saved.data;
+      const { ids: _ids, enumerationVersion: _enumerationVersion, ...result } = saved.data;
       return {
         ...result,
         cards: cards.map((card) => card.data as ScryfallCard),
@@ -145,6 +151,7 @@ export async function resolveCachedAcquisitionCatalog(
   const { cards, ...details } = fetched;
   const stored = resultSchema.parse({
     ...details,
+    enumerationVersion: catalogEnumerationVersion,
     ids: cards.map((c) => c.id),
   });
   const expiresAt = new Date(

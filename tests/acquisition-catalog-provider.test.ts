@@ -335,3 +335,90 @@ test("advertised totals and original printing membership must agree before cover
     "INVALID_RESPONSE",
   );
 });
+
+test("punctuation-colliding search hits do not invalidate or enter exact-name paper coverage", async () => {
+  const first = { ...card(1), name: "Rampant Growth" };
+  const another = { ...card(2), name: first.name };
+  const collision = { ...card(3), name: "Rampant, Growth" };
+  const calls: number[] = [];
+  const provider: Provider = {
+    card: async () => ok(first),
+    printings: async (_, page) => {
+      calls.push(page);
+      return ok({ object: "list", data: page === 1 ? [first, collision] : [another],
+        has_more: page === 1, total_cards: 3 });
+    },
+  };
+  const result = await fetchAcquisitionCatalogQuery({ kind: "name", name: first.name }, signal(), provider);
+  assert.equal(result.status, "FOUND");
+  assert.equal(result.printingCoverage, "CHECKED");
+  assert.deepEqual(result.cards.map(c => c.id), [first.id, another.id]);
+  assert.deepEqual(calls, [1, 2]);
+  assert.equal(result.requestsMade, 3);
+});
+
+test("a punctuation-colliding face remains a different card while exact matching faces remain eligible", async () => {
+  const first = { ...card(1), name: "Test Card" };
+  const exact = { ...card(2), name: "Test Card // Other", card_faces: [{ name: first.name }, { name: "Other" }] };
+  const collision = { ...card(3), name: "Test, Card // Other", card_faces: [{ name: "Test, Card" }, { name: "Other" }] };
+  const result = await fetchAcquisitionCatalogQuery(query, signal(), {
+    card: async () => ok(first),
+    printings: async () => ok({ object: "list", data: [first, exact, collision], has_more: false, total_cards: 3 }),
+  });
+  assert.equal(result.status, "FOUND");
+  assert.equal(result.printingCoverage, "CHECKED");
+  assert.deepEqual(result.cards.map(c => c.id), [first.id, exact.id]);
+});
+
+test("excluded punctuation collisions still count toward pagination totals and duplicate detection", async () => {
+  const first = card(1), collision = { ...card(2), name: "Test, Card" };
+  const result = await fetchAcquisitionCatalogQuery(query, signal(), {
+    card: async () => ok(first),
+    printings: async (_, page) => ok({ object: "list", data: page === 1 ? [first, collision] : [collision],
+      has_more: page === 1, total_cards: 3 }),
+  });
+  assert.equal(result.errorKind, "INVALID_RESPONSE");
+  assert.equal(result.printingCoverage, "UNRESOLVED");
+  assert.deepEqual(result.cards.map(c => c.id), [first.id]);
+});
+
+test("name collisions cannot hide missing advertised results or an absent original printing", async () => {
+  const first = card(1), collision = { ...card(2), name: "Test, Card" };
+  for (const data of [[first, collision], [collision]]) {
+    const result = await fetchAcquisitionCatalogQuery(query, signal(), {
+      card: async () => ok(first),
+      printings: async () => ok({ object: "list", data, has_more: false, total_cards: 3 }),
+    });
+    assert.equal(result.errorKind, "INVALID_RESPONSE");
+    assert.equal(result.printingCoverage, "UNRESOLVED");
+  }
+  const substituted = await fetchAcquisitionCatalogQuery(query, signal(), {
+    card: async () => ok(first),
+    printings: async () => ok({ object: "list", data: [{ ...collision, id: first.id }], has_more: false, total_cards: 1 }),
+  });
+  assert.equal(substituted.errorKind, "INVALID_RESPONSE");
+  assert.equal(substituted.printingCoverage, "UNRESOLVED");
+});
+
+test("punctuation exclusions never bypass language, paper or card-schema validation", async () => {
+  const first = card(1);
+  for (const change of [{ lang: "fr" }, { digital: true }, { id: "invalid" }]) {
+    const result = await fetchAcquisitionCatalogQuery(query, signal(), {
+      card: async () => ok(first),
+      printings: async () => ok({ object: "list", data: [first, { ...card(2), name: "Test, Card", ...change }], has_more: false, total_cards: 2 }),
+    });
+    assert.equal(result.errorKind, "INVALID_RESPONSE");
+    assert.equal(result.printingCoverage, "UNRESOLVED");
+  }
+});
+
+test("a digital named identity with only another card's punctuation collision does not become found", async () => {
+  const first = { ...card(1), digital: true };
+  const result = await fetchAcquisitionCatalogQuery({ kind: "name", name: first.name }, signal(), {
+    card: async () => ok(first),
+    printings: async () => ok({ object: "list", data: [{ ...card(2), name: "Test, Card" }], has_more: false, total_cards: 1 }),
+  });
+  assert.equal(result.status, "NOT_FOUND");
+  assert.equal(result.printingCoverage, "UNRESOLVED");
+  assert.deepEqual(result.cards, []);
+});

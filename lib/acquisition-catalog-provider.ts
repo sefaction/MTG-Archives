@@ -84,6 +84,13 @@ export async function fetchAcquisitionCatalogQuery(
     if (!digitalName) cards.set(first.id, first);
     const language = first.lang ?? "en";
     const enumerated = new Set<string>();
+    const matchingPrintings = new Set<string>();
+    // Scryfall's exact-name search can also return a different card whose
+    // punctuation differs (for example Rampant Growth / Rampant, Growth).
+    // This key only excludes such hits; it never makes them eligible printings.
+    const searchNameKey = (name: string) => name.normalize("NFKC")
+      .toLowerCase().replace(/[^\p{L}\p{N}\p{M}]/gu, "");
+    const expectedNameKey = searchNameKey(first.name);
     let expectedCount: number | undefined;
     // At most 100 pages / 20,000 printings. A bound is incomplete coverage,
     // never evidence that no additional printing or stamped variant exists.
@@ -119,27 +126,28 @@ export async function fetchAcquisitionCatalogQuery(
         const exactFace = z
           .array(z.object({ name: z.string() }))
           .safeParse(card.card_faces);
-        if (
-          (card.name !== first.name &&
-            !(
-              exactFace.success &&
-              exactFace.data.some((face) => face.name === first.name)
-            )) ||
-          card.lang !== language ||
-          card.digital === true
-        )
+        if (card.lang !== language || card.digital === true)
           throw new Error("Unexpected printing search result");
         if (enumerated.has(card.id))
           throw new Error("Repeated printing identity");
         enumerated.add(card.id);
+        const names = [card.name, ...(exactFace.success ? exactFace.data.map(face => face.name) : [])];
+        if (!names.includes(first.name)) {
+          if (expectedNameKey && card.id !== first.id &&
+            names.some(name => searchNameKey(name) === expectedNameKey)) continue;
+          throw new Error("Unexpected printing search result");
+        }
+        matchingPrintings.add(card.id);
         cards.set(card.id, card);
       }
       if (!data.has_more) {
         if (
-          (!digitalName && !enumerated.has(first.id)) ||
+          (!digitalName && !matchingPrintings.has(first.id)) ||
           (expectedCount !== undefined && enumerated.size !== expectedCount)
         )
           throw new Error("Incomplete printing enumeration");
+        if (cards.size === 0)
+          return { status: "NOT_FOUND", cards: [], requestsMade, printingCoverage: "UNRESOLVED" };
         return {
           status: "FOUND",
           cards: [...cards.values()],
