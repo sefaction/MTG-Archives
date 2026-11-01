@@ -66,8 +66,18 @@ for (const width of [1366, 320]) test(`saved card exposes explicit Inventory han
     const first=page.getByTestId("capture-card-1"), second=page.getByTestId("capture-card-2"), third=page.getByTestId("capture-card-3");
     await first.scrollIntoViewIfNeeded();
     const next=first.getByRole("button",{name:"Continue to Inventory",exact:true});
-    await expect(next).toBeVisible(); await expect(next).toBeEnabled();
+    await expect(next).toBeVisible(); await expect(next).toBeDisabled();
+    await expect(first).toContainText("Stop capture before continuing.");
     await expect(second.getByRole("button",{name:"Continue to Inventory",exact:true})).toHaveCount(0);
+    await expect(third.getByRole("checkbox",{name:"Select card 3 for Inventory",exact:true})).toBeDisabled();
+    const inventory=page.getByRole("region",{name:"Add reviewed cards to Inventory",exact:true});
+    await page.getByRole("link",{name:"Go to Inventory confirmation",exact:true}).click();
+    await expect(inventory.getByRole("button",{name:"Preview selected cards",exact:true})).toBeDisabled();
+    expect(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`)).toBe(0);
+    await inventory.getByRole("link",{name:"Go to capture controls",exact:true}).click();
+    await page.getByRole("button",{name:"Stop capture",exact:true}).click();
+    await page.getByRole("button",{name:"Back to matches",exact:true}).click();
+    await first.scrollIntoViewIfNeeded(); await expect(next).toBeEnabled();
     // No storage event/render occurs between this new correction and the click.
     // The handoff must re-read its own key and preserve even unreadable drafts.
     await next.evaluate((button,key)=>{
@@ -84,14 +94,9 @@ for (const width of [1366, 320]) test(`saved card exposes explicit Inventory han
     await expect(next).toBeEnabled();
     await third.getByRole("checkbox",{name:"Select card 3 for Inventory",exact:true}).check();
     await first.scrollIntoViewIfNeeded(); await next.focus(); await page.keyboard.press("Enter");
-    const inventory=page.getByRole("region",{name:"Add reviewed cards to Inventory",exact:true});
     await expect(inventory).toBeVisible(); await expect(inventory).toContainText("2 selected");
     await expect(page.locator("#scan-inventory")).toBeFocused();
     expect(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`)).toBe(0);
-    await expect(inventory.getByRole("button",{name:"Preview selected cards",exact:true})).toBeDisabled();
-    await inventory.getByRole("link",{name:"Go to capture controls",exact:true}).click();
-    await page.getByRole("button",{name:"Stop capture",exact:true}).click();
-    await first.scrollIntoViewIfNeeded(); await next.click();
     // Stopping must keep the route back to count/reconciliation controls available.
     await expect(inventory.getByRole("link",{name:"Go to capture controls",exact:true})).toBeVisible();
     await inventory.getByRole("link",{name:"Go to capture controls",exact:true}).click();

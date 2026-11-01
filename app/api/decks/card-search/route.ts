@@ -6,7 +6,8 @@ export async function GET(request: NextRequest) {
   const user = await requireLogin();
   const q = request.nextUrl.searchParams.get("q") || "";
   const includeScryfall = request.nextUrl.searchParams.get("scryfall") === "1";
-  const requestedLimit = Number(request.nextUrl.searchParams.get("limit"));
+  const rawLimit = request.nextUrl.searchParams.get("limit");
+  const requestedLimit = rawLimit === null ? NaN : Number(rawLimit);
   const limit = Number.isInteger(requestedLimit)
     ? Math.max(1, Math.min(requestedLimit, 175))
     : undefined;
