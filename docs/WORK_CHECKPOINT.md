@@ -1,3 +1,34 @@
+## Current acquisition freshness parent integration — November 1, 2026
+
+Owner root, local branch codex/acquisition-freshness-main-307-20261101. Existing
+draft #999 follows refreshed price parent #998 at60cbc294, including main
+b3f4f37b. All four non-checkpoint #999 contribution files retain their exact
+qualified4d356318 blobs: conditional metadata writer, observed-lock SQL cases,
+runner entrypoints and guide. The price helper/writers remain the parent's
+qualified code; card-import equals the separately tested combined module.
+
+The existing first-lookup response semantics and all concurrency/rollback,
+identity/Inventory and independent-price protections remain. Original runtime
+and UI evidence stay bound to4d356318; this is not a new runtime execution.
+New exact-head CI and independent review remain required. Keep #999 draft and
+stacked on #998 until its approved merge; no production update, historical
+Pricing repair or WAL cause claim is included.
+
+## Preserved freshness, price and main checkpoints
+
+## Current acquisition metadata freshness draft - November 1, 2026
+
+Branch codex/acquisition-cache-freshness-307-20261101 is stacked on the
+price-preservation draft. Delayed provider-cache publication now rechecks an
+existing Card fingerprint and lookup-time fence in its UPDATE. A concurrent
+insertion wins without being overwritten. Successful updates retain the shared
+atomic price merge; cache leases and publication remain transactional.
+
+Related to #307/#302. The acquisition integrity suite adds three observed-lock
+overlap cases covering newer metadata, a changed fingerprint and insertion.
+Current-head CI status is recorded on the PR. Keep this draft for independent
+review and Brian's individual merge approval; no production update is included.
+
 ## Current acquisition price main integration — November 1, 2026
 
 Owner root, local branch codex/acquisition-price-main-854-20261101. Existing
