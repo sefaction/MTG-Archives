@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { readAcquisitionPhotoBytes } from "./acquisition-files";
 import { lockCorrectionOwner } from "./acquisition-correction-library";
-import { prepareCorrectionBlob, readCorrectionBlob, removeCorrectionBlob,
+import { prepareCorrectionBlob, readCorrectionBlob, verifyCorrectionBlobDurability, removeCorrectionBlob,
   staleCorrectionTemporaries, removeCorrectionTemporary } from "./acquisition-correction-files";
 type Tx = Prisma.TransactionClient;
 const LEASE_MS = 120000;
@@ -123,10 +123,10 @@ export async function runCorrectionCaptureOnce(db: PrismaClient) {
       staged = await prepareCorrectionBlob(claim.blob.ownerPlayerId, claim.blob.digest, bytes, claim.leaseToken!);
     }
     const published = await completeCorrectionCapture(db, claim, staged ? staged.publish :
-      async () => { await readCorrectionBlob(claim.blob.ownerPlayerId, claim.blob.digest, claim.blob.bytes); });
+      async () => { await verifyCorrectionBlobDurability(claim.blob.ownerPlayerId, claim.blob.digest, claim.blob.bytes); });
     return { claimed: 1, preserved: Number(published), failed: 0 };
   } catch (error: any) {
-    const code = ["ENOSPC", "EACCES", "EPERM", "SOURCE_MISSING"].includes(error.code) ? error.code : "ORIGINAL_COPY_FAILED";
+    const code = ["ENOSPC", "EACCES", "EPERM", "SOURCE_MISSING"].includes(error?.code) ? error.code : "ORIGINAL_COPY_FAILED";
     await failCorrectionCapture(db, claim, code);
     return { claimed: 1, preserved: 0, failed: 1 };
   } finally { await staged?.cleanup(); }

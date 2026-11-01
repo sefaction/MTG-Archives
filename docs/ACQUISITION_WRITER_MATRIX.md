@@ -1,6 +1,30 @@
 # P7 Inventory writer acceptance map
 
-## Current reconciliation — October 24, 2026
+## Current accepted P7 status — October 31, 2026
+
+[#309 is closed as completed](https://github.com/sefaction/MTG-Archives/issues/309#issuecomment-6387769493) under the accepted October 24 finite
+transactional boundary: quantities and provenance; exactly-once receipts and
+selected membership; ordinary writer coordination, locking and rollback;
+saved-review precedence; and capacity, subset and reassignment behavior.
+[PR #974](https://github.com/sefaction/MTG-Archives/pull/974) reconciled the named
+writer deliveries against those original requirements. Its accepted reconciliation
+identified no missing original named writer scenario.
+
+The earlier closure refusal, open-phase instructions and review waits below are
+preserved history from before that accepted boundary. They are not current
+instructions to reopen #309, repeat the finite reconciliation or reimplement
+already delivered writer schedules. The evidence tables and their source,
+conservation and coverage limits remain unchanged.
+
+#302 and #310 remain open. Sustained mixed workloads and resources, host/power/
+storage loss, cross-layer recovery and installation acceptance remain the
+separate release requirements recorded in the closing decision. Independent
+recognition/accuracy keeps its existing trackers. This status correction creates
+no new acceptance, scope transfer, runtime result, deployment or merge authority.
+Select eligible remaining work from the live queue under its current owners;
+ordinary fi-7160 operation does not need broad requalification.
+
+## Preserved reconciliation — October 24, 2026
 
 Related to [#309](https://github.com/sefaction/MTG-Archives/issues/309),
 [#310](https://github.com/sefaction/MTG-Archives/issues/310) and
