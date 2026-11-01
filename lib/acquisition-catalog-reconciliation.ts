@@ -33,6 +33,7 @@ import { proposeOrientedAcquisitionPrintings, ACQUISITION_TEXT_RESOLVER_VERSION 
 import { ACQUISITION_FOOTER_PARSER_VERSION } from "./acquisition-footer";
 import { combineAcquisitionPhotoText, UNLOCALIZED_NAME_HINT } from "./acquisition-photo-text";
 import { AcquisitionJobSupersededError, type ClaimedAcquisitionJob } from "./acquisition-jobs";
+import {acquisitionBatchLanguageCandidates,acquisitionObservedLanguages} from "./acquisition-batch-language";
 import { acquisitionHandoffQuery } from "./acquisition-handoff";
 import {
   VISUAL_STAGE,
@@ -333,9 +334,16 @@ export function createCatalogReconciliationHandler(
       snapshot = await loadAcquisitionRecognitionSnapshot(db,snapshot);
       snapshotAt = Date.now();
     }
+    const found = completed.some(r=>r.status==="FOUND"&&r.printingCoverage==="CHECKED");
+    const status:AcquisitionCatalogStatus["status"] = completed.some(r=>r.status==="PROVIDER_ERROR")
+      ? "PROVIDER_ERROR" : completed.some(r=>r.status==="INCOMPLETE") ? "INCOMPLETE"
+      : found ? "RESOLVED" : attempted.size ? "NOT_FOUND" : "UNREADABLE";
+    const resolve = (confirmedBatchLanguage?:string) => {
     let proposals = proposeOrientedAcquisitionPrintings(
       snapshot!.index,
       observed.native.orientations,
+      12,
+      confirmedBatchLanguage,
     );
     proposals = combineAcquisitionPhotoText(snapshot!.index, proposals, observed.native.photoText,
       visual ? acquisitionVisualCandidates(visual.visual).map(c => snapshot!.byScryfallId.get(c.scryfallId)?.id)
@@ -348,20 +356,6 @@ export function createCatalogReconciliationHandler(
         visual.visual,
         snapshot!.byScryfallId,
       );
-    const found = completed.some(
-      (r) => r.status === "FOUND" && r.printingCoverage === "CHECKED",
-    );
-    const status: AcquisitionCatalogStatus["status"] = completed.some(
-      (r) => r.status === "PROVIDER_ERROR",
-    )
-      ? "PROVIDER_ERROR"
-      : completed.some((r) => r.status === "INCOMPLETE")
-        ? "INCOMPLETE"
-        : found
-          ? "RESOLVED"
-          : attempted.size
-            ? "NOT_FOUND"
-            : "UNREADABLE";
     // A generic image/name match is not proof that the lower-left stamp is
     // absent. An unresolved same-name stamped family requires review.
     const stampedNames = new Set(
@@ -394,6 +388,16 @@ export function createCatalogReconciliationHandler(
           proposal.reasons.push("STAMP_UNVERIFIED");
       }
     }
+    return proposals;
+    };
+    const proposals=resolve();
+    // Separate conditional interpretations never replace saved machine text or
+    // its proposals. Only a later, locked explicit default can authorize one.
+    const languageOptions=acquisitionBatchLanguageCandidates(snapshot!.index,observed.native.orientations)
+      .flatMap(language=>{
+        const projected=resolve(language);
+        return projected.automaticAcceptance ? [{language,proposals:projected}] : [];
+      });
     return {
       version: 1,
       photoId: photo.id,
@@ -415,6 +419,8 @@ export function createCatalogReconciliationHandler(
         textResolver: ACQUISITION_TEXT_RESOLVER_VERSION,
       },
       proposals,
+      observedLanguages:acquisitionObservedLanguages(observed.native.orientations),
+      ...(languageOptions.length ? {batchLanguageProposals:{version:1,options:languageOptions}} : {}),
       catalog: {
         status,
         printingCoverage:

@@ -15,6 +15,7 @@ import {
   emptyAcquisitionDefaults,
   acquisitionPrintingSelect,
   acquisitionReviewRequestSchema,
+  preserveAcquisitionDefaultChoices,
   preserveAcquisitionReviewOpener,
   type AcquisitionCardReview,
 } from "./acquisition-review";
@@ -997,7 +998,7 @@ export async function getAcquisitionProgress(
           printings: reviewedNames,
           visualEnabled: process.env.ACQUISITION_VISUAL_ENABLED === "1",
           printingEnabled: process.env.ACQUISITION_PRINTING_ENABLED === "1",
-          defaultsFinish: state.defaults.finish, photoReady: Boolean(photo),
+          defaultsFinish: state.defaults.finish, defaultsLanguage: state.defaults.language, photoReady: Boolean(photo),
           physicalReasons: physicalReasons.get(slot.id) ?? ["UNAVAILABLE"],
           jobs: photo ? problemJobs.get(photo.id) ?? [] : []}),
         physicalReadiness: {
@@ -1403,13 +1404,15 @@ export async function saveAcquisitionReview(
         throw new Error(
           "Capture batch defaults changed; reload them before saving",
         );
-      if (input.defaults.openerPlayerId && !await tx.player.findUnique({
-        where: {id: input.defaults.openerPlayerId}, select: {id: true},
+      const defaults=preserveAcquisitionDefaultChoices(input.defaults,
+        acquisitionDefaultsSchema.parse(row.reviewDefaults??emptyAcquisitionDefaults));
+      if (defaults.openerPlayerId && !await tx.player.findUnique({
+        where: {id: defaults.openerPlayerId}, select: {id: true},
       })) throw new Error("Choose an existing original opener, or Unknown");
       await tx.acquisitionSession.update({
         where: { id: sessionId },
         data: {
-          reviewDefaults: input.defaults,
+          reviewDefaults: defaults,
           defaultsRevision: { increment: 1 },
         },
       });
@@ -1422,12 +1425,12 @@ export async function saveAcquisitionReview(
             action: "REVIEW_DEFAULTS",
             actorId: actor.userId,
             before: row.reviewDefaults,
-            after: input.defaults,
+            after: defaults,
           }),
         },
       });
       return {
-        defaults: input.defaults,
+        defaults,
         defaultsRevision: row.defaultsRevision + 1,
       };
     }

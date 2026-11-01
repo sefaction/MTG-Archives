@@ -1,6 +1,7 @@
 import {acquisitionManualRegionSchema} from './acquisition-manual-region';
 import {scannerLayoutInferenceSchema} from "./acquisition-scanner-layout";
 import { z } from "zod";
+import {acquisitionObservedLanguageEvidence} from "./acquisition-batch-language";
 import { printingSummarySchema } from "./acquisition-printing";
 import { acquisitionPhotoTextSchema } from "./acquisition-photo-text";
 import {sourceFooterSchema} from './acquisition-source-footer';
@@ -109,7 +110,8 @@ export function acquisitionReviewEvidence(output: unknown) {
     photoText: native.photoText ?? null,
     readingZones: native.readingZones ?? legacyAcquisitionReadingZones,
     rotation: proposals.orientation?.rotationDegrees ?? null,
-    identifiers: proposals.evidence,
+    identifiers: {...proposals.evidence,
+      languages:acquisitionObservedLanguageEvidence({native})??proposals.evidence.languages},
     // A reference's public crop can lie inside an already clipped physical
     // scan. Its projected corners cannot override observed missing pixels.
     printing: printing && native.geometry.framing === "CLIPPED"
