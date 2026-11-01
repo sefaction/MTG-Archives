@@ -2,19 +2,20 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { acquisitionProgressDto } from "@/lib/acquisition-api";
-import type { AcquisitionCardReview, AcquisitionDefaults } from "@/lib/acquisition-review";
+import {acquisitionPreferredPrinting, acquisitionOpenerName, type AcquisitionOpenerChoice, type AcquisitionCardReview, type AcquisitionDefaults} from "@/lib/acquisition-review";
 import { finishForPrinting } from "@/lib/acquisition-finish";
 import { BulkReviewUncertainError, saveBulkReview } from "./acquisition-bulk-save";
 import { filterButtonClass as button, filterPrimaryButtonClass as primary, filterPanelClass as panel } from "./filterStyles";
 
 type Slot = ReturnType<typeof acquisitionProgressDto>["slots"][number];
 type Proposal = { photoId: string; position: number; record: AcquisitionCardReview; checked: boolean; saved: boolean; error: string;
-  pendingConfirmation?: { body: string; uncertain: boolean; finish: string; condition: string } };
+  pendingConfirmation?: { body: string; uncertain: boolean; finish: string; condition: string; language?:string|null; openerName?:string } };
 
 export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpenChange, onInspect, onConfirmed,
-  blockedPhotos, draftsReady, canUsePhotos }: {
+  blockedPhotos, draftsReady, canUsePhotos, openerChoices = [] }: {
   batchId: string; slots: Slot[]; defaults: AcquisitionDefaults; refresh: () => Promise<void>;
   blockedPhotos: Set<string>; draftsReady: boolean; canUsePhotos: (ids: string[]) => boolean;
+  openerChoices?: AcquisitionOpenerChoice[];
   onOpenChange?: (open: boolean) => void; onInspect?: (position: number) => void; onConfirmed?: (photoIds: string[]) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -65,7 +66,7 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
           const response = await fetch(`/api/acquisition/${batchId}/review?photoId=${item.photoId}`, { cache: "no-store", signal: controller.signal });
           if (!response.ok) throw new Error("Could not load current match proposals. Retry the preview.");
           const record = await response.json() as AcquisitionCardReview;
-          const printingId = record.suggestions[0]?.printing.id;
+          const printingId = acquisitionPreferredPrinting(record)?.id;
           const selection = selections.current.get(item.photoId);
           // Never carry explicit approval to a different proposed printing.
           const checked = printingId && !record.review && canUsePhotos([item.photoId]) &&
@@ -81,11 +82,13 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
       if (current()) setError((cause as Error).message);
     } finally { if (current()) setLoading(false); }
   }
-  const choice = (row: Proposal) => row.record.suggestions[0]?.printing;
+  const choice = (row: Proposal) => acquisitionPreferredPrinting(row.record);
+  const readableLanguageConflict = (row: Proposal) => Boolean(defaults.language &&
+    row.record.evidence?.identifiers.languages.some(language=>language!==defaults.language));
   const eligible = (row: Proposal) => {
     const printing = choice(row);
     return Boolean(draftsReady && !blockedPhotos.has(row.photoId) && printing && !row.record.review && !row.saved && printing.lang && defaults.condition &&
-      finishForPrinting(defaults.finish, printing));
+      (!defaults.language||printing.lang.toLowerCase()===defaults.language) && !readableLanguageConflict(row) && finishForPrinting(defaults.finish, printing));
   };
   const selected = rows.filter(row => row.checked && eligible(row));
   const pending = rows.filter(row => row.pendingConfirmation);
@@ -103,8 +106,9 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
           current: row.record.evidenceToken, displayed: [row.record.evidenceToken],
         } } : {}),
         decision: { cardId: printing.id, language: printing.lang,
-          finish, condition: defaults.condition } });
-      return { ...row, error: "", pendingConfirmation: { body, uncertain: false, finish, condition: defaults.condition! } };
+          finish, condition: defaults.condition, openerPlayerId: defaults.openerPlayerId ?? null } });
+      return { ...row, error: "", pendingConfirmation: { body, uncertain: false, finish, condition: defaults.condition!,language:printing.lang,
+        openerName: acquisitionOpenerName(defaults.openerPlayerId, openerChoices) } };
     });
     setSaving(true); setError(""); setSaved(0); setTarget(next.filter(row => row.pendingConfirmation).length); setRows(next);
     let done = 0;
@@ -147,14 +151,14 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
       {!saving && saved > 0 && <span role="status">{saved} {saved === 1 ? "review" : "reviews"} saved. Inventory has not changed.</span>}
     </div>
     {pending.length > 0 && !saving && <div className="space-y-2">
-      <p role="status" className="text-sm">A confirmation is uncertain; later confirmations are paused. Continue with the original printing, finish and condition. Inventory has not changed.</p>
+      <p role="status" className="text-sm">A confirmation is uncertain; later confirmations are paused. Continue with the original printing, finish, condition and original opener. Inventory has not changed.</p>
       <button className={primary} disabled={!draftsReady || saving} onClick={() => void confirm(true)}>Continue original confirmations</button>
     </div>}
     {!draftsReady && <p role="status" className="text-sm">Bulk review is waiting for browser draft access. Allow browser storage and reload; individual reviews can still be saved.</p>}
     {skipped > 0 && <p role="status" className="text-sm">{skipped} {skipped === 1 ? "card has an unsaved correction" : "cards have unsaved corrections"} and will be skipped. Save or cancel those corrections to include them.</p>}
     {open && <div className="space-y-3">
       <p className="text-sm">Compare each scan with its proposed printing. Every proposal starts selected; clear any that needs individual correction. This saves reviews only. Inventory is a separate step.</p>
-      <p className="text-sm">Batch defaults: {defaults.finish.toLowerCase()} · {defaults.condition ?? "condition unset"}. Change batch defaults or correct a card before confirming if these do not apply.</p>
+      <p className="text-sm">Batch defaults: {defaults.finish.toLowerCase()} · {defaults.condition ?? "condition unset"} · {defaults.language?.toUpperCase()??"language from printing evidence"} · Original opener: {acquisitionOpenerName(defaults.openerPlayerId, openerChoices)}. Cards in a different language need individual review. Change batch defaults or correct a card before confirming if these do not apply.</p>
       <button className={button} disabled={saving} onClick={close}>Back to card list</button>
       {loading && <p role="status">Loading proposals: {loaded} of {previewTotal}</p>}
       {error && <p role="alert">{error}</p>}
@@ -185,7 +189,8 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
                 }}>Inspect or correct</a>
               </div>
               {printing && <p className="text-sm">{printing.setCode.toUpperCase()} #{printing.collectorNumber} · {printing.lang?.toUpperCase() ?? "language unknown"} · {row.record.recognitionStatus.replaceAll("_", " ").toLowerCase()}</p>}
-              {row.pendingConfirmation && <p className="text-sm">Original confirmation: {row.pendingConfirmation.finish.toLowerCase()} · {row.pendingConfirmation.condition}. Later default changes do not alter this confirmation.</p>}
+              {!row.pendingConfirmation && readableLanguageConflict(row) && <p className="text-sm">Readable language conflicts with the batch language. Inspect or correct this card individually.</p>}
+              {row.pendingConfirmation && <p className="text-sm">Original confirmation: {row.pendingConfirmation.finish.toLowerCase()} · {row.pendingConfirmation.condition} · {row.pendingConfirmation.language?.toUpperCase()??printing?.lang?.toUpperCase()??"language unknown"} · Original opener: {row.pendingConfirmation.openerName ?? "Unknown"}. Later default changes do not alter this confirmation.</p>}
               {proposedFinish && proposedFinish !== defaults.finish && <p className="text-sm">This printing supports only {proposedFinish.toLowerCase()}; bulk review will use that finish.</p>}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 max-w-3xl">
                 <img loading="lazy" className="w-full max-h-96 object-contain bg-black/10" src={`/api/acquisition/${batchId}/photos/${row.photoId}`} alt={`Scan of card ${row.position}`} />

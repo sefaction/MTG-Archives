@@ -1,0 +1,32 @@
+# Native scanner fixture file cleanup (#956)
+
+The legacy file phase now attempts all owner-scoped original, preview and start-marker removals after the helper is confirmed stopped. It collects non-ENOENT errors in deterministic photo/run order. A failed file phase throws before relational deletion, retaining the complete photo/parent graph for explicit recovery and retry. All photo/run identities and the absolute private root are checked before the first unlink. Missing-file replay retains its successful behavior.
+
+The ordinary native workflow body, assertions, input guards and deadlines are unchanged. Outer cancellation, helper shutdown, journal/log handling, ordered primary errors and the uncertain-helper server-data guard remain in force. Only the existing file phase changes; unrelated inner SQL failure behavior is not claimed repaired. Application retention, recognition, hardware and Inventory policy are unchanged.
+
+The verifier's explicit relational retry also requires completed, byte-verified original restoration and a terminal child. A failed rename after obstruction removal, a hash mismatch or an uncertain child retains recovery references. Actual-source regressions cover those refusals and the successful retry/replay path.
+
+Focused tests execute the actual embedded script with first/multiple unlink failures, missing-file replay and invalid identities/roots, alongside all existing outer-error controls. The existing disposable PostgreSQL verifier additionally uses two real owned photos, a populated peer and a supervised Node child: it holds the exact original bytes, creates an empty directory obstruction to cause a real unlink refusal, verifies other files/markers are attempted and photo/parent recovery references remain, then restores the original for successful cleanup and replay. Final recovery must conserve all public tables and peer files. If original restoration or child termination is uncertain, the verifier retains owned recovery data. Exact executed results/source bindings, final CI, independent review and retirement are recorded on the PR.
+
+These are guarded fixture cleanup controls. The ordinary Windows-helper/native/optical workflow remains NOT RUN, and no historical incident is explained. #692/#310 keep their broader criteria. No application build or browser/layout reload is required for this test-only change.
+
+## Preserved earlier outer-cleanup delivery (#933 / PR #934)
+
+The following report describes that delivery: its legacy SQL was unchanged at the time. #956 intentionally changes the file phase above while preserving the other boundaries.
+
+
+The original `tests/ui/scanner-native.spec.ts` ran its first correction/account cleanup outside the cleanup try/finally. An exception there bypassed helper shutdown, local journal/log handling, legacy row/file removal and the final sweep. Later cleanup errors could also hide the original workflow failure. An actual-source probe on main932e305c reproduced the first-sweep bypass without a database or device.
+
+The affected finally block now attempts independent cleanup actions in their existing order and returns the original workflow cause followed by all cleanup causes, including falsy thrown values. It still checks the exact fixture owner before any action. A helper that cannot be confirmed stopped keeps both its local journal and legacy server data; the final cancellation/feedback sweep is still attempted. Agent/path checks precede forgetting or recursive removal. No application, scan settings, feeding, retention or native recognition behavior changes.
+
+## Author qualification
+
+- Fourteen tests execute the actual parsed/transpiled catch/finally, injecting failures in the first sweep, child shutdown, log, forget, journal removal, legacy SQL and final sweep. They also cover healthy order, ordered/falsy primary causes, invalid owner/path refusal and unconfirmed-child journal preservation.
+- A disposable PostgreSQL control invokes the same actual finally block against real SQL, original/preview/start-marker files and a real supervised Node child. Two synthetic scanner owners have real pairing/run/photo/artifact/candidate/job lineage and correction accounts. With the first sweep deliberately failing, the child terminates before forgetting; only the owned journal/rows/files disappear. The full neighboring database snapshot and upload tree stay exact. Final cleanup restores all85public-table full-row fingerprints to their starting values. The final version passes locally; hosted acquisition CI runs it with its own fresh client/database.
+- The original ordinary workflow body, existing expectation calls and legacy SQL remain source-identical to main932e305c. Original input guards, timeouts and physical/recognition assertions remain unchanged. Typecheck and whitespace checks pass. Exact-head CI and live readiness are recorded on the PR.
+
+The supervised Node child is a process-lifecycle stand-in, not the Windows scanner helper. The ordinary Windows native/optical browser scenario is **NOT RUN** in this batch: its exact installed helper/original/native environment is not available here. These are cleanup-path controls, not physical feeding, independent optics, sustained throughput, historical worker/OOM causation, installed-image deployment or user acceptance. No browser/layout or application reload is needed for these test-only changes. Existing review installations and data remain unchanged.
+
+The local test uses two fresh private containers and a memory-backed PostgreSQL directory, no host ports or application volumes. Compact failure/source/cleanup evidence is retained privately. Temporary resources are retired after terminal checks; the PR owns current cleanup/readiness status. #692 and #310 remain open for their distinct acceptance boundaries; #933 completes only after its resolving merge and individual approval.
+
+PR #935 independently repairs the same initial-sweep defect under #932. Both histories and failure evidence are retained while independent review compares one canonical delivery. This branch additionally separates independent log/journal/server cleanup failures and runs the real scanner-lineage/child/file/database control in hosted CI. The comparison reinforced the original stop-dependent legacy-data guard above; a failed/unconfirmed stop never authorizes legacy deletion. Do not merge both overlapping fixes or infer a source handoff from duplicate discovery.

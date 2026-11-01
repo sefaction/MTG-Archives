@@ -1,3 +1,5 @@
+import {verifyPhotoIntakeFileCleanup} from "./verify-photo-intake-file-cleanup";
+import {verifyLegacyFixtureFiles,verifyReviewFixtureFiles} from "./verify-legacy-fixture-files";
 import {verifyPrimaryCatalogFreshness} from "./verify-primary-catalog-freshness";
 import {verifyRecognitionSnapshot} from "./verify-acquisition-recognition-snapshot";
 import { verifyCorrectionReviewHistory } from "./verify-acquisition-correction-history";
@@ -9,8 +11,13 @@ import { verifyCorrectionFairness } from "./verify-correction-fairness";
 import { verifyCorrectionCaptureClock } from "./verify-correction-capture-clock";
 import { ensureCorrectionAccount } from "../lib/acquisition-correction-library";
 import { verifyAcquisitionCommit } from "./verify-acquisition-commit";
+import { verifyAcquisitionManualWriter } from "./verify-acquisition-manual-writer";
+import { verifyAcquisitionTradeCompositions } from "./verify-acquisition-trade";
 import { verifyScannerConnections } from "./verify-scanner-connections";
 import { verifyScannerRuns } from "./verify-scanner-runs";
+import { verifyNativeScannerCleanup } from "./verify-scanner-native-cleanup";
+import { verifyScannerStorageFileCleanup } from "./verify-scanner-storage-file-cleanup";
+import { verifyScannerCropCleanup } from "./verify-scanner-crop-cleanup";
 import { verifyBackupScannerSettlement } from "./verify-backup-scanner-settlement";
 import { verifyRestoreCredentials } from "./verify-restore-credentials";
 import { verifyRestoreWorkers } from "./verify-restore-workers";
@@ -20,8 +27,12 @@ import { verifyAcquisitionBatchManagement } from "./verify-acquisition-batch-man
 import { verifyScannerStartRetirement } from "./verify-scanner-start-retirement";
 import assert from "node:assert/strict";
 import { verifyAcquisitionPhotos } from "./verify-acquisition-photos";
+import { verifyAcquisitionStorageBoundaries } from "./verify-acquisition-storage-boundaries";
+import { verifyAcquisitionRetentionPinRaces } from "./verify-acquisition-retention-pin-races";
 import { verifyAcquisitionCatalog } from "./verify-acquisition-catalog";
 import { verifyAcquisitionCatalogCache } from "./verify-acquisition-catalog-cache";
+import { verifyAcquisitionPricePreservation } from "./verify-acquisition-price-preservation";
+import { verifyAcquisitionCatalogFreshness } from "./verify-acquisition-catalog-freshness";
 import { verifyAcquisitionOrchestration } from "./verify-acquisition-orchestration";
 import { verifyAcquisitionHandoff } from "./verify-acquisition-handoff";
 import { verifyAcquisitionOwnerFairness } from "./verify-acquisition-owner-fairness";
@@ -112,7 +123,13 @@ const known = {
 };
 
 async function run() {
+  await verifyPhotoIntakeFileCleanup(db);
+  await verifyLegacyFixtureFiles(db);
+  await verifyReviewFixtureFiles(db);
+  await verifyNativeScannerCleanup(db);
+  await verifyScannerStorageFileCleanup(db);
   await verifyRecognitionSnapshot(db);
+  await verifyScannerCropCleanup(db);
   await verifyPrimaryCatalogFreshness(db);
   await verifyCorrectionFairness(db);
     await verifyCorrectionCaptureClock(db);
@@ -181,6 +198,7 @@ async function run() {
     },
   });
 
+  await verifyAcquisitionRetentionPinRaces(db, actor, input());
   await assert.rejects(
     createAcquisitionSession(db, stranger, input()),
     /unavailable/,
@@ -401,8 +419,13 @@ async function run() {
   await verifyRecognitionReplacement(db, actor, input());
   await verifyAcquisitionReferenceRefinement(db, actor, input());
   await verifyAcquisitionPhotos(db, actor, stranger, input());
+  await verifyAcquisitionStorageBoundaries(db, actor, input());
   await verifyAcquisitionCatalog(db, admin, actor, cardId);
   await verifyAcquisitionCatalogCache(db);
+  await verifyAcquisitionPricePreservation(db, admin, "bulk");
+  await verifyAcquisitionPricePreservation(db, admin, "cache");
+  for (const scenario of ["existing-newer", "existing-changed", "insert-newer"] as const)
+    await verifyAcquisitionCatalogFreshness(db, admin, scenario);
   await verifyAcquisitionHandoff(db);
   console.log(
     "PASS: optimistic commands, persisted human review/correction precedence, cancellation conservation, other-session pending",
@@ -522,7 +545,9 @@ async function run() {
     "PASS: database foreign-run/duplicate/negative-order constraints and zero inventory/audit effects",
   );
   await verifyAcquisitionCommit(db, actor, stranger, input());
+  await verifyAcquisitionManualWriter(db, input());
   await verifyScannerConnections(db);
+  await verifyAcquisitionTradeCompositions(db);
   await verifyScannerRuns(db);
   await verifyBackupScannerSettlement(db);
   await verifyRestoreCredentials(db);

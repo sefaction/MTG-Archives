@@ -18,6 +18,7 @@ import {
 import { moveInventoryQuantityWithinTransaction } from "@/lib/inventory-move";
 import { ensureDefaultLocation } from "@/lib/inventory-locations";
 import { prisma } from "@/lib/prisma";
+import { lockWritableDeck, lockDeckOwners, lockDeckRows, activeDeckTradeStatuses } from "@/lib/deck-write-fence";
 import {
   inventoryAuditAction,
   recordInventoryAudit,
@@ -44,7 +45,6 @@ import {
 import { DECK_FOLDER_ROOT_VALUE, canMoveFolder } from "@/lib/deck-folders";
 import { parseDeckTags, replaceDeckTags } from "@/lib/deck-tags";
 import {
-  isPrintingInLeague,
   requireLeaguePrinting,
 } from "@/lib/commander-league-inventory";
 
@@ -222,13 +222,21 @@ export async function deleteDeckFolder(fd: FormData) {
   const folderId = formString(fd, "folderId");
   const { folder } = await requireManagedFolder(folderId);
   await prisma.$transaction(async (tx) => {
+    await lockDeckOwners(tx, [folder.ownerUserId]);
+    const currentFolder = await tx.deckFolder.findUnique({ where: { id: folderId } });
+    if (!currentFolder || currentFolder.ownerUserId !== folder.ownerUserId) throw new Error("Deck folder changed. Refresh and retry.");
+    const affected = await tx.deck.findMany({ where: { folderId }, select: { id: true, ownerUserId: true } });
+    if (affected.some(deck => deck.ownerUserId !== folder.ownerUserId)) throw new Error("Deck folder ownership is inconsistent.");
+    await lockDeckRows(tx, affected.map(deck => deck.id));
+    if (await tx.tradeDeckBundle.findFirst({ where: { deckId: { in: affected.map(deck => deck.id) }, trade: { status: { in: activeDeckTradeStatuses } } }, select: { id: true } }))
+      throw new Error("This folder contains a deck reserved in an active trade.");
     await tx.deck.updateMany({
       where: { folderId },
-      data: { folderId: folder.parentId },
+      data: { folderId: currentFolder.parentId },
     });
     await tx.deckFolder.updateMany({
       where: { parentId: folderId },
-      data: { parentId: folder.parentId },
+      data: { parentId: currentFolder.parentId },
     });
     await tx.deckFolder.delete({ where: { id: folderId } });
   });
@@ -242,7 +250,10 @@ export async function moveDeckToFolder(fd: FormData) {
     deck.ownerUserId,
     formString(fd, "folderId"),
   );
-  await prisma.deck.update({ where: { id: deckId }, data: { folderId } });
+  await prisma.$transaction(async tx => {
+    await lockWritableDeck(tx, deckId, deck.ownerUserId);
+    await tx.deck.update({ where: { id: deckId }, data: { folderId } });
+  });
   revalidatePath("/decks");
   revalidatePath(`/decks/${deckId}`);
 }
@@ -273,6 +284,7 @@ export async function updateDeckFromIndex(fd: FormData) {
   );
   const tags = parseDeckTags(fd.get("tags"));
   await prisma.$transaction(async (tx) => {
+    await lockWritableDeck(tx, deckId, deck.ownerUserId);
     await tx.deck.update({
       where: { id: deckId },
       data: {
@@ -290,18 +302,18 @@ export async function updateDeckFromIndex(fd: FormData) {
       ownerUserId: deck.ownerUserId,
       tags,
     });
-  });
-  const existingDeckLocation = await prisma.inventoryLocation.findUnique({
-    where: { deckId },
-  });
-  if (existingDeckLocation) {
-    await ensureDeckLocation(prisma, {
-      id: deckId,
-      name,
-      visibility,
-      ownerUser: { playerId: deck.ownerUser.playerId },
+    const existingDeckLocation = await tx.inventoryLocation.findUnique({
+      where: { deckId },
     });
-  }
+    if (existingDeckLocation) {
+      await ensureDeckLocation(tx, {
+        id: deckId,
+        name,
+        visibility,
+        ownerUser: { playerId: deck.ownerUser.playerId },
+      });
+    }
+  });
   revalidatePath("/decks");
   revalidatePath(`/decks/${deckId}`);
 }
@@ -313,6 +325,7 @@ export async function createDeck(fd: FormData) {
   const tags = parseDeckTags(fd.get("tags"));
   const folderId = await validatedFolderId(user.id, formString(fd, "folderId"));
   const deck = await prisma.$transaction(async (tx) => {
+    await lockDeckOwners(tx, [user.id]);
     const created = await tx.deck.create({
       data: {
         ownerUserId: user.id,
@@ -364,6 +377,7 @@ export async function updateDeck(fd: FormData) {
     formString(fd, "folderId"),
   );
   await prisma.$transaction(async (tx) => {
+    await lockWritableDeck(tx, deckId, deck.ownerUserId);
     await tx.deck.update({
       where: { id: deckId },
       data: {
@@ -387,18 +401,18 @@ export async function updateDeck(fd: FormData) {
       ownerUserId: deck.ownerUserId,
       tags,
     });
-  });
-  const existingDeckLocation = await prisma.inventoryLocation.findUnique({
-    where: { deckId },
-  });
-  if (existingDeckLocation) {
-    await ensureDeckLocation(prisma, {
-      id: deckId,
-      name,
-      visibility,
-      ownerUser: { playerId: deck.ownerUser.playerId },
+      const existingDeckLocation = await tx.inventoryLocation.findUnique({
+      where: { deckId },
     });
-  }
+    if (existingDeckLocation) {
+      await ensureDeckLocation(tx, {
+        id: deckId,
+        name,
+        visibility,
+        ownerUser: { playerId: deck.ownerUser.playerId },
+      });
+    }
+  });
   revalidatePath("/decks");
   revalidatePath(`/decks/${deckId}`);
 }
@@ -429,6 +443,7 @@ export async function deleteDeck(fd: FormData) {
     console.info("admin_delete_deck", { deckId, changedByUserId: user.id });
   }
   await prisma.$transaction(async (tx) => {
+    await lockWritableDeck(tx, deckId, deck.ownerUserId);
     if (committed.committedQuantity > 0) {
       await returnCommittedInventoryFromDeckTx(tx, {
         actorUserId: user.id,
@@ -469,16 +484,17 @@ export async function returnAllCommittedDeckInventory(fd: FormData) {
   const ownerPlayerId = deck.ownerUser.playerId;
   if (!ownerPlayerId)
     throw new Error("Deck owner does not have an inventory owner profile.");
-  await prisma.$transaction((tx) =>
-    returnCommittedInventoryFromDeckTx(tx, {
+  await prisma.$transaction(async (tx) => {
+    await lockWritableDeck(tx, deckId, deck.ownerUserId);
+    return returnCommittedInventoryFromDeckTx(tx, {
       actorUserId: user.id,
       ownerPlayerId,
       deckId,
       deckName: deck.name,
       destinationLocationId,
       mode: "bulk_returned_from_deck",
-    }),
-  );
+    });
+  });
   revalidatePath(`/decks/${deckId}`);
   revalidatePath("/inventory");
   revalidatePath("/locations");
@@ -555,6 +571,7 @@ export async function addDeckCard(fd: FormData) {
   }
 
   await prisma.$transaction(async (tx) => {
+    await lockWritableDeck(tx, deckId, deck.ownerUserId);
     const existing = await tx.deckCard.findFirst({
       where: { deckId, cardId: card.id, section },
     });
@@ -703,6 +720,7 @@ export async function updateDeckCard(fd: FormData) {
   const destinationLocationId = formString(fd, "destinationLocationId");
   const ownerPlayerId = deck.ownerUser.playerId;
   await prisma.$transaction(async (tx) => {
+    await lockWritableDeck(tx, deckId, deck.ownerUserId);
     const deckCard = await tx.deckCard.findFirst({
       where: { id: deckCardId, deckId },
     });
@@ -780,6 +798,7 @@ export async function removeDeckCard(fd: FormData) {
   const { user, deck } = await requireManagedDeck(deckId);
   const ownerPlayerId = deck.ownerUser.playerId;
   await prisma.$transaction(async (tx) => {
+    await lockWritableDeck(tx, deckId, deck.ownerUserId);
     const deckCard = await tx.deckCard.findFirst({
       where: { id: deckCardId, deckId },
     });
@@ -828,6 +847,7 @@ export async function addRealCopyToDeck(fd: FormData) {
   if (!cardId) throw new Error("Select a printing before adding inventory.");
 
   await prisma.$transaction(async (tx) => {
+    await lockWritableDeck(tx, deckId, deck.ownerUserId);
     const [deckCard, selectedCard] = await Promise.all([
       tx.deckCard.findFirst({ where: { id: deckCardId, deckId } }),
       tx.card.findUnique({ where: { id: cardId } }),
@@ -943,6 +963,7 @@ export async function commitDeckCardToDeck(fd: FormData) {
   }
 
   await prisma.$transaction(async (tx) => {
+    await lockWritableDeck(tx, deckId, deck.ownerUserId);
     const [deckCard, source] = await Promise.all([
       tx.deckCard.findFirst({ where: { id: deckCardId, deckId } }),
       tx.inventoryItem.findFirst({
@@ -1069,6 +1090,7 @@ export async function bulkCommitDeckCardsToDeck(fd: FormData) {
   }
 
   await prisma.$transaction(async (tx) => {
+    await lockWritableDeck(tx, deckId, deck.ownerUserId);
     const deckLocation = await ensureDeckLocation(tx, deck);
     const auditLogs: InventoryAuditCreateManyEntry[] = [];
     for (const moveInput of validMoves) {
@@ -1181,6 +1203,7 @@ export async function returnDeckCardToInventory(fd: FormData) {
   }
 
   await prisma.$transaction(async (tx) => {
+    await lockWritableDeck(tx, deckId, deck.ownerUserId);
     const [deckCard, source, destination] = await Promise.all([
       tx.deckCard.findFirst({ where: { id: deckCardId, deckId } }),
       tx.inventoryItem.findFirst({
@@ -1257,7 +1280,7 @@ export async function returnDeckCardToInventory(fd: FormData) {
   revalidatePath("/locations");
 }
 
-export async function commitDeckImport(fd: FormData) {
+export async function commitDeckImport(fd: FormData): Promise<{ error: string } | void> {
   const deckId = formString(fd, "deckId");
   const { user, deck } = await requireManagedDeck(deckId);
   const mode = formString(fd, "mode") === "replace" ? "replace" : "merge";
@@ -1340,19 +1363,8 @@ export async function commitDeckImport(fd: FormData) {
     });
   if (lines.length === 0)
     throw new Error("No resolved decklist lines to commit.");
-  if (deck.commanderLeagueDeck) {
-    const available = await Promise.all(
-      lines.map((line) =>
-        isPrintingInLeague(deck.commanderLeagueDeck!.leagueId, line.cardId),
-      ),
-    );
-    if (available.some((printingAvailable) => !printingAvailable)) {
-      return {
-        error:
-          "The list was not imported. One or more selected printings are not in this League's linked inventory. Resolve the list again or choose an available League printing.",
-      };
-    }
-  }
+  // A League decklist can include cards outside its current pool. Availability
+  // is displayed from live stock; it must not prevent saving the list.
   const physicalCopyCount = lines.reduce(
     (total, line) => total + line.physicalQuantity,
     0,
@@ -1366,6 +1378,7 @@ export async function commitDeckImport(fd: FormData) {
   // A full deck creates receipts, movements and audits in one atomic batch.
   // Allow bounded database contention beyond the default five-second budget.
   await prisma.$transaction(async (tx) => {
+    await lockWritableDeck(tx, deckId, deck.ownerUserId);
     if (mode === "replace") {
       await tx.deckCard.deleteMany({ where: { deckId } });
     }

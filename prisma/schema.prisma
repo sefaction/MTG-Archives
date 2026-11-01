@@ -239,6 +239,9 @@ model ScannerRun {
   seriesStoppedAt DateTime?
   status          String @default("QUEUED")
   executionId     String?
+  // Frozen, authenticated helper self-report at first claim. Null is legacy
+  // unknown provenance, never reconstructed from the agent's latest pulse.
+  helperIdentity  Json?
   stopRequestedAt DateTime?
   outcome         Json?
   preflightProblem Json?
@@ -526,6 +529,7 @@ model Deck {
   deckLocation        InventoryLocation?
   tags                DeckTagAssignment[]
   commanderLeagueDeck CommanderLeagueDeck?
+  tradeBundles        TradeDeckBundle[]
 
   @@index([ownerUserId, updatedAt])
   @@index([visibility, updatedAt])
@@ -1072,6 +1076,7 @@ model Trade {
   createdByUser                 User?               @relation("TradeCreatedBy", fields: [createdByUserId], references: [id])
   updatedAt                     DateTime            @updatedAt
   lines                         TradeLine[]
+  deckBundles                   TradeDeckBundle[]
   events                        TradeEvent[]
   inventoryAuditLogs            InventoryAuditLog[]
 
@@ -1084,6 +1089,8 @@ model TradeLine {
   tradeId         String
   trade           Trade          @relation(fields: [tradeId], references: [id], onDelete: Cascade)
   side            TradeLineSide
+  deckBundleId    String?
+  deckBundle      TradeDeckBundle? @relation(fields: [deckBundleId, tradeId, side], references: [id, tradeId, side], onDelete: Cascade)
   inventoryItemId String?
   inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
   quantity        Int            @default(1)
@@ -1094,6 +1101,30 @@ model TradeLine {
 
   @@index([tradeId, side, position])
   @@index([inventoryItemId])
+  @@index([deckBundleId])
+}
+
+// Decks are indivisible offer units. Their physical lots remain ordinary
+// reservation members, grouped here rather than exposed as editable loose lines.
+// Immutable source snapshots preserve history after a later deck deletion.
+model TradeDeckBundle {
+  id             String        @id @default(cuid())
+  tradeId        String
+  trade          Trade         @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  side           TradeLineSide
+  position       Int           @default(0)
+  deckId         String?
+  deck           Deck?         @relation(fields: [deckId], references: [id], onDelete: SetNull)
+  snapshotJson   Json
+  snapshotDigest String
+  receiptJson    Json?
+  createdAt      DateTime      @default(now())
+  lines          TradeLine[]
+
+  @@unique([tradeId, deckId])
+  @@unique([id, tradeId, side])
+  @@index([deckId])
+  @@index([tradeId, side, position])
 }
 
 model TradeEvent {

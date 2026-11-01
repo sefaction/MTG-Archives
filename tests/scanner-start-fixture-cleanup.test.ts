@@ -1,3 +1,5 @@
+import * as ownedFixtureFiles from "./ui/owned-fixture-files";
+const fixtureFileBindings="const {cleanupOwnedPhotoFixtureFiles,cleanupOwnedScannerStartFiles,cleanupOwnedScannerStateFiles}="+JSON.stringify(ownedFixtureFiles)+";\n";
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -5,7 +7,7 @@ import {readFileSync} from "node:fs";
 import ts from "typescript";
 import {cancelAndCleanCorrectionFixture} from "./ui/correction-fixture";
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
-const compile=(source:string)=>ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
+const compile=(source:string)=>ts.transpileModule(fixtureFileBindings+source,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
 const tag="ui-scanner-audit-12345678-1234-1234-1234-123456789abc";
 const records:{label:string;node:ts.TryStatement;file:ts.SourceFile;steps:string[];run:Function;workflow:Function}[]=[];
 for(const name of ["scanner-alignment","scanner-preflight","scanner-start-replay","scanner-rejected-start"]){

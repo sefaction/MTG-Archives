@@ -14,6 +14,7 @@ import {
 } from "../lib/acquisition-jobs";
 import { enqueueReadyRecognition } from "../lib/acquisition-recognition-worker";
 import { finishForPrinting } from "../lib/acquisition-finish";
+import {verifyAcquisitionReviewProblems} from "./verify-acquisition-review-problems";
 
 export async function verifyAcquisitionReview(
   db: PrismaClient,
@@ -79,6 +80,7 @@ export async function verifyAcquisitionReview(
     state = await getAcquisitionCardReview(db, actor, sessionId, photoId);
     assert.deepEqual(state.defaults, { finish: "NONFOIL", condition: "NM" });
     assert.equal(state.review, null);
+    await verifyAcquisitionReviewProblems(db, actor, stranger, sessionId, photoId, card.id);
     assert.equal(
       (
         await searchAcquisitionPrintings(db, actor, sessionId, {

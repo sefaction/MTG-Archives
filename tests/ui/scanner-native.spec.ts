@@ -21,6 +21,7 @@ test("website START through actual Windows fixture helper reaches ordinary recog
   let agentId="",child:ChildProcess|undefined,log="";
   const helper=(args:string[],input?:string)=>execFileSync(dotnet!,[dll!,...args],{input,encoding:"utf8",timeout:45000,windowsHide:true});
   const began=Date.now();
+  let primaryFailed=false; let primaryError:unknown;
   try {
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:2,sections:[{name:'A',capacity:2}]}}});`);
     await page.goto('/login');await page.getByLabel(/username or email/i).fill(tag);await page.getByLabel(/^password$/i).fill(password);
@@ -132,36 +133,53 @@ test("website START through actual Windows fixture helper reaches ordinary recog
     expect(successive.first).toEqual(firstSaved);expect(successive.rows).toEqual(committed.rows);expect(successive.audits).toBe(1);
     expect(log.match(/"kind":"AcquisitionStarted"/g)?.length).toBe(2);
     writeFileSync('test-results/scanner-native-result.json',JSON.stringify({passed:true,fixture:true,physicalScans:0,inventoryChanges:1,explicitFinalConfirmation:true,successiveBatches:2,helperRestart:true,firstReviewAndReceiptPreserved:true,elapsedMs:Date.now()-began,originalDigest:originalHash,sourcePreserved:true,location:true,recognitionName:expectedName}));
-  } finally {
+  } catch(error) { primaryFailed=true;primaryError=error;throw error; } finally {
+    const cleanupErrors:unknown[]=[];
+    let cleanupSQL:string;
+    try { cleanupSQL=cancelAndCleanCorrectionFixture(tag); }
+    catch(error) { throw new AggregateError(primaryFailed?[primaryError,error]:[error],'Owned native scanner fixture cleanup failed'); }
     // Block new authenticated polling and retire only this fixture owner.
-    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
+    try { database(cleanupSQL + "console.log('{}');"); } catch(error) { cleanupErrors.push(error); }
+    let helperStopped=!child || child.exitCode!==null || child.signalCode!==null;
     try {
     if(child && child.exitCode===null && child.signalCode===null){
       child.kill();await new Promise<void>(resolve=>{child!.once('exit',()=>resolve());setTimeout(resolve,5000);});
       if(child.exitCode===null && child.signalCode===null)throw new Error('Owned fixture helper still running; retain its spool for recovery');
     }
-    writeFileSync('test-results/scanner-native-helper.log',log);
+    helperStopped=true;
+    } catch(error) { cleanupErrors.push(error); }
+    try { writeFileSync('test-results/scanner-native-helper.log',log); } catch(error) { cleanupErrors.push(error); }
+    // A live/uncertain helper keeps its local recovery journal and legacy data.
+    // The final cancellation/feedback sweep is still attempted independently.
+    try {
+    if(helperStopped) {
     if(agentId) {
-      helper(['forget',agentId]);const local=process.env.LOCALAPPDATA;
+      const local=process.env.LOCALAPPDATA;
       if(!local || !path.isAbsolute(local))throw new Error('Private helper fixture root unavailable');
       const parent=path.resolve(local,'MTGArchives','ScannerAgent'),own=path.resolve(parent,agentId);
       if(!path.isAbsolute(parent) || path.dirname(own)!==parent || !/^[a-f0-9-]{36}$/.test(agentId))throw new Error('Helper fixture cleanup escaped');
+      helper(['forget',agentId]);
       rmSync(own,{recursive:true,force:true});
     }
+    }
+    } catch(error) { cleanupErrors.push(error); }
+    if(helperStopped) try {
     database(`
       const n=${JSON.stringify(tag)};
       await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});
       const w={run:{session:{createdByUserId:n}}};
       const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;
       if(!root || !paths.isAbsolute(root))throw new Error('Private fixture storage unavailable');
-      const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});
+      const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true},orderBy:{id:'asc'}});
+      const runs=await p.scannerRun.findMany({where:{agent:{userId:n}},select:{id:true},orderBy:{id:'asc'}});
+      for(const item of [...photos,...runs])
+        if(!/^[a-f0-9-]{36}$/.test(item.id))throw new Error('Invalid owned fixture identity');
+      const fileErrors=[];
+      const remove=async file=>{try{await fs.unlink(file);}catch(error){if(error.code!=='ENOENT')fileErrors.push(error);}};
       for(const photo of photos)for(const suffix of ['.original','.preview.jpg'])
-        await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e;});
-      const runs=await p.scannerRun.findMany({where:{agent:{userId:n}},select:{id:true}});
-      for(const run of runs){
-        if(!/^[a-f0-9-]{36}$/.test(run.id))throw new Error('Invalid owned fixture identity');
-        await fs.unlink(paths.join(root,'scanner-control-v1',run.id+'.start.json')).catch(e=>{if(e.code!=='ENOENT')throw e;});
-      }
+        await remove(paths.join(root,'acquisition-v1',photo.id+suffix));
+      for(const run of runs)await remove(paths.join(root,'scanner-control-v1',run.id+'.start.json'));
+      if(fileErrors.length)throw new AggregateError(fileErrors,'Owned native scanner file cleanup incomplete; retain database graph for retry');
       await p.scannerRun.deleteMany({where:{agent:{userId:n}}});
       await p.acquisitionCommitMember.deleteMany({where:{commit:w}});await p.acquisitionCommit.deleteMany({where:w});
       await p.inventoryAuditLog.deleteMany({where:{changedByUserId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});
@@ -173,9 +191,9 @@ test("website START through actual Windows fixture helper reaches ordinary recog
       await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});
     `);
 
-    } finally {
-      // A final sweep also catches writes completed during legacy teardown.
-      database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
-    }
+    } catch(error) { cleanupErrors.push(error); }
+    // A final sweep also catches writes completed during legacy teardown.
+    try { database(cleanupSQL + "console.log('{}');"); } catch(error) { cleanupErrors.push(error); }
+    if(cleanupErrors.length)throw new AggregateError(primaryFailed?[primaryError,...cleanupErrors]:cleanupErrors,'Owned native scanner fixture cleanup failed');
   }
 });

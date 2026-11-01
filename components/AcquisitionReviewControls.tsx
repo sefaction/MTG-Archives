@@ -1,4 +1,5 @@
 "use client";
+import {AcquisitionLanguageSelect} from "./AcquisitionLanguageSelect";
 import { acquisitionReviewProgress } from "@/lib/acquisition-processing-status";
 import { acquisitionCatalogMessage } from "@/lib/acquisition-catalog-status";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -13,6 +14,10 @@ import {
   filterPanelClass as panel,
 } from "./filterStyles";
 import {
+  acquisitionPreferredPrinting,
+  acquisitionReviewOpener,
+  acquisitionOpenerName,
+  type AcquisitionOpenerChoice,
   type AcquisitionCardReview,
   type AcquisitionDefaults,
   type AcquisitionPrinting,
@@ -85,19 +90,34 @@ async function call<T>(url: string, body?: unknown): Promise<T> {
   return result;
 }
 
+export function AcquisitionOpenerSelect({label = "Original opener", value, choices, onChange, disabled = false}: {
+  label?: string; value: string | null; choices: AcquisitionOpenerChoice[];
+  onChange: (value: string | null) => void; disabled?: boolean;
+}) {
+  return <label className="min-w-0 max-w-full">{label}<select className={input + " block min-w-0 w-full sm:w-auto max-w-full"}
+    value={value ?? ""} disabled={disabled} onChange={event => onChange(event.target.value || null)}>
+    <option value="">Unknown</option>
+    {value && !choices.some(choice => choice.id === value) && <option value={value}>Unavailable player</option>}
+    {choices.map(choice => <option key={choice.id} value={choice.id}>{choice.displayName}</option>)}
+  </select></label>;
+}
 export function AcquisitionBatchDefaults({
   batchId,
   defaults,
   revision,
   refresh,
+  openerChoices = [],
 }: {
   batchId: string;
   defaults: AcquisitionDefaults;
   revision: number;
   refresh: () => void;
+  openerChoices?: AcquisitionOpenerChoice[];
 }) {
   const [finish, setFinish] = useState(defaults.finish as string),
-    [condition, setCondition] = useState(defaults.condition ?? "");
+    [condition, setCondition] = useState(defaults.condition ?? ""),
+    [language,setLanguage]=useState<string|null>(defaults.language??null),
+    [openerPlayerId, setOpenerPlayerId] = useState(defaults.openerPlayerId ?? null);
   const [loadedRevision, setLoadedRevision] = useState(revision),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
@@ -106,9 +126,11 @@ export function AcquisitionBatchDefaults({
     <section className={panel} aria-label="Batch review defaults">
       <h3 className="font-semibold">Batch defaults</h3>
       <p className="text-sm">
-        Set finish and condition once for new cards. You can change them per
+        Set finish, language, condition and original opener once for unreviewed cards. You can change them per
         card; already confirmed cards keep their saved values.
       </p>
+      <p className="text-sm">Choosing a language confirms it for this batch. Strong matches may use it when
+        language is unreadable. Readable conflicts need individual review; choose the correct printing to override the batch language for a card.</p>
       <form
         className="mt-3 flex flex-wrap items-end gap-3"
         onSubmit={async (event) => {
@@ -121,7 +143,7 @@ export function AcquisitionBatchDefaults({
               {
                 action: "defaults",
                 revision: loadedRevision,
-                defaults: { finish, condition: condition || null },
+                defaults: { ...defaults, finish, condition: condition || null, language, openerPlayerId },
               },
             );
             setLoadedRevision(saved.defaultsRevision);
@@ -163,6 +185,8 @@ export function AcquisitionBatchDefaults({
             ))}
           </select>
         </label>
+        <AcquisitionLanguageSelect value={language} onChange={setLanguage} disabled={busy||stale}/>
+        <AcquisitionOpenerSelect label="Batch original opener" value={openerPlayerId} choices={openerChoices} onChange={setOpenerPlayerId} />
         <button className={button} disabled={busy || stale}>
           Save batch defaults
         </button>
@@ -173,6 +197,8 @@ export function AcquisitionBatchDefaults({
             onClick={() => {
               setFinish(defaults.finish);
               setCondition(defaults.condition ?? "");
+              setLanguage(defaults.language??null);
+              setOpenerPlayerId(defaults.openerPlayerId ?? null);
               setLoadedRevision(revision);
               setMessage("");
             }}
@@ -205,6 +231,7 @@ export function AcquisitionPhotoReview({
   mode = "advanced",
   onDirtyChange,
   onNextAwaiting,
+  openerChoices = [],
 }: {
   userId: string;
   batchId: string;
@@ -215,6 +242,7 @@ export function AcquisitionPhotoReview({
   mode?: AcquisitionReviewMode;
   onDirtyChange?: (photoId: string, dirty: boolean) => void;
   onNextAwaiting?: () => void;
+  openerChoices?: AcquisitionOpenerChoice[];
 }) {
   const endpoint = `/api/acquisition/${batchId}/review`;
   const root = useRef<HTMLDivElement>(null);
@@ -224,6 +252,7 @@ export function AcquisitionPhotoReview({
   const [finish, setFinish] = useState("UNKNOWN"),
     [condition, setCondition] = useState(""),
     [language, setLanguage] = useState("");
+  const [openerPlayerId, setOpenerPlayerId] = useState<string | null>(null);
   const [error, setError] = useState(""),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
@@ -241,8 +270,11 @@ export function AcquisitionPhotoReview({
   const evidenceTokens = useRef<CorrectionDisplayTokens>({ displayed: [] });
   const dirty = useRef(false),
     requestVersion = useRef(0);
+  useEffect(() => () => { ++requestVersion.current; }, [userId, batchId, photoId]);
   const searchInput = useRef<HTMLInputElement>(null);
   const focusSearch = useRef(false);
+  const correctionButton = useRef<HTMLButtonElement>(null);
+  const focusAfterReview = useRef(false);
   function openCorrection() {
     evidenceTokens.current.edit ??= record?.evidenceToken;
     focusSearch.current = true;
@@ -255,6 +287,15 @@ export function AcquisitionPhotoReview({
       searchInput.current?.focus(); searchInput.current?.select();
     }
   }, [editing]);
+  useEffect(() => {
+    if (busy || !focusAfterReview.current) return;
+    focusAfterReview.current = false;
+    // Completing review can unmount its focused button. Wait for the replacement controls
+    // to be enabled, but leave focus alone if the user moved to another card.
+    const focused = document.activeElement;
+    if (focused !== document.body && !root.current?.contains(focused)) return;
+    (mode === "simple" ? correctionButton.current : searchInput.current)?.focus();
+  }, [busy, editing, mode]);
   function markDirty() {
     evidenceTokens.current.edit ??= record?.evidenceToken;
     dirty.current = true;
@@ -277,14 +318,14 @@ export function AcquisitionPhotoReview({
     let warning = "";
     try {
       draftWrite.current = saveAcquisitionDraft(localStorage, { userId, batchId, photoId }, { version: 1, revision: draftRevision,
-        selected, finish, condition, language, query, set, number, evidenceTokens: evidenceTokens.current });
+        selected, finish, condition, language, openerPlayerId, query, set, number, evidenceTokens: evidenceTokens.current });
     } catch {
       warning = "These edits could not be kept in this browser. Save the review before leaving this page.";
     }
     let active = true;
     void Promise.resolve().then(() => { if (active) setDraftWarning(warning); });
     return () => { active = false; };
-  }, [userId, batchId, photoId, draftDirty, draftRevision, selected, finish, condition, language, query, set, number, committed]);
+  }, [userId, batchId, photoId, draftDirty, draftRevision, selected, finish, condition, language, openerPlayerId, query, set, number, committed]);
   useEffect(() => {
     if (!committed) return;
     let warning = "";
@@ -301,11 +342,12 @@ export function AcquisitionPhotoReview({
     (next: AcquisitionCardReview) => {
       evidenceTokens.current = rememberCorrectionDisplay(evidenceTokens.current, next.evidenceToken);
       setRecord(next);
-      const choice = next.printing ?? next.suggestions[0]?.printing ?? null;
+      const choice = acquisitionPreferredPrinting(next);
       setSelected(choice);
     setFinish(next.review?.finish ?? finishForPrinting(next.defaults.finish, choice) ?? next.defaults.finish);
       setCondition(next.review?.condition ?? next.defaults.condition ?? "");
-      setLanguage(next.review?.language ?? choice?.lang ?? "");
+      setLanguage(next.review?.language ?? choice?.lang ?? next.defaults.language ?? "");
+      setOpenerPlayerId(acquisitionReviewOpener(next.defaults, next.review));
       setError("");
       dirty.current = false;
       setDraftDirty(false);
@@ -354,6 +396,7 @@ export function AcquisitionPhotoReview({
                   draftWrite.current = saved.writeId;
                   setRecord({ ...next, revision: saved.revision });
                   setSelected(saved.selected); setFinish(saved.finish); setCondition(saved.condition); setLanguage(saved.language);
+                  setOpenerPlayerId(acquisitionReviewOpener(next.defaults, next.review, saved));
                   setQuery(saved.query); setSet(saved.set); setNumber(saved.number); setEditing(true);
                   dirty.current = true; setDraftDirty(true); onDirtyChange?.(photoId, true);
                   setMessage(saved.revision === next.revision ? "Unsaved correction restored from this browser. Save the review when ready." :
@@ -428,14 +471,21 @@ export function AcquisitionPhotoReview({
     apply,
     userId, batchId, committed, onDirtyChange,
   ]);
-  async function reload() {
-    ++requestVersion.current;
+  async function reload(afterSave = false) {
+    if (!afterSave && (busy || regionEditing)) return;
+    const version = ++requestVersion.current;
+    setBusy(true);
+    setError("");
     try {
       const next = await call<AcquisitionCardReview>(`${endpoint}?photoId=${photoId}`);
+      if (version !== requestVersion.current) return;
       setObservedRevision(next.revision);
       clearDraft(); apply(next); setMessage("");
     } catch (e) {
-      setError((e as Error).message);
+      if (version === requestVersion.current) setError((e as Error).message);
+    } finally {
+      // A successful save retains its busy state through navigation and refresh.
+      if (!afterSave && version === requestVersion.current) setBusy(false);
     }
   }
   async function discardChanges() {
@@ -450,6 +500,7 @@ export function AcquisitionPhotoReview({
       clearDraft();
       apply(next);
       setQuery(""); setSet(""); setNumber(""); setMatches(null);
+      focusAfterReview.current = true;
       setEditing(false);
       setMessage("Unsaved changes discarded.");
     } catch (e) {
@@ -477,12 +528,14 @@ export function AcquisitionPhotoReview({
                 finish,
                 condition,
                 language: selected!.lang ?? language,
+                openerPlayerId,
               },
             }
           : {}),
       });
       clearDraft(); dirty.current = false; setDraftDirty(false); onDirtyChange?.(photoId, false);
-      await reload();
+      await reload(true);
+      focusAfterReview.current = !next;
       setEditing(false);
       setMessage(
         action === "accept"
@@ -734,6 +787,8 @@ export function AcquisitionPhotoReview({
                   </select>
                 </label>
               </div>
+              <div className="mt-3"><AcquisitionOpenerSelect value={openerPlayerId} choices={openerChoices}
+                onChange={value => {markDirty(); setOpenerPlayerId(value);}} /></div>
               {selected && !selected.lang && (
                 <label>
                   Card language
@@ -821,12 +876,17 @@ export function AcquisitionPhotoReview({
       {error && (
         <div role="alert" className="mb-2">
           <p>{error}</p>
-          <button className={button} onClick={() => void reload()}>
+          <button className={button} disabled={busy || regionEditing} onClick={() => void reload()}>
             Reload review
           </button>
         </div>
       )}
       {draftWarning && <p role="status" className="text-sm mb-2">{draftWarning}</p>}
+      {record && !record.review && record.defaults.language && record.evidence?.identifiers.languages.some(
+        language=>language.toLowerCase()!==record.defaults.language) && <p role="status" className="text-sm mb-2">
+        Readable language conflicts with the confirmed batch language. Check this card and choose its correct printing before saving.
+      </p>}
+      {record && <p className="text-sm mb-2 break-words">Original opener: {acquisitionOpenerName(openerPlayerId, openerChoices)}</p>}
       {!record ? (
         <p role="status">
           {active ? "Loading card review…" : "Card review loads as you scroll."}
@@ -1089,6 +1149,7 @@ export function AcquisitionPhotoReview({
                     )}
                     {!showEditor && (
                       <button
+                        ref={correctionButton}
                         className={button}
                         disabled={busy || regionEditing}
                         onClick={openCorrection}

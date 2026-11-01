@@ -15,11 +15,16 @@ import {
   emptyAcquisitionDefaults,
   acquisitionPrintingSelect,
   acquisitionReviewRequestSchema,
+  preserveAcquisitionDefaultChoices,
+  preserveAcquisitionReviewOpener,
   type AcquisitionCardReview,
 } from "./acquisition-review";
 import { VISUAL_STAGE } from "./acquisition-visual";
 import { PRINTING_STAGE } from "./acquisition-printing";
 import { acquisitionRecognitionJobs } from "./acquisition-recognition-jobs";
+import {acquisitionReviewProblems} from "./acquisition-review-problems";
+import {readAcquisitionProblemJobs} from "./acquisition-review-problem-store";
+import {acquisitionAnalysisForPhoto} from "./acquisition-analysis-scope";
 import { CATALOG_RECONCILIATION_STAGE } from "./acquisition-catalog-status";
 import { acquisitionReviewEvidence } from "./acquisition-review-evidence";
 import { acquisitionManualAnalysisSchema, sameAcquisitionManualRegion, validateAcquisitionManualRegionFrame } from "./acquisition-manual-region";
@@ -30,6 +35,8 @@ import { correctionUsage } from "./acquisition-correction-access";
 import {
   acquisitionEventSchema,
   candidateKey,
+  captureSummary,
+  countReasons,
   createCaptureSession,
   placementSnapshot,
   receiveAcquisitionEvent,
@@ -212,7 +219,12 @@ function hydrate(row: Stored): StoredCapture {
       eventId: e.sourceEventId,
       payload: e.payload,
     })),
-    candidates: run.candidates.map((c) => ({
+    // Relation row order is not a durable property. Preserve physical order on
+    // every fresh-client/replay read without mutating the persisted projection.
+    candidates: [...run.candidates].sort((left, right) =>
+      left.acquisitionOrder - right.acquisitionOrder || left.spatialOrder - right.spatialOrder ||
+      (left.physicalId < right.physicalId ? -1 : left.physicalId > right.physicalId ? 1 : 0),
+    ).map((c) => ({
       key: candidateKey(run.sourceRunId, c.physicalId),
       input: {
         id: c.physicalId,
@@ -334,6 +346,9 @@ export async function createAcquisitionSession(
           throw new Error("Capture creation identity conflict");
         return hydrate(existing);
       }
+      if (input.defaults?.openerPlayerId && !await tx.player.findUnique({
+        where: {id: input.defaults.openerPlayerId}, select: {id: true},
+      })) throw new Error("Choose an existing original opener, or Unknown");
       const owner = await tx.player.findUnique({
         where: { id: input.ownerPlayerId },
       });
@@ -904,11 +919,19 @@ export async function getAcquisitionProgress(
       : [];
     const evidenceVersionByPhoto=new Map(evidenceVersions.map(row=>[row.photoId,row.version]));
     const state = hydrate(row);
+    const problemSources = slots.flatMap(slot => {
+      const photo = slot.photos.find(p => p.ready && !p.purgedAt && p.generation === slot.generation);
+      const candidate = row.run!.candidates.find(c => c.physicalId === slot.id);
+      return photo && candidate ? [{id: photo.id,
+        manualAnalysis: acquisitionAnalysisForPhoto(candidate, photo)}] : [];
+    });
+    const problemJobs = await readAcquisitionProblemJobs(tx, row.run!.id, problemSources);
     const reviewedIds = [
       ...new Set(
-        state.session.candidates.flatMap((c) =>
+        [...state.session.candidates.flatMap((c) =>
           c.review?.cardId ? [c.review.cardId] : [],
-        ),
+        ), ...[...problemJobs.values()].flatMap(jobs => jobs.flatMap(job =>
+          job.proposalIds?.filter((id): id is string => typeof id === "string") ?? []))],
       ),
     ];
     const reviewedNames = new Map(
@@ -920,6 +943,7 @@ export async function getAcquisitionProgress(
             name: true,
             setCode: true,
             collectorNumber: true,
+            finishes: true,
           },
         })
       ).map((c) => [c.id, c]),
@@ -940,6 +964,18 @@ export async function getAcquisitionProgress(
           : null,
       ]),
     );
+    // Advisory physical blockers only. A fresh commit preview still revalidates
+    // ownership, printing, destination, revisions and every selected photo.
+    const allocated = new Set(captureSummary(state.session).allocated);
+    const physicalReasons = new Map(state.session.candidates.map(candidate => {
+      const reasons: string[] = [];
+      if (candidate.excluded) reasons.push("UNAVAILABLE");
+      else {
+        if (countReasons(candidate).length) reasons.push("COUNT_UNCERTAIN");
+        if (!allocated.has(candidate.key)) reasons.push("OVERFLOW");
+      }
+      return [candidate.input.id, reasons] as const;
+    }));
     return {
       ...state,
       correctionLibrary: await correctionUsage(tx, row.ownerPlayerId),
@@ -948,18 +984,37 @@ export async function getAcquisitionProgress(
         status: j.status,
         evidenceVersion:evidenceVersionByPhoto.get(j.artifact.sourceId)??null,
       })),
-      slots: slots.map((slot) => ({
+      slots: slots.map((slot) => {
+        const photo = slot.photos.find(p => p.ready && !p.purgedAt && p.generation === slot.generation);
+        const review = reviews.get(slot.id) ?? null;
+        const committed = Boolean(row.run!.candidates.find(c => c.physicalId === slot.id)?.receipt);
+        return {
         id: slot.id,
         position: slot.position,
         generation: slot.generation,
         photos: slot.photos,
-        review: reviews.get(slot.id) ?? null,
+        review,
+        reviewProblems: acquisitionReviewProblems({committed, review,
+          printings: reviewedNames,
+          visualEnabled: process.env.ACQUISITION_VISUAL_ENABLED === "1",
+          printingEnabled: process.env.ACQUISITION_PRINTING_ENABLED === "1",
+          defaultsFinish: state.defaults.finish, defaultsLanguage: state.defaults.language, photoReady: Boolean(photo),
+          physicalReasons: physicalReasons.get(slot.id) ?? ["UNAVAILABLE"],
+          jobs: photo ? problemJobs.get(photo.id) ?? [] : []}),
+        physicalReadiness: {
+          reasons: [
+            ...(physicalReasons.get(slot.id) ?? ["UNAVAILABLE"]),
+            // Match the existing selected-subset STOPPING exception.
+            ...(!["STOPPING", "COMPLETE", "CANCELLED"].includes(row.phase)
+              ? ["ACQUISITION_NOT_SETTLED"] : []),
+            ...(!slot.photos.some(photo => photo.ready && !photo.purgedAt &&
+              photo.generation === slot.generation) ? ["PHOTO_NOT_CURRENT"] : []),
+          ],
+        },
         reviewRevision: row.run!.candidates.find((c) => c.physicalId === slot.id)?.revision ?? 0,
-        committed: Boolean(
-          row.run!.candidates.find((c) => c.physicalId === slot.id)?.receipt,
-        ),
+        committed,
         received: row.run!.candidates.some((c) => c.physicalId === slot.id),
-      })),
+      }; }),
       reservedSlots: slots.length,
       availableSlots:
         row.target === null ? null : Math.max(0, row.target - slots.length),
@@ -1349,10 +1404,15 @@ export async function saveAcquisitionReview(
         throw new Error(
           "Capture batch defaults changed; reload them before saving",
         );
+      const defaults=preserveAcquisitionDefaultChoices(input.defaults,
+        acquisitionDefaultsSchema.parse(row.reviewDefaults??emptyAcquisitionDefaults));
+      if (defaults.openerPlayerId && !await tx.player.findUnique({
+        where: {id: defaults.openerPlayerId}, select: {id: true},
+      })) throw new Error("Choose an existing original opener, or Unknown");
       await tx.acquisitionSession.update({
         where: { id: sessionId },
         data: {
-          reviewDefaults: input.defaults,
+          reviewDefaults: defaults,
           defaultsRevision: { increment: 1 },
         },
       });
@@ -1365,12 +1425,12 @@ export async function saveAcquisitionReview(
             action: "REVIEW_DEFAULTS",
             actorId: actor.userId,
             before: row.reviewDefaults,
-            after: input.defaults,
+            after: defaults,
           }),
         },
       });
       return {
-        defaults: input.defaults,
+        defaults,
         defaultsRevision: row.defaultsRevision + 1,
       };
     }
@@ -1463,6 +1523,8 @@ export async function saveAcquisitionReview(
         "Capture card is already committed; use Inventory to change it",
       );
     const current = candidate.review as AcquisitionCardReview["review"];
+    if (input.action === "accept") input.decision = preserveAcquisitionReviewOpener(
+      input.decision, candidate.review as AcquisitionCardReview["review"]);
     if (candidate.revision !== input.revision) {
       if (
         input.action === "accept" &&
@@ -1476,6 +1538,9 @@ export async function saveAcquisitionReview(
       throw new Error("Capture card changed; reload its review before saving");
     }
     if (input.action === "accept") {
+      if (input.decision.openerPlayerId && !await tx.player.findUnique({
+        where: {id: input.decision.openerPlayerId}, select: {id: true},
+      })) throw new Error("Choose an existing original opener, or Unknown");
       const card = await tx.card.findUnique({
         where: { id: input.decision.cardId },
       });

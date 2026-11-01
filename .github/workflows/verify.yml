@@ -13,6 +13,104 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  backup-correction-drill:
+    name: Backup correction lifecycle and real recovery drill
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: drill
+          POSTGRES_PASSWORD: drill
+          POSTGRES_DB: mtg_drill_source922
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U drill -d mtg_drill_source922"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      restore-db:
+        image: postgres:16
+        env:
+          POSTGRES_USER: drill
+          POSTGRES_PASSWORD: drill
+          POSTGRES_DB: mtg_restore_drill
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U drill -d mtg_restore_drill"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://drill:drill@postgres:5433/mtg_drill_source922?schema=public
+      CORRECTION_DRILL_RESTORE_URL: postgresql://drill:drill@restore-db:5432/mtg_restore_drill?schema=public
+      MTG_LOCAL_PILOT_TEST: "1"
+      MTG_CORRECTION_DRILL_FIXTURE: "1"
+      TZ: America/Chicago
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Map only this disposable runner's fixed drill endpoints
+        run: echo '127.0.0.1 postgres restore-db' | sudo tee -a /etc/hosts
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - name: Install matching PostgreSQL archive tools and isolated file roots
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-16
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
+          sudo install -d -o "$(id -u)" -g "$(id -g)" /app /app/data /app/data/backups /input /drill
+          ln -s "$PWD/node_modules" /app/node_modules
+      - name: Actual capture, isolated restore, source mutation and field conservation controls
+        run: npx tsx scripts/verify-backup-correction-drill.ts
+
+  acquisition-capture-restore:
+    name: Acquisition capture archive restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: acquisition_capture_source305
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d acquisition_capture_source305"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/acquisition_capture_source305?schema=public
+      CAPTURE_RESTORE_DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/acquisition_capture_restore305?schema=public
+      MTG_LOCAL_PILOT_TEST: "1"
+      MTG_CAPTURE_RESTORE_FIXTURE: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - name: Install matching PostgreSQL archive tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-16
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
+      - name: Create the separate empty restore target
+        run: psql 'postgresql://ci:ci@127.0.0.1:5432/postgres' --set ON_ERROR_STOP=1 --command 'CREATE DATABASE acquisition_capture_restore305'
+      - name: Durable upload acknowledgement across actual backup and restore
+        run: npx tsx scripts/verify-acquisition-capture-restore.ts
+
   acquisition-integrity:
     name: Acquisition PostgreSQL integrity
     runs-on: ubuntu-latest
@@ -38,6 +136,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -45,8 +144,29 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npx prisma migrate deploy
+      - name: Retain the pinned original hydration ordering failure
+        run: |
+          mkdir -p .local-data/acquisition-order
+          test "$(git rev-parse 3ae13d0d6237cf43bc9a8a417bad4ae5234c21a3:lib/acquisition-store.ts)" = f8ee9e137bc202914c6216895825a89d190a858c
+          git show 3ae13d0d6237cf43bc9a8a417bad4ae5234c21a3:lib/acquisition-store.ts > .local-data/acquisition-order/original-store.ts
+          set +e
+          MTG_ACQUISITION_HYDRATE_SOURCE=.local-data/acquisition-order/original-store.ts npx tsx --test --test-reporter=tap tests/acquisition-session-order.test.ts > .local-data/acquisition-order/original.log 2>&1
+          result=$?
+          set -e
+          cat .local-data/acquisition-order/original.log
+          test "$result" -eq 1
+          grep -F '"permutations":24,"incorrectCandidateOrders":23' .local-data/acquisition-order/original.log
+          grep -F '# tests 2' .local-data/acquisition-order/original.log
+          grep -F '# pass 1' .local-data/acquisition-order/original.log
+          grep -F '# fail 1' .local-data/acquisition-order/original.log
+          grep -F '# skipped 0' .local-data/acquisition-order/original.log
+          grep -F '# cancelled 0' .local-data/acquisition-order/original.log
+      - name: Current actual hydration is stable for every candidate permutation
+        run: npx tsx --test tests/acquisition-session-order.test.ts
       - name: Real acquisition database ownership, concurrency, rollback and replay
         run: npx tsx scripts/verify-acquisition-store.ts
+      - name: Interrupted photo writer retention and same-identity recovery
+        run: npx tsx scripts/verify-acquisition-interrupted-storage.ts --verify
 
   core:
     name: Core verification
@@ -64,6 +184,8 @@ jobs:
           persist-credentials: false
       - name: OCR line geometry guards
         run: python -m unittest discover -s tools/acquisition-runtime -p test_reading_direction.py
+      - name: Offline scanner crash-event correlation and privacy (no hardware)
+        run: python -m unittest discover -s tools/scanner-agent -p test_crash_event_evidence.py
       - name: Tight scan geometry guards (no models or private photos)
         run: |
           pip install numpy==2.2.6 opencv-contrib-python==4.10.0.84 pillow==11.3.0
@@ -74,7 +196,9 @@ jobs:
       - name: Public reference and resumable index integrity (no models or private photos)
         run: python -m unittest discover -s tools/acquisition-eval -p 'test_catalog*.py'
       - name: Visual descriptor validation without inference imports
-        run: python -m unittest discover -s tools/acquisition-runtime -p test_visual_descriptor.py
+        run: |
+          python -m unittest discover -s tools/acquisition-runtime -p test_visual_descriptor.py
+          python -m unittest discover -s tools/acquisition-runtime -p test_visual_reference_images.py
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -147,3 +271,158 @@ jobs:
         run: npx tsx scripts/verify-pricing-provider-currency.ts
       - name: Streamed identifier mapping and malformed-tail conservation
         run: npx tsx scripts/verify-pricing-identifier-worker.ts
+      - name: One-sided gifts retain consent and physical inventory integrity
+        env:
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/trade_gift_fixture?schema=public
+          PGPASSWORD: ci
+        run: |
+          createdb -h 127.0.0.1 -U ci trade_gift_fixture
+          npx prisma migrate deploy
+          npx tsx scripts/ci/trade-gifts.ts
+
+  inventory-delete-reservations:
+    name: Inventory deletion reservation integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: inventory_delete_fixture
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d inventory_delete_fixture"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/inventory_delete_fixture?schema=public
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - run: npx tsx scripts/ci/inventory-delete-reservations.ts
+
+  trade-wishlist-integrity:
+    name: Trade wishlist PostgreSQL conservation
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: trade_wishlist_fixture
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d trade_wishlist_fixture"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/trade_wishlist_fixture?schema=public
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - run: npx tsx scripts/verify-trade-wishlist-concurrency.ts
+
+  trade-stock-integrity:
+    name: Shared trade stock PostgreSQL audit integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: trade_stock_fixture
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d trade_stock_fixture"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/trade_stock_fixture?schema=public
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - name: Pin pre-repair action source
+        run: |
+          mkdir -p .local-data/trade-stock
+          git show b810f06a18f1e358b970bccf8093e4b1026eeb66:app/trades/actions.ts > .local-data/trade-stock/baseline-actions.ts
+      - run: npx tsx scripts/ci/trade-shared-stock.ts
+      - name: Pinned old proposal source reproduces over-reservation
+        env:
+          TRADE_PROPOSAL_BASELINE: '1'
+        run: |
+          git show e133ddd8ab910092de7126f62f4d5f5b5b0a6775:app/trades/actions.ts > .local-data/trade-stock/proposal-baseline-actions.ts
+          npx tsx scripts/ci/trade-proposal-reservations.ts
+      - name: Concurrent proposals respect available physical stock
+        run: npx tsx scripts/ci/trade-proposal-reservations.ts
+      - name: Whole-deck bundle schema, reservation fences and recipient ownership
+        # Pin the reproduced privacy failure independently of the candidate.
+        run: |
+          git show 1b1eb0d91d9159dc04320961bd21acffd275f3b5:app/api/trades/decks/route.ts > .local-data/trade-stock/privacy-baseline-route.ts
+          npx tsx scripts/ci/deck-trade-bundles.ts
+
+  trade-audit-integrity:
+    name: Trade audit PostgreSQL history bounds
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: trade_audit_fixture
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d trade_audit_fixture"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/trade_audit_fixture?schema=public
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - name: Pin pre-repair source
+        run: |
+          mkdir -p .local-data/trade-audit
+          git show b810f06a18f1e358b970bccf8093e4b1026eeb66:app/trades/actions.ts > .local-data/trade-audit/baseline-actions.ts
+      - run: npx tsx scripts/ci/trade-audit-history.ts

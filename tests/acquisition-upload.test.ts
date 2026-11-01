@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Prisma } from "@prisma/client";
-import { acquisitionError } from "../lib/acquisition-api";
+import { acquisitionError, acquisitionCommitError } from "../lib/acquisition-api";
 import {
   isRetryableAcquisitionConflict,
   uploadAcquisitionPhoto,
@@ -65,6 +65,56 @@ test("only known database serialization/deadlock errors carry a safe retry hint"
   ]) {
     assert.equal(isRetryableAcquisitionConflict(error), false);
     assert.equal((await acquisitionError(error).json()).retryable, undefined);
+  }
+});
+
+test("filesystem-full responses give safe guidance without leaking paths or retry hints", async () => {
+  for (const code of ["ENOSPC", "EDQUOT"]) {
+    const primary = Object.assign(new Error("private filesystem detail /private/unavailable/owner/photo.part"), { code });
+    for (const error of [primary, Object.assign(new AggregateError([primary, new Error("private cleanup")],
+      "private combined failure", { cause: primary }), { code })]) {
+      const response = acquisitionError(error);
+      assert.equal(response.status, 409);
+      assert.equal(response.headers.get("Cache-Control"), "no-store");
+      assert.deepEqual(await response.json(), {
+        error: "Photo storage is full. Free storage space or ask the administrator, then retry.",
+      });
+    }
+  }
+  for (const error of [Object.assign(new Error("private path"), { code: "EIO" }),
+    new Error("ENOSPC"), { code: "ENOSPC-like" }]) {
+    assert.deepEqual(await acquisitionError(error).json(), {
+      error: "The scan request could not be completed. Refresh and retry.",
+    });
+  }
+  const denied = acquisitionError(new Error("Login required"));
+  assert.equal(denied.status, 403);
+  assert.deepEqual(await denied.json(), { error: "Login required" });
+});
+
+test("a filesystem-full response preserves the original upload for one manual retry", async () => {
+  for (const code of ["ENOSPC", "EDQUOT"]) {
+    let calls = 0;
+    await assert.rejects(uploadAcquisitionPhoto(url, blob, {
+      signal: new AbortController().signal, wait,
+      request: async (address, options) => {
+        calls++;
+        assert.equal(address, url);
+        assert.equal(options?.body, blob);
+        return acquisitionError(Object.assign(new Error("private filesystem detail"), { code }));
+      },
+    }), /Photo storage is full\. Free storage/);
+    assert.equal(calls, 1, "storage exhaustion must not trigger automatic upload retries");
+    await uploadAcquisitionPhoto(url, blob, {
+      signal: new AbortController().signal, wait,
+      request: async (address, options) => {
+        calls++;
+        assert.equal(address, url);
+        assert.equal(options?.body, blob);
+        return ready();
+      },
+    });
+    assert.equal(calls, 2);
   }
 });
 
@@ -174,4 +224,22 @@ test("slot reservation reuses its one request key after a conflict or lost ackno
   assert.deepEqual(JSON.parse(String(calls[0].body)), {
     action:"reserve",requestKey:"a7251f4d-5bfb-45b3-85e5-312023964733",
   });
+});
+
+test("closed commit connections retain an unknown outcome without leaking or enabling upload retries", async () => {
+  const error=new Prisma.PrismaClientKnownRequestError("private SQL postgresql://credential",{code:"P1017",clientVersion:"fixture"});
+  const response=acquisitionCommitError(error);
+  assert.equal(response.status,503);
+  assert.equal(response.headers.get("cache-control"),"no-store");
+  assert.deepEqual(await response.json(),{error:"The database connection was interrupted. Wait a moment, then retry the same request."});
+  // Other acquisition routes retain their existing classification/retry policy.
+  assert.equal(acquisitionError(error).status,409);
+});
+
+test("commit transport handling preserves authorization and semantic refusals", async () => {
+  for(const error of [new Error("Login required"),new Error("Destination changed; refresh"),new Error("P1017"),{code:"P2034"},{code:"P2002"},null]){
+    const expected=acquisitionError(error),actual=acquisitionCommitError(error);
+    assert.equal(actual.status,expected.status);
+    assert.deepEqual(await actual.json(),await expected.json());
+  }
 });

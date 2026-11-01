@@ -1,3 +1,24 @@
+# Current ordinary-deck incident boundary — November 1, 2026
+
+[#808](https://github.com/sefaction/MTG-Archives/issues/808) remains a separate
+ordinary-deck Paste decklist incident with physical copies selected. The later
+87-row/100-copy supplied example passed real list-only and physical-copy imports,
+including quantities and audits, as recorded in the
+[October 21 evidence](https://github.com/sefaction/MTG-Archives/issues/808#issuecomment-6315225037).
+That example is not established as the original failing payload. The original
+request/revision/error and persistence outcome remain unattributed; do not repeat
+the unchanged passing example as proof that the historical failure is resolved.
+
+The supplied sealed League case, policy decisions and approved web deployment
+belong to [#844's current record](https://github.com/sefaction/MTG-Archives/issues/844)
+and the [League qualification](LEAGUE_PASTE_REVALIDATION_QUALIFICATION.md).
+They do not identify #808's cause. Resume the ordinary incident with its actual
+request evidence or a genuine, separately authorized recurrence. Preserve the
+physical-copy, commitment, audit, atomicity and intentional-append checks below.
+
+The dated October 20 and earlier checkpoints follow unchanged as history.
+
+---
 # Unattended investigation boundary — October 20, 2026 Central
 
 Related issue #808. The confirmed workflow is **ordinary decks**, Paste decklist with physical copies enabled for every submitted card, on Unraid. Brian reported a commander list, generic/black error page and nothing added afterward. Preserve this as a separate incident from the sealed League final-apply report #844.

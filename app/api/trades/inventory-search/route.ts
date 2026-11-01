@@ -24,6 +24,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const ownerId = url.searchParams.get("ownerId") || "";
   const query = (url.searchParams.get("q") || "").trim();
+  const counterTradeId = url.searchParams.get("counterTradeId") || undefined;
 
   if (!ownerId) {
     return NextResponse.json({ items: [] });
@@ -43,6 +44,15 @@ export async function GET(request: Request) {
       { error: "Trade owner not found." },
       { status: 404 },
     );
+  }
+  if (counterTradeId) {
+    const parent = await prisma.trade.findUnique({ where: { id: counterTradeId }, select: {
+      proposerPlayerId: true, receiverPlayerId: true, status: true,
+    } });
+    if (!parent || parent.status !== "PROPOSED" || parent.receiverPlayerId !== actor.playerId ||
+        (ownerId !== parent.proposerPlayerId && ownerId !== parent.receiverPlayerId)) {
+      return NextResponse.json({ error: "This counter proposal is unavailable. Refresh the trade." }, { status: 404 });
+    }
   }
   if (query.length < 2) {
     return NextResponse.json({ items: [] });
@@ -76,13 +86,14 @@ export async function GET(request: Request) {
         prisma.tradeLine.findMany({
           where: {
             inventoryItemId: { in: itemIds },
-            trade: { status: { in: activeTradeStatuses } },
+            trade: { status: { in: activeTradeStatuses }, ...(counterTradeId ? { id: { not: counterTradeId } } : {}) },
           },
           select: { inventoryItemId: true, quantity: true },
         }),
         prisma.trade.findMany({
           where: {
             status: { in: activeTradeStatuses },
+            ...(counterTradeId ? { id: { not: counterTradeId } } : {}),
             lines: { none: {} },
             OR: [
               { offeredInventoryItemId: { in: itemIds } },

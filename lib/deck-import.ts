@@ -16,7 +16,8 @@ import {
   getOwnershipByCard,
 } from "./deck-search";
 import {
-  isPrintingInLeague,
+  getLeaguePoolAvailability,
+  type LeaguePoolStatus,
   leagueInventoryItemWhere,
 } from "./commander-league-inventory";
 
@@ -58,6 +59,7 @@ export type DeckImportReviewLine = {
   selectedCardSummary: DeckImportCardSummary | null;
   ownedQuantity: number;
   locationSummary: string | null;
+  leaguePoolStatus?: LeaguePoolStatus;
   resolutionStatus: DeckImportStatus;
   resolutionMessage: string;
   warnings: string[];
@@ -329,25 +331,21 @@ async function cheapestPrintingForName(
     await prisma.card.findMany({
       where: {
         ...cardOrFaceNameWhere(name),
-        ...(leagueId
-          ? {
-              inventoryItems: {
-                some: leagueInventoryItemWhere(leagueId),
-              },
-            }
-          : {}),
       },
     })
   ).filter((card) => matchesCardOrFaceName(card.name, key));
   let candidates = local;
-  if (candidates.length === 0 && !leagueId) {
+  if (candidates.length === 0) {
     const result = await searchCardsResult(
       `!"${name.trim().replace(/"/g, '\\"')}" unique:prints`,
     );
     if (result.ok) {
-      const imported = await Promise.all(
-        result.data.data.slice(0, 75).map((card) => upsertScryfallCard(card)),
-      );
+      // Cache writes each use a transaction; a name with many printings must
+      // not claim a separate connection for every result at once.
+      const imported: Card[] = [];
+      for (const card of result.data.data.slice(0, 75)) {
+        imported.push(await upsertScryfallCard(card));
+      }
       const ids = new Set(candidates.map((card) => card.id));
       candidates = [
         ...candidates,
@@ -360,18 +358,6 @@ async function cheapestPrintingForName(
   candidates = candidates.sort(compareCheapestPlayableCards);
   cache.set(key, candidates);
   return candidates;
-}
-
-async function exactPrinting(line: DeckImportReviewLine) {
-  if (!line.parsedSetCode || !line.parsedCollectorNumber || !line.parsedName)
-    return null;
-  const match = await findOrImportCard({
-    name: line.parsedName,
-    setCode: line.parsedSetCode,
-    collectorNumber: line.parsedCollectorNumber,
-  });
-  if (match.card) return match.card as Card;
-  return null;
 }
 
 function cardSummary(card: Card): DeckImportCardSummary {
@@ -395,16 +381,11 @@ async function withSelectedCard(
   ownerPlayerId?: string | null,
   leagueId?: string | null,
 ) {
+  const pool = leagueId
+    ? (await getLeaguePoolAvailability(leagueId, [card])).get(card.id)
+    : undefined;
   const exact = leagueId
-    ? await prisma.inventoryItem
-        .aggregate({
-          where: { ...leagueInventoryItemWhere(leagueId), cardId: card.id },
-          _sum: { quantity: true },
-        })
-        .then((result) => ({
-          quantity: result._sum.quantity ?? 0,
-          locations: [],
-        }))
+    ? { quantity: pool?.exactQuantity ?? 0, locations: [] as string[] }
     : (await getOwnershipByCard(ownerPlayerId, [card.id])).get(card.id);
   return {
     ...line,
@@ -412,6 +393,7 @@ async function withSelectedCard(
     selectedCardSummary: cardSummary(card),
     ownedQuantity: exact?.quantity ?? 0,
     locationSummary: exact?.locations.slice(0, 3).join(", ") ?? null,
+    leaguePoolStatus: pool?.status,
     resolutionStatus: status,
     resolutionMessage: message,
     included: true,
@@ -449,34 +431,49 @@ export async function resolveParsedDecklist(
     try {
       let card: Card | null = null;
       if (line.parsedSetCode && line.parsedCollectorNumber) {
-        card = await exactPrinting(line);
-        if (
-          card &&
-          leagueId &&
-          !(await isPrintingInLeague(leagueId, card.id))
-        ) {
-          card = null;
-        }
+        // This attempt replaces prior lookup feedback, including failed retries.
+        const exactLine = { ...line, errors: [] as string[] };
+        const match = await findOrImportCard({
+          name: line.parsedName,
+          setCode: line.parsedSetCode,
+          collectorNumber: line.parsedCollectorNumber,
+        });
+        card = match.card;
         if (card) {
-          resolved.push(
-            await withSelectedCard(
-              line,
+          let selected = await withSelectedCard(
+              exactLine,
               card,
               "RESOLVED_EXACT_PRINTING",
               "Exact printing selected.",
               ownerPlayerId,
               leagueId,
-            ),
-          );
+            );
+          if (leagueId && allowOwned && selected.leaguePoolStatus !== "IN_POOL") {
+            const alternatives = await inventoryPrintingsForName({ leagueId, name: card.name });
+            const alternative = alternatives.find((entry) => !card!.oracleId || entry.card.oracleId === card!.oracleId);
+            if (alternative) {
+              selected = await withSelectedCard(exactLine, alternative.card,
+                "RESOLVED_OWNED_PRINTING",
+                `Pasted ${card.setCode.toUpperCase()} #${card.collectorNumber} is not in the League pool. Selected an available printing of the same card.`,
+                ownerPlayerId, leagueId);
+            }
+          }
+          resolved.push(selected);
         } else {
           resolved.push({
-            ...line,
-            resolutionStatus: "NOT_FOUND",
-            resolutionMessage: "Exact set/collector number was not found.",
-            errors: [
-              ...line.errors,
-              "Exact set/collector number was not found.",
-            ],
+            ...exactLine,
+            selectedCardId: null,
+            selectedCardSummary: null,
+            ownedQuantity: 0,
+            locationSummary: null,
+            resolutionStatus:
+              match.status === "ambiguous"
+                ? "AMBIGUOUS"
+                : match.errorKind && match.errorKind !== "NOT_FOUND"
+                  ? "ERROR"
+                  : "NOT_FOUND",
+            resolutionMessage: match.message,
+            errors: [match.message],
           });
         }
         continue;

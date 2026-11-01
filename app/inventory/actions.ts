@@ -2,8 +2,9 @@
 
 import { getAccessScope, requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { TradeStatus } from "@prisma/client";
+import { Prisma, TradeStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { lockInventoryDeckSources, assertInventoryDeckWritable, activeDeckTradeStatuses } from "@/lib/deck-write-fence";
 
 const activeTradeStatuses: TradeStatus[] = [
   TradeStatus.PROPOSED,
@@ -11,13 +12,14 @@ const activeTradeStatuses: TradeStatus[] = [
   TradeStatus.PARTIALLY_COMMITTED,
 ];
 
-async function assertNotReserved(inventoryItemId: string) {
-  const activeTrade = await prisma.trade.findFirst({
+async function assertNotReserved(tx: Prisma.TransactionClient, inventoryItemId: string) {
+  const activeTrade = await tx.trade.findFirst({
     where: {
       status: { in: activeTradeStatuses },
       OR: [
         { offeredInventoryItemId: inventoryItemId },
         { requestedInventoryItemId: inventoryItemId },
+        { lines: { some: { inventoryItemId } } },
       ],
     },
     select: { id: true, status: true },
@@ -38,25 +40,21 @@ export async function deleteInventoryItem(fd: FormData) {
   ).trim();
   if (!inventoryItemId) throw new Error("Missing inventory item id.");
   if (!reason) throw new Error("A delete reason is required.");
-  await assertNotReserved(inventoryItemId);
-  const item = await prisma.inventoryItem.findUnique({
-    where: { id: inventoryItemId },
-    include: {
-      card: true,
-      currentOwner: true,
-    },
-  });
-  if (!item) throw new Error("Inventory item not found.");
-  if (!actionIsAdmin) {
-    if (!actionUser.playerId) {
-      throw new Error("Your account is not linked to an inventory owner.");
-    }
-    if (item.currentOwnerId !== actionUser.playerId) {
-      throw new Error("You can only delete inventory you own.");
-    }
-  }
-  const beforeJson = { ...item } as any;
   await prisma.$transaction(async (tx) => {
+    const lockedDeckIds = await lockInventoryDeckSources(tx, [inventoryItemId]);
+    await tx.$queryRaw`SELECT "id" FROM "InventoryItem" WHERE "id" = ${inventoryItemId} FOR UPDATE`;
+    await assertNotReserved(tx, inventoryItemId);
+    const item = await tx.inventoryItem.findUnique({
+      where: { id: inventoryItemId },
+      include: { card: true, currentOwner: true },
+    });
+    if (!item) throw new Error("Inventory item not found.");
+    await assertInventoryDeckWritable(tx, item.locationId, lockedDeckIds);
+    if (!actionIsAdmin) {
+      if (!actionUser.playerId) throw new Error("Your account is not linked to an inventory owner.");
+      if (item.currentOwnerId !== actionUser.playerId) throw new Error("You can only delete inventory you own.");
+    }
+    const beforeJson = { ...item } as any;
     await tx.inventoryAuditLog.create({
       data: {
         inventoryItemId: item.id,
@@ -81,26 +79,49 @@ export async function cleanupZeroQuantityInventory(fd?: FormData) {
   const reason = String(
     fd?.get("reason") || "Admin cleanup of zero-quantity inventory items.",
   );
-  const activeTrades = await prisma.trade.findMany({
-    where: { status: { in: activeTradeStatuses } },
-    select: { offeredInventoryItemId: true, requestedInventoryItemId: true },
+  const candidates = await prisma.inventoryItem.findMany({
+    where: { quantity: { lte: 0 } }, select: { id: true },
   });
-  const reserved = new Set(
-    activeTrades
-      .flatMap((trade) => [
-        trade.offeredInventoryItemId,
-        trade.requestedInventoryItemId,
-      ])
-      .filter((id): id is string => Boolean(id)),
-  );
-  const zeroItems = await prisma.inventoryItem.findMany({
-    where: { quantity: { lte: 0 }, id: { notIn: [...reserved] } },
-    include: {
-      card: true,
-      currentOwner: true,
-    },
-  });
+  const candidateIds = candidates.map(item => item.id).sort();
   await prisma.$transaction(async (tx) => {
+    if (!candidateIds.length) return;
+    const lockedDeckIds = await lockInventoryDeckSources(tx, candidateIds);
+    for (let offset = 0; offset < candidateIds.length; offset += 500) {
+      const ids = candidateIds.slice(offset, offset + 500);
+      await tx.$queryRaw`SELECT "id" FROM "InventoryItem"
+        WHERE "id" IN (${Prisma.join(ids)}) ORDER BY "id" FOR UPDATE`;
+    }
+    const activeTrades = await tx.trade.findMany({
+      where: { status: { in: activeTradeStatuses } },
+      select: {
+        offeredInventoryItemId: true,
+        requestedInventoryItemId: true,
+        lines: { select: { inventoryItemId: true } },
+      },
+    });
+    const reserved = new Set(
+      activeTrades
+        .flatMap((trade) => [
+          trade.offeredInventoryItemId,
+          trade.requestedInventoryItemId,
+          ...trade.lines.map((line) => line.inventoryItemId),
+        ])
+        .filter((id): id is string => Boolean(id)),
+    );
+    const reservedDecks = await tx.tradeDeckBundle.findMany({ where: {
+      deckId: { in: [...lockedDeckIds] }, trade: { status: { in: activeDeckTradeStatuses } },
+    }, select: { deckId: true } });
+    const reservedDeckIds = new Set(reservedDecks.map(bundle => bundle.deckId));
+    const writableDeckIds = [...lockedDeckIds].filter(id => !reservedDeckIds.has(id));
+    const zeroItems = await tx.inventoryItem.findMany({
+      where: { quantity: { lte: 0 }, id: { in: candidateIds, notIn: [...reserved] }, OR: [
+        { locationId: null }, { location: { deckId: null } }, { location: { deckId: { in: writableDeckIds } } },
+      ] },
+      include: {
+        card: true,
+        currentOwner: true,
+      },
+    });
     for (const item of zeroItems) {
       const beforeJson = { ...item } as any;
       await tx.inventoryAuditLog.create({

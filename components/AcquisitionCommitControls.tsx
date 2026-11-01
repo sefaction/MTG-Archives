@@ -8,6 +8,7 @@ import type {
   AcquisitionCommitReceipt,
 } from "@/lib/acquisition-commit";
 import { captureUuid } from "@/lib/acquisition-browser-queue";
+import { acquisitionSlotReviewState } from "@/lib/acquisition-review-display";
 import {
   filterButtonClass as button,
   filterPrimaryButtonClass as primary,
@@ -62,9 +63,12 @@ export function AcquisitionCommitControls({
   const reviewed = progress.slots.flatMap((s) =>
     !s.committed && s.review && s.photos[0]?.ready ? [s.photos[0].id] : [],
   );
-  const eligible = reviewed.filter(id => !blockedPhotos.has(id));
-  const skipped = reviewed.length - eligible.length;
-  const selectedBlocked = !draftsReady || selected.some(id => blockedPhotos.has(id));
+  const ready = progress.slots.flatMap(slot => acquisitionSlotReviewState(slot) === "ready"
+    ? slot.photos.filter(photo => photo.ready && !photo.purgedAt && photo.generation === slot.generation).map(photo => photo.id) : []);
+  const eligible = ready.filter(id => !blockedPhotos.has(id));
+  const skipped = reviewed.filter(id => blockedPhotos.has(id)).length;
+  const physicalPending = reviewed.filter(id => !ready.includes(id)).length;
+  const selectedBlocked = !draftsReady || selected.some(id => !eligible.includes(id));
   const stopped = ["STOPPING", "COMPLETE", "CANCELLED"].includes(
     progress.phase,
   );
@@ -80,6 +84,9 @@ export function AcquisitionCommitControls({
   }
   async function prepare(photoIds = selected) {
     if (pending.current) return; // An unknown acknowledgement retains its identity.
+    if (photoIds.some(id => !ready.includes(id))) {
+      setError("Selected cards are pending review or physical reconciliation. Refresh and select ready cards."); return;
+    }
     if (!canUsePhotos(photoIds)) {
       setError("Save or cancel selected corrections before previewing Inventory."); return;
     }
@@ -182,7 +189,8 @@ export function AcquisitionCommitControls({
       </div>
       {!draftsReady && <p role="status" className="text-sm">Inventory selection is waiting for browser draft access. Allow browser storage and reload; individual reviews can still be saved.</p>}
       {skipped > 0 && <p role="status" className="text-sm">{skipped} reviewed {skipped === 1 ? "card is" : "cards are"} excluded because of unsaved corrections. Save or cancel them to include them.</p>}
-      {selectedBlocked && selected.length > 0 && !retrying && <p role="status" className="text-sm">Selected cards include unsaved corrections. Save or cancel them before adding, or clear the selection and select clean reviewed cards.</p>}
+      {physicalPending > 0 && <p role="status" className="text-sm">{physicalPending} saved reviews remain pending. Check their review or physical reconciliation explanations before continuing.</p>}
+      {selectedBlocked && selected.length > 0 && !retrying && <p role="status" className="text-sm">Selected cards include unsaved corrections or pending review or reconciliation. Resolve them before adding, or clear the selection and select ready cards.</p>}
       {retrying && <p role="status" className="text-sm">Recover the original Inventory addition before changing its selection or destination. Retry uses the same saved reviews and request.</p>}
       {eligible.length > 500 && (
         <p className="text-sm">
@@ -271,7 +279,7 @@ export function AcquisitionCommitControls({
                 <li key={c.photoId}>
                   Card {c.position + 1}: {c.name} ({c.setCode} #
                   {c.collectorNumber}) · {c.finish.toLowerCase()} ·{" "}
-                  {c.condition} · {c.language}
+                  {c.condition} · {c.language} · Original opener: {c.openerName ?? "Unknown"}
                 </li>
               ))}
             </ul>
@@ -306,7 +314,7 @@ export function AcquisitionCommitControls({
             </div>
           )}
           <p className="text-sm">
-            Original opener will be unknown. Photos normally stay for 7 days after
+            Check each card&apos;s original opener above. Photos normally stay for 7 days after
             adding. Completed or trashed batches may be permanently removed sooner
             when scan-photo storage approaches its limit; pending cards keep their photos.
           </p>

@@ -28,10 +28,20 @@ export const scannerBatchSchema = z.object({
   continuous: z.literal(true).optional(),
   continueFrom: z.string().uuid().optional(),
 }).strict();
-export const scannerRunClaimSchema = z.object({
+const scannerExecutionSchema = z.object({
   version: z.literal(1), runId: z.string().uuid(), epoch: z.string().uuid(),
   executionId: z.string().uuid(),
 }).strict();
+// Authenticated helper report, not executable attestation. No path, host name,
+// free-form diagnostics or dependency inventory is accepted on this boundary.
+export const scannerHelperIdentitySchema = z.object({
+  version: z.literal(1), payloadKind: z.literal("MANAGED_ASSEMBLY"),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/), moduleVersionId: z.string().uuid().refine(value => value !== "00000000-0000-0000-0000-000000000000"),
+  helperVersion: z.string().min(1).max(50).regex(/^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$/),
+  protocolVersion: z.string().min(1).max(50).regex(/^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$/),
+  naps2SdkVersion: z.string().min(1).max(50).regex(/^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$/),
+}).strict();
+export const scannerRunClaimSchema = scannerExecutionSchema.extend({ helperIdentity: scannerHelperIdentitySchema.optional() }).strict();
 export const scannerPreflightCodeSchema = z.enum([
   "SCANNER_UNAVAILABLE", "SCANNER_BUSY", "LOW_DISK_SPACE", "STORAGE_UNAVAILABLE",
   "FEEDER_UNAVAILABLE", "DRIVER_ERROR",
@@ -50,7 +60,7 @@ export const scannerUploadProblemSchema = z.object({
   limitBytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
   observedAt: z.string().datetime(),
 }).strict();
-export const scannerTransferSchema = scannerRunClaimSchema.extend({
+export const scannerTransferSchema = scannerExecutionSchema.extend({
   artifactId: z.string().uuid(), sequence: z.number().int().min(1).max(5000),
   timestamp: z.string().datetime({ offset: true }),
   side: z.literal("UNKNOWN"), physicalBoundary: z.literal("UNKNOWN"),
@@ -62,7 +72,7 @@ export const scannerRunOutcomeSchema = z.object({
   knownPhysicalItems: z.null(), sourceExhausted: z.enum(["UNKNOWN", "REPORTED_EMPTY"]),
   nativeError: z.object({ type: z.string().max(200), nativeStatus: z.number().int() }).strict().nullable(),
 }).strict();
-export const scannerRunFinishSchema = scannerRunClaimSchema.extend({ outcome: scannerRunOutcomeSchema }).strict();
+export const scannerRunFinishSchema = scannerExecutionSchema.extend({ outcome: scannerRunOutcomeSchema }).strict();
 export const scannerReconcileSchema = z.object({
   runId: z.string().uuid(), cardsEmitted: z.number().int().min(0).max(5000),
   feederEmpty: z.boolean(), transportEmpty: z.literal(true),

@@ -4,12 +4,24 @@ Local hardware spike for [#473](https://github.com/sefaction/MTG-Archives/issues
 
 ## Run
 
-Helper 0.4.3 opens one chosen saved website/account connection. Opening the helper
+Helper 0.4.4 opens one chosen saved website/account connection. Opening the helper
 shows a chooser; sign-in resumes only the remembered choice. Ambiguous, revoked,
 missing or unreadable selections stay idle. Website reconnect is limited to that
 website. See [connection selection](../../docs/SCANNER_CONNECTION_SELECTION.md).
 Close chosen connection waits for its current batch and discovery to finish;
 opening a connection itself does not create a scan request.
+
+`version` reports the executing managed payload's SHA-256, loaded module ID and
+helper/protocol/SDK versions. `identity-selftest` checks that report without
+enumerating devices, opening a saved connection or operating a scanner. The
+payload is `Mtg.ScannerAgent.dll`, not the native apphost or `dotnet.exe`.
+
+Supporting sites advertise `helperIdentityReporting` in the run poll. The helper
+then freezes its report in the new run's local binding and verifies the claim's
+echo before feeding. Older sites receive the original claim shape. Older helper
+journals and retained-transfer recovery remain supported; old/ambiguous runs
+remain unknown. The report is authenticated self-reported provenance, not code
+signing, remote attestation or an inventory of native driver/worker binaries.
 
 Requires Windows, .NET 8 SDK/Desktop runtime, an installed manufacturer driver and Node 22 for the optional transport checks. Restore pinned NuGet packages; do not use the installed NAPS2 GUI/console executable as the backend.
 
@@ -105,6 +117,10 @@ in that opt-in log. A closed or failing private log does not suppress the safe
 error journal. Default website diagnostics still omit messages and paths.
 Logs may contain native paths/device details and must not be published.
 See [TWAIN footer investigation](../../docs/SCANNER_TWAIN_FOOTER.md).
+For existing private Windows crash-event XML, the hardware-free
+[offline evidence helper](../../docs/SCANNER_CRASH_EVENT_EVIDENCE.md) correlates
+fault PID/time/module fields without publishing paths or message/stack content.
+It does not establish the historical settings crash's cause or start a scanner.
 
 The tested SDK has no distinct public graceful feeder-stop method. **PS286 WIA cancellation after image 1 emitted two cards and left a third partly transported.** No damaged cards were reported after manual clearance, but one emitted card had no returned image.
 

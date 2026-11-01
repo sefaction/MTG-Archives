@@ -1,14 +1,14 @@
 # Codex local workflow
 
-This project is MTG-Archives, a Next.js + Prisma app running locally with Docker Desktop on Windows.
+## No-new-issues freeze - 2026-10-24
 
-Local development branch workflow:
+Brian's current instruction applies to every local and remote worker: **do not create new issues until Brian explicitly lifts this freeze.** This overrides all earlier bug, audit, qualification, replacement, nested/child, and other ticket-creation instructions in repository guidance, startup prompts, and historical checkpoints, including those preserved below.
 
-- Work on a feature branch, not directly on main.
-- Build and test local changes against this local checkout.
-- Push feature branches and open one PR per coherent batch without waiting for user approval. Document dependencies between PRs.
-- Load completed batches cumulatively into local Docker and record the commits and unmerged PRs included in the review build.
-- Continue authorized work while PRs await review. Merge each PR into main only after the user explicitly approves that individual PR.
+Finish existing issues within their agreed scope. Preserve tests, failure evidence, and acceptance criteria; do not weaken tests or close issues with unresolved acceptance. Report newly discovered concerns and blockers to Brian instead of creating replacement or nested issues. Existing ownership, coordination, review, and individual merge-approval requirements still apply.
+
+This project is MTG-Archives, a Next.js + Prisma app running locally with Docker Desktop on Windows. This file is a command reference; [AGENTS.md](AGENTS.md) owns authority, queue, verification and resource policy. See [the autonomous workflow](docs/AUTONOMOUS_WORKFLOW.md) for current execution and handoff guidance.
+
+Commands below are examples, not instructions to rebuild every change. Verify the target project, actual installed Compose overlay chain and runtime owner before mutations. The base/local pair alone may not describe the installed review stack.
 
 Docker commands:
 
@@ -42,27 +42,23 @@ Test commands:
 - npm.cmd run typecheck
 - npm.cmd run build
 - npm.cmd run ui:test
+- npm.cmd run verify:core
 - npm.cmd run verify
 
 Standard Codex UI workflow:
 
-1. Make the smallest useful code change on the feature branch.
-2. If the running Docker app needs the new code, rebuild it with:
-   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
-3. Run the full local verification command:
-   npm.cmd run verify
-4. For UI failures, inspect Playwright artifacts:
+1. Make a coherent change on an isolated feature branch. Reconcile the current request, existing work and relevant failure evidence.
+2. Choose checks for the changed behavior under AGENTS.md. Preserve required exact-head CI and applicable security, data-integrity and concurrency checks. `verify:core` runs generation, typecheck, unit tests and a production build; `verify` also runs the browser suite. Neither is a mandatory local rerun for every documentation or narrowly scoped change.
+3. Reuse applicable successful evidence and rerun what the change invalidates. For UI failures, inspect Playwright artifacts:
    - test-results/playwright
    - playwright-report
-     Then rerun either:
-     npm.cmd run ui:test
-     or, when visual debugging is useful:
-     npm.cmd run ui:test:headed
-5. Check the Docker app directly when needed:
+     Rerun the affected spec/case first; broaden when a shared regression or unresolved failure warrants it. Use `npm.cmd run ui:test:headed` when visual debugging helps.
+4. For product changes, arrange the owned, resource-checked local review window and load the cumulative candidate using its actual overlays. Documentation-only changes need static checks, not a Docker rebuild. Record any pending runtime review step and continue work that fits the available node.
+5. Check affected workflows in the Docker app when relevant:
    curl.exe http://127.0.0.1:13001
    docker compose logs --tail=150 web
-6. Push the feature branch and open its PR without waiting for approval; continue authorized work while keeping the combined Docker build available for review.
-7. Wait for explicit user approval of each individual PR before merging it into main.
+6. Record included commits/PRs, tests, evidence limits and review instructions. Follow AGENTS.md's default PR delivery/individual approval policy and any narrower or later explicit task-specific authority; a local-only request does not authorize publication.
+7. Complete the owned cleanup and compact handoff in the autonomous workflow. Keep current review/rollback and unique evidence; retaining a failure record does not require keeping every superseded image or cache.
 
 Playwright:
 
@@ -70,20 +66,11 @@ Playwright:
 - Base URL: http://127.0.0.1:13001
 - Browser smoke tests live under tests/ui.
 - Traces, screenshots, and videos are retained for failed UI tests.
-- The backup page has GUI upload/restore controls; UI tests may verify that
-  they render, but must not click destructive restore unless the exact target
-  has been explicitly approved.
+- The backup page has GUI upload/restore controls. Reset/restore tests use AGENTS.md's standing local snapshot authorization after exact-target and active-owner checks; ordinary presentation checks do not need to invoke a restore.
 
 Important safety rules:
 
-- The user has explicitly authorized all changes to the LOCAL MTG Archives stack and its snapshot data, including local reset/restore testing and container changes. This standing authorization satisfies the local approval conditions below; verify exact targets and keep operations scoped to this project. Production and unrelated laptop data are outside this authorization.
-
-- Do not run docker compose down -v unless explicitly asked.
-- Do not delete Docker volumes.
-- Do not wipe or reset the database unless explicitly asked.
-- Do not run destructive restore tests unless the exact target has been explicitly approved.
-- Do not remove containers unless explicitly asked.
-- Prefer docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build after app changes.
-- After making changes, check Docker logs and test the page.
-- If Docker access is blocked by Codex sandbox permissions, request approval for the Docker command.
+- Verify exact project/database/volume targets and preserve other owners' work, unique source data and required recovery before local mutations. No blanket `down -v`, volume deletion or Docker prune is implied by routine rebuilds or handoff cleanup. Follow AGENTS.md and the current task's restrictions; production and unrelated data require separate authority.
+- After a runtime change, inspect relevant logs and affected workflows; container health alone does not establish host/browser usability.
+- Respect the active sandbox and approval requirements. Historical Full access observations do not change the current execution environment.
 - Keep docker-entrypoint.sh with LF line endings. Do not convert shell scripts to CRLF.

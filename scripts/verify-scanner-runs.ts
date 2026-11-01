@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, rm, mkdir } from "node:fs/promises";
+import { readFileSync } from "node:fs";
+import Module, { createRequire } from "node:module";
+import ts from "typescript";
 import path from "node:path";
 import sharp from "sharp";
 import { type PrismaClient } from "@prisma/client";
@@ -17,6 +20,18 @@ import { readAcquisitionPhotoBytes, photoDigest } from "../lib/acquisition-files
 import { eligibleScannerOriginals } from "../lib/scanner-retention";
 import { purgeCommittedAcquisitionPhotos } from "../lib/acquisition-photo-retention";
 import { ensureCorrectionAccount } from "../lib/acquisition-correction-library";
+
+// Real route/parser/auth/store, with only its ambient singleton directed to
+// the already-guarded disposable client supplied by the fixture runner.
+function scannerRoute(db: PrismaClient) {
+  const filename = path.resolve("app/api/scanner-agent/runs/route.ts"), realRequire = createRequire(filename), loaded = new (Module as any)(filename);
+  loaded.filename = filename; loaded.paths = (Module as any)._nodeModulePaths(path.dirname(filename));
+  loaded.require = (name: string) => name === "@/lib/prisma" ? { prisma: db } :
+    realRequire(name.startsWith("@/") ? path.resolve(name.slice(2)) : name);
+  loaded._compile(ts.transpileModule(readFileSync(filename, "utf8"), { fileName: filename,
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText, filename);
+  return loaded.exports.POST as (request: Request) => Promise<Response>;
+}
 
 // Called only by the opt-in disposable acquisition_* database runner. Transfers
 // are generated fixtures: no scanner hardware or recognition accuracy claim.
@@ -81,10 +96,37 @@ export async function verifyScannerRuns(db: PrismaClient) {
     await assert.rejects(reportScannerPreflightProblem(db, otherAgent.token, preflight, epoch));
     await assert.rejects(reportScannerPreflightProblem(db, first.token, { ...preflight, epoch: randomUUID() }, epoch));
     await assert.rejects(reportScannerPreflightProblem(db, first.token, { ...preflight, runId: randomUUID() }, epoch));
-    assert.equal((await claimScannerRun(db, first.token, claim, epoch)).feedAuthorized, true);
+    const helperIdentity = { version: 1, payloadKind: "MANAGED_ASSEMBLY", sha256: "a".repeat(64),
+      moduleVersionId: randomUUID(), helperVersion: "0.4.4", protocolVersion: "0.3.0-native", naps2SdkVersion: "1.3.0" };
+    assert.equal((await pollScannerRun(db, first.token, epoch)).helperIdentityReporting, true);
+    const identifiedClaim = { ...claim, helperIdentity };
+    const post = scannerRoute(db);
+    const claimedResponse = await post(new Request("http://fixture.local/api/scanner-agent/runs", {
+      method: "POST", headers: { authorization: first.token, "content-type": "application/json" },
+      body: JSON.stringify({ action: "claim", ...identifiedClaim }),
+    }));
+    assert.equal(claimedResponse.status, 200); assert.equal(claimedResponse.headers.get("cache-control"), "no-store");
+    const identifiedAck = await claimedResponse.json();
+    assert.equal(identifiedAck.feedAuthorized, true);
+    assert.ok("helperIdentity" in identifiedAck); assert.deepEqual(identifiedAck.helperIdentity, helperIdentity);
+    const claimed = await db.scannerRun.findUniqueOrThrow({ where: { id: run.runId } });
+    assert.deepEqual(claimed.helperIdentity, helperIdentity);
     assert.equal((await getScannerBatch(db, tag, run.runId)).preflightProblem, null);
     await assert.rejects(reportScannerPreflightProblem(db, first.token, preflight, epoch));
-    assert.equal((await claimScannerRun(db, first.token, claim, epoch)).replay, true);
+    assert.equal((await claimScannerRun(db, first.token, identifiedClaim, epoch)).replay, true);
+    for (const key of ["sha256", "moduleVersionId", "helperVersion", "protocolVersion", "naps2SdkVersion"]) {
+      const changed = { ...helperIdentity, [key]: key === "sha256" ? "b".repeat(64) : key === "moduleVersionId" ? randomUUID() : "9.9.9" };
+      await assert.rejects(claimScannerRun(db, first.token, { ...claim, helperIdentity: changed }, epoch), /helper identity changed/);
+    }
+    await assert.rejects(claimScannerRun(db, first.token, claim, epoch), /helper identity changed/);
+    const conflictingResponse = await post(new Request("http://fixture.local/api/scanner-agent/runs", {
+      method: "POST", headers: { authorization: first.token, "content-type": "application/json" },
+      body: JSON.stringify({ action: "claim", ...claim, helperIdentity: { ...helperIdentity, sha256: "b".repeat(64) } }),
+    }));
+    assert.equal(conflictingResponse.status, 409);
+    assert.deepEqual(await db.scannerRun.findUniqueOrThrow({ where: { id: run.runId } }), claimed);
+    // Latest discovery information is not historical run provenance.
+    await recordScannerPulse(db, first.token, { version: 1, agentVersion: "later-pulse-version", devices: [source] });
     await assert.rejects(claimScannerRun(db, first.token, { ...claim, executionId: randomUUID() }, epoch));
     await assert.rejects(claimScannerRun(db, first.token, { ...claim, epoch: randomUUID() }, epoch));
     await assert.rejects(claimScannerRun(db, otherAgent.token, claim, epoch));
@@ -105,7 +147,59 @@ export async function verifyScannerRuns(db: PrismaClient) {
     const stored = await db.acquisitionPhoto.findUniqueOrThrow({ where: { id: ack1.photoId } });
     assert.equal(stored.inputKind, "CARD_SCAN");
     assert.equal((stored.sourceMetadata as { backend: string }).backend, "fixture");
+    assert.deepEqual((stored.sourceMetadata as { helperIdentity: unknown }).helperIdentity, helperIdentity);
     assert.equal(await db.acquisitionProcessingJob.count({ where: { run: { sessionId: run.sessionId }, stage: "photo-canonical-v1" } }), 2);
+    // P2/#304: equal bytes from two physical transfers must retain distinct
+    // lineage. A fresh client must replay that exact graph, while conflicting
+    // bytes for an existing transfer must leave it untouched.
+    async function provenance(client: PrismaClient) {
+      const acquisitionRunId = stored.runId;
+      return {
+        photos: await client.acquisitionPhoto.findMany({ where: { runId: acquisitionRunId }, orderBy: { id: "asc" } }),
+        slots: await client.acquisitionCaptureSlot.findMany({ where: { runId: acquisitionRunId }, orderBy: { id: "asc" } }),
+        artifacts: await client.acquisitionArtifact.findMany({ where: { runId: acquisitionRunId }, orderBy: { id: "asc" } }),
+        candidates: await client.acquisitionCandidate.findMany({ where: { runId: acquisitionRunId }, orderBy: { id: "asc" } }),
+        observations: await client.acquisitionObservation.findMany({ where: { runId: acquisitionRunId }, orderBy: { id: "asc" } }),
+        jobs: await client.acquisitionProcessingJob.findMany({ where: { runId: acquisitionRunId }, orderBy: { id: "asc" } }),
+      };
+    }
+    const captured = await provenance(db);
+    for (const rows of Object.values(captured)) assert.equal(rows.length, 2);
+    assert.notEqual(ack1.photoId, ack2.photoId);
+    for (const [transferInput, ack] of [[t1, ack1], [t2, ack2]] as const) {
+      const photo = captured.photos.find(p => p.id === ack.photoId)!;
+      const slot = captured.slots.find(s => s.id === photo.slotId)!;
+      const artifact = captured.artifacts.find(a => a.sourceId === photo.id)!;
+      const candidate = captured.candidates.find(c => c.physicalId === slot.id)!;
+      const observation = captured.observations.find(o => o.artifactId === artifact.id)!;
+      const job = captured.jobs.find(j => j.artifactId === artifact.id)!;
+      assert.equal(slot.requestKey, transferInput.artifactId);
+      assert.equal(slot.position, transferInput.sequence - 1);
+      assert.equal(photo.uploadKey, transferInput.artifactId);
+      assert.equal(photo.digest, ack.digest);
+      assert.equal(artifact.digest, photo.digest);
+      assert.equal(observation.candidateId, candidate.id);
+      assert.equal(job.candidateId, candidate.id);
+      assert.equal(job.candidateRevision, candidate.revision);
+      assert.equal(job.stage, "photo-canonical-v1");
+      assert.equal(job.versionKey, "sharp-0.35.4-orient-1600-v1");
+      assert.deepEqual(job.input, { version: 1, photoId: photo.id, digest: photo.digest, inputKind: "CARD_SCAN",
+        versions: { pipeline: "orient-1600-v1", runtime: "sharp-0.35.4", model: "none", catalog: "none", index: "none", execution: "CPU" } });
+      assert.deepEqual(photo.sourceMetadata, { ...transferInput, backend: source.backend, device: source,
+        requestedSettings: settings, negotiatedSettings: "UNKNOWN", helperIdentity });
+    }
+    const lineageClient = new (db.constructor as typeof PrismaClient)();
+    try {
+      const freshClaim = await claimScannerRun(lineageClient, first.token, identifiedClaim, epoch);
+      assert.ok("helperIdentity" in freshClaim); assert.deepEqual(freshClaim.helperIdentity, helperIdentity);
+      assert.deepEqual(await receiveScannerImage(lineageClient, first.token, t1, epoch, bytes, "image/png"), ack1);
+      const changedBytes = await sharp({ create: { width: 75, height: 105, channels: 3, background: "black" } }).png().toBuffer();
+      await assert.rejects(receiveScannerImage(lineageClient, first.token, t1, epoch, changedBytes, "image/png"), /identity conflict/);
+      assert.deepEqual(await provenance(lineageClient), captured);
+      assert.deepEqual(await readAcquisitionPhotoBytes(ack1.photoId, "raw", ack1.digest), bytes);
+      assert.equal(await lineageClient.inventoryItem.count({ where: { currentOwnerId: tag } }), 0);
+    } finally { await lineageClient.$disconnect(); }
+    console.log("PASS: scanner transfer/photo/artifact/candidate/canonical job lineage, identical-byte physical identities and fresh-client conflicting replay conservation");
     const outcome = { outcome: "COMPLETED", imageCount: 2, elapsedMs: 1000, knownPhysicalItems: null,
       sourceExhausted: "UNKNOWN", nativeError: null };
     await assert.rejects(finishScannerRun(db, first.token, { ...claim, outcome: { ...outcome, imageCount: 3 } }, epoch));
@@ -154,6 +248,11 @@ export async function verifyScannerRuns(db: PrismaClient) {
     assert.equal(uncounted.loadedCount, null);
     const uncountedClaim = { ...claim, runId: uncounted.runId, executionId: randomUUID() };
     await claimScannerRun(db, first.token, uncountedClaim, epoch);
+    const legacyClaimed = await db.scannerRun.findUniqueOrThrow({ where: { id: uncounted.runId } });
+    assert.equal(legacyClaimed.helperIdentity, null);
+    assert.equal((await claimScannerRun(db, first.token, uncountedClaim, epoch)).replay, true);
+    await assert.rejects(claimScannerRun(db, first.token, { ...uncountedClaim, helperIdentity }, epoch), /helper identity changed/);
+    assert.deepEqual(await db.scannerRun.findUniqueOrThrow({ where: { id: uncounted.runId } }), legacyClaimed);
     for (let sequence=1;sequence<=2;sequence++) await receiveScannerImage(db, first.token, {
       ...uncountedClaim, artifactId: randomUUID(), sequence, timestamp: new Date().toISOString(), side: "UNKNOWN", physicalBoundary: "UNKNOWN",
     }, epoch, bytes, "image/png");
@@ -162,6 +261,26 @@ export async function verifyScannerRuns(db: PrismaClient) {
     } }, epoch)).physicalCount, "ASSUMED_FROM_IMAGES");
     assert.equal(((await getScannerBatch(db, tag, uncounted.runId)).reconciliation as { mode: string }).mode, "SCANNER_IMAGE_COUNT");
     assert.equal(captureSummary((await getAcquisitionSession(db, actor, uncounted.sessionId)).session).confirmedCandidates, 2);
+    // P2/#304: source exhaustion and derived counters must survive a fresh
+    // database client and a lost final acknowledgement, without extra copies.
+    const exhaustedSession = await getAcquisitionSession(db, actor, uncounted.sessionId);
+    const exhaustedBatch = await getScannerBatch(db, tag, uncounted.runId);
+    const reconnect = new (db.constructor as typeof PrismaClient)();
+    try {
+      assert.equal((await finishScannerRun(reconnect, first.token, {
+        ...uncountedClaim, outcome: {
+          ...outcome, outcome: "SOURCE_EXHAUSTED", sourceExhausted: "REPORTED_EMPTY",
+        },
+      }, epoch)).physicalCount, "ASSUMED_FROM_IMAGES");
+      const reloaded = await getAcquisitionSession(reconnect, actor, uncounted.sessionId);
+      assert.deepEqual(reloaded, exhaustedSession, "reconnect/replayed completion preserves the complete durable session");
+      assert.deepEqual(captureSummary(reloaded.session), captureSummary(exhaustedSession.session), "counters recompute identically from persisted candidates");
+      assert.deepEqual(await getScannerBatch(reconnect, tag, uncounted.runId), exhaustedBatch, "explicit source exhaustion survives reconnect and lost acknowledgement");
+      assert.equal(await reconnect.inventoryItem.count({ where: { currentOwnerId: tag } }), 0);
+    } finally {
+      await reconnect.$disconnect();
+    }
+    console.log("PASS: scanner source exhaustion, complete session and derived counts survive reconnect and final ACK replay without Inventory writes");
     assert.equal(await db.inventoryItem.count({ where: { currentOwnerId: tag } }), 0);
     const interrupted = await createScannerBatch(db, actor, { ...input, requestKey: randomUUID(), loadedCount: null }, epoch);
     const interruptedClaim = { ...claim, runId: interrupted.runId, executionId: randomUUID() };
@@ -195,8 +314,11 @@ export async function verifyScannerRuns(db: PrismaClient) {
     await assert.rejects(stopScannerBatch(db, tag, rolled.runId), /saved or uncertain START evidence/);
     assert.equal((await getScannerBatch(db, tag, rolled.runId)).status, "QUEUED");
     await assert.rejects(reportScannerPreflightProblem(db, otherAgent.token, { ...preflight, runId: rolled.runId }, epoch));
-    const fenced = await claimScannerRun(db, otherAgent.token, rolledClaim, epoch);
+    const fenced = await claimScannerRun(db, otherAgent.token, { ...rolledClaim, helperIdentity }, epoch);
     assert.equal(fenced.feedAuthorized, false); assert.equal(fenced.reconciliationRequired, true);
+    assert.equal((await db.scannerRun.findUniqueOrThrow({ where: { id: rolled.runId } })).helperIdentity, null,
+      "An uncertain older start marker cannot be backfilled from this retry's helper");
+    console.log("PASS: actual claim route persists/echoes immutable helper hash/module/version, known/legacy conflicting replay and uncertain-marker backfill refuse, later pulses cannot rewrite original-source provenance");
     // A destination can change after browser START. Recheck before any motor
     // authorization, and keep pre-start stop distinct from native cancellation.
     const guardedAgent = await enroll();
@@ -265,6 +387,19 @@ export async function verifyScannerRuns(db: PrismaClient) {
       assert.equal((await getScannerBatch(db, tag, queued.runId)).reconciliation, null);
       await revokeScannerAgent(db, tag, helper.agentId);
     }
+    // Competing helper reports for the same execution have one immutable winner.
+    const competing = await enroll();
+    const identityRun = await createScannerBatch(db, actor, { ...input, loadedCount: null,
+      agentId: competing.agentId, requestKey: randomUUID() }, epoch);
+    const competingClaim = { ...claim, runId: identityRun.runId, executionId: randomUUID() };
+    const reports = [helperIdentity, { ...helperIdentity, sha256: "b".repeat(64) }];
+    const contenders = await Promise.allSettled(reports.map(helperIdentity => claimScannerRun(db, competing.token, { ...competingClaim, helperIdentity }, epoch)));
+    assert.equal(contenders.filter(value => value.status === "fulfilled").length, 1);
+    const winner = contenders.findIndex(value => value.status === "fulfilled");
+    const conflict = contenders[1-winner]; assert.ok(conflict.status === "rejected");
+    assert.match(String(conflict.reason), /helper identity changed/);
+    assert.deepEqual((await db.scannerRun.findUniqueOrThrow({ where: { id: identityRun.runId } })).helperIdentity, reports[winner]);
+    await revokeScannerAgent(db, tag, competing.agentId);
     // Both calls contend on the same run lock. A winning claim may request
     // drain, but can never coexist with CANCELLED_WITHOUT_START reconciliation.
     for (let attempt = 0; attempt < 3; attempt++) {

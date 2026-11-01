@@ -1,12 +1,17 @@
+import { cleanupOwnedPhotoFixtureFiles } from "./owned-fixture-files";
 import { expect, test, type Locator } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { acquisitionDraftKey } from "../../lib/acquisition-browser-review-draft";
 import { cleanupCorrectionFixture } from "./correction-fixture";
+import { controlledReviewTarget, verifyControlledReviewTarget } from "./controlled-review-target";
 
+const reviewTarget = controlledReviewTarget();
+let verifiedContainerId: string | undefined;
 function database(body: string) {
-  return JSON.parse(execFileSync("docker", ["exec", "-i", "mtg-archives-web-1", "node", "--import", "tsx"], {
+  verifiedContainerId ??= verifyControlledReviewTarget(reviewTarget);
+  return JSON.parse(execFileSync("docker", ["exec", "-i", verifiedContainerId, "node", "--import", "tsx"], {
     windowsHide: true, encoding: "utf8", timeout: 30000,
     input: `const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().catch(e=>{console.error(e.code||'Owned fixture failed');process.exitCode=1}).finally(()=>p.$disconnect());`,
   }));
@@ -33,12 +38,13 @@ async function showChoiceStatus(card: Locator) {
 for (const width of [1366, 320]) for (const lostReply of [false, true])
 test(`draft choice status ${lostReply ? "lost reply" : "normal"} at ${width}px`, async ({ page, baseURL }) => {
   test.skip(process.env.MTG_LOCAL_PILOT_TEST !== "1", "Owned actual API/UI choice-state qualification; no recognition accuracy claim");
-  expect(baseURL).toBe("http://127.0.0.1:13001"); test.setTimeout(180000); page.setDefaultTimeout(15000);
+  expect(baseURL).toBe(reviewTarget.baseURL); test.setTimeout(180000); page.setDefaultTimeout(15000);
   await page.setViewportSize({ width, height: 900 });
   const tag = `ui-draft-status-${randomUUID()}`, password = randomUUID();
   const original = { id: `${tag}-original`, name: `Draft original ${tag}`, setCode: "tst", collectorNumber: "1", lang: "en", imageUri: null, finishes: ["nonfoil", "foil"] };
   const alternative = { ...original, id: `${tag}-alternative`, name: `Draft alternative ${tag}`, collectorNumber: "2" };
-  let batch = "", photo = "", abortNextSave = false, interruptedSaves = 0;
+  let batch = "", photo = "", abortNextSave = false, interruptedSaves = 0, rejectNextSave = false;
+  let heldReload: Promise<void> | null = null;
   const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
   try {
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:2,sections:[{name:'A',capacity:2}]}}});for(const card of ${JSON.stringify([original, alternative])})await p.card.create({data:{...card,scryfallId:require('crypto').randomUUID(),typeLine:'Creature',rarity:'common'}});console.log('{}');`);
@@ -65,10 +71,18 @@ test(`draft choice status ${lostReply ? "lost reply" : "normal"} at ${width}px`,
     const before = await savedState(); expect(before).toMatchObject({ cardId: original.id, condition: "NM", finish: "NONFOIL" });
     const inventoryCount = () => database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`);
     await page.route(`**${endpoint}`, async route => {
+      if (route.request().method() === "POST" && rejectNextSave) {
+        rejectNextSave = false;
+        return route.abort("failed");
+      }
       if (route.request().method() !== "POST" || !abortNextSave) return route.continue();
       abortNextSave = false;
       const response = await route.fetch(); expect(response.ok()).toBe(true); interruptedSaves++;
       await route.abort("failed");
+    });
+    await page.route(`**${endpoint}?*`, async route => {
+      if (heldReload) await heldReload;
+      await route.continue();
     });
     await page.goto(`/imports/scan?batch=${batch}`); await page.getByRole("button", { name: "Simple", exact: true }).click();
     const card = page.getByTestId("capture-card-1"); await card.scrollIntoViewIfNeeded();
@@ -86,6 +100,35 @@ test(`draft choice status ${lostReply ? "lost reply" : "normal"} at ${width}px`,
     await dirtyStatus(card); expect(await savedState()).toEqual(before);
     await card.getByRole("button", { name: "Cancel changes", exact: true }).click();
     await expect(card.getByTestId("scan-compact-status")).toHaveText("Review saved"); expect(await savedState()).toEqual(before);
+    if (!lostReply) {
+      // Exercise the error-recovery reload itself on both layouts, without writing a review.
+      await card.getByRole("button", { name: "Correct", exact: true }).click();
+      const condition = card.getByRole("combobox", { name: "Card condition", exact: true });
+      await condition.selectOption("LP");
+      rejectNextSave = true;
+      await card.getByRole("button", { name: "Save card review", exact: true }).click();
+      const reload = card.getByRole("button", { name: "Reload review", exact: true });
+      await expect(reload).toBeEnabled();
+      const draftKey = acquisitionDraftKey({ userId: tag, batchId: batch, photoId: photo });
+      let releaseReload!: () => void;
+      heldReload = new Promise<void>(resolve => { releaseReload = resolve; });
+      try {
+        await reload.click();
+        await expect(condition).toBeDisabled();
+        await expect(card.getByRole("button", { name: "Edit card boundary", exact: true })).toBeDisabled();
+        await expect(condition).toHaveValue("LP");
+        await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)!).condition, draftKey)).toBe("LP");
+      } finally { heldReload = null; releaseReload(); }
+      await expect(condition).toBeEnabled(); await expect(condition).toHaveValue("NM");
+      await expect.poll(() => page.evaluate(key => localStorage.getItem(key), draftKey)).toBeNull();
+      await condition.selectOption("DMG");
+      await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)!).condition, draftKey)).toBe("DMG");
+      await page.reload(); await card.scrollIntoViewIfNeeded();
+      await expect(condition).toHaveValue("DMG");
+      expect(await savedState()).toEqual(before); expect(inventoryCount()).toBe(0);
+      await card.getByRole("button", { name: "Cancel changes", exact: true }).click();
+      await expect(card.getByTestId("scan-compact-status")).toHaveText("Review saved");
+    }
     await card.getByRole("button", { name: "Correct", exact: true }).click();
     await card.getByLabel("Card name", { exact: true }).fill(alternative.name);
     await card.getByRole("button", { name: "Find printing", exact: true }).click();
@@ -118,13 +161,13 @@ test(`draft choice status ${lostReply ? "lost reply" : "normal"} at ${width}px`,
     await page.reload(); await card.scrollIntoViewIfNeeded();
     await expect(card.getByTestId("scan-compact-status")).toHaveText("Review saved");
     if (!lostReply) {
-      await card.getByRole("button", { name: "Continue to Inventory", exact: true }).click();
+      const continueToInventory = card.getByRole("button", { name: "Continue to Inventory", exact: true });
+      await expect(continueToInventory).toBeDisabled();
+      await expect(card).toContainText("Stop capture before continuing.");
+      await page.getByRole("button", { name: "Stop capture", exact: true }).click();
+      await expect(continueToInventory).toBeEnabled();
+      await continueToInventory.click();
       const inventory = page.getByRole("region", { name: "Add reviewed cards to Inventory", exact: true });
-      if (await inventory.getByRole("button", { name: "Preview selected cards", exact: true }).isDisabled()) {
-        await inventory.getByRole("link", { name: "Go to capture controls", exact: true }).click();
-        await page.getByRole("button", { name: "Stop capture", exact: true }).click();
-        await card.getByRole("button", { name: "Continue to Inventory", exact: true }).click();
-      }
       await inventory.getByRole("button", { name: "Preview selected cards", exact: true }).click();
       const confirmation = inventory.getByLabel("Confirm Inventory addition", { exact: true });
       await confirmation.getByRole("button", { name: "Add 1 copy to Inventory", exact: true }).click();
@@ -143,7 +186,7 @@ test(`draft choice status ${lostReply ? "lost reply" : "normal"} at ${width}px`,
   } finally {
     try { await page.unrouteAll({ behavior: "wait" }); await page.close(); }
     finally {
-      database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const w={run:{session:{createdByUserId:n}}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});${cleanupCorrectionFixture}await p.acquisitionCommitMember.deleteMany({where:{candidate:w}});await p.acquisitionCommit.deleteMany({where:w});await p.inventoryAuditLog.deleteMany({where:{changedByUserId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});await p.card.deleteMany({where:{id:{in:${JSON.stringify([original.id, alternative.id])}}}});const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;if(!root||!paths.isAbsolute(root))throw Error('Owned storage unavailable');for(const row of photos){if(!/^[a-f0-9-]{36}$/.test(row.id))throw Error('Invalid owned original');for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',row.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e});}console.log('{}');`);
+      database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const w={run:{session:{createdByUserId:n}}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});${cleanupOwnedPhotoFixtureFiles}${cleanupCorrectionFixture}await p.acquisitionCommitMember.deleteMany({where:{candidate:w}});await p.acquisitionCommit.deleteMany({where:w});await p.inventoryAuditLog.deleteMany({where:{changedByUserId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});await p.card.deleteMany({where:{id:{in:${JSON.stringify([original.id, alternative.id])}}}});console.log('{}');`);
     }
   }
 });

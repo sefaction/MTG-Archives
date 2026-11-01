@@ -53,11 +53,51 @@ export async function readCorrectionBlob(ownerPlayerId: string, digest: string, 
   const info = await lstat(file);
   if (info.isSymbolicLink() || !info.isFile() || info.size !== expectedBytes) throw new Error("Photo correction integrity check failed");
   const handle = await open(file, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  const failures: unknown[] = [];
+  let bytes!: Buffer;
   try {
-    const bytes = await handle.readFile();
-    if (bytes.length !== expectedBytes || photoDigest(bytes) !== digest) throw new Error("Photo correction integrity check failed");
-    return bytes;
-  } finally { await handle.close(); }
+    // The pathname size can change after lstat. Bound descriptor reads by the
+    // recorded size plus one detection byte, including across short reads.
+    const buffer = Buffer.alloc(expectedBytes + 1);
+    let total = 0;
+    while (total < buffer.length) {
+      const { bytesRead } = await handle.read(buffer, total, buffer.length - total, null);
+      if (!bytesRead) break;
+      total += bytesRead;
+    }
+    if (total !== expectedBytes) throw new Error("Photo correction integrity check failed");
+    bytes = buffer.subarray(0, total);
+    if (photoDigest(bytes) !== digest) throw new Error("Photo correction integrity check failed");
+  } catch (error) { failures.push(error); }
+  // Closing must not hide a failed read or integrity check, or change the
+  // storage code used by correction capture to classify a recoverable failure.
+  try { await handle.close(); } catch (error) { failures.push(error); }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) {
+    const code = (failures[0] as NodeJS.ErrnoException | null)?.code;
+    throw Object.assign(new AggregateError(failures, "Correction read and close failed", { cause: failures[0] }),
+      typeof code === "string" ? { code } : {});
+  }
+  return bytes;
+}
+
+// An existing original may be left by a publication whose directory sync failed.
+// Verify its bytes and repeat every containing-directory barrier before releasing
+// source pins. The configured upload root is the provisioned storage mount.
+export async function verifyCorrectionBlobDurability(ownerPlayerId: string, digest: string, expectedBytes: number) {
+  await readCorrectionBlob(ownerPlayerId, digest, expectedBytes);
+  const directory = await ownerDirectory(ownerPlayerId);
+  const namespace = path.dirname(directory);
+  const failures: unknown[] = [];
+  for (const target of [directory, namespace, path.dirname(namespace)]) {
+    try { await syncDirectory(target); } catch (error) { failures.push(error); }
+  }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) {
+    const code = (failures[0] as NodeJS.ErrnoException | null)?.code;
+    throw Object.assign(new AggregateError(failures, "Correction storage directory barriers failed", { cause: failures[0] }),
+      typeof code === "string" ? { code } : {});
+  }
 }
 
 // Preparation is outside the database transaction. Only the current leased
@@ -88,8 +128,7 @@ export async function prepareCorrectionBlob(ownerPlayerId: string, digest: strin
     async publish() {
       try { await link(temporary, file); }
       catch (error: any) { if (error.code !== "EEXIST") throw error; }
-      await readCorrectionBlob(ownerPlayerId, digest, bytes.length);
-      await syncDirectory(directory);
+      await verifyCorrectionBlobDurability(ownerPlayerId, digest, bytes.length);
     },
     async cleanup() { await unlink(temporary).catch(error => { if (error.code !== "ENOENT") throw error; }); },
   };

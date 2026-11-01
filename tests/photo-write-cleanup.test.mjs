@@ -22,7 +22,7 @@ const actual = names.map(name => {
 const digestOf = data => createHash("sha256").update(data).digest("hex");
 const fault = code => Object.assign(Error("bounded original-write control"), { code });
 
-async function exercise(faults = new Map(), { existing = false, retry = false, variant = "raw", directoryControl = false, platform = process.platform } = {}) {
+async function exercise(faults = new Map(), { existing = false, retry = false, persistentRetry = false, variant = "raw", directoryControl = false, platform = process.platform } = {}) {
   await fsp.mkdir(path.join(process.cwd(), ".local-data"), { recursive: true });
   const root = await fsp.mkdtemp(path.join(process.cwd(), ".local-data/photo-write-"));
   const id = randomUUID(), neighbor = path.join(root, "neighbor.original");
@@ -33,7 +33,7 @@ async function exercise(faults = new Map(), { existing = false, retry = false, v
   await fsp.writeFile(neighbor, "independent original");
   if (existing) await fsp.writeFile(file, bytes);
   const calls = [];
-  let failed = false, error, failEnabled = true;
+  let failed = false, error, failEnabled = true, retryFailed = false, retryError;
   const step = name => {
     calls.push(name);
     if (failEnabled && faults.has(name)) throw faults.get(name);
@@ -44,6 +44,12 @@ async function exercise(faults = new Map(), { existing = false, retry = false, v
     process: { platform, env: { UPLOADS_DATA_PATH: root } },
     mkdir: fsp.mkdir, lstat: fsp.lstat, realpath: fsp.realpath, statfs: fsp.statfs,
     open: async (name, flags, mode) => {
+      if (directoryControl && name === root && flags === "r") {
+        // The separately tested containing-root barrier must succeed while
+        // these original controls keep targeting the photo-directory boundary.
+        const handle = process.platform === "win32" ? null : await fsp.open(name, flags, mode);
+        return { sync: async () => { await handle?.sync(); }, close: async () => { await handle?.close(); } };
+      }
       if (directoryControl && name === directory && flags === "r") {
         step("directory-open");
         // Windows has no directory fsync; this adapter exercises Linux control flow
@@ -88,13 +94,17 @@ async function exercise(faults = new Map(), { existing = false, retry = false, v
     if (published) assert.deepEqual(await fsp.readFile(file), bytes);
     assert.equal(await fsp.readFile(neighbor, "utf8"), "independent original");
     if (retry) {
+      if (persistentRetry) {
+        try { await writer(id, bytes, variant, digestOf(bytes)); }
+        catch (cause) { retryFailed = true; retryError = cause; }
+      }
       failEnabled = false;
       await writer(id, bytes, variant, digestOf(bytes));
       assert.deepEqual(await fsp.readFile(file), bytes);
       assert.equal(await fsp.readFile(neighbor, "utf8"), "independent original");
       assert.equal((await fsp.readdir(directory)).filter(n => n.endsWith(".part")).length, parts.length);
     }
-    return { failed, error, calls, parts, published };
+    return { failed, error, calls, parts, published, retryFailed, retryError };
   } finally {
     const parent = path.resolve(".local-data");
     assert.ok(root.startsWith(parent + path.sep) && path.basename(root).startsWith("photo-write-"), "Owned fixture cleanup stays inside its namespace");
@@ -175,7 +185,7 @@ for (const variant of ["raw", "preview"]) {
     assert.equal(r.failed, true); assert.ok(r.error instanceof AggregateError);
     assert.deepEqual(r.error.errors, [sync, close]); assert.equal(r.error.cause, sync);
     assert.equal(r.error.code, "ENOSPC"); assert.equal(r.published, true); assert.deepEqual(r.parts, []);
-    assert.deepEqual(r.calls, ["open", "write", "sync", "close", "link", "directory-open", "directory-sync", "directory-close", "unlink"]);
+    assert.deepEqual(r.calls, ["open", "write", "sync", "close", "link", "directory-open", "directory-sync", "directory-close", "unlink", "directory-open", "directory-sync", "directory-close"]);
   });
 }
 test("directory sync, close and temporary unlink failures retain all three causes", async () => {
@@ -209,4 +219,28 @@ test("Windows publication skips directory sync while preserving immutable bytes"
 test("real Linux directory descriptor publication succeeds", { skip: process.platform === "win32" ? "Real Linux descriptor exercised in Linux image qualification" : false }, async () => {
   const r = await exercise(new Map(), { directoryControl: true, platform: "linux", retry: true });
   assert.equal(r.failed, false); assert.deepEqual(r.parts, []); assert.ok(r.calls.includes("directory-close"));
+});
+
+for (const variant of ["raw", "preview"]) for (const stage of ["directory-open", "directory-sync", "directory-close"]) {
+  test(`${variant} existing-file retry still refuses persistent ${stage} failure`, async () => {
+    const error = fault("EIO");
+    const r = await exercise(new Map([[stage, error]]),
+      { variant, directoryControl: true, platform: "linux", retry: true, persistentRetry: true });
+    assert.equal(r.failed, true); assert.equal(r.error, error);
+    assert.equal(r.published, true); assert.deepEqual(r.parts, []);
+    assert.equal(r.retryFailed, true); assert.equal(r.retryError, error);
+    assert.equal(r.calls.filter(value => value === "directory-open").length, 3);
+    assert.equal(r.calls.filter(value => value === "open").length, 1, "Retries never rewrite immutable bytes");
+  });
+}
+
+test("existing-file retry preserves persistent directory causes and primary storage code", async () => {
+  const sync = fault("ENOSPC"), close = fault("EIO");
+  const r = await exercise(new Map([["directory-sync", sync], ["directory-close", close]]),
+    { directoryControl: true, platform: "linux", retry: true, persistentRetry: true });
+  assert.equal(r.retryFailed, true); assert.ok(r.retryError instanceof AggregateError);
+  assert.deepEqual(r.retryError.errors, [sync, close]);
+  assert.equal(r.retryError.cause, sync); assert.equal(r.retryError.code, "ENOSPC");
+  assert.equal(r.calls.filter(value => value === "directory-close").length, 3);
+  assert.equal(r.calls.filter(value => value === "open").length, 1);
 });

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import {randomUUID, createHash} from "node:crypto";
-import {mkdtemp, mkdir, rm, writeFile, access} from "node:fs/promises";
+import {mkdtemp, mkdir, rm, writeFile, access, link, readFile} from "node:fs/promises";
 import path from "node:path";
-import type {PrismaClient} from "@prisma/client";
+import type {Prisma, PrismaClient} from "@prisma/client";
 import {purgeAcquisitionPhotosUnderPressure} from "../lib/acquisition-photo-pressure";
 import {manageAcquisitionBatch} from "../lib/acquisition-batch-lifecycle";
 import {eligibleScannerOriginals} from "../lib/scanner-retention";
@@ -20,6 +20,7 @@ export async function verifyPhotoPressure(db: PrismaClient) {
   process.env.ACQUISITION_PHOTO_OWNER_LIMIT_GIB = "1";
   const bytes = Buffer.from("synthetic pressure-cleanup original"), digest = createHash("sha256").update(bytes).digest("hex");
   const file = (id: string) => path.join(root,"acquisition-v1",id+".original");
+  const temporaries = new Map<string,string>();
   const sessions: string[] = [], runIds: string[] = [];
   try {
     for (const id of [tag,other]) {
@@ -50,6 +51,8 @@ export async function verifyPhotoPressure(db: PrismaClient) {
         const candidate = await db.acquisitionCandidate.create({data: {runId,physicalId: slot.id,identityKind: "NATIVE",acquisitionOrder: position,spatialOrder: 0,expectedSides: ["FRONT"],provisional: false,uncertainty: [],revision: 0}});
         if (commit) await db.acquisitionCommitMember.create({data: {runId,candidateId: candidate.id,commitId: commit.id,inventoryItemId: inventory.id,snapshot: {}}});
         await writeFile(file(photo.id),bytes); await writeFile(path.join(root,"acquisition-v1",photo.id+".preview.jpg"),bytes);
+        const temporary=path.join(root,"acquisition-v1",`${photo.id}.${randomUUID()}.part`);
+        await link(file(photo.id),temporary);temporaries.set(photo.id,temporary);
         photos.push({artifactId: slot.requestKey,photoId: photo.id,digest});
       }
       return {id,runId,scanId,photos};
@@ -63,6 +66,35 @@ export async function verifyPhotoPressure(db: PrismaClient) {
     const unfinishedTrash = await batch("trash",1,900);
     await db.acquisitionPhoto.update({where: {id: unfinishedTrash.photos[0].photoId},data: {ready: false,readyAt: null}});
     protectedBatches.push(unfinishedTrash);
+    const fingerprints = async () => {
+      const tables = await db.$queryRaw<{tablename: string}[]>`SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename`;
+      const result: Record<string, {rows: number; digest: string}> = {};
+      for (const {tablename} of tables) {
+        const quoted = '"' + tablename.replaceAll('"', '""') + '"';
+        const [row] = await db.$queryRawUnsafe<{rows: number; digest: string}[]>(
+          `SELECT count(*)::int rows, md5(coalesce(string_agg(row_to_json(t)::text,E'\\n' ORDER BY row_to_json(t)::text),'')) digest FROM ${quoted} t`);
+        result[tablename] = row;
+      }
+      return result;
+    };
+    const beforeRollback = await fingerprints();
+    const refusedCommit = new Proxy(db, {get(target, key) {
+      if (key === "$transaction") return (work: (tx: Prisma.TransactionClient) => Promise<unknown>, options: {timeout?: number}) =>
+        target.$transaction(async tx => {
+          await work(tx);
+          throw new Error("controlled pressure expiry precommit failure");
+        }, options);
+      const value = Reflect.get(target, key, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    }}) as PrismaClient;
+    assert.deepEqual(await purgeAcquisitionPhotosUnderPressure(refusedCommit), {expired: 0, purged: 0, failed: 2});
+    assert.deepEqual(await fingerprints(), beforeRollback);
+    for (const batch of [...protectedBatches,complete,trash,foreign]) for (const photo of batch.photos) {
+      assert.deepEqual(await readFile(file(photo.photoId)), bytes);
+      assert.deepEqual(await readFile(path.join(root,"acquisition-v1",photo.photoId+".preview.jpg")), bytes);
+      assert.deepEqual(await readFile(temporaries.get(photo.photoId)!), bytes);
+    }
+    console.log(`PASS: real pressure expiry/command rollback reports zero expirations, conserves all ${Object.keys(beforeRollback).length} public-table fingerprints and every owned original/preview/temporary, then permits the unchanged recovery controls`);
     // Simulate unlink failure AFTER a successful durable deletion commit.
     process.env.UPLOADS_DATA_PATH = "relative-invalid-fixture-path";
     const first = await purgeAcquisitionPhotosUnderPressure(db);
@@ -78,10 +110,12 @@ export async function verifyPhotoPressure(db: PrismaClient) {
       assert.equal((await db.acquisitionSession.findUniqueOrThrow({where: {id: b.id}})).deletedAt,null);
       assert.equal(await db.acquisitionPhoto.count({where: {runId: b.runId,purgedAt: {not: null}}}),0);
       await access(file(b.photos[0].photoId));
+      assert.deepEqual(await readFile(temporaries.get(b.photos[0].photoId)!),bytes);
     }
     for (const p of [...complete.photos,...trash.photos]) {
       await assert.rejects(access(file(p.photoId)));
       await assert.rejects(access(path.join(root,"acquisition-v1",p.photoId+".preview.jpg")));
+      await assert.rejects(access(temporaries.get(p.photoId)!));
     }
     assert.equal((await db.inventoryItem.findUniqueOrThrow({where: {id: inventory.id}})).quantity,30);
     assert.equal(await db.acquisitionCommitMember.count({where: {runId: complete.runId}}),30);

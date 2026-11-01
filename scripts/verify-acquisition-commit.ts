@@ -1,4 +1,5 @@
 import { confirmStrongAcquisitionMatches } from "../lib/acquisition-auto-confirm";
+import {verifyAcquisitionLanguage} from "./verify-acquisition-language";
 import { runCorrectionCaptureOnce } from "../lib/acquisition-correction-worker";
 import {
   createAcquisitionRecognitionIndex,
@@ -15,7 +16,10 @@ import {
 } from "../lib/acquisition-files";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { type PrismaClient } from "@prisma/client";
+import { PrismaClient, type Prisma } from "@prisma/client";
+import { setTimeout } from "node:timers/promises";
+import { commitImportBatch } from "../lib/import-commit";
+import { verifyAcquisitionWriterCompositions } from "./verify-acquisition-writers";
 import {
   createAcquisitionSession,
   executeAcquisitionCommand,
@@ -25,6 +29,7 @@ import {
   saveAcquisitionReview,
   getAcquisitionCardReview,
   getAcquisitionProgress,
+  correctAcquisitionCount,
   reviewAcquisitionCandidate,
   type AcquisitionActor,
   type CreateAcquisitionInput,
@@ -34,6 +39,7 @@ import {
   previewAcquisitionCommit,
 } from "../lib/acquisition-commit-service";
 import { candidateKey } from "../lib/acquisition-domain";
+import { acquisitionReviewCounts, acquisitionSlotReviewState } from "../lib/acquisition-review-display";
 
 export async function verifyAcquisitionCommit(
   db: PrismaClient,
@@ -48,7 +54,10 @@ export async function verifyAcquisitionCommit(
   process.env.UPLOADS_DATA_PATH = root;
   const tag = `commit-${randomUUID()}`,
     runs: string[] = [],
-    locations: string[] = [];
+    locations: string[] = [],
+    importBatches: string[] = [],
+    openerIds: string[] = [],
+    extraCards: string[] = [];
   const card = await db.card.create({
     data: {
       scryfallId: tag,
@@ -156,6 +165,38 @@ export async function verifyAcquisitionCommit(
     });
   }
   try {
+    // Persisted progress must not advertise accepted-but-uncertain or overflow
+    // copies as ready. These are owned synthetic physical-state controls.
+    const physicalDestination = await location(3);
+    const physical = await capture(physicalDestination, 2);
+    for (const photo of physical.photos) await review(physical.id, photo.id);
+    let physicalProgress = await getAcquisitionProgress(db, actor, physical.id);
+    assert.equal(acquisitionReviewCounts(physicalProgress.slots).ready, 0);
+    assert.ok(physicalProgress.slots[0].physicalReadiness.reasons.includes("ACQUISITION_NOT_SETTLED"));
+    await stop(physical.id);
+    const physicalRun = await db.acquisitionRun.findUniqueOrThrow({ where: { sessionId: physical.id } });
+    await db.acquisitionCandidate.updateMany({ where: { runId: physicalRun.id, physicalId: physicalProgress.slots[0].id },
+      data: { uncertainty: ["MULTIFEED"], countConfirmed: false } });
+    await db.acquisitionSession.update({ where: { id: physical.id }, data: { target: 1 } });
+    physicalProgress = await getAcquisitionProgress(db, actor, physical.id);
+    const savedReview = physicalProgress.slots[0].review;
+    assert.ok(physicalProgress.slots[0].physicalReadiness.reasons.includes("COUNT_UNCERTAIN"));
+    assert.ok(physicalProgress.slots[1].physicalReadiness.reasons.includes("OVERFLOW"));
+    assert.deepEqual(acquisitionReviewCounts(physicalProgress.slots), { all: 2, awaiting: 2, ready: 0, added: 0 });
+    const physicalSelection = { locationId: physicalDestination, section: "A", photoIds: [physical.photos[0].id] };
+    await assert.rejects(previewAcquisitionCommit(db, actor, physical.id, physicalSelection), /confirmed physical count/);
+    await assert.rejects(previewAcquisitionCommit(db, actor, physical.id, { ...physicalSelection, photoIds: [physical.photos[1].id] }), /confirmed physical count/);
+    assert.equal(await db.inventoryItem.count({ where: { locationId: physicalDestination } }), 0);
+    const uncertain = physicalProgress.session.candidates.find(c => c.input.id === physicalProgress.slots[0].id)!;
+    await correctAcquisitionCount(db, actor, physical.id, physicalProgress.revision, {
+      candidateKey: uncertain.key, revision: uncertain.revision, action: "CONFIRM_COUNT", reason: "Owned physical readiness test",
+    });
+    physicalProgress = await getAcquisitionProgress(db, actor, physical.id);
+    assert.deepEqual(physicalProgress.slots[0].review, savedReview);
+    assert.equal(acquisitionSlotReviewState(physicalProgress.slots[0]), "ready");
+    assert.equal(acquisitionSlotReviewState(physicalProgress.slots[1]), "awaiting");
+    assert.equal((await previewAcquisitionCommit(db, actor, physical.id, physicalSelection)).count, 1);
+    assert.equal(await db.inventoryItem.count({ where: { locationId: physicalDestination } }), 0);
     const destination = await location(3),
       first = await capture(destination, 3, true);
     await review(first.id, first.photos[0].id);
@@ -196,24 +237,78 @@ export async function verifyAcquisitionCommit(
       previewToken: preview.token,
       overfillReason: null,
     };
+    // Persisted changes between preview and the complete commit must reject
+    // before any receipt effects. These are explicit fixture mutations, not
+    // claims about the ownership/layout editing routes or concurrent schedules.
+    async function commitState() {
+      return Promise.all([
+        db.acquisitionSession.findUniqueOrThrow({ where: { id: first.id } }),
+        db.acquisitionCandidate.findMany({ where: { runId: { in: runs } }, orderBy: { id: "asc" } }),
+        db.acquisitionPhoto.findMany({ where: { runId: { in: runs } }, orderBy: { id: "asc" } }),
+        db.inventoryItem.findMany({ where: { cardId: card.id }, orderBy: { id: "asc" } }),
+        db.inventoryAuditLog.findMany({ where: { changedByUserId: actor.userId }, orderBy: { id: "asc" } }),
+        db.acquisitionCommit.findMany({ where: { runId: { in: runs } }, orderBy: { id: "asc" } }),
+        db.acquisitionCommitMember.findMany({ where: { runId: { in: runs } }, orderBy: { candidateId: "asc" } }),
+      ]);
+    }
+    async function refusedWithoutEffects(expected: RegExp) {
+      const before = await commitState();
+      await assert.rejects(commitAcquisitionCards(db, actor, first.id, request), expected);
+      assert.deepEqual(await commitState(), before, "Refused complete commit must preserve all receipt/input rows and fields");
+    }
+    const foreignOwner = await db.user.findUniqueOrThrow({ where: { id: stranger.userId } });
+    assert.ok(foreignOwner.playerId && foreignOwner.playerId !== base.ownerPlayerId);
+    await db.acquisitionSession.update({ where: { id: first.id }, data: { ownerPlayerId: foreignOwner.playerId } });
+    try {
+      await refusedWithoutEffects(/unavailable|access|permission|owner/i);
+    } finally {
+      await db.acquisitionSession.update({ where: { id: first.id }, data: { ownerPlayerId: base.ownerPlayerId } });
+    }
+    const savedLayout = (await db.inventoryLocation.findUniqueOrThrow({ where: { id: destination } })).storageLayout;
+    request.previewToken = (await previewAcquisitionCommit(db, actor, first.id, selection)).token;
+    await db.inventoryLocation.update({ where: { id: destination }, data: { storageLayout: { capacity: 4, sections: [{ name: "A", capacity: 4 }] } } });
+    try {
+      await refusedWithoutEffects(/preview changed/);
+    } finally {
+      await db.inventoryLocation.update({ where: { id: destination }, data: { storageLayout: savedLayout as Prisma.InputJsonValue } });
+    }
+    request.previewToken = (await previewAcquisitionCommit(db, actor, first.id, selection)).token;
+    await db.card.update({ where: { id: card.id }, data: { finishes: ["nonfoil", "foil"] } });
+    try {
+      const current = await getAcquisitionCardReview(db, actor, first.id, first.photos[0].id);
+      await saveAcquisitionReview(db, actor, first.id, { action: "accept", photoId: first.photos[0].id,
+        revision: current.revision, decision: { ...decision, finish: "FOIL" } });
+      await refusedWithoutEffects(/preview changed/);
+      const refreshed = await previewAcquisitionCommit(db, actor, first.id, selection);
+      assert.notEqual(refreshed.token, request.previewToken);
+      assert.equal(refreshed.cards.find(value => value.photoId === first.photos[0].id)!.finish, "FOIL");
+    } finally {
+      await review(first.id, first.photos[0].id);
+      await db.card.update({ where: { id: card.id }, data: { finishes: ["nonfoil"] } });
+    }
+    request.previewToken = (await previewAcquisitionCommit(db, actor, first.id, selection)).token;
+    console.log("PASS: complete commit refuses changed owner, layout and saved finish without receipt/input effects; fresh preview exposes current finish");
     for (const table of [
       "InventoryAuditLog",
+      "AcquisitionCommit",
       "AcquisitionCommitMember",
     ] as const) {
       const fault = db.$extends({
         query: {
           $allModels: {
-            async $allOperations({ model, args, query }) {
-              if (model === table) throw new Error("injected commit failure");
+            async $allOperations({ model, operation, args, query }) {
+              if (model === table && (operation === "create" || operation === "createMany")) throw new Error("injected commit failure");
               return query(args);
             },
           },
         },
       }) as unknown as PrismaClient;
+      const beforeFault = await commitState();
       await assert.rejects(
         commitAcquisitionCards(fault, actor, first.id, request),
         /injected/,
       );
+      assert.deepEqual(await commitState(), beforeFault, `${table} failure must roll back every receipt/input field`);
       assert.equal(
         await db.inventoryItem.count({ where: { cardId: card.id } }),
         0,
@@ -467,6 +562,164 @@ export async function verifyAcquisitionCommit(
       )._sum.quantity,
       1,
     );
+    // Reverse order: hold the complete acquisition receipt, then let the
+    // complete ordinary CSV service retain its advisory-capacity semantics.
+    {
+      const destination = await location(1), captured = await capture(destination, 1);
+      await review(captured.id, captured.photos[0].id); await stop(captured.id);
+      const selection = { photoIds: [captured.photos[0].id], locationId: destination, section: "A" };
+      const preview = await previewAcquisitionCommit(db, actor, captured.id, selection);
+      const request = { ...selection, requestKey: randomUUID(), previewToken: preview.token, overfillReason: null };
+      const batch = await db.importBatch.create({ data: {
+        filename: tag + "-reverse", importType: "inventory_csv:separate", selectedPlayerId: base.ownerPlayerId,
+        selectedOriginalOpenerId: base.ownerPlayerId, createdByUserId: actor.userId, status: "PREVIEW",
+        items: { create: { rowNumber: 2, status: "matched", cardPrintingId: card.id, parsedCondition: "NM",
+          parsedFoilStatus: "NONFOIL", rawRowJson: {}, parsedRowJson: { quantity: 1, condition: "NM", language: "EN", notes: "CSV after acquisition" } } },
+      } });
+      importBatches.push(batch.id);
+      let signalHeld!: () => void, releaseWriter!: () => void;
+      const held = new Promise<void>(resolve => { signalHeld = resolve; }), release = new Promise<void>(resolve => { releaseWriter = resolve; });
+      const heldLabel = `capture-csv-holding-${randomUUID()}`, waitingLabel = `capture-csv-waiting-${randomUUID()}`;
+      const connection = (label: string) => { const url = new URL(process.env.DATABASE_URL!); url.searchParams.set("application_name", label); return new PrismaClient({ datasourceUrl: url.href }); };
+      const captureDb = connection(heldLabel), importDb = connection(waitingLabel);
+      const protectedLedger = async (p: Prisma.TransactionClient, id: string) => ({
+        receipt: await p.acquisitionCommit.findUniqueOrThrow({ where: { id } }),
+        members: await p.acquisitionCommitMember.findMany({ where: { commitId: id }, orderBy: { candidateId: "asc" } }),
+        audits: await p.inventoryAuditLog.findMany({ where: { changeType: "acquisition_committed", inventoryItem: { locationId: destination } }, orderBy: { id: "asc" } }),
+        photos: await p.acquisitionPhoto.findMany({ where: { run: { sessionId: captured.id } }, orderBy: { id: "asc" } }),
+      });
+      let original: Awaited<ReturnType<typeof protectedLedger>> | undefined;
+      const heldCapture = new Proxy(captureDb, { get(target, key) {
+        if (key === "$transaction") return (work: (tx: Prisma.TransactionClient) => Promise<Awaited<ReturnType<typeof commitAcquisitionCards>>>, options: unknown) =>
+          Reflect.apply(target.$transaction, target, [async (tx: Prisma.TransactionClient) => {
+            const result = await work(tx); original = await protectedLedger(tx, result.id);
+            signalHeld(); await release; return result;
+          }, options]);
+        const value = Reflect.get(target, key); return typeof value === "function" ? value.bind(target) : value;
+      } });
+      const importingInput = { batchId: batch.id, actingUserId: actor.userId, playerId: base.ownerPlayerId,
+        isAdmin: false, destinationLocationId: destination, destinationLocationSection: "A" };
+      const capturing = commitAcquisitionCards(heldCapture, actor, captured.id, request);
+      void capturing.catch(() => {});
+      let importing: ReturnType<typeof commitImportBatch> | undefined;
+      const errors: unknown[] = [];
+      try {
+        await Promise.race([held, capturing.then(() => { throw new Error("Capture left its held complete receipt early"); })]);
+        importing = commitImportBatch(importDb, importingInput); void importing.catch(() => {});
+        let waiting = false; const deadline = Date.now() + 5000;
+        do {
+          const [row] = await db.$queryRaw<{ waiting: boolean }[]>`SELECT EXISTS(
+            SELECT 1 FROM pg_stat_activity w JOIN pg_stat_activity h ON h.pid=ANY(pg_blocking_pids(w.pid))
+            WHERE w.application_name=${waitingLabel} AND h.application_name=${heldLabel} AND w.wait_event_type='Lock') AS waiting`;
+          waiting = row.waiting; if (!waiting) await setTimeout(20);
+        } while (!waiting && Date.now() < deadline);
+        assert(waiting, "complete CSV must wait for the actual complete acquisition receipt");
+        releaseWriter(); const receipt = await capturing; assert.equal((await importing).committedRows, 1);
+        assert(original); assert.deepEqual(await protectedLedger(db, receipt.id), original);
+        const snapshot = async () => ({
+          capture: await protectedLedger(db, receipt.id),
+          stock: await db.inventoryItem.findMany({ where: { locationId: destination }, orderBy: { id: "asc" } }),
+          audits: await db.inventoryAuditLog.findMany({ where: { inventoryItem: { locationId: destination } }, orderBy: { id: "asc" } }),
+          batch: await db.importBatch.findUniqueOrThrow({ where: { id: batch.id }, include: { items: { orderBy: { rowNumber: "asc" } } } }),
+        });
+        const after = await snapshot();
+        assert.equal(after.stock.length, 2); assert.equal(after.stock.reduce((sum, row) => sum + row.quantity, 0), 2);
+        assert.equal(after.audits.length, 2); assert.equal(after.batch.status, "IMPORTED");
+        assert.equal(after.batch.items[0].status, "imported");
+        const imported = after.stock.find(row => row.sourceType === "CSV_PULL_IMPORT")!;
+        assert.equal(imported.quantity, 1); assert.equal(imported.notes, "CSV after acquisition");
+        assert.equal(imported.originalOpenerId, base.ownerPlayerId); assert.equal(after.batch.items[0].inventoryItemId, imported.id);
+        assert.equal(after.stock.find(row => row.sourceType === "ACQUISITION")!.id, receipt.inventoryItemIds[0]);
+        const replay = await commitAcquisitionCards(db, actor, captured.id, request); assert(replay.replay); assert.equal(replay.id, receipt.id);
+        assert.equal((await commitImportBatch(db, importingInput)).committedRows, 0);
+        assert.deepEqual(await snapshot(), after, "both full-service replays preserve receipt/import/audit/stock state");
+        console.log("PASS: complete acquisition-first CSV lock pair, unchanged capture receipt/photo/audit, separate import provenance/status and both effect-free replays");
+      } catch (error) { errors.push(error); }
+      finally {
+        releaseWriter();
+        for (const result of await Promise.allSettled(importing ? [capturing, importing] : [capturing])) if (result.status === "rejected" && !errors.includes(result.reason)) errors.push(result.reason);
+        for (const result of await Promise.allSettled([captureDb.$disconnect(), importDb.$disconnect()])) if (result.status === "rejected") errors.push(result.reason);
+      }
+      if (errors.length) throw new AggregateError(errors, "Reverse complete CSV/acquisition verification failed", { cause: errors[0] });
+    }
+    // Compose both actual domain services, rather than treating a
+    // capacity helper alone as proof of capture-versus-CSV admission.
+    const csvLocation = await location(1), csvCapture = await capture(csvLocation, 1);
+    await review(csvCapture.id, csvCapture.photos[0].id);
+    await stop(csvCapture.id);
+    const csvSelection = { photoIds: [csvCapture.photos[0].id], locationId: csvLocation, section: "A" };
+    const csvPreview = await previewAcquisitionCommit(db, actor, csvCapture.id, csvSelection);
+    const csvBatch = await db.importBatch.create({ data: {
+      filename: tag, importType: "inventory_csv:separate", selectedPlayerId: base.ownerPlayerId,
+      selectedOriginalOpenerId: base.ownerPlayerId, createdByUserId: actor.userId, status: "PREVIEW",
+      items: { create: { rowNumber: 2, status: "matched", cardPrintingId: card.id,
+        parsedCondition: "NM", parsedFoilStatus: "NONFOIL", rawRowJson: {},
+        parsedRowJson: { quantity: 1, condition: "NM", language: "EN", notes: "CSV capacity race" } } },
+    } });
+    importBatches.push(csvBatch.id);
+    let writerHeld!: () => void, releaseWriter!: () => void;
+    const held = new Promise<void>(resolve => { writerHeld = resolve; });
+    const release = new Promise<void>(resolve => { releaseWriter = resolve; });
+    // Pause only after the real import's transaction body has written its stock,
+    // audit and imported-row status, before that transaction commits.
+    const heldImportDb = new Proxy(db, { get(target, property) {
+      if (property === "$transaction") return (work: (tx: Prisma.TransactionClient) => Promise<unknown>, options: unknown) =>
+        Reflect.apply(target.$transaction, target, [async (tx: Prisma.TransactionClient) => {
+          const result = await work(tx); writerHeld(); await release; return result;
+        }, options]);
+      const value = Reflect.get(target, property); return typeof value === "function" ? value.bind(target) : value;
+    } });
+    const label = `csv-capture-${randomUUID()}`, captureUrl = new URL(process.env.DATABASE_URL!);
+    captureUrl.searchParams.set("application_name", label);
+    const captureDb = new PrismaClient({ datasourceUrl: captureUrl.href });
+    const importing = commitImportBatch(heldImportDb, { batchId: csvBatch.id, actingUserId: actor.userId,
+      playerId: base.ownerPlayerId, isAdmin: false, destinationLocationId: csvLocation, destinationLocationSection: "A" });
+    let capturing: Promise<unknown> | undefined;
+    try {
+      await Promise.race([held, importing.then(() => { throw new Error("Import finished before its controlled boundary"); })]);
+      capturing = commitAcquisitionCards(captureDb, actor, csvCapture.id, { ...csvSelection,
+        requestKey: randomUUID(), previewToken: csvPreview.token, overfillReason: null }).then(() => null, error => error);
+      const deadline = Date.now() + 5000;
+      let waiting = false;
+      do {
+        const rows = await db.$queryRaw<{ waiting: boolean }[]>`SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name = ${label} AND wait_event_type = 'Lock') AS waiting`;
+        waiting = rows[0].waiting;
+        if (!waiting) await setTimeout(20);
+      } while (!waiting && Date.now() < deadline);
+      assert.ok(waiting, "actual acquisition commit must wait behind the actual CSV writer");
+      releaseWriter();
+      assert.equal((await importing).committedRows, 1);
+      assert.match(String(await capturing), /preview changed/);
+      const csvStock = await db.inventoryItem.findMany({ where: { locationId: csvLocation } });
+      assert.equal(csvStock.length, 1); assert.equal(csvStock[0].quantity, 1);
+      assert.equal(csvStock[0].sourceType, "CSV_PULL_IMPORT");
+      assert.equal(await db.acquisitionCommit.count({ where: { run: { sessionId: csvCapture.id } } }), 0);
+      assert.equal(await db.acquisitionCommitMember.count({ where: { candidate: { run: { sessionId: csvCapture.id } } } }), 0);
+      assert.equal(await db.inventoryAuditLog.count({ where: { inventoryItem: { locationId: csvLocation } } }), 1);
+      const fresh = await previewAcquisitionCommit(db, actor, csvCapture.id, csvSelection);
+      assert.equal(fresh.destination.remaining, 0); assert.equal(fresh.overfill, 1);
+      const confirmed = await commitAcquisitionCards(db, actor, csvCapture.id, { ...csvSelection,
+        requestKey: randomUUID(), previewToken: fresh.token, overfillReason: "Checked one additional physical space after CSV import" });
+      assert.equal(confirmed.count, 1);
+      assert.equal((await db.inventoryItem.aggregate({ where: { locationId: csvLocation }, _sum: { quantity: true } }))._sum.quantity, 2);
+      const confirmedAudit = await db.inventoryAuditLog.findFirstOrThrow({ where: { inventoryItemId: confirmed.inventoryItemIds[0] } });
+      assert.equal((confirmedAudit.afterJson as { overfill: number }).overfill, 1);
+      assert.equal(confirmedAudit.reason, "Checked one additional physical space after CSV import");
+      console.log("PASS: actual CSV writer blocks acquisition commit, stale preview has zero partial receipt/audit effects, fresh explicit overfill is audited");
+    } finally {
+      releaseWriter();
+      await Promise.allSettled(capturing ? [importing, capturing] : [importing]);
+      await captureDb.$disconnect();
+    }
+    await verifyAcquisitionWriterCompositions(db, actor, base.ownerPlayerId, {
+      cardId: card.id, location,
+      capture: async destination => {
+        const created = await capture(destination, 1);
+        await review(created.id, created.photos[0].id);
+        await stop(created.id);
+        return { sessionId: created.id, photoId: created.photos[0].id };
+      },
+    });
     const retained = first.photos[0],
       bytes = retentionBytes,
       bytesDigest = photoDigest(bytes);
@@ -650,7 +903,7 @@ export async function verifyAcquisitionCommit(
     await saveAcquisitionReview(db, actor, auto.id, {
       action: "defaults",
       revision: 1,
-      defaults: { finish: "NONFOIL", condition: "NM" },
+      defaults: { finish: "NONFOIL", condition: "NM", openerPlayerId: base.ownerPlayerId },
     });
     // Old OCR evidence predates the stamped-reprint ambiguity guard. It must
     // not be auto-confirmed later merely because defaults became available.
@@ -754,6 +1007,8 @@ export async function verifyAcquisitionCommit(
     );
     assert.equal(confirmed.review?.source, "AUTO_STRONG_MATCH");
     assert.equal(confirmed.review?.condition, "NM");
+    assert.equal(confirmed.review?.openerPlayerId, base.ownerPlayerId,
+      "automatic review freezes the explicitly chosen batch opener");
     assert.equal(
       (await getAcquisitionCardReview(db, actor, auto.id, auto.photos[3].id))
         .review,
@@ -808,6 +1063,8 @@ export async function verifyAcquisitionCommit(
       overfillReason: null,
     });
     assert.equal(added.count, 1);
+    assert.equal((await db.inventoryItem.findUniqueOrThrow({where:{id:added.inventoryItemIds[0]}})).originalOpenerId,
+      base.ownerPlayerId, "later manual correction preserves the automatic review's explicit opener");
     assert.equal(
       (
         await db.inventoryItem.findUniqueOrThrow({
@@ -820,10 +1077,76 @@ export async function verifyAcquisitionCommit(
     console.log(
       "PASS: strong-match defaults, finish compatibility, atomic rollback, concurrent retry, pending/retake fences, editable confirmation and corrected explicit receipt",
     );
+    await verifyAcquisitionLanguage(db,actor,stranger,card,async count=>capture(await location(20),count),id=>extraCards.push(id));
     console.log(
       "PASS: explicit scan subset commit, atomic receipt/audit/membership rollback, retry replay, immutable membership, fresh capacity/overfill, competing sessions and seven-day expiry, exact private-file removal and crash-safe purge retry",
     );
+    // Explicit provenance is separate from collection ownership and the actor.
+    const openerA = await db.player.create({data: {name: tag+"-opener-a", displayName: "Original opener A"}});
+    openerIds.push(openerA.id);
+    const openerB = await db.player.create({data: {name: tag+"-opener-b", displayName: "Original opener B", active: false}});
+    openerIds.push(openerB.id);
+    const openerDestination = await location(10);
+    const provenance = await capture(openerDestination, 5);
+    const provenanceRun = await db.acquisitionRun.findUniqueOrThrow({where:{sessionId:provenance.id}});
+    const originalStock = await db.inventoryItem.findMany({orderBy:{id:"asc"}});
+    const beforeInvalid = await db.acquisitionSession.findUniqueOrThrow({where:{id:provenance.id}});
+    await assert.rejects(saveAcquisitionReview(db, actor, provenance.id, {action:"defaults", revision:0,
+      defaults:{finish:"NONFOIL",condition:"NM",openerPlayerId:"missing-"+tag}}), /existing original opener/);
+    assert.deepEqual(await db.acquisitionSession.findUniqueOrThrow({where:{id:provenance.id}}),beforeInvalid);
+    await saveAcquisitionReview(db,actor,provenance.id,{action:"defaults",revision:0,
+      defaults:{finish:"NONFOIL",condition:"NM",openerPlayerId:openerA.id}});
+    for (const [index, openerPlayerId] of [openerA.id,null,openerB.id,undefined].entries()) {
+      const photoId=provenance.photos[index].id;
+      const view=await getAcquisitionCardReview(db,actor,provenance.id,photoId);
+      const body={action:"accept",photoId,revision:view.revision,
+        decision:{...decision,...(openerPlayerId===undefined?{}:{openerPlayerId})}};
+      await assert.rejects(saveAcquisitionReview(db,stranger,provenance.id,body),/unavailable|permission|owner|access/i);
+      await saveAcquisitionReview(db,actor,provenance.id,body);
+    }
+    await review(provenance.id,provenance.photos[0].id);
+    assert.equal((await getAcquisitionCardReview(db,actor,provenance.id,provenance.photos[0].id)).review?.openerPlayerId,openerA.id,
+      "older client edits retain a known opener");
+    const savedCandidates=await db.acquisitionCandidate.findMany({where:{runId:provenanceRun.id},orderBy:{id:"asc"}});
+    await saveAcquisitionReview(db,actor,provenance.id,{action:"defaults",revision:1,
+      defaults:{finish:"NONFOIL",condition:"NM",openerPlayerId:openerB.id}});
+    assert.deepEqual(await db.acquisitionCandidate.findMany({where:{runId:provenanceRun.id},orderBy:{id:"asc"}}),savedCandidates,
+      "changing batch provenance never rewrites existing reviews");
+    const lastPhotoId=provenance.photos[4].id;
+    const last=await getAcquisitionCardReview(db,actor,provenance.id,lastPhotoId);
+    await assert.rejects(saveAcquisitionReview(db,actor,provenance.id,{action:"accept",photoId:lastPhotoId,revision:last.revision,
+      decision:{...decision,openerPlayerId:"missing-"+tag}}),/existing original opener/);
+    assert.equal((await getAcquisitionCardReview(db,actor,provenance.id,lastPhotoId)).revision,last.revision);
+    await saveAcquisitionReview(db,actor,provenance.id,{action:"accept",photoId:lastPhotoId,revision:last.revision,
+      decision:{...decision,openerPlayerId:last.defaults.openerPlayerId}});
+    await stop(provenance.id);
+    assert.deepEqual(await db.inventoryItem.findMany({orderBy:{id:"asc"}}),originalStock,
+      "defaults and per-card provenance review never create stock");
+    const openerSelection={photoIds:provenance.photos.map(p=>p.id),locationId:openerDestination,section:"A"};
+    const openerPreview=await previewAcquisitionCommit(db,actor,provenance.id,openerSelection);
+    assert.deepEqual(openerPreview.cards.map(p=>p.openerPlayerId??null),[openerA.id,null,openerB.id,null,openerB.id]);
+    assert.deepEqual(openerPreview.cards.map(p=>p.openerName??null),[openerA.displayName,null,openerB.displayName,null,openerB.displayName]);
+    const openerRequest={...openerSelection,requestKey:randomUUID(),previewToken:openerPreview.token,overfillReason:null};
+    const openerReceipt=await commitAcquisitionCards(db,actor,provenance.id,openerRequest);
+    const lots=await db.inventoryItem.findMany({where:{id:{in:openerReceipt.inventoryItemIds}},orderBy:{id:"asc"}});
+    const quantities=new Map(lots.map(lot=>[lot.originalOpenerId,lot.quantity]));
+    assert.equal(lots.length,3);assert.equal(quantities.get(openerA.id),1);assert.equal(quantities.get(openerB.id),2);assert.equal(quantities.get(null),2);
+    assert(lots.every(lot=>lot.currentOwnerId===base.ownerPlayerId&&lot.sourceType==="ACQUISITION"));
+    const audits=await db.inventoryAuditLog.findMany({where:{inventoryItemId:{in:openerReceipt.inventoryItemIds}},orderBy:{id:"asc"}});
+    const receiptBefore=await db.acquisitionCommit.findUniqueOrThrow({where:{id:openerReceipt.id},include:{members:true}});
+    assert.equal(audits.length,3);assert.equal(receiptBefore.members.length,5);
+    assert.deepEqual(new Map(receiptBefore.members.map(member=>{const snapshot=member.snapshot as {photoId:string;decision:{openerPlayerId?:string|null}};
+      return [snapshot.photoId,snapshot.decision.openerPlayerId??null];})),
+      new Map(provenance.photos.map((photo,index)=>[photo.id,[openerA.id,null,openerB.id,null,openerB.id][index]])));
+    assert.equal((await commitAcquisitionCards(db,actor,provenance.id,openerRequest)).replay,true);
+    assert.deepEqual(await db.inventoryItem.findMany({where:{id:{in:openerReceipt.inventoryItemIds}},orderBy:{id:"asc"}}),lots);
+    assert.deepEqual(await db.inventoryAuditLog.findMany({where:{inventoryItemId:{in:openerReceipt.inventoryItemIds}},orderBy:{id:"asc"}}),audits);
+    assert.deepEqual(await db.acquisitionCommit.findUniqueOrThrow({where:{id:openerReceipt.id},include:{members:true}}),receiptBefore);
+    console.log("PASS: explicit batch/per-card opener, legacy Unknown and saved-provenance preservation, missing/foreign refusal, exact preview/three lots/five memberships and replay");
   } finally {
+    await db.importBatchItem.deleteMany({ where: { importBatchId: { in: importBatches } } });
+    await db.importBatch.deleteMany({ where: { id: { in: importBatches } } });
+    await db.inventoryAuditLog.deleteMany({ where: { changeType: "import_committed", inventoryItem: { cardId: card.id } } });
     await db.acquisitionCommitMember.deleteMany({
       where: { runId: { in: runs } },
     });
@@ -834,9 +1157,10 @@ export async function verifyAcquisitionCommit(
         changeType: "acquisition_committed",
       },
     });
-    await db.inventoryItem.deleteMany({ where: { cardId: card.id } });
+    await db.inventoryItem.deleteMany({ where: { cardId: {in:[card.id,...extraCards]} } });
+    await db.player.deleteMany({where:{id:{in:openerIds}}});
     await db.inventoryLocation.deleteMany({ where: { id: { in: locations } } });
-    await db.card.delete({ where: { id: card.id } });
+    await db.card.deleteMany({ where: { id: {in:[card.id,...extraCards]} } });
     if (oldRoot === undefined) delete process.env.UPLOADS_DATA_PATH;
     else process.env.UPLOADS_DATA_PATH = oldRoot;
     if (
