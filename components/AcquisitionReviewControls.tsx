@@ -270,6 +270,7 @@ export function AcquisitionPhotoReview({
   const evidenceTokens = useRef<CorrectionDisplayTokens>({ displayed: [] });
   const dirty = useRef(false),
     requestVersion = useRef(0);
+  useEffect(() => () => { ++requestVersion.current; }, [userId, batchId, photoId]);
   const searchInput = useRef<HTMLInputElement>(null);
   const focusSearch = useRef(false);
   const correctionButton = useRef<HTMLButtonElement>(null);
@@ -470,14 +471,21 @@ export function AcquisitionPhotoReview({
     apply,
     userId, batchId, committed, onDirtyChange,
   ]);
-  async function reload() {
-    ++requestVersion.current;
+  async function reload(afterSave = false) {
+    if (!afterSave && (busy || regionEditing)) return;
+    const version = ++requestVersion.current;
+    setBusy(true);
+    setError("");
     try {
       const next = await call<AcquisitionCardReview>(`${endpoint}?photoId=${photoId}`);
+      if (version !== requestVersion.current) return;
       setObservedRevision(next.revision);
       clearDraft(); apply(next); setMessage("");
     } catch (e) {
-      setError((e as Error).message);
+      if (version === requestVersion.current) setError((e as Error).message);
+    } finally {
+      // A successful save retains its busy state through navigation and refresh.
+      if (!afterSave && version === requestVersion.current) setBusy(false);
     }
   }
   async function discardChanges() {
@@ -526,7 +534,7 @@ export function AcquisitionPhotoReview({
           : {}),
       });
       clearDraft(); dirty.current = false; setDraftDirty(false); onDirtyChange?.(photoId, false);
-      await reload();
+      await reload(true);
       focusAfterReview.current = !next;
       setEditing(false);
       setMessage(
@@ -868,7 +876,7 @@ export function AcquisitionPhotoReview({
       {error && (
         <div role="alert" className="mb-2">
           <p>{error}</p>
-          <button className={button} onClick={() => void reload()}>
+          <button className={button} disabled={busy || regionEditing} onClick={() => void reload()}>
             Reload review
           </button>
         </div>
