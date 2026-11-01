@@ -2,6 +2,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { isAdminUser } from "./auth-policy";
 import { cardWriteData } from "./card-import";
+import { refreshScryfallPrices, scryfallPricesForWrite } from "./card-price-write";
 import type { ScryfallCard } from "./scryfall";
 import type { AcquisitionActor } from "./acquisition-store";
 
@@ -150,7 +151,13 @@ export async function applyAcquisitionCatalogBatch(
         preserved++;
         continue;
       }
-      const write = { ...data, lastSyncedAt: run.sourceUpdatedAt };
+      const { prices: _prices, ...metadata } = data;
+      const prices = scryfallPricesForWrite(card);
+      const write = {
+        ...metadata,
+        priceLastFetchedAt: data.priceLastFetchedAt ?? undefined,
+        lastSyncedAt: run.sourceUpdatedAt,
+      };
       if (previous) {
         const changed = await tx.card.updateMany({
           where: {
@@ -163,9 +170,12 @@ export async function applyAcquisitionCatalogBatch(
           },
           data: write,
         });
+        // A failed metadata fence must not apply prices from the losing batch.
+        if (changed.count && prices)
+          await refreshScryfallPrices(tx, previous.id, prices);
         updated += changed.count;
         preserved += 1 - changed.count;
-      } else create.push({ ...write, scryfallId: card.id });
+      } else create.push({ ...write, prices: prices ?? {}, scryfallId: card.id });
     }
     // A concurrent direct fetch can win an insertion. Skipping it preserves its
     // identity/relationships; this refresh records that row as preserved.

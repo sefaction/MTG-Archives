@@ -1,3 +1,18 @@
+## Current acquisition price-preservation draft - November 1, 2026
+
+Acquisition bulk refresh and provider-cache publication now share the ordinary
+Scryfall refresh price writer. Metadata updates retain independent MTGJSON
+projections, ignore caller-supplied projections and preserve cached prices when
+the payload omits them. A losing bulk metadata fence cannot apply prices.
+Card changes and catalogue progress/publication remain atomic.
+
+Related to existing #854/#305/#307; this prevention change does not resolve the
+historical WAL incident or pricing recovery acceptance. The acquisition SQL
+suite now covers both writers, payload variants, stable identities, unchanged
+Inventory, rollback and observed row-lock barriers in both Pricing writer orders.
+Exact-head CI and independent review remain pending. Keep the PR draft; each
+merge requires Brian's individual approval. No production rollout is included.
+
 ## Current byte-exhaustion qualification — November 1, 2026 UTC
 
 Subsequent integration includes external #984/main3c2f95c9. Only the correction-library modules/verification/tests/guide change; the complete photo-file module/imports, verifier and host controls are exact. Reuse the source7536 current-module kernel proof for this boundary only, retain original3484 evidence, and require the new integrated publication head's CI. Prior public1143ddcf/tree825e9315 passes all9checks41263625114 (2370Core passes/0fail/1skip); individual989 approval remains pending. No new kernel run or cumulative application/production claim.
