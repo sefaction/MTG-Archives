@@ -1,5 +1,13 @@
 # Default printing-search choices
 
+## Current stack integration — November 1, 2026 UTC
+
+Draft #988 remains stacked on the refreshed #987 head `88c3f5b7`, which contains main `3c2f95c9` and the approved League fallback/outside-pool policy. The route and all four actual-route regression controls remain exact to the original #988 qualification. The inherited #987 guide and budget test are taken exactly from the refreshed parent after verifying that this branch had not independently changed their old blobs; their add/add conflicts reflect differing local/public ancestry. The initial checkpoint-only conflict guard refused before writes and is retained with the integration record.
+
+All 15 current route, transaction-budget and League-pool feedback controls pass without failures/skips. Current typecheck and new exact-head CI are required. The compiled desktop/phone evidence below remains tied to its original source/image and is not relabeled as a new cumulative run. After #987 merges under its separate approval, retarget this draft and reconcile checks before seeking its own readiness/merge approval. No production action or new issue is included.
+
+## Original qualification — October 31, 2026
+
 During the authorized pending-issue work, source review found that the shared authenticated deck-card-search route converted an absent limit to zero, clamped it to one, and silently reduced ordinary card searches to one printing. DeckCardPicker, manual deck-paste matching, Wishlist search and single-card Inventory search omit this optional parameter. The search helper already defines the intended default of30. The fixed-card chooser supplies175 explicitly and is unaffected.
 
 The route now distinguishes an absent parameter before numeric conversion. Omitted/invalid limits use the existing helper default; explicit integers retain1..175 clamping. Explicit empty values keep the prior one-result behavior. Authentication, current-owner scope, Scryfall opt-in and response format are unchanged. No basic-land exemption, substitute printing or automatic import is introduced.

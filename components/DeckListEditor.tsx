@@ -46,6 +46,7 @@ export type DeckReturnLocation = { id: string; name: string };
 export type DeckEditorRow = {
   id: string;
   cardName: string;
+  leaguePoolStatus?: "IN_POOL" | "OTHER_PRINTING" | "OUTSIDE_POOL";
   section: DeckSection;
   quantity: number;
   notes: string | null;
@@ -753,6 +754,17 @@ export function DeckListEditor({
   }
   return (
     <section className="space-y-4" id="deck-workspace">
+      {rows.some((row) => row.leaguePoolStatus === "OUTSIDE_POOL") ? (
+        <div className="rounded border border-amber-700 bg-amber-950/20 p-3 text-sm text-amber-200" role="status">
+          <p className="font-semibold">Outside League pool</p>
+          <p>These cards are saved in the decklist, but no printing is currently in a linked League inventory location:</p>
+          <ul className="mt-1 list-inside list-disc">
+            {rows.filter((row) => row.leaguePoolStatus === "OUTSIDE_POOL").map((row) => (
+              <li key={row.id}>{row.quantity} {row.cardName}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <div className="app-panel p-2">
         <div className="flex flex-wrap items-end gap-3">
           <div className="pb-2 text-xs font-semibold uppercase tracking-wide text-amber-200">

@@ -1,8 +1,24 @@
+## Current default-limit stack integration — November 1, 2026 UTC
+
+Owner root/thread01a19026-efc8-7c21-94d7-b143ca1ad404, existing draft988. Integrate refreshed parent987, public88c3f5b7/local4cf78893, containing main3c2f95c9. Keep988 stacked on987; no retargeting, readiness promotion, merge or production action. The route and its four actual-route controls remain exact to the originally qualified988 repair. Parent987 preserves approved990's League fallback/outside-pool policy and has refreshed nine budget controls; the explicit owned-only option stays local. Current focused checks/typecheck and new exact-head CI are required. Earlier compiled browser evidence remains tied to its original source/image, not a new cumulative run. Preserve this own earlier prefix and full refreshed-parent checkpoint once. Besides the checkpoint, Git reported add/add conflicts for the inherited987 guide and budget test because local/public integration ancestry differs. Both old inherited blobs match the prior qualified987 source exactly; take the refreshed parent's exact versions, then verify that only988's four intended paths differ from its parent. The first preparation guard expected only the checkpoint and stopped without changing files; retain that setup refusal.
+
+## Preserved original default-limit qualification
+
 ## Current — October31,2026: default card-search result limit
 
 Owner root/thread01a19026-efc8-7c21-94d7-b143ca1ad404. Branch codex/card-search-default-limit-20261031 over reviewed987headf4418553; do not change987 pending-approval head. Fix only absent-limit conversion so ordinary pickers use existing default30 instead ofone. Four actual-route controls pass (unchanged3pass/1intendedfail),26focusedcontrols pass. See docs/CARD_SEARCH_DEFAULT_LIMIT.md. Compiled old/new1366/320 pickers qualify: oldonechoice versusnew30; secondprinting saves onecopy; explicit5/175 bounds retained; all85table fingerprints restore in four completed cases. One failed harness locator attempt and its85-table cleanup are preserved in the guide. Qualified image7768cc9bb5a21f176da55377cc567c6b8d4022dbeb18712103f15c0050ee2d95 binds1,336inputs/digest8de2ae4bb3bc48f73a458128ac510d9cad455f9ca1349f805e01c4572745d363. Both owned containers/network retired; exact claim released;four protected stopped containers unchanged. Final exact-head CI pending after publication. Default feature PR publication is authorized; no newissue,merge or productionauthority. Existing986webupdate/987merge questions remain pending.
 
 ## Preserved earlier checkpoint history
+
+## Current search-cache integration — November 1, 2026 UTC
+
+Owner root/thread01a19026-efc8-7c21-94d7-b143ca1ad404, branch codex/card-search-query-budget-846-20261031 and existing846/PR987. Integrate current main3c2f95c9 while its individual merge question remains pending. Preserve the three sequential search-cache loops and their existing limits/order/failure-stop behavior. Approved990's alternate-printing/outside-pool policy remains current; this integration introduces no new policy, issue or production action. The only textual merge conflict was this cumulative checkpoint; preserve the full current main checkpoint plus the exact earlier own prefix once.
+
+Prior publicf4418553/local5fd92474/treef04a163f passes all9checks41222461884, including2356Core passes/0fail/1skip; original71focused controls, source-bound old connection failure and six final desktop/phone pressure controls with85-table restoration pairs remain dated to their original source/image. Verify current integrated helper/source binding and applicable tests before publication, then obtain new exact-head CI. No current cumulative pressure/runtime result or individual merge approval is inferred. The separately owned full native reference index remains live under its own claim; no heavy runtime runs during this source integration.
+
+Current integration checks: all seven applicable original budget-test bodies remain exact; the old default League rejection conflicts with the explicit #990 user policy and failed in the initial 22pass/1fail run. Replaced it with outside-pool fallback/quantity/selection/75-write/one-slot assertions, plus a separate owned-only no-fetch/no-write control. Nine budget and15current exact-feedback tests pass, as do39additional search/metadata/pricing/review/save-feedback controls. Complete manual/upsert/picker source is exact; cheapest helper is current main plus only the qualified sequential cache block. The original full-function binding refusal is preserved and no whole-function equivalence across #990 is claimed. Current typecheck and exact-head CI follow publication; individual merge question remains pending.
+
+## Preserved original search qualification checkpoint
 
 ## Current — October31,2026: bounded search-cache work for #846
 
@@ -10,6 +26,14 @@ Owner root, thread01a19026-efc8-7c21-94d7-b143ca1ad404. Branch codex/card-search
 
 ## Preserved earlier checkpoint history
 
+## Preserved cumulative current-main checkpoint
+
+## Current League paste policy — October31,2026
+
+Branch codex/league-paste-pool-warning-844-20261031; existing issue844, base3484b2a0. Brian explicitly chose to add recognized cards even without any League copy and show outside-pool feedback. Missing pasted editions prefer same-card linked printings under the default policy. Final paste saves independently of pool membership; live saved-deck warnings retain the missing-stock distinction. Inventory, management/submitted-match and write fences remain.
+
+Types pass; full unit2,349pass/zero failures/six existing skips;43focused pass. Canonical Docker image12da2dcb binds all1,335 inputs ofaf1812c2/manifest25009f8d. Actual supplied100-copy desktop1366/phone320, four synthetic alternates/SolRing warning, stale-pool replace/relink and the tracked100-row/ordinary-physical compatibility flow pass; three completed85-table restoration pairs. Four owned containers/two networks retired, exact runtime claim released; four protected stopped containers/mounts unchanged. Failed setup attempts and evidence limitations remain in [the policy guide](LEAGUE_PASTE_POOL_POLICY.md) and private .local-data logs. Foundry unavailable here. Publication and required exact-head CI are next; no merge/production authority is implied. Earlier individual987/989 merge and986deployment questions remain pending; the League policy question is answered.
+## Preserved previous checkpoint
 ## Current #844 connection-burst repair — October 31, 2026
 
 Owner chat 01a19026-efc8-7c21-94d7-b143ca1ad404, branch codex/league-paste-printing-feedback-844; draft #986, main 59275d70. Brian supplied the new 87-entry/100-copy list, five exact NOT_FOUND rows, exclusion/import failure with no additions and generic error screenshot. Separate explicit approvals permit read-only existing production app/browser details and MTG container logs through Unraid; no imports, commands, restarts, settings, deployment or data changes. The temporary log viewer is closed. Original author correction/reload checkouts remain untouched.
