@@ -1,5 +1,6 @@
 import { acquisitionCollectorKey, acquisitionFooterObservations, type FooterSpatialReading } from "./acquisition-footer";
 import { acquisitionNameKey, acquisitionExactNameKeyEligible } from "./acquisition-name";
+import {acquisitionBatchLanguageSchema, acquisitionUntranslatedSetMarkers,acquisitionObservedLanguages} from "./acquisition-batch-language";
 export { acquisitionCollectorKey } from "./acquisition-footer";
 export const ACQUISITION_TEXT_RESOLVER_VERSION = "scanner-positioned-footer-v20";
 
@@ -109,6 +110,7 @@ function resolveAcquisitionPrintings(
   limit: number,
   allowFuzzy = true,
   spatial?: FooterSpatialReading,
+  confirmedBatchLanguage?: string,
 ) {
   if (
     input.title.length > 100 ||
@@ -127,6 +129,16 @@ function resolveAcquisitionPrintings(
       languages.add(identifier.language);
       const observed = languagesBySet.get(identifier.set) ?? new Set<string>();
       observed.add(identifier.language); languagesBySet.set(identifier.set, observed);
+    }
+  }
+  const observedLanguages = [...languages];
+  // Confirmation supplies only missing language. Keep the actual OCR arrays
+  // immutable and expose its separate provenance in the projected result.
+  const batchLanguage = acquisitionBatchLanguageSchema.safeParse(confirmedBatchLanguage);
+  if(batchLanguage.success && footer.identifiers.length===0){
+    for(const set of acquisitionUntranslatedSetMarkers(input.footer,index.sets)){
+      setCodes.add(set);languages.add(batchLanguage.data);
+      languagesBySet.set(set,new Set([batchLanguage.data]));
     }
   }
   const collectors = new Set(footer.collectors);
@@ -155,7 +167,7 @@ function resolveAcquisitionPrintings(
     }
   }
   const proposals = new Map<string, RecognitionProposal>();
-  let conflict = false;
+  let conflict = batchLanguage.success && footer.identifiers.some(value=>value.language!==batchLanguage.data);
   for (const set of setCodes)
     for (const number of collectors) {
       const setLanguages = languagesBySet.get(set)!;
@@ -307,6 +319,8 @@ function resolveAcquisitionPrintings(
       (r) => r !== "REVIEW_REQUIRED",
     );
     exactPrintings[0].reasons.push("STRONG_EXACT_PRINTING");
+    if(batchLanguage.success && observedLanguages.length===0)
+      exactPrintings[0].reasons.push("LANGUAGE_FROM_CONFIRMED_BATCH");
   }
   if (footer.recoveredLayout) for (const proposal of all)
     proposal.reasons.push("RECOVERED_FOOTER_LAYOUT", "REVIEW_REQUIRED");
@@ -326,7 +340,9 @@ function resolveAcquisitionPrintings(
     evidence: {
       setCodes: [...setCodes],
       collectors: [...collectors],
-      languages: [...languages],
+      languages: observedLanguages,
+      ...(batchLanguage.success && observedLanguages.length===0 && setCodes.size
+        ? {confirmedBatchLanguage:batchLanguage.data} : {}),
     },
     totalProposals: all.length,
     truncated: all.length > limit,
@@ -338,6 +354,7 @@ export function proposeOrientedAcquisitionPrintings(
   index: ReturnType<typeof createAcquisitionRecognitionIndex>,
   orientations: ({ rotationDegrees: number; text: RecognitionText } & FooterSpatialReading)[],
   limit = 12,
+  confirmedBatchLanguage?: string,
 ) {
   if (!Number.isInteger(limit) || limit < 1 || limit > 100)
     throw new Error("Invalid result limit");
@@ -350,9 +367,23 @@ export function proposeOrientedAcquisitionPrintings(
     throw new Error("Expected both portrait reading directions");
   // Resolve complete observations independently. Never take a title from one
   // orientation and a collector number from another to manufacture agreement.
+  const confirmed=acquisitionBatchLanguageSchema.safeParse(confirmedBatchLanguage);
+  const observedLanguages=acquisitionObservedLanguages(orientations);
+  const languageConflict=confirmed.success && observedLanguages.some(language=>language!==confirmed.data);
+  const missingLanguage=confirmed.success && !observedLanguages.length ? confirmed.data : undefined;
+  const resolve=(orientation:typeof orientations[number],fuzzy:boolean)=>{
+    const result=resolveAcquisitionPrintings(index,orientation.text,Math.max(1,index.cards),fuzzy,orientation,missingLanguage);
+    if(languageConflict){
+      result.status="CONFLICT";result.automaticAcceptance=false;
+      for(const proposal of result.proposals)proposal.reasons=[...new Set([
+        ...proposal.reasons.filter(reason=>reason!=="STRONG_EXACT_PRINTING"),"BATCH_LANGUAGE_CONTRADICTION","REVIEW_REQUIRED",
+      ])];
+    }
+    return result;
+  };
   let observed = orientations.map((orientation) => ({
     rotationDegrees: orientation.rotationDegrees,
-    result: resolveAcquisitionPrintings(index, orientation.text, Math.max(1, index.cards), false, orientation),
+    result: resolve(orientation,false),
   }));
   const substantive = observed.filter(({ result }) =>
     // A literal fragment remains an observation in its own direction. It must
@@ -364,7 +395,7 @@ export function proposeOrientedAcquisitionPrintings(
   if (!substantive.length)
     observed = orientations.map((orientation) => ({
       rotationDegrees: orientation.rotationDegrees,
-      result: resolveAcquisitionPrintings(index, orientation.text, Math.max(1, index.cards), true, orientation),
+      result: resolve(orientation,true),
     }));
   const candidates = substantive.length ? substantive : observed.filter(
     ({ result }) => result.proposals.length > 0,

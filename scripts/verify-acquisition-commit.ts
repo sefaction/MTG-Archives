@@ -1,4 +1,5 @@
 import { confirmStrongAcquisitionMatches } from "../lib/acquisition-auto-confirm";
+import {verifyAcquisitionLanguage} from "./verify-acquisition-language";
 import { runCorrectionCaptureOnce } from "../lib/acquisition-correction-worker";
 import {
   createAcquisitionRecognitionIndex,
@@ -54,8 +55,9 @@ export async function verifyAcquisitionCommit(
   const tag = `commit-${randomUUID()}`,
     runs: string[] = [],
     locations: string[] = [],
+    importBatches: string[] = [],
     openerIds: string[] = [],
-    importBatches: string[] = [];
+    extraCards: string[] = [];
   const card = await db.card.create({
     data: {
       scryfallId: tag,
@@ -1075,6 +1077,7 @@ export async function verifyAcquisitionCommit(
     console.log(
       "PASS: strong-match defaults, finish compatibility, atomic rollback, concurrent retry, pending/retake fences, editable confirmation and corrected explicit receipt",
     );
+    await verifyAcquisitionLanguage(db,actor,stranger,card,async count=>capture(await location(20),count),id=>extraCards.push(id));
     console.log(
       "PASS: explicit scan subset commit, atomic receipt/audit/membership rollback, retry replay, immutable membership, fresh capacity/overfill, competing sessions and seven-day expiry, exact private-file removal and crash-safe purge retry",
     );
@@ -1154,10 +1157,10 @@ export async function verifyAcquisitionCommit(
         changeType: "acquisition_committed",
       },
     });
-    await db.inventoryItem.deleteMany({ where: { cardId: card.id } });
+    await db.inventoryItem.deleteMany({ where: { cardId: {in:[card.id,...extraCards]} } });
     await db.player.deleteMany({where:{id:{in:openerIds}}});
     await db.inventoryLocation.deleteMany({ where: { id: { in: locations } } });
-    await db.card.delete({ where: { id: card.id } });
+    await db.card.deleteMany({ where: { id: {in:[card.id,...extraCards]} } });
     if (oldRoot === undefined) delete process.env.UPLOADS_DATA_PATH;
     else process.env.UPLOADS_DATA_PATH = oldRoot;
     if (

@@ -19,6 +19,7 @@ export type AcquisitionProblemJob = {
   catalogStatus: string | null;
   geometryStatus: string | null;
   framing: string | null;
+  observedLanguages?: string[] | null;
 };
 
 export function acquisitionReviewProblems(input: {
@@ -27,6 +28,7 @@ export function acquisitionReviewProblems(input: {
   photoReady: boolean;
   review: {cardId: string | null; finish: string} | null;
   defaultsFinish: AcquisitionDefaults["finish"];
+  defaultsLanguage?: AcquisitionDefaults["language"];
   printings: ReadonlyMap<string, {finishes: unknown}>;
   jobs: AcquisitionProblemJob[];
   visualEnabled?: boolean;
@@ -52,7 +54,9 @@ export function acquisitionReviewProblems(input: {
   // A deliberate saved printing resolves suggestion selection. It does not
   // remove photo/count/placement problems or invent a finish decision.
   if (input.review?.cardId || !job || job.status !== "COMPLETE") return result;
-  if (validResult && job.resultStatus === "CONFLICT" && proposals.length) result.push("conflict");
+  if (validResult && proposals.length && (job.resultStatus === "CONFLICT" ||
+      (input.defaultsLanguage && job.observedLanguages?.some(language=>language!==input.defaultsLanguage))))
+    result.push("conflict");
   // Retained old suggestions remain useful during supplemental work, but an
   // unfinished/failed check must not be counted as a completed no-match result.
   const unsettled = [latest?.status, visualStatus, printingStatus]
