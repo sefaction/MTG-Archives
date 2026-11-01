@@ -17,6 +17,15 @@ function job(change: Partial<AcquisitionProblemJob> = {}): AcquisitionProblemJob
 const problems = (jobs: AcquisitionProblemJob[], change: Partial<Parameters<typeof acquisitionReviewProblems>[0]> = {}) =>
   acquisitionReviewProblems({...base, jobs, ...change});
 
+test("confirmed batch language exposes a readable conflict until the card is individually reviewed",()=>{
+  const readable=job({resultStatus:"STRONG_MATCH",proposalCount:1,proposalIds:["card"],observedLanguages:["fr"]});
+  assert.deepEqual(problems([readable],{defaultsLanguage:"en"}),["conflict"]);
+  assert.deepEqual(problems([readable],{defaultsLanguage:"fr"}),[]);
+  assert.deepEqual(problems([readable]),[]);
+  assert.deepEqual(problems([{...readable,observedLanguages:[]}],{defaultsLanguage:"en"}),[]);
+  assert.deepEqual(problems([readable],{defaultsLanguage:"en",review:{cardId:"card",finish:"NONFOIL"}}),[]);
+});
+
 test("unstarted, running, failed and provider checks are not completed no-match results", () => {
   assert.deepEqual(problems([]), []);
   for (const status of ["PENDING", "RUNNING", "FAILED", "SUPERSEDED"] as const)

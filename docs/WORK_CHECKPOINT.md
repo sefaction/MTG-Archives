@@ -1,30 +1,22 @@
-## Current review-reload draft integration — November 1, 2026 UTC
+## Current byte-exhaustion qualification — November 1, 2026 UTC
 
-Owner root/thread01a19026-efc8-7c21-94d7-b143ca1ad404, existing308/302 and draft985. Integrated main3c2f95c9. All five carried application/verifier/test files remain byte-identical to the previously qualified draft and original author766b6472; this batch changes no application behavior. The only conflict was this checkpoint. Preserve the earlier own qualification prefixes below and full current-main history once; prior main additions/shared history are verified exact within that current-main suffix. Original author C: checkout/branch and958 work remain untouched.
+Subsequent integration includes external #984/main3c2f95c9. Only the correction-library modules/verification/tests/guide change; the complete photo-file module/imports, verifier and host controls are exact. Reuse the source7536 current-module kernel proof for this boundary only, retain original3484 evidence, and require the new integrated publication head's CI. Prior public1143ddcf/tree825e9315 passes all9checks41263625114 (2370Core passes/0fail/1skip); individual989 approval remains pending. No new kernel run or cumulative application/production claim.
 
-All35focused controls and current typecheck pass without failures/skips. Publish the complete identical tree and require new exact-head CI. Earlier source-bound compiled desktop/phone and85-table restoration evidence remains dated; no new cumulative runtime or production result is claimed. Brian authorized draft publication only: retain draft, do not merge or deploy. The full native index runs separately under its existing exact owner/resource claim; no second heavy operation is started.
+Owner root/thread01a19026-efc8-7c21-94d7-b143ca1ad404, branch codex/photo-byte-exhaustion-305-20261031, existing305/310 and PR989. Integrated approved main799e4b3a; #993 changes only two documentation maps, while the actual photo-file module remains identical to approved #991/source7536ea51. No application/schema/policy change or new issue.
 
-## Preserved earlier own integration and qualification
+The unchanged verifier now passes both raw/preview real kernel ENOSPC/write cases on immutable source7536 web image378eaaf2. Actual module f7f7aa5b and manifest18cdaaf1 match canonical source. Both16KiB partials are cleaned, no failed photo is published, the neighbor survives, and deliberate recovery/replay preserves exact1MiB bytes. The actual populated-root refusal also passes. Three ordinary host-refusal controls pass. Current-source identity/kernel/refusal containers all exited0 without OOM/restarts, were removed, and exact shared claim scanner760-byte-current-20261031-01af2abb released; all four protected stopped-container configuration/mount/state fingerprints remained exact. Evidence and explicit hashes/limits are in docs/PHOTO_BYTE_EXHAUSTION.md; private receipts remain with sustained-resource-760/.local-data/byte-current-*. No database/HTTP/browser/Inventory/process-loss/production qualification or85-table claim.
 
-## Current — October31,2026: draft985 integrated on merged League repair
+Publish this qualified integration and require its exact-head CI before any merge. Individual989 merge approval remains pending. Native760/index work is separately owned and does not grant merge/deployment authority. Original own checkpoint and full main checkpoint remain preserved below, with common history present once.
 
-Owner root/thread01a19026-efc8-7c21-94d7-b143ca1ad404. Review reload busy/request-version/lifecycle fence. Main3484b2a0/#986 is integrated; the only conflict was this checkpoint. All5 carried source/verifier/test files retain their prior exact blob identities. 35 focused controls and four compiled1366/320 normal/lost-reply cases pass;all85tables restore. Earlier compiled cumulative0a5867d4/image3d6de06c contains both drafts plus the merged986 application changes; reuse is limited to unchanged affected behavior, not new exact-head CI or standalone deployment. Exact-head CI is pending after integration. No application edits, runtime reload or production action is introduced by this integration. Brian authorized draft publication only; retain draft and do not merge. Full main and draft checkpoint additions below are preserved over one shared historical base.
+## Preserved byte-qualification checkpoint
 
-## Preserved earlier own draft qualification
+## Current — October31,2026: real byte-exhaustion file-write qualification
 
-## Current review-reload draft985 — October31,2026
+Owner root/thread01a19026-efc8-7c21-94d7-b143ca1ad404. Branch codex/photo-byte-exhaustion-305-20261031 over merged3484b2a0; existing305/310 only, no newissue. New opt-in verifier covers actual kernel ENOSPC after a real sufficient-space measurement is interleaved with a filler write; both raw/preview produce16KiB partials, clean them, preserve a neighbor and recover/replay exact1MiB bytes. Published3484 image863a6cd98d7a and source/manifest hashes are bound in docs/PHOTO_BYTE_EXHAUSTION.md. Three host refusal tests plus actual-image populated-root refusal pass. No application/schema/policy changes, database, HTTP/browser, process-loss or production claim. All3 exact ephemeralcontainers retired;runtimeclaimreleased;4protectedstoppedcontainers/mountsunchanged. FinalheadCI/publishedPR pending; individual merge approval still required. Prior986production/987merge questions remain pending and their heads unchanged.
 
-Owner chat01a19026-efc8-7c21-94d7-b143ca1ad404, branch codex/review-reload-current-review-308, existing308/302. Current-main59275d70 integration includes merged979/983. All five carried source/test files remain byte-identical to original766b6472 and initial published draft3ba95659. Original C: checkout/branch and958 language/FR Alice work are untouched.
+## Preserved earlier checkpoint history
 
-Brian explicitly answered “Allow draft publication” using the connected GitHub access, no broader account permissions and no merging. The earlier specific pause is lifted for these two drafts only.
-
-Focused actual-component/controlled-target35 pass without failures/skips; all9 initial published-head checks pass3ba95659 (Verify41211547581). New integrated final-head CI is required; older checks do not substitute.
-
-Current-main cumulative production image39d2439f (1,334 inputs/digest634eb17c, source0db17931) passes all four actual1366/320 normal/lost-response browser cases in21.8s with no skips/retries, full85-table before/after equality and inspected source-identical status layouts. Initial author/earlier image results remain distinct. Same cumulative image qualifies correction SQL and separate844 feedback/save controls. No production deployment, merge or user acceptance.
-
-All owned disposable containers/networks retired; four original stopped containers/all four volumes preserved, exact desktop runtime claim released after terminal children. Qualified image/private logs retained. Next: publish integrated tree, verify exact final-head CI, retain draft for review/individual approval.
-
-## Preserved cumulative current-main checkpoint
+## Preserved cumulative main7536 checkpoint
 
 ## Current League paste policy — October31,2026
 
