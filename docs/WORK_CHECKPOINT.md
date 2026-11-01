@@ -1,3 +1,27 @@
+## Current storage acceptance reconciliation — November 1, 2026
+
+Owner root; branch codex/storage-acceptance-map-305-20261101, based on main
+78a017c82211a1b1d96de4c55213b6d460e2ad58. Existing #305 scope only; no new issue.
+The new finite storage map preserves the fi-7160 priority and deferred phone scope.
+One specific uncovered composed case is being added to the existing capture/restore
+verifier: a reviewed overflow copy must retain identity/review/bytes and refuse
+Inventory after restore without writes. The original credential, replay, source
+conservation and equal-byte distinct-copy checks remain.
+
+Actual canonical-source PostgreSQL16/archive/restore passes at3503d230 in2,753ms:
+85tables/full appdata, overflow identity/review/refusal/no-write, inherited replay,
+credential/owner fences and source conservation. Focused original-strict types pass;
+the full local1536MiB heap attempt failed and remains recorded. All1,737inputs are
+unchanged, the62,504-byte archive is retained, both exact roles/network are retired,
+protected4fingerprints match and the supported reservation is released. Thirty-seven
+local map links resolve. Final publication-head CI, independent review and individual
+merge approval remain pending. The following commit updates documentation only.
+The original final controller failed its archive-copy check; verified exact-owner
+archive recovery and retirement are recorded separately. No failed run is relabelled.
+No application/schema/policy change, production access or runtime is active.
+Private source/queue receipts are under .local-data. Previous checkpoints below
+remain historical.
+
 ## Current Inventory workflow test alignment — November 1, 2026 UTC
 
 Branch `codex/inventory-test-capture-order-310-20261101`, based on current main
