@@ -1,3 +1,55 @@
+# Current League paste delivery and remaining acceptance — November 1, 2026
+
+[#844](https://github.com/sefaction/MTG-Archives/issues/844) now has Brian's supplied
+87-row/100-copy sealed Commander League list, the five NOT_FOUND entries and the
+generic error-page report after excluding those rows. The October 20
+missing-list/input boundary below is superseded by that evidence.
+
+Merged [#986](https://github.com/sefaction/MTG-Archives/pull/986) reduces lookup
+fan-out and retains matching review after an error. Merged
+[#990](https://github.com/sefaction/MTG-Archives/pull/990) implements Brian's chosen
+policy: use an available printing of the same card in the linked League pool;
+when no pool copy exists, add the recognized card to the decklist and clearly
+mark it outside the pool. Missing the exact pasted edition alone no longer
+prevents paste. This includes alternate Shadowheart/basic-land printings and
+recognized Sol Ring without a pool entry. Unrecognized or ambiguous identities
+remain reviewable; the policy does not invent a card match or create/reserve
+physical Inventory.
+
+Brian separately approved the web-only production update containing #986/#990.
+The [recorded deployment](https://github.com/sefaction/MTG-Archives/issues/844)
+binds source `6d53e8a11e72b96bbe3b1dcd046a8a0a5115d1e4` and image digest
+`d55e953594237c3d3548550790c1361c4da541ec90f55a58c54367ef940eaf71`.
+The retained local source-bound desktop/320px cases cover the supplied 100 copies,
+alternate-printing/outside-pool feedback and final save/reload. These are distinct
+from actual reporter acceptance on the updated installation.
+
+**Remaining:** Brian's confirmation of the real paste/save workflow on that
+updated installation. The policy and deployment are complete, not pending
+questions; another unchanged synthetic run cannot supply reporter acceptance.
+Keep #844 open. The ordinary-deck physical-copy incident
+[#808](https://github.com/sefaction/MTG-Archives/issues/808) and broader connection
+attribution [#846](https://github.com/sefaction/MTG-Archives/issues/846) remain
+separate. This documentation proposal performs no import or production operation.
+
+The older references to an unavailable League list or to unchanged exact-pool
+restrictions describe their dated source, not the current paste policy. Both
+complete earlier checkpoints follow unchanged.
+
+---
+# Unattended investigation boundary — October 20, 2026 Central
+
+Related issue #844. The confirmed workflow is **sealed Commander League**, failing at final apply on Unraid. This remains distinct from the ordinary-deck physical-copy report #808. The actual failing list, incident request/revision/error and persistence outcome are not available in the current issue or retained investigation handoff.
+
+Merged #849 repairs a demonstrated stale-pool revalidation/feedback problem, but no evidence attributes Brian's actual request to that problem. Existing diverse synthetic League success and controlled stale-pool rejection/retry checks are not repeated as incident acceptance. No real production import or new local runtime test was run during this checkpoint.
+
+**Input boundary:** retain the actual failing list or faithful failing minimized list, League/deck/mode context, affected revision and approximate time/request reference. Correlate any retained server error to this final-apply attempt. Never infer the ordinary-deck cause from a shared generic error page. No response is required while Brian is unavailable; keep this checkpoint in a labeled draft PR and continue independent work.
+
+Once evidence is available, reproduce final apply in an owned disposable League fixture with the same membership, pool restrictions, list and mode. Assert either correct reviewed quantities/commitments or an actionable restriction explanation with no partial writes. Compare complete before/after list, Inventory and audit state. Qualify desktop/phone preservation of review and intentional retry without relaxing League rules. Shared laptop runtime access remains reserved by its exact owner; merge, installation and actual reporter acceptance stay separate.
+
+#844 remains OPEN/investigating. This source/issue reconciliation establishes a concrete evidence boundary, not an incident cause, fix, deployment or passing reporter-case test.
+
+---
 # League paste pool revalidation qualification
 
 [PR #849](https://github.com/sefaction/MTG-Archives/pull/849) fixes narrow [#848](https://github.com/sefaction/MTG-Archives/issues/848). Related reporter incidents [#844](https://github.com/sefaction/MTG-Archives/issues/844) and [#808](https://github.com/sefaction/MTG-Archives/issues/808) remain separate and unverified. October 18, 2026.
