@@ -11,6 +11,7 @@ const unexpected = async (..._args: unknown[]): Promise<any> => {
 };
 const prisma = {
   card: { findMany: unexpected },
+  inventoryItem: { findMany: unexpected },
   $queryRaw: unexpected,
   $transaction: unexpected,
 };
@@ -41,6 +42,7 @@ function fixture(count: number, options: { capacity?: number; failAt?: number } 
   const sentinel = new Error("Synthetic cache write failed");
   mock.method(prisma, "$queryRaw", async () => []);
   mock.method(prisma.card, "findMany", async () => []);
+  mock.method(prisma.inventoryItem, "findMany", async () => []);
   mock.method(globalThis, "fetch", async () => new Response(JSON.stringify({
     object: "list", data: cards, has_more: false, total_cards: cards.length,
   }), { status: 200 }));
@@ -141,10 +143,34 @@ test("empty search response does not start cache transactions", async () => {
   assert.equal(f.peak(), 0);
 });
 
-test("League name-only lookup never fetches outside its linked inventory", async () => {
-  const f = fixture(75);
+// October 31's approved League policy permits recognized outside-pool cards.
+// Keep the cache budget while preserving the explicit owned-only option.
+test("League name-only fallback caches at most75 printings and flags outside-pool stock", async () => {
+  const f = fixture(80);
+  try {
+    const result = await resolveParsedDecklist(parseDecklistText("8 Forest"), "owner", "owned-then-cheapest", "league");
+    const line = result.lines[0];
+    assert.equal(line.resolutionStatus, "RESOLVED_CHEAPEST_PRINTING");
+    assert.equal(line.quantity, 8);
+    assert.equal(line.selectedCardId, f.cards[0].id);
+    assert.equal(line.leaguePoolStatus, "OUTSIDE_POOL");
+    assert.equal(line.ownedQuantity, 0);
+    assert.equal(line.included, true);
+    assert.deepEqual(line.errors, []);
+    assert.equal(result.summary.readyToCommit, 1);
+    assert.deepEqual(f.completed, f.cards.slice(0, 75).map(c => c.id));
+    assert.equal(f.peak(), 1);
+  } finally { await f.settle(); }
+});
+
+test("League owned-only lookup does not fetch or cache outside its linked inventory", async () => {
+  const f = fixture(80);
   mock.method(globalThis, "fetch", async () => { throw new Error("League lookup must stay local"); });
-  const result = await resolveParsedDecklist(parseDecklistText("8 Forest"), undefined, "cheapest-only", "league");
-  assert.equal(result.lines[0].resolutionStatus, "NOT_FOUND");
+  const result = await resolveParsedDecklist(parseDecklistText("8 Forest"), "owner", "owned-only", "league");
+  assert.equal(result.lines[0].resolutionStatus, "NEEDS_REVIEW");
+  assert.equal(result.lines[0].selectedCardId, null);
+  assert.equal(result.summary.readyToCommit, 0);
+  assert.match(result.lines[0].resolutionMessage, /No owned printing was found/);
+  assert.deepEqual(f.started, []);
   assert.equal(f.peak(), 0);
 });

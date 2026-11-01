@@ -1,5 +1,17 @@
 # Card-search transaction budget — existing #846
 
+## Current integration — November 1, 2026 UTC
+
+Integrated main `3c2f95c9`, including the user-approved League paste policy in #990. Name-only fallback can select a recognized card from the general catalogue when no League copy exists; the review retains its quantity and labels it outside the pool. The explicit owned-only option still avoids external lookup and cache writes when linked stock is absent.
+
+The complete manual-search, cache-upsert and printing-picker functions are unchanged from the qualified repair below. The current cheapest-printing helper equals current main with only the previously qualified sequential cache block substituted. Main's removal of the League-only filter and permission for catalogue fallback remain intact. The binding check initially refused a whole-function equivalence claim because those policy changes are real; that refusal is retained privately.
+
+All seven original applicable cache-budget/failure test bodies remain exact. The eighth control's default League rejection was superseded by the explicit user policy: the initial integrated run recorded 22 passes and that one outdated expectation failed. Its replacement verifies outside-pool fallback, eight copies, deterministic selection, at most 75 cache writes and one active transaction. A separate owned-only control retains the no-fetch/no-write guarantee. The nine budget controls and 15 current exact-feedback controls pass; 39 additional search, metadata, pricing, review and save-feedback controls pass. Current typecheck and exact-head CI are recorded with the publication receipt.
+
+The compiled PostgreSQL/browser evidence below remains tied to its stated older source and image. It demonstrates the original per-request cache fanout and the unchanged sequential repair; it is not a new cumulative or League-fallback pressure run. No production change, issue closure or merge approval is implied.
+
+## Original qualification — October 31, 2026
+
 Name-only deck resolution previously opened up to 75 independent card-cache transactions in parallel; manual search opened up to 20; the deck printing picker started up to its requested result limit. Each upsert owns an interactive Prisma transaction. These paths can compete for shared PostgreSQL slots independently of the final League gate repaired in #986. This is a separate bounded repair, not attribution of #808 or a complete production pool/leak diagnosis.
 
 All three loops now await one cache write at a time. Existing result limits, returned manual choices, cheapest-printing ordering, exact matching and League restrictions are preserved. A failed write stops starting additional transactions; earlier successful public metadata cache writes remain, as before. No deck, Inventory, commitments or audits are changed by these lookup helpers. The price-preserving upsert transaction is unchanged.
