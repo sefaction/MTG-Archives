@@ -1,3 +1,7 @@
+## Current test-environment correction - 2026-11-01
+
+PR #992 remains draft. The isolated load target now supports an explicit ordinary bridge mode for normal catalogue metadata lookups, retaining exactly seven application roles and the existing identity, ownership, resource and database guards. Internal/proxy mode remains available and requires its original topology. Unknown or mixed modes fail closed. Application algorithms, original workloads and completion deadlines are unchanged. All 72 focused controls pass, with no skips; exact-head CI and full native load acceptance remain required. Detailed local execution records remain local.
+
 ## Current native-load ingress repair — November 1, 2026 UTC
 
 Owner root/thread01a19026-efc8-7c21-94d7-b143ca1ad404, existing760/310 and draft992. Full index46083 PASSED/terminal0:114244unique references,512dimensions,904metadata-unavailable; manifest5603eee76fcd08a0c134de7f61cb11d539e7e02adad0fc9d5dfeb2798405b639. Actual source7536 retained; encoder/loader/recipes exact at current3c2. Exact index container retired/protected4 conserved/claim released. Current3c2 web94074f1a,recognition7679e438,visual442d0ab0 actual image/source/build/asset probes also PASS/terminal0/retired/released.

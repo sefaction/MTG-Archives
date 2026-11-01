@@ -102,6 +102,40 @@ function proxyFixture() {
   return { target, containers: [...good.containers, proxy], proxy, network, ingressNetwork };
 }
 
+test("ordinary catalogue networking requires an explicit bridge declaration", () => {
+  const good = fixture();
+  good.network.Internal = false;
+  assert.throws(() => assertIsolatedAcquisitionLoadRuntime(good.target, good.containers, good.network));
+  const target = parseIsolatedAcquisitionLoadTarget({ ...good.target, networkMode: "ORDINARY_BRIDGE" });
+  assert.equal(target.networkMode, "ORDINARY_BRIDGE");
+  assert.doesNotThrow(() => assertIsolatedAcquisitionLoadRuntime(target, good.containers, good.network));
+  good.network.Internal = true;
+  assert.throws(() => assertIsolatedAcquisitionLoadRuntime(target, good.containers, good.network));
+});
+
+test("ordinary bridge still refuses extra peers, attachments, changed owners and limits", () => {
+  const mutations: Array<(x: ReturnType<typeof fixture>) => void> = [
+    x => { x.network.Containers["f".repeat(64)] = {}; },
+    x => { (x.containers[1].NetworkSettings.Networks as any).extra = { NetworkID: "e".repeat(64) }; },
+    x => { x.containers[1].Config.Labels["mtg.fixture.owner"] = "another-owner"; },
+    x => { x.containers[1].HostConfig.Memory *= 2; },
+  ];
+  for (const mutate of mutations) {
+    const changed = fixture(); changed.network.Internal = false;
+    const target = parseIsolatedAcquisitionLoadTarget({ ...changed.target, networkMode: "ORDINARY_BRIDGE" });
+    mutate(changed);
+    assert.throws(() => assertIsolatedAcquisitionLoadRuntime(target, changed.containers, changed.network));
+  }
+});
+
+test("network metadata rejects unknown modes and mixing bridge with ingress proxy", () => {
+  const { target } = fixture();
+  for (const networkMode of [null, false, "internal", "host", "bridge"])
+    assert.throws(() => parseIsolatedAcquisitionLoadTarget({ ...target, networkMode }));
+  assert.throws(() => parseIsolatedAcquisitionLoadTarget({ ...proxyFixture().target,
+    networkMode: "ORDINARY_BRIDGE" }));
+});
+
 test("declared TCP ingress retains exactly seven isolated application roles and one bounded proxy", () => {
   const good = proxyFixture();
   assert.equal(Object.keys(good.target.containers).length, 7);

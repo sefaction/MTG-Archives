@@ -19,6 +19,7 @@ type Role = typeof isolatedLoadRoles[number];
 export type IsolatedAcquisitionLoadTarget = {
   version: 1; owner: string; project: string; sourceCommit: string;
   baseURL: string; database: string; networkId: string;
+  networkMode?: "ORDINARY_BRIDGE";
   containers: Record<Role, { id: string; image: string }>;
   ingressProxy?: { id: string; image: string; networkId: string; postgresPort: number; environmentSHA256: string };
 };
@@ -56,6 +57,10 @@ export function parseIsolatedAcquisitionLoadTarget(value: unknown): IsolatedAcqu
   assert.equal(new Set(Object.values(containers).map(row => row.id)).size, isolatedLoadRoles.length,
     "Isolated roles must have distinct container identities");
   let ingressProxy: IsolatedAcquisitionLoadTarget["ingressProxy"];
+  assert.ok(input.networkMode === undefined || input.networkMode === "ORDINARY_BRIDGE",
+    "Unsupported isolated load network mode");
+  assert.ok(input.networkMode === undefined || input.ingressProxy === undefined,
+    "Ordinary bridge cannot be combined with internal ingress proxy");
   if (input.ingressProxy !== undefined) {
     const proxy = input.ingressProxy as Record<string, unknown>;
     assert.ok(proxy && typeof proxy === "object", "Expected declared ingress proxy");
@@ -71,6 +76,7 @@ export function parseIsolatedAcquisitionLoadTarget(value: unknown): IsolatedAcqu
     ingressProxy = proxy as IsolatedAcquisitionLoadTarget["ingressProxy"];
   }
   return { version: 1, owner, project, sourceCommit, baseURL: url.origin, database, networkId, containers,
+    ...(input.networkMode === "ORDINARY_BRIDGE" ? { networkMode: input.networkMode } : {}),
     ...(ingressProxy ? { ingressProxy } : {}) };
 }
 
@@ -85,14 +91,15 @@ type ContainerInspection = {
 type NetworkInspection = { Id: string; Internal: boolean; Containers: Record<string, unknown>;
   Labels?: Record<string, string> | null };
 
-/** Refuse a mismatched source, owner, service, peer or externally routed network
+/** Refuse a mismatched source, owner, service, peer or undeclared network mode
  * before the fixture performs its first application/database write. */
 export function assertIsolatedAcquisitionLoadRuntime(
   target: IsolatedAcquisitionLoadTarget, containers: ContainerInspection[], network: NetworkInspection,
   ingressNetwork?: NetworkInspection,
 ) {
   assert.equal(network.Id, target.networkId, "Isolated network identity changed");
-  assert.equal(network.Internal, true, "Native load network must be internal");
+  assert.equal(network.Internal, target.networkMode !== "ORDINARY_BRIDGE",
+    "Native load network must match the declared mode");
   const expectedIds = [...isolatedLoadRoles.map(role => target.containers[role].id),
     ...(target.ingressProxy ? [target.ingressProxy.id] : [])].sort();
   assert.deepEqual(containers.map(row => row.Id).sort(), expectedIds, "Isolated container membership changed");
