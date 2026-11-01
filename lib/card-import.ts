@@ -1,7 +1,7 @@
-import type { Card } from "@prisma/client";
 import crypto from "node:crypto";
 
 import { prisma } from "./prisma";
+import { refreshScryfallPrices, scryfallPricesForWrite } from "./card-price-write";
 import { effectiveCardColors } from "./card-colors";
 import { searchLocalCardCatalog } from "./local-card-search";
 import {
@@ -201,10 +201,7 @@ export function cardWriteData(cardData: ScryfallCard) {
 export async function upsertScryfallCard(cardData: ScryfallCard) {
   const data = cardWriteData(cardData) as any;
   const { prices: _prices, ...metadata } = data;
-  const scryfallPrices = cardData.prices ? { ...cardData.prices } : null;
-  // This projection belongs to the Pricing worker, including when a cached
-  // caller supplies an older copy alongside Scryfall's flat price fields.
-  if (scryfallPrices) delete scryfallPrices.mtgjson;
+  const scryfallPrices = scryfallPricesForWrite(cardData);
   return prisma.$transaction(async (tx) => {
     const existing = await tx.card.findUnique({
       where: { scryfallId: cardData.id },
@@ -226,20 +223,7 @@ export async function upsertScryfallCard(cardData: ScryfallCard) {
       },
     });
     if (!scryfallPrices) return card;
-    // The upsert holds this row lock until commit. Read the current subtree in
-    // SQL so a Pricing write committed after our metadata read is preserved.
-    const [updated] = await tx.$queryRaw<Card[]>`
-      UPDATE "Card"
-      SET prices = ${JSON.stringify(scryfallPrices)}::jsonb ||
-        CASE WHEN jsonb_typeof(prices::jsonb) = 'object' AND prices::jsonb ? 'mtgjson'
-          THEN jsonb_build_object('mtgjson', prices::jsonb->'mtgjson')
-          ELSE '{}'::jsonb END
-      WHERE id = ${card.id}
-      RETURNING *
-    `;
-    if (!updated)
-      throw new Error("Card price refresh did not return its updated card.");
-    return updated;
+    return refreshScryfallPrices(tx, card.id, scryfallPrices);
   });
 }
 

@@ -1,3 +1,36 @@
+## Current acquisition price main integration — November 1, 2026
+
+Owner root, local branch codex/acquisition-price-main-854-20261101. Existing
+draft #998 integrates main b3f4f37b without changing the atomic price helper,
+bulk/cache writers or their real PostgreSQL verifier. Six non-checkpoint,
+non-card-import contribution files retain their exact qualified cab1a3de blobs.
+Card-import now combines main's sequential search caching with the unchanged
+price writer; its complete blob equals the separately qualified d2df120b
+combined review. That larger runtime remains separate source-bound evidence.
+
+Original SQL and desktop/phone product review stay bound to cab1a3de and its
+recorded images. Required refreshed-head CI and independent review remain
+separate. No closed #994, offline #996 or metadata-race #999 code is added here.
+Keep #998 draft for Brian's individual merge approval; this prevention work
+does not resolve historical Pricing/WAL cause or authorize production changes.
+
+## Preserved source and main checkpoints
+
+## Current acquisition price-preservation draft - November 1, 2026
+
+Acquisition bulk refresh and provider-cache publication now share the ordinary
+Scryfall refresh price writer. Metadata updates retain independent MTGJSON
+projections, ignore caller-supplied projections and preserve cached prices when
+the payload omits them. A losing bulk metadata fence cannot apply prices.
+Card changes and catalogue progress/publication remain atomic.
+
+Related to existing #854/#305/#307; this prevention change does not resolve the
+historical WAL incident or pricing recovery acceptance. The acquisition SQL
+suite now covers both writers, payload variants, stable identities, unchanged
+Inventory, rollback and observed row-lock barriers in both Pricing writer orders.
+Exact-head CI and independent review remain pending. Keep the PR draft; each
+merge requires Brian's individual approval. No production rollout is included.
+
 ## Current Inventory workflow test alignment — November 1, 2026 UTC
 
 Branch `codex/inventory-test-capture-order-310-20261101`, based on current main

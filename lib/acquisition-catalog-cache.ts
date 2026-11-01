@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { cardWriteData } from "./card-import";
+import { refreshScryfallPrices, scryfallPricesForWrite } from "./card-price-write";
 import { acquisitionCatalogCardSchema } from "./acquisition-catalog";
 import {
   catalogQueryKey,
@@ -191,14 +192,17 @@ export async function resolveCachedAcquisitionCatalog(
           (existing?.lastSyncedAt && existing.lastSyncedAt > now)
         )
           continue;
-        await tx.card.upsert({
+        const { prices: _prices, ...metadata } = data;
+        const prices = scryfallPricesForWrite(validated);
+        const storedCard = await tx.card.upsert({
           where: { scryfallId: card.id },
-          create: { ...data, scryfallId: card.id, firstCachedAt: new Date() },
+          create: { ...data, prices: prices ?? {}, scryfallId: card.id, firstCachedAt: new Date() },
           update: {
-            ...data,
+            ...metadata,
             priceLastFetchedAt: data.priceLastFetchedAt ?? undefined,
           },
         });
+        if (prices) await refreshScryfallPrices(tx, storedCard.id, prices);
       }
       await tx.acquisitionCatalogLookup.update({
         where: { key },
