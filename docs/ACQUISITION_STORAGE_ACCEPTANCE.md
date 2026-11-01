@@ -39,6 +39,14 @@ historical; consult the linked PR's actual merge and check records.
 
 ## Bounded overflow restore case
 
+The November 1 review identified a missing precondition in the original case:
+equal pre/post reviews could both be null or contain the same wrong decision.
+The corrected verifier explicitly requires the intended non-null card, English
+language, NONFOIL finish and NM condition before backup, then retains every
+restored identity/review equality, write-free refusal and conservation assertion.
+Earlier passing runs do not by themselves close that test-strength finding;
+new-head actual execution and final review are required for this correction.
+
 The original composed case explicitly contained one committed and one pending
 copy. Its full-table comparison did not itself demonstrate a populated overflow
 state. The extension creates three real uploaded photos in an owned synthetic

@@ -151,6 +151,12 @@ async function run() {
     decision: { cardId: card.id, language: "en", finish: "NONFOIL", condition: "NM" } });
   const overflowBefore = await getAcquisitionProgress(source, actor, savedSession);
   assert.equal(overflowBefore.slots.length, 3);
+  const savedOverflowReview = overflowBefore.slots[2].review;
+  assert.ok(savedOverflowReview, "Overflow fixture must contain its saved review before backup");
+  assert.equal(savedOverflowReview.cardId, card.id);
+  assert.equal(savedOverflowReview.language, "en");
+  assert.equal(savedOverflowReview.finish, "NONFOIL");
+  assert.equal(savedOverflowReview.condition, "NM");
   assert.ok(overflowBefore.slots[2].physicalReadiness.reasons.includes("OVERFLOW"));
   const overflowSelection = { locationId: destination.id, section: "A", photoIds: [photoIds[2]] };
   await assert.rejects(previewAcquisitionCommit(source, actor, savedSession, overflowSelection), /confirmed physical count/);

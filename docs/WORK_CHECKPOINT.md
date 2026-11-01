@@ -1,3 +1,31 @@
+## Current #1000 review-precondition correction — November 1, 2026
+
+Existing P2/comment6561391806 was missed by the earlier no-findings reviews.
+Independent follow-up review5730744294 demonstrates that the prior pre/post
+equality and overflow refusals permit null/null or identically wrong reviews.
+Those previous no-findings conclusions are superseded for the full old case;
+the unchanged-main/history preservation checks and actual old-head CI remain
+their separately bounded evidence. This is a test-strength finding, not a
+reproduced backup/application failure.
+
+The correction asserts the pre-backup overflow review exists and contains the
+intended card, en language, NONFOIL finish and NM condition. Exactly six source
+lines are added; removing that insertion reconstructs the prior canonical
+verifier completely. Every original restore equality, table/file comparison,
+refusal, credential/owner/replay and distinct-copy assertion remains exact.
+The map explains the limitation of the older passing runs. Prior controller,
+heap and archive-copy failures and separate recovery evidence remain preserved.
+
+The authorized #1000 reviewer is reassessing the full conversation and the
+specific correction with bounded negative controls. New exact-head CI, including
+the actual PostgreSQL upload/archive/restore case and full types, is required.
+No repeat native/scanner run or local application reload is justified by this
+test-only change. The previous c0c82e12 merge question should wait; Brian must
+review the corrected version before any individual merge. Production remains
+outside this grant. Broad #305/#310/#302 criteria remain open.
+
+## Preserved prior final-main and qualification history
+
 ## Current #1000 final-main integration and independent review — November 1, 2026
 
 Brian approved separate reviewer agents for #996/#1000 and the #992/#883
