@@ -1,3 +1,105 @@
+## #1000 integration of separately approved #883 — November 1, 2026
+
+Brian explicitly approved corrected #883/b79d4190 and #1000/62df545e, each merge
+only. #883 is merged at5deaf076; its full merged tree equals the tested e86a30d1
+tree and all nine checks41362352198 pass. This routine #1000 integration retains
+that approved documentation delivery and the approved reviewed-overflow fix.
+
+The map and verifier retain their exact reviewed62df blobs, including all six
+intended-review assertions. All other source/runtime inputs equal the qualified
+62df source or the separately approved documentation-only883 merge. Existing
+15 negative-control expectations and actual2628ms/85-table case remain source-
+bound evidence; the required checks must pass on this new integrated head too.
+Independent narrow integration review and live PR status record that outcome.
+Both distinct checkpoint prefixes, the883 tail and complete common history are
+preserved once below. No local runtime/native/SQL repeat is needed for this
+checkpoint-only integration. Per-PR merge approval has been received; production
+still requires separate approval. Broad305/310/302 acceptance stays separate.
+
+## Preserved approved #1000 correction and qualification record
+
+## Current #1000 review-precondition correction — November 1, 2026
+
+Existing P2/comment6561391806 was missed by the earlier no-findings reviews.
+Independent follow-up review5730744294 demonstrates that the prior pre/post
+equality and overflow refusals permit null/null or identically wrong reviews.
+Those previous no-findings conclusions are superseded for the full old case;
+the unchanged-main/history preservation checks and actual old-head CI remain
+their separately bounded evidence. This is a test-strength finding, not a
+reproduced backup/application failure.
+
+The correction asserts the pre-backup overflow review exists and contains the
+intended card, en language, NONFOIL finish and NM condition. Exactly six source
+lines are added; removing that insertion reconstructs the prior canonical
+verifier completely. Every original restore equality, table/file comparison,
+refusal, credential/owner/replay and distinct-copy assertion remains exact.
+The map explains the limitation of the older passing runs. Prior controller,
+heap and archive-copy failures and separate recovery evidence remain preserved.
+
+The authorized #1000 reviewer is reassessing the full conversation and the
+specific correction with bounded negative controls. New exact-head CI, including
+the actual PostgreSQL upload/archive/restore case and full types, is required.
+No repeat native/scanner run or local application reload is justified by this
+test-only change. The previous c0c82e12 merge question should wait; Brian must
+review the corrected version before any individual merge. Production remains
+outside this grant. Broad #305/#310/#302 criteria remain open.
+
+## Preserved prior final-main and qualification history
+
+## Current #1000 final-main integration and independent review — November 1, 2026
+
+Brian approved separate reviewer agents for #996/#1000 and the #992/#883
+handoffs. Merging and production changes still require separate approval.
+The #1000 reviewer found no actionable findings at public e4070421/treef072e0b8,
+including independent source, hosted CI, retained source/archive, table/file and
+protected-peer evidence checks. This was evidence review, not another restore run.
+
+This integration adds actual main5b0a5f6f (#998 price and #999 metadata safeguards).
+Both non-checkpoint contribution files remain byte-identical to reviewed e407:
+the 15-row storage acceptance map and actual overflow/archive/restore verifier.
+The synthetic capture case does not invoke those changed catalogue/price writers;
+schema, dependencies, capture and backup/restore inputs are unchanged. Existing
+source-bound local execution remains applicable within its documented limits.
+Both checkpoint prefixes and their complete shared history are preserved once.
+The required nine checks must pass on the new published head, including actual
+hosted capture/restore execution. Narrow independent integration review follows.
+
+The original failed local controller and separate successful archive recovery
+remain distinct; no failed run is relabelled. Broad #305 stays open for its mapped
+remaining/deferred boundaries. Keep this PR draft; no merge or production grant.
+
+## Preserved #1000 checkpoint contribution
+
+## Current storage acceptance reconciliation — November 1, 2026
+
+Owner root; branch codex/storage-acceptance-map-305-20261101, based on main
+78a017c82211a1b1d96de4c55213b6d460e2ad58. Existing #305 scope only; no new issue.
+The new finite storage map preserves the fi-7160 priority and deferred phone scope.
+One specific uncovered composed case is being added to the existing capture/restore
+verifier: a reviewed overflow copy must retain identity/review/bytes and refuse
+Inventory after restore without writes. The original credential, replay, source
+conservation and equal-byte distinct-copy checks remain.
+
+Actual canonical-source PostgreSQL16/archive/restore passes at3503d230 in2,753ms:
+85tables/full appdata, overflow identity/review/refusal/no-write, inherited replay,
+credential/owner fences and source conservation. Focused original-strict types pass;
+the full local1536MiB heap attempt failed and remains recorded. All1,737inputs are
+unchanged, the62,504-byte archive is retained, both exact roles/network are retired,
+protected4fingerprints match and the supported reservation is released. Thirty-seven
+local map links resolve. Final publication-head CI, independent review and individual
+merge approval remain pending. The following commit updates documentation only.
+The original final controller failed its archive-copy check; verified exact-owner
+archive recovery and retirement are recorded separately. No failed run is relabelled.
+No application/schema/policy change, production access or runtime is active.
+Private source/queue receipts are under .local-data. Previous checkpoints below
+remain historical.
+
+
+## Preserved final-main checkpoint contribution
+
+
+## Preserved approved #883 documentation record
+
 ## Current #883 documentation delivery — November 1, 2026
 
 Brian approved the ownership handoff to this root chat. The documentation
