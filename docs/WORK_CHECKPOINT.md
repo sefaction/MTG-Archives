@@ -1,3 +1,15 @@
+## Current #992 guard correction — November 1, 2026
+
+- Owner chat `01a19028-0766-7463-a551-bba4d9d9e3dc`, branch `codex/load-guards-992-20261101`, parent `e29e5be3312604c19debec9b769f3ff3b95223ad`. Brian explicitly transferred only the two reproduced engine/publication guard fixes and authorized independent review. Native-load preparation/qualification remains with its existing owner.
+- Remote UNC named pipes, remote Unix authorities and conflicting host overrides are refused before container inspection. All subsequent Docker/database/resource commands pin the verified local endpoint with host/context overrides removed. Both direct modes and proxy routes require exact actual loopback publications as well as planned bindings.
+- All 76 affected tests pass without skips; focused strict types pass. The original nine target-control bodies, workloads, deadlines and cleanup assertions remain. Earlier e29 accepted-counterexample evidence and native transport failure remain preserved. No Docker/native/database/browser qualification was run for this metadata-only repair.
+- Independent source review found no actionable issue; final published-head binding and required exact-head CI remain pending. Current source/runtime ownership is released after terminal checks; dependency junction refers to existing protected dependencies. Compact evidence stays in this worktree's ignored `.local-data/evidence/`.
+- Next: publish the coherent correction to #992 using an expected-head lease, verify current-head CI and final review, then seek Brian's separate individual merge approval. Keep #760/#310 open and preserve the native owner's qualification. No new issue, merge or deployment authority.
+
+Integration: current main b3f4f37b is combined with guard source 9a07569a. All five guard code/test/guide blobs remain exact. The only conflict is this checkpoint: each distinct current section is retained below with the shared base once. Current-head CI and final independent integration review remain pending.
+
+## Preserved native-load owner history
+
 ## Current test-environment correction - 2026-11-01
 
 PR #992 remains draft. The isolated load target now supports an explicit ordinary bridge mode for normal catalogue metadata lookups, retaining exactly seven application roles and the existing identity, ownership, resource and database guards. Internal/proxy mode remains available and requires its original topology. Unknown or mixed modes fail closed. Application algorithms, original workloads and completion deadlines are unchanged. All 72 focused controls pass, with no skips; exact-head CI and full native load acceptance remain required. Detailed local execution records remain local.
@@ -45,6 +57,25 @@ Current source preparation exports and verifies every one of1718 canonical Git b
 Next poll the exact live handle, preserving any failure. After terminal cache completion/release, prepare a complete current-source VGG index and isolated current-release 100/300-input, four-owner/150,000-copy native/resource window from the original criteria. Reuse dated 100/300/124/nine-input evidence with its exact limits; no unchanged repeat or smaller synthetic index substitutes for the remaining scale gate. Full private receipts, process identities, failure notes and admission are in `.local-data/status.json`. No production, hardware or merge authority beyond existing individual grants. The earlier #986/#990 web update is complete and verified in the League-policy worktree; do not repeat it. #987/#989 individual merge replies remain pending; other draft/owner restrictions persist.
 
 ## Preserved cumulative League source qualification — October31,2026
+
+## Preserved current-main history
+
+## Current Inventory workflow test alignment — November 1, 2026 UTC
+
+Branch `codex/inventory-test-capture-order-310-20261101`, based on current main
+`8c160686`; related to existing #310. Browser workflows now respect capture
+readiness and the current Inventory navigation. The tests assert the disabled
+pre-stop handoff, stop capture through the UI, and then select reviewed copies.
+The retry helper uses the card handoff in Advanced mode and reopens the folded
+Inventory panel after refresh before checking its persisted receipt count.
+Correction/draft protection, keyboard focus, pending quantities, explicit final
+confirmation, response-loss retry and Inventory/audit assertions remain.
+Application code is unchanged. Author checks and required publication-head CI
+are pending. Detailed local execution evidence is retained separately; keep the
+batch draft and obtain individual approval before merge.
+
+## Preserved earlier checkpoint
+
 ## Current byte-exhaustion qualification — November 1, 2026 UTC
 
 Subsequent integration includes external #984/main3c2f95c9. Only the correction-library modules/verification/tests/guide change; the complete photo-file module/imports, verifier and host controls are exact. Reuse the source7536 current-module kernel proof for this boundary only, retain original3484 evidence, and require the new integrated publication head's CI. Prior public1143ddcf/tree825e9315 passes all9checks41263625114 (2370Core passes/0fail/1skip); individual989 approval remains pending. No new kernel run or cumulative application/production claim.

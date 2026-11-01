@@ -340,9 +340,12 @@ async function cheapestPrintingForName(
       `!"${name.trim().replace(/"/g, '\\"')}" unique:prints`,
     );
     if (result.ok) {
-      const imported = await Promise.all(
-        result.data.data.slice(0, 75).map((card) => upsertScryfallCard(card)),
-      );
+      // Cache writes each use a transaction; a name with many printings must
+      // not claim a separate connection for every result at once.
+      const imported: Card[] = [];
+      for (const card of result.data.data.slice(0, 75)) {
+        imported.push(await upsertScryfallCard(card));
+      }
       const ids = new Set(candidates.map((card) => card.id));
       candidates = [
         ...candidates,

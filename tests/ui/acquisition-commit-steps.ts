@@ -10,11 +10,17 @@ export async function checkAcquisitionCommit(page: Page) {
     .getByRole("combobox", { name: "Card condition", exact: true })
     .selectOption("LP");
   await dialog.getByRole("button", { name: "Save card review" }).click();
-  await page
-    .getByRole("checkbox", { name: "Select card 2 for Inventory", exact: true })
-    .check();
+  const selection = page.getByRole("checkbox", {
+    name: "Select card 2 for Inventory",
+    exact: true,
+  });
+  await expect(selection).toBeDisabled();
   await page.getByRole("button", { name: "Stop capture", exact: true }).click();
-  await page.getByRole("link", { name: "Go to Inventory confirmation" }).click();
+  await expect(selection).toBeEnabled();
+  await selection.check();
+  await card
+    .getByRole("button", { name: "Continue to Inventory", exact: true })
+    .click();
   const panel = page.getByRole("region", {
     name: "Add reviewed cards to Inventory",
     exact: true,
@@ -78,6 +84,12 @@ export async function checkAcquisitionCommit(page: Page) {
   await expect(page.getByTestId("capture-card-2")).toContainText(
     "Added to Inventory",
   );
+  // Refresh starts with Inventory confirmation folded. Reopen its navigation
+  // before checking the persisted receipt count.
+  await page.getByRole("button", { name: "Simple", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Go to Inventory confirmation", exact: true })
+    .click();
   await expect(panel).toContainText("1 already added");
   return receipt;
 }
