@@ -74,7 +74,7 @@ async function main() {
     offset = 0;
   let batch: unknown[] = [];
   try {
-    for await (const card of readAcquisitionCatalogFile(file)) {
+    for await (const card of readAcquisitionCatalogFile(file, source)) {
       if (row++ < run.processedRows) continue;
       if (!batch.length) offset = row - 1;
       batch.push(card);
