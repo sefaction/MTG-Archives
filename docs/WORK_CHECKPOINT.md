@@ -1,3 +1,23 @@
+## #1000 integration of separately approved #883 — November 1, 2026
+
+Brian explicitly approved corrected #883/b79d4190 and #1000/62df545e, each merge
+only. #883 is merged at5deaf076; its full merged tree equals the tested e86a30d1
+tree and all nine checks41362352198 pass. This routine #1000 integration retains
+that approved documentation delivery and the approved reviewed-overflow fix.
+
+The map and verifier retain their exact reviewed62df blobs, including all six
+intended-review assertions. All other source/runtime inputs equal the qualified
+62df source or the separately approved documentation-only883 merge. Existing
+15 negative-control expectations and actual2628ms/85-table case remain source-
+bound evidence; the required checks must pass on this new integrated head too.
+Independent narrow integration review and live PR status record that outcome.
+Both distinct checkpoint prefixes, the883 tail and complete common history are
+preserved once below. No local runtime/native/SQL repeat is needed for this
+checkpoint-only integration. Per-PR merge approval has been received; production
+still requires separate approval. Broad305/310/302 acceptance stays separate.
+
+## Preserved approved #1000 correction and qualification record
+
 ## Current #1000 review-precondition correction — November 1, 2026
 
 Existing P2/comment6561391806 was missed by the earlier no-findings reviews.
@@ -76,6 +96,45 @@ remain historical.
 
 
 ## Preserved final-main checkpoint contribution
+
+
+## Preserved approved #883 documentation record
+
+## Current #883 documentation delivery — November 1, 2026
+
+Brian approved the ownership handoff to this root chat. The documentation
+correction was published at e585915a and all nine checks in Verify41360173650
+passed for that parent. Existing review4433380378 confirms the corrected League
+evidence boundary; the ordinary #808 historical cause remains separate.
+
+This checkpoint-only revision addresses review4437754116 by explicitly marking
+the former private preparation as dated history. Both report documents and all
+application/test inputs remain unchanged. Current publication, exact-head checks
+and the remaining individual merge decision are tracked in
+[PR #883](https://github.com/sefaction/MTG-Archives/pull/883), branch
+codex/decklist-incident-checkpoint. No production change is included.
+
+## Historical private preparation for #883 — November 1, 2026 (superseded)
+
+Owner root of this separate local support candidate only; the original public
+branch/PR remain unchanged. This combines published a7e63d6b with main5b0a5f6f
+and addresses existing review finding4433380378. The League record now supersedes
+the October20 missing-list claim with the supplied87-row/100-copy case, merged
+#986/#990, Brian's alternate-printing/outside-pool policy, and recorded approved
+web-only deployment. Reporter paste/save acceptance remains pending. Ordinary
+physical-copy #808 keeps its distinct unlocalized historical incident and prior
+passing-example limits; no cause is inferred from the shared error page.
+
+Both original report bodies are preserved verbatim under the new current sections.
+The complete current-main checkpoint is preserved below; the original883 dated
+checkpoint addition is retained without duplicating it if already present. Only
+three documentation paths differ from main. Static link/whitespace/scope checks
+apply; no application rebuild, test fixture or production access is required.
+Publication, new exact-head CI and merge remain pending appropriate ownership
+handoff and Brian's individual merge approval. No source fix or user acceptance
+is claimed by this documentation candidate.
+
+## Preserved integrated-main checkpoint
 
 ## Current acquisition freshness parent integration — November 1, 2026
 
@@ -10063,3 +10122,9 @@ While qualifying whole-deck helper head2b753d53, Verify39610000878 acquisition11
 Separate branch codex/acquisition-candidate-order-304 starts atmain3ae13d0d, not the deck feature. Test-only negative commit4a468254 executes the actual private hydration functions:23of24permutations fail physical order, non-mutation/review preservation passes. Sorting a copy by acquisition/spatial/physical identity makes all24 and both controls pass locally. CI pins actual oldmaincommit/blob and requires exact23negative/permutation/preservation results; current controls and unchanged full PostgreSQL replay/counter/Inventory suite remain required. No DB/schema mutation or normalized-away comparison. Hosted checks pending. Keepissue901/parents304/302open; no localruntime/hardware/production/merge.
 
 Whole-deck807 remains prioritized and in progress in draft881at2b753d53: all decisions complete; source/schema6unit controls, schema validation and foundationd329sevenCI pass. Actual55-lot bundle/constraints/three-status/competinglocks/staleowner/recipient-settings/stock-audit/ownedcleanup controls pass in119256087965. Feature proposal/writer fences/completion/UI still unwired. Do not merge partial feature. Complete this separate narrow replay repair, then integrate qualified fix and resume full deck workflow.
+
+## Preserved original #883 checkpoint addition
+
+## User decklist incidents blocked at real-case evidence, October 20, 2026 Central
+
+Branch codex/decklist-incident-checkpoint at main b810f06a. Reconciled live #808/#844 and retained ordinary-deck/contention/League qualification reports. Prepended current distinct evidence boundaries while preserving all historical records. Missing actual list/request/revision/error prevents attributing either actual Unraid report to prior #810/#849 controls. No unchanged synthetic tests or real production replay repeated; no runtime or code change. Required inputs and concrete next disposable-fixture/desktop-phone/atomicity checks are reviewable in labeled draft. Both issues remain OPEN/investigating. Next safe step requires incident evidence or separately authorized real recurrence observation; continue independent work in the meantime.
