@@ -567,9 +567,11 @@ export async function searchLocalThenScryfallCards(query: string) {
       cards: [] as ScryfallCard[],
       message: formatScryfallError(result.error),
     };
-  await Promise.all(
-    result.data.data.slice(0, 20).map((card) => upsertScryfallCard(card)),
-  );
+  // Each cache write opens its own transaction. Share the database with other
+  // requests instead of claiming one connection for every search result.
+  for (const card of result.data.data.slice(0, 20)) {
+    await upsertScryfallCard(card);
+  }
   return {
     cards: result.data.data,
     message: `${result.data.data.length} Scryfall printings found.`,
