@@ -53,6 +53,13 @@ export async function readAcquisitionProblemJobs(tx: Prisma.TransactionClient, r
             FROM jsonb_array_elements(work.output#>'{proposals,proposals}') AS proposed(value) LIMIT 13)
           END END AS "proposalIds",
         left(work.output#>>'{catalog,status}',40) AS "catalogStatus",
+        CASE WHEN jsonb_typeof(COALESCE(work.output->'observedLanguages',work.output#>'{proposals,evidence,languages}'))='array' THEN
+          CASE WHEN jsonb_array_length(COALESCE(work.output->'observedLanguages',work.output#>'{proposals,evidence,languages}'))<=11 THEN
+            ARRAY(SELECT lower(language.value#>>'{}')
+              FROM jsonb_array_elements(COALESCE(work.output->'observedLanguages',work.output#>'{proposals,evidence,languages}')) language(value)
+              WHERE jsonb_typeof(language.value)='string'
+                AND lower(language.value#>>'{}')~'^(en|fr|de|it|es|pt|ja|ko|ru|zhs|zht)$' LIMIT 11)
+          END END AS "observedLanguages",
         left(work.output#>>'{native,geometry,status}',60) AS "geometryStatus",
         left(work.output#>>'{native,geometry,framing}',40) AS framing
       FROM "AcquisitionProcessingJob" work

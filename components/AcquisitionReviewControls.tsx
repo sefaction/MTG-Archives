@@ -1,4 +1,5 @@
 "use client";
+import {AcquisitionLanguageSelect} from "./AcquisitionLanguageSelect";
 import { acquisitionReviewProgress } from "@/lib/acquisition-processing-status";
 import { acquisitionCatalogMessage } from "@/lib/acquisition-catalog-status";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -13,6 +14,7 @@ import {
   filterPanelClass as panel,
 } from "./filterStyles";
 import {
+  acquisitionPreferredPrinting,
   acquisitionReviewOpener,
   acquisitionOpenerName,
   type AcquisitionOpenerChoice,
@@ -114,6 +116,7 @@ export function AcquisitionBatchDefaults({
 }) {
   const [finish, setFinish] = useState(defaults.finish as string),
     [condition, setCondition] = useState(defaults.condition ?? ""),
+    [language,setLanguage]=useState<string|null>(defaults.language??null),
     [openerPlayerId, setOpenerPlayerId] = useState(defaults.openerPlayerId ?? null);
   const [loadedRevision, setLoadedRevision] = useState(revision),
     [busy, setBusy] = useState(false),
@@ -123,9 +126,11 @@ export function AcquisitionBatchDefaults({
     <section className={panel} aria-label="Batch review defaults">
       <h3 className="font-semibold">Batch defaults</h3>
       <p className="text-sm">
-        Set finish, condition and original opener once for unreviewed cards. You can change them per
+        Set finish, language, condition and original opener once for unreviewed cards. You can change them per
         card; already confirmed cards keep their saved values.
       </p>
+      <p className="text-sm">Choosing a language confirms it for this batch. Strong matches may use it when
+        language is unreadable. Readable conflicts need individual review; choose the correct printing to override the batch language for a card.</p>
       <form
         className="mt-3 flex flex-wrap items-end gap-3"
         onSubmit={async (event) => {
@@ -138,7 +143,7 @@ export function AcquisitionBatchDefaults({
               {
                 action: "defaults",
                 revision: loadedRevision,
-                defaults: { finish, condition: condition || null, openerPlayerId },
+                defaults: { ...defaults, finish, condition: condition || null, language, openerPlayerId },
               },
             );
             setLoadedRevision(saved.defaultsRevision);
@@ -180,6 +185,7 @@ export function AcquisitionBatchDefaults({
             ))}
           </select>
         </label>
+        <AcquisitionLanguageSelect value={language} onChange={setLanguage} disabled={busy||stale}/>
         <AcquisitionOpenerSelect label="Batch original opener" value={openerPlayerId} choices={openerChoices} onChange={setOpenerPlayerId} />
         <button className={button} disabled={busy || stale}>
           Save batch defaults
@@ -191,6 +197,7 @@ export function AcquisitionBatchDefaults({
             onClick={() => {
               setFinish(defaults.finish);
               setCondition(defaults.condition ?? "");
+              setLanguage(defaults.language??null);
               setOpenerPlayerId(defaults.openerPlayerId ?? null);
               setLoadedRevision(revision);
               setMessage("");
@@ -334,11 +341,11 @@ export function AcquisitionPhotoReview({
     (next: AcquisitionCardReview) => {
       evidenceTokens.current = rememberCorrectionDisplay(evidenceTokens.current, next.evidenceToken);
       setRecord(next);
-      const choice = next.printing ?? next.suggestions[0]?.printing ?? null;
+      const choice = acquisitionPreferredPrinting(next);
       setSelected(choice);
     setFinish(next.review?.finish ?? finishForPrinting(next.defaults.finish, choice) ?? next.defaults.finish);
       setCondition(next.review?.condition ?? next.defaults.condition ?? "");
-      setLanguage(next.review?.language ?? choice?.lang ?? "");
+      setLanguage(next.review?.language ?? choice?.lang ?? next.defaults.language ?? "");
       setOpenerPlayerId(acquisitionReviewOpener(next.defaults, next.review));
       setError("");
       dirty.current = false;
@@ -867,6 +874,10 @@ export function AcquisitionPhotoReview({
         </div>
       )}
       {draftWarning && <p role="status" className="text-sm mb-2">{draftWarning}</p>}
+      {record && !record.review && record.defaults.language && record.evidence?.identifiers.languages.some(
+        language=>language.toLowerCase()!==record.defaults.language) && <p role="status" className="text-sm mb-2">
+        Readable language conflicts with the confirmed batch language. Check this card and choose its correct printing before saving.
+      </p>}
       {record && <p className="text-sm mb-2 break-words">Original opener: {acquisitionOpenerName(openerPlayerId, openerChoices)}</p>}
       {!record ? (
         <p role="status">
