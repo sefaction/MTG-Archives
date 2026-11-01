@@ -1,3 +1,23 @@
+## Current byte-exhaustion qualification — November 1, 2026 UTC
+
+Subsequent integration includes external #984/main3c2f95c9. Only the correction-library modules/verification/tests/guide change; the complete photo-file module/imports, verifier and host controls are exact. Reuse the source7536 current-module kernel proof for this boundary only, retain original3484 evidence, and require the new integrated publication head's CI. Prior public1143ddcf/tree825e9315 passes all9checks41263625114 (2370Core passes/0fail/1skip); individual989 approval remains pending. No new kernel run or cumulative application/production claim.
+
+Owner root/thread01a19026-efc8-7c21-94d7-b143ca1ad404, branch codex/photo-byte-exhaustion-305-20261031, existing305/310 and PR989. Integrated approved main799e4b3a; #993 changes only two documentation maps, while the actual photo-file module remains identical to approved #991/source7536ea51. No application/schema/policy change or new issue.
+
+The unchanged verifier now passes both raw/preview real kernel ENOSPC/write cases on immutable source7536 web image378eaaf2. Actual module f7f7aa5b and manifest18cdaaf1 match canonical source. Both16KiB partials are cleaned, no failed photo is published, the neighbor survives, and deliberate recovery/replay preserves exact1MiB bytes. The actual populated-root refusal also passes. Three ordinary host-refusal controls pass. Current-source identity/kernel/refusal containers all exited0 without OOM/restarts, were removed, and exact shared claim scanner760-byte-current-20261031-01af2abb released; all four protected stopped-container configuration/mount/state fingerprints remained exact. Evidence and explicit hashes/limits are in docs/PHOTO_BYTE_EXHAUSTION.md; private receipts remain with sustained-resource-760/.local-data/byte-current-*. No database/HTTP/browser/Inventory/process-loss/production qualification or85-table claim.
+
+Publish this qualified integration and require its exact-head CI before any merge. Individual989 merge approval remains pending. Native760/index work is separately owned and does not grant merge/deployment authority. Original own checkpoint and full main checkpoint remain preserved below, with common history present once.
+
+## Preserved byte-qualification checkpoint
+
+## Current — October31,2026: real byte-exhaustion file-write qualification
+
+Owner root/thread01a19026-efc8-7c21-94d7-b143ca1ad404. Branch codex/photo-byte-exhaustion-305-20261031 over merged3484b2a0; existing305/310 only, no newissue. New opt-in verifier covers actual kernel ENOSPC after a real sufficient-space measurement is interleaved with a filler write; both raw/preview produce16KiB partials, clean them, preserve a neighbor and recover/replay exact1MiB bytes. Published3484 image863a6cd98d7a and source/manifest hashes are bound in docs/PHOTO_BYTE_EXHAUSTION.md. Three host refusal tests plus actual-image populated-root refusal pass. No application/schema/policy changes, database, HTTP/browser, process-loss or production claim. All3 exact ephemeralcontainers retired;runtimeclaimreleased;4protectedstoppedcontainers/mountsunchanged. FinalheadCI/publishedPR pending; individual merge approval still required. Prior986production/987merge questions remain pending and their heads unchanged.
+
+## Preserved earlier checkpoint history
+
+## Preserved cumulative main7536 checkpoint
+
 ## Current League paste policy — October31,2026
 
 Branch codex/league-paste-pool-warning-844-20261031; existing issue844, base3484b2a0. Brian explicitly chose to add recognized cards even without any League copy and show outside-pool feedback. Missing pasted editions prefer same-card linked printings under the default policy. Final paste saves independently of pool membership; live saved-deck warnings retain the missing-stock distinction. Inventory, management/submitted-match and write fences remain.
