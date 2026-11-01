@@ -248,7 +248,8 @@ export async function verifyAcquisitionCorrections(db: PrismaClient) {
             const current = await db.correctionLibraryAccount.findUniqueOrThrow({ where: { ownerPlayerId: owners[0] } });
             for (const field of ["reservedBytes", "preservedBytes", "evidenceBytes"] as const) assert.equal(current[field], account[field]);
             assert.deepEqual(await db.correctionRetentionPin.findMany({ where: { blobId: fresh.blobId }, orderBy: { id: "asc" } }), pins);
-            const retry = await db.correctionCaptureOutbox.findUniqueOrThrow({ where: { id: fresh.id } });
+            const retry: { status: string; errorCode: string | null; leaseToken: string | null; leaseExpiresAt: Date | null } =
+              await db.correctionCaptureOutbox.findUniqueOrThrow({ where: { id: fresh.id } });
             assert.equal(retry.status, "PENDING"); assert.equal(retry.errorCode, "ORIGINAL_COPY_FAILED");
             assert.equal(retry.leaseToken, null); assert.equal(retry.leaseExpiresAt, null);
             assert.deepEqual(await readCorrectionBlob(owners[0], metadata.digest, metadata.bytes), bytes);
