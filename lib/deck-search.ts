@@ -287,12 +287,14 @@ export async function searchDeckCardPrintings(input: {
     const result = await searchCardPrintsResult(query);
     if (result.ok) {
       const existingIds = new Set(local.map((card) => card.scryfallId));
-      const imported = await Promise.all(
-        result.data.data
-          .slice(0, limit)
-          .filter((card) => !existingIds.has(card.id))
-          .map((card) => upsertScryfallCard(card)),
-      );
+      const imported: Card[] = [];
+      // Each upsert opens a transaction. Keep a printing picker request from
+      // consuming a connection for every search result simultaneously.
+      for (const card of result.data.data.slice(0, limit)) {
+        if (!existingIds.has(card.id)) {
+          imported.push(await upsertScryfallCard(card));
+        }
+      }
       scryfallCards = input.leagueId
         ? imported.filter((card) => leagueCardIds.has(card.id))
         : imported;
