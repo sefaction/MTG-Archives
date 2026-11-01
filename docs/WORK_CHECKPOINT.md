@@ -1,3 +1,19 @@
+## Current Inventory workflow test alignment — November 1, 2026 UTC
+
+Branch `codex/inventory-test-capture-order-310-20261101`, based on current main
+`8c160686`; related to existing #310. Browser workflows now respect capture
+readiness and the current Inventory navigation. The tests assert the disabled
+pre-stop handoff, stop capture through the UI, and then select reviewed copies.
+The retry helper uses the card handoff in Advanced mode and reopens the folded
+Inventory panel after refresh before checking its persisted receipt count.
+Correction/draft protection, keyboard focus, pending quantities, explicit final
+confirmation, response-loss retry and Inventory/audit assertions remain.
+Application code is unchanged. Author checks and required publication-head CI
+are pending. Detailed local execution evidence is retained separately; keep the
+batch draft and obtain individual approval before merge.
+
+## Preserved earlier checkpoint
+
 ## Current byte-exhaustion qualification — November 1, 2026 UTC
 
 Subsequent integration includes external #984/main3c2f95c9. Only the correction-library modules/verification/tests/guide change; the complete photo-file module/imports, verifier and host controls are exact. Reuse the source7536 current-module kernel proof for this boundary only, retain original3484 evidence, and require the new integrated publication head's CI. Prior public1143ddcf/tree825e9315 passes all9checks41263625114 (2370Core passes/0fail/1skip); individual989 approval remains pending. No new kernel run or cumulative application/production claim.
