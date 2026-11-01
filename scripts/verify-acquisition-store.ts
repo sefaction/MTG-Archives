@@ -32,6 +32,8 @@ import { verifyAcquisitionRetentionPinRaces } from "./verify-acquisition-retenti
 import { verifyAcquisitionCatalog } from "./verify-acquisition-catalog";
 import { verifyAcquisitionCatalogCache } from "./verify-acquisition-catalog-cache";
 import { verifyAcquisitionCatalogOffline } from "./verify-acquisition-catalog-offline";
+import { verifyAcquisitionPricePreservation } from "./verify-acquisition-price-preservation";
+import { verifyAcquisitionCatalogFreshness } from "./verify-acquisition-catalog-freshness";
 import { verifyAcquisitionOrchestration } from "./verify-acquisition-orchestration";
 import { verifyAcquisitionHandoff } from "./verify-acquisition-handoff";
 import { verifyAcquisitionOwnerFairness } from "./verify-acquisition-owner-fairness";
@@ -422,6 +424,10 @@ async function run() {
   await verifyAcquisitionCatalog(db, admin, actor, cardId);
   await verifyAcquisitionCatalogCache(db);
   await verifyAcquisitionCatalogOffline(db, admin, actor);
+  await verifyAcquisitionPricePreservation(db, admin, "bulk");
+  await verifyAcquisitionPricePreservation(db, admin, "cache");
+  for (const scenario of ["existing-newer", "existing-changed", "insert-newer"] as const)
+    await verifyAcquisitionCatalogFreshness(db, admin, scenario);
   await verifyAcquisitionHandoff(db);
   console.log(
     "PASS: optimistic commands, persisted human review/correction precedence, cancellation conservation, other-session pending",

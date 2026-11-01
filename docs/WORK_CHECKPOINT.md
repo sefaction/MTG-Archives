@@ -1,3 +1,98 @@
+## Current offline catalogue draft: refreshed main and local qualification — November 1, 2026
+
+Owner root, branch codex/offline-catalog-current-307-20261101, existing draft
+#996 targeting main. Application source a83a7ebf0a78bfa6481f26ef491d049dc8e0e3ed
+integrates merged #998/#999 at main5b0a5f6f. Its sixteen-file contribution keeps
+offline resolver26 and all price/metadata concurrency protections. The closed,
+unmerged #994 is excluded. This checkpoint-only update preserves that tested code.
+
+Current source-bound author evidence passes: 102 affected host tests with no
+failures/skips; seven real PostgreSQL groups, including all three freshness races,
+both independent-price writers and offline-source/membership/resume controls;
+and all three web/OCR/visual builds with copied-source/schema/model bindings.
+The production-mode web build checks types, lint and client manifests. The host
+tests are focused coverage, not a claimed full local suite. SQL restores all85
+tables and makes no external requests.
+
+Native run scanner307-native-current-offline-workflow-d9a0b2682f2a43c8b1d0ff6561e1a304
+passes two retained development photos through resolver26 with zero catalogue
+HTTP requests, RESOLVED/INCOMPLETE feedback and dated English-paper coverage.
+NONFOIL/LP/en review survives reload; capture Stop gates Inventory selection;
+the explicit one-copy commit survives a lost-response retry without duplication,
+leaving the other card pending. All84 application tables restore, all1924 original
+catalogue files (2,091,766,487bytes) retain their hashes, and all eight owned roles
+and two networks retire without OOM/restarts or changes to four protected peers.
+The runtime and post-run hash-verification reservations are released.
+
+All seven actual desktop/390px/320px captures were visually inspected. The final
+320px capture includes the rendered original, saved review and one-added/one-
+pending counts; blocked remote reference images are explicit. Evidence lives in
+.local-data/current-offline-native-workflow-result.json and the retained primary
+native-current-offline-workflow-d54082c6 directory, with qualified inputs archived.
+Earlier source-bound passes and failed harness windows remain separate history.
+
+Next: refresh the existing draft and require all nine checks on its new public
+head. Keep draft for independent review and Brian's individual merge approval.
+Reused photos/browser widths do not establish independent optical accuracy,
+physical-device acceptance, a new100/300/150k gate or whole-release acceptance.
+No production operation, merge or readiness promotion is included.
+
+## Preserved pre-qualification candidate checkpoint
+
+## Current offline catalogue on merged price and metadata main — November 1, 2026
+
+Owner root, local branch codex/offline-catalog-current-307-20261101. Existing
+draft #996 integrates main5b0a5f6f, where #998 and #999 are now merged. No
+remaining dependency stack is needed. Offline source/member/printing authority
+and resolver26 remain, together with atomic independent prices and conditional
+metadata publication. Closed #994 remains absent.
+
+The combined SQL runner preserves253calls, including every original assertion
+and cleanup, offline coverage, both price writers and all three freshness cases.
+The metadata transaction and bulk module match the previously qualified combined
+review. Old runtime records keep their source bindings. Affected current checks,
+current product workflow review and exact-head CI remain pending. Keep draft for
+independent review and individual merge approval; no production operation.
+
+## Preserved candidate and component checkpoints
+
+## Current offline catalogue with price/metadata protections — November 1, 2026
+
+Owner root, local branch codex/offline-catalog-current-307-20261101. Draft #996
+prepares the offline feature above merged #998 and #999 candidate f394269e.
+The latter remains under its separate review/merge owner. This feature can stay
+stacked until that parent is approved/merged, then target main without combining
+their individual approval scopes. No other owner's branch is modified here.
+
+Offline source/membership/printing authority and resolver26 remain. Both price
+writers and all three metadata-freshness scenarios remain in the SQL runner,
+alongside the complete offline suite. Their original assertions and cleanup
+calls are retained. The metadata publication transaction and bulk price module
+match the previously exercised combined review; the closed #994 changes remain
+absent. Whole-head runtime and required CI results must retain their actual
+source bindings. Keep draft; independent review and individual merge approval
+remain required. No production or historical-data operation is included.
+
+## Preserved component and main checkpoints
+
+## Current offline catalogue and merged Pricing integration — November 1, 2026
+
+Owner root, local branch codex/offline-catalog-current-307-20261101. Existing
+draft #996 now integrates merged price main95278fb7. Offline routing, membership,
+source/printing authority and version26 remain; main's atomic independent-price
+helper is retained in both cache publication and bulk refresh. The acquisition
+SQL runner retains all offline controls plus both bulk/cache price controls.
+Twelve non-overlapping offline contribution files and four non-overlapping price
+contribution files remain exact to their qualified sources. Earlier source-bound
+runtime evidence and failed attempts remain unchanged; no new runtime is claimed.
+
+New exact-head CI and independent review remain required. This does not include
+closed #994 or unmerged metadata #999. Keep #996 draft for individual merge
+approval. Broader recognition/release and historical Pricing/WAL acceptance
+remain separate; no production action is included.
+
+## Preserved offline, Pricing and main checkpoints
+
 ## Current offline catalogue main integration — November 1, 2026
 
 Owner root, local branch codex/offline-catalog-main-307-20261101. Existing draft
@@ -41,6 +136,70 @@ required. Runtime evidence and active-work handoff are tracked separately in the
 owner's local checkpoint. No deployment or broad issue closure is implied.
 
 ## Preserved main checkpoint
+
+## Current acquisition freshness parent integration — November 1, 2026
+
+Owner root, local branch codex/acquisition-freshness-main-307-20261101. Existing
+draft #999 follows refreshed price parent #998 at60cbc294, including main
+b3f4f37b. All four non-checkpoint #999 contribution files retain their exact
+qualified4d356318 blobs: conditional metadata writer, observed-lock SQL cases,
+runner entrypoints and guide. The price helper/writers remain the parent's
+qualified code; card-import equals the separately tested combined module.
+
+The existing first-lookup response semantics and all concurrency/rollback,
+identity/Inventory and independent-price protections remain. Original runtime
+and UI evidence stay bound to4d356318; this is not a new runtime execution.
+New exact-head CI and independent review remain required. Keep #999 draft and
+stacked on #998 until its approved merge; no production update, historical
+Pricing repair or WAL cause claim is included.
+
+## Preserved freshness, price and main checkpoints
+
+## Current acquisition metadata freshness draft - November 1, 2026
+
+Branch codex/acquisition-cache-freshness-307-20261101 is stacked on the
+price-preservation draft. Delayed provider-cache publication now rechecks an
+existing Card fingerprint and lookup-time fence in its UPDATE. A concurrent
+insertion wins without being overwritten. Successful updates retain the shared
+atomic price merge; cache leases and publication remain transactional.
+
+Related to #307/#302. The acquisition integrity suite adds three observed-lock
+overlap cases covering newer metadata, a changed fingerprint and insertion.
+Current-head CI status is recorded on the PR. Keep this draft for independent
+review and Brian's individual merge approval; no production update is included.
+
+## Current acquisition price main integration — November 1, 2026
+
+Owner root, local branch codex/acquisition-price-main-854-20261101. Existing
+draft #998 integrates main b3f4f37b without changing the atomic price helper,
+bulk/cache writers or their real PostgreSQL verifier. Six non-checkpoint,
+non-card-import contribution files retain their exact qualified cab1a3de blobs.
+Card-import now combines main's sequential search caching with the unchanged
+price writer; its complete blob equals the separately qualified d2df120b
+combined review. That larger runtime remains separate source-bound evidence.
+
+Original SQL and desktop/phone product review stay bound to cab1a3de and its
+recorded images. Required refreshed-head CI and independent review remain
+separate. No closed #994, offline #996 or metadata-race #999 code is added here.
+Keep #998 draft for Brian's individual merge approval; this prevention work
+does not resolve historical Pricing/WAL cause or authorize production changes.
+
+## Preserved source and main checkpoints
+
+## Current acquisition price-preservation draft - November 1, 2026
+
+Acquisition bulk refresh and provider-cache publication now share the ordinary
+Scryfall refresh price writer. Metadata updates retain independent MTGJSON
+projections, ignore caller-supplied projections and preserve cached prices when
+the payload omits them. A losing bulk metadata fence cannot apply prices.
+Card changes and catalogue progress/publication remain atomic.
+
+Related to existing #854/#305/#307; this prevention change does not resolve the
+historical WAL incident or pricing recovery acceptance. The acquisition SQL
+suite now covers both writers, payload variants, stable identities, unchanged
+Inventory, rollback and observed row-lock barriers in both Pricing writer orders.
+Exact-head CI and independent review remain pending. Keep the PR draft; each
+merge requires Brian's individual approval. No production rollout is included.
 
 ## Current Inventory workflow test alignment — November 1, 2026 UTC
 

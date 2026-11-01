@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { cardWriteData } from "./card-import";
+import { refreshScryfallPrices, scryfallPricesForWrite } from "./card-price-write";
 import { acquisitionCatalogCardSchema } from "./acquisition-catalog";
 import {
   catalogQueryKey,
@@ -192,7 +193,7 @@ export async function resolveCachedAcquisitionCatalog(
         >;
         const existing = await tx.card.findUnique({
           where: { scryfallId: card.id },
-          select: { scryfallFingerprint: true, lastSyncedAt: true },
+          select: { id: true, scryfallFingerprint: true, lastSyncedAt: true },
         });
         // Never replace stable local Card IDs or roll newer metadata backward.
         if (
@@ -200,14 +201,37 @@ export async function resolveCachedAcquisitionCatalog(
           (existing?.lastSyncedAt && existing.lastSyncedAt > now)
         )
           continue;
-        await tx.card.upsert({
-          where: { scryfallId: card.id },
-          create: { ...data, scryfallId: card.id, firstCachedAt: new Date() },
-          update: {
-            ...data,
-            priceLastFetchedAt: data.priceLastFetchedAt ?? undefined,
-          },
-        });
+        const { prices: _prices, ...metadata } = data;
+        const prices = scryfallPricesForWrite(validated);
+        if (!existing) {
+          // A direct fetch can insert after our read. Keep its identity and
+          // metadata rather than treating an insertion conflict as an update.
+          await tx.card.createMany({
+            data: [{
+              ...data,
+              prices: prices ?? {},
+              scryfallId: card.id,
+              firstCachedAt: new Date(),
+            }],
+            skipDuplicates: true,
+          });
+        } else {
+          // Recheck the read version in the UPDATE itself: another writer may
+          // commit while this transaction waits for the Card row lock.
+          const changed = await tx.card.updateMany({
+            where: {
+              id: existing.id,
+              scryfallFingerprint: existing.scryfallFingerprint,
+              OR: [{ lastSyncedAt: null }, { lastSyncedAt: { lte: now } }],
+            },
+            data: {
+              ...metadata,
+              priceLastFetchedAt: data.priceLastFetchedAt ?? undefined,
+            },
+          });
+          if (changed.count && prices)
+            await refreshScryfallPrices(tx, existing.id, prices);
+        }
       }
       await tx.acquisitionCatalogLookup.update({
         where: { key },
