@@ -126,7 +126,7 @@ export async function runCorrectionCaptureOnce(db: PrismaClient) {
       async () => { await verifyCorrectionBlobDurability(claim.blob.ownerPlayerId, claim.blob.digest, claim.blob.bytes); });
     return { claimed: 1, preserved: Number(published), failed: 0 };
   } catch (error: any) {
-    const code = ["ENOSPC", "EACCES", "EPERM", "SOURCE_MISSING"].includes(error.code) ? error.code : "ORIGINAL_COPY_FAILED";
+    const code = ["ENOSPC", "EACCES", "EPERM", "SOURCE_MISSING"].includes(error?.code) ? error.code : "ORIGINAL_COPY_FAILED";
     await failCorrectionCapture(db, claim, code);
     return { claimed: 1, preserved: 0, failed: 1 };
   } finally { await staged?.cleanup(); }

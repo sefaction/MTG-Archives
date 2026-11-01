@@ -47,7 +47,8 @@ async function fixture(work) {
     outbox: { id: "outbox", status: "PENDING", leaseToken: null, leaseExpiresAt: null, errorCode: null },
     pin: { photoId: "source-photo", releasedAt: null },
   };
-  const controls = { refuseSync: true, backup: false, authority: true, sourceReads: 0, syncs: 0, closes: 0, publications: 0 };
+  const controls = { refuseSync: true, refuseRole: "owner", refusePhase: "sync", failure: storageError,
+    backup: false, authority: true, sourceReads: 0, syncs: 0, closes: 0, publications: 0, barriers: [] };
   const tx = {
     $executeRaw: async strings => { assert.match(strings.join("?"), /pg_advisory_xact_lock/); return 1; },
     $queryRaw: async (strings, ...values) => {
@@ -96,11 +97,17 @@ async function fixture(work) {
     link: async (...args) => { await fsp.link(...args); controls.publications++; },
     open: async (target, flags, mode) => {
       if (flags !== "r") return fsp.open(target, flags, mode);
-      assert.equal(target, directory);
+      const role = target === directory ? "owner" : target === path.dirname(directory) ? "namespace" : target === root ? "root" : null;
+      assert.ok(role, "Only the owner directory and its two bounded ancestors may be synced");
+      const step = phase => {
+        controls.barriers.push({ role, phase });
+        if (controls.refuseSync && controls.refuseRole === role && controls.refusePhase === phase) throw controls.failure();
+      };
+      step("open");
       const handle = process.platform === "win32" ? null : await fsp.open(target, flags);
       return {
-        sync: async () => { controls.syncs++; if (controls.refuseSync) throw storageError(); await handle?.sync(); },
-        close: async () => { await handle?.close(); controls.closes++; },
+        sync: async () => { if (role === "owner") controls.syncs++; step("sync"); await handle?.sync(); },
+        close: async () => { await handle?.close(); if (role === "owner") controls.closes++; step("close"); },
       };
     },
     lockCorrectionOwner: async (_tx, actual) => assert.equal(actual, owner),
@@ -175,9 +182,44 @@ test("lost completion authority cannot sync or attach an existing original", () 
   assert.equal(f.state().pin.releasedAt, null); assert.equal(f.state().account.preservedBytes, 0n);
 }));
 
-test("ordinary correction publication syncs once before preservation", () => fixture(async f => {
+test("ordinary correction publication syncs the owner once before preservation", () => fixture(async f => {
   f.controls.refuseSync = false;
   assert.equal((await f.run()).preserved, 1);
   assert.equal(f.controls.syncs, 1); assert.equal(f.controls.closes, 1); assert.equal(f.controls.publications, 1);
   assert.equal(f.state().blob.state, "PRESERVED"); assert.ok(f.state().pin.releasedAt);
 }));
+
+for (const role of ["namespace", "root"]) for (const phase of ["open", "sync", "close"]) {
+  test(`${role} ${phase} failure keeps first/retried originals pending until every barrier recovers`, () => fixture(async f => {
+    f.controls.refuseRole = role; f.controls.refusePhase = phase;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const start = f.controls.barriers.length;
+      assert.equal((await f.run()).failed, 1); assertPending(f);
+      assert.deepEqual(f.controls.barriers.slice(start).filter(call => call.phase === "open").map(call => call.role), ["owner", "namespace", "root"]);
+      assert.equal(f.controls.sourceReads, 1); assert.equal(f.controls.publications, 1);
+      await f.preserved();
+    }
+    f.controls.refuseSync = false;
+    assert.equal((await f.run()).preserved, 1);
+    assert.equal(f.state().blob.state, "PRESERVED"); assert.equal(f.state().outbox.status, "COMPLETE");
+    assert.equal(f.state().account.reservedBytes, 0n); assert.equal(f.state().account.preservedBytes, BigInt(f.bytes.length));
+    assert.ok(f.state().pin.releasedAt);
+    const before = structuredClone(f.state());
+    assert.equal((await f.run()).claimed, 0); assert.deepEqual(f.state(), before);
+    assert.equal(f.controls.sourceReads, 1); assert.equal(f.controls.publications, 1);
+  }));
+}
+
+for (const cause of [undefined, null, false, 0, ""]) {
+  test(`unknown ${String(cause)} ancestor failure retains pending accounting and recovers`, () => fixture(async f => {
+    f.controls.refuseRole = "root"; f.controls.refusePhase = "close"; f.controls.failure = () => cause;
+    assert.equal((await f.run()).failed, 1);
+    assert.equal(f.state().outbox.status, "PENDING"); assert.equal(f.state().outbox.errorCode, "ORIGINAL_COPY_FAILED");
+    assert.equal(f.state().blob.state, "PENDING"); assert.equal(f.state().pin.releasedAt, null);
+    assert.equal(f.state().account.preservedBytes, 0n); assert.equal(f.state().account.reservedBytes, BigInt(f.bytes.length));
+    await f.preserved();
+    f.controls.refuseSync = false;
+    assert.equal((await f.run()).preserved, 1); assert.ok(f.state().pin.releasedAt);
+    const before = structuredClone(f.state()); assert.equal((await f.run()).claimed, 0); assert.deepEqual(f.state(), before);
+  }));
+}

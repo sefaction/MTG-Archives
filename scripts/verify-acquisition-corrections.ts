@@ -203,6 +203,65 @@ export async function verifyAcquisitionCorrections(db: PrismaClient) {
       await db.correctionCaptureOutbox.update({ where: { id: fresh.id }, data: { availableAt: new Date(0) } });
       await prioritizeOwner(0);
       console.log("PASS correction publication and existing-file retry retain pending accounting, source bytes and pins while directory sync fails");
+
+      // Exercise both containing-directory entries without replacing the
+      // original owner-directory controls above. Each case starts with only the
+      // pinned source, then retries the exact correction bytes left by failure.
+      const namespace = path.dirname(directory), correction = path.join(directory, `${metadata.digest}.original`);
+      for (const failedDirectory of [namespace, root]) for (const phase of ["open", "sync", "close"] as const) {
+        assert.ok(correction.startsWith(root + path.sep));
+        assert.deepEqual(await readCorrectionBlob(owners[0], metadata.digest, metadata.bytes), bytes);
+        for (const photoId of photoIds[0]) assert.deepEqual(await readAcquisitionPhotoBytes(photoId, "raw", metadata.digest), bytes);
+        await fsPromises.unlink(correction);
+        const link = fsPromises.link, directoryAttempts: string[] = [];
+        let failures = 0, publications = 0;
+        const fault = () => { failures++; return Object.assign(new Error("controlled correction ancestor barrier"), { code: "EIO" }); };
+        fsPromises.open = (async (...args: Parameters<typeof open>) => {
+          const target = args[0], isDirectory = args[1] === "r" && typeof target === "string" && [directory, namespace, root].includes(target);
+          if (isDirectory) directoryAttempts.push(target as string);
+          if (target === failedDirectory && args[1] === "r" && phase === "open") throw fault();
+          const handle = await open(...args);
+          if (target === failedDirectory && args[1] === "r") {
+            if (phase === "sync") handle.sync = async () => { throw fault(); };
+            if (phase === "close") {
+              const close = handle.close.bind(handle);
+              handle.close = async () => { await close(); throw fault(); };
+            }
+          }
+          return handle;
+        }) as typeof open;
+        fsPromises.link = (async (...args: Parameters<typeof link>) => {
+          if (args[1] === correction) publications++;
+          return link(...args);
+        }) as typeof link;
+        syncBuiltinESMExports();
+        try {
+          for (let attempt = 1; attempt <= 2; attempt++) {
+            await db.correctionCaptureOutbox.update({ where: { id: fresh.id }, data: { availableAt: new Date(0) } });
+            await prioritizeOwner(0);
+            const before = directoryAttempts.length;
+            assert.deepEqual(await runCorrectionCaptureOnce(db), { claimed: 1, preserved: 0, failed: 1 });
+            assert.equal(failures, attempt, "First publication and existing-file retry must both reach the ancestor barrier");
+            assert.deepEqual(directoryAttempts.slice(before), [directory, namespace, root], "Attempt every bounded directory even after failure");
+            assert.equal(publications, 1, "Existing-file retry must not publish or count another copy");
+            assert.deepEqual(await db.correctionBlob.findUniqueOrThrow({ where: { id: fresh.blobId } }), pendingBlob);
+            const current = await db.correctionLibraryAccount.findUniqueOrThrow({ where: { ownerPlayerId: owners[0] } });
+            for (const field of ["reservedBytes", "preservedBytes", "evidenceBytes"] as const) assert.equal(current[field], account[field]);
+            assert.deepEqual(await db.correctionRetentionPin.findMany({ where: { blobId: fresh.blobId }, orderBy: { id: "asc" } }), pins);
+            const retry = await db.correctionCaptureOutbox.findUniqueOrThrow({ where: { id: fresh.id } });
+            assert.equal(retry.status, "PENDING"); assert.equal(retry.errorCode, "ORIGINAL_COPY_FAILED");
+            assert.equal(retry.leaseToken, null); assert.equal(retry.leaseExpiresAt, null);
+            assert.deepEqual(await readCorrectionBlob(owners[0], metadata.digest, metadata.bytes), bytes);
+            for (const photoId of photoIds[0]) assert.deepEqual(await readAcquisitionPhotoBytes(photoId, "raw", metadata.digest), bytes);
+          }
+        } finally {
+          fsPromises.open = open; fsPromises.link = link;
+          syncBuiltinESMExports();
+        }
+      }
+      await db.correctionCaptureOutbox.update({ where: { id: fresh.id }, data: { availableAt: new Date(0) } });
+      await prioritizeOwner(0);
+      console.log("PASS correction namespace/root open-sync-close failures retain first/retried bytes, accounting and pins before recovery");
     }
 
     // An active archive window preserves pending source pins even after a copy.

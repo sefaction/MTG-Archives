@@ -1,9 +1,9 @@
-## Current — October31,2026: draft984 integrated on merged League repair
+## Current League paste policy — October31,2026
 
-Owner root/thread01a19026-efc8-7c21-94d7-b143ca1ad404. Correction retry byte verification and owner-directory durability. Main3484b2a0/#986 is integrated; the only conflict was this checkpoint. All5 carried source/verifier/test files retain their prior exact blob identities. 53 focused passes/one existing Windows descriptor skip;old-source2pass/3intendedfail;real correction PostgreSQL verifier and85-table restoration pass. Earlier compiled cumulative0a5867d4/image3d6de06c contains both drafts plus the merged986 application changes; reuse is limited to unchanged affected behavior, not new exact-head CI or standalone deployment. Exact-head CI is pending after integration. No application edits, runtime reload or production action is introduced by this integration. Brian authorized draft publication only; retain draft and do not merge. Full main and draft checkpoint additions below are preserved over one shared historical base.
+Branch codex/league-paste-pool-warning-844-20261031; existing issue844, base3484b2a0. Brian explicitly chose to add recognized cards even without any League copy and show outside-pool feedback. Missing pasted editions prefer same-card linked printings under the default policy. Final paste saves independently of pool membership; live saved-deck warnings retain the missing-stock distinction. Inventory, management/submitted-match and write fences remain.
 
-## Preserved main checkpoint additions before integration
-
+Types pass; full unit2,349pass/zero failures/six existing skips;43focused pass. Canonical Docker image12da2dcb binds all1,335 inputs ofaf1812c2/manifest25009f8d. Actual supplied100-copy desktop1366/phone320, four synthetic alternates/SolRing warning, stale-pool replace/relink and the tracked100-row/ordinary-physical compatibility flow pass; three completed85-table restoration pairs. Four owned containers/two networks retired, exact runtime claim released; four protected stopped containers/mounts unchanged. Failed setup attempts and evidence limitations remain in [the policy guide](LEAGUE_PASTE_POOL_POLICY.md) and private .local-data logs. Foundry unavailable here. Publication and required exact-head CI are next; no merge/production authority is implied. Earlier individual987/989 merge and986deployment questions remain pending; the League policy question is answered.
+## Preserved previous checkpoint
 ## Current #844 connection-burst repair — October 31, 2026
 
 Owner chat 01a19026-efc8-7c21-94d7-b143ca1ad404, branch codex/league-paste-printing-feedback-844; draft #986, main 59275d70. Brian supplied the new 87-entry/100-copy list, five exact NOT_FOUND rows, exclusion/import failure with no additions and generic error screenshot. Separate explicit approvals permit read-only existing production app/browser details and MTG container logs through Unraid; no imports, commands, restarts, settings, deployment or data changes. The temporary log viewer is closed. Original author correction/reload checkouts remain untouched.
@@ -17,34 +17,6 @@ Final compiled source 0a5867d4, image 3d6de06c, 1,335 inputs/digest ca586f3c inc
 All owned disposable containers/networks retired; exact desktop claim league844-pool-repro-20261031 released after terminal children. Four original stopped containers/all four volumes preserved. Qualified images/manifests/logs retained. #984/#985 current published heads each have all nine checks passing; #986 earlier a674f4bc also passed nine, but this final backend change requires refreshed exact-head CI. No earlier-head result substitutes.
 
 Next: publish the coherent batch into #986, verify final-head checks and seek individual merge approval only when reviewable. Production delivery remains separately authorized; keep #844 open for named-installation and reporter validation, including the five-printing pool feedback. #808 remains separate; no new issue or merge.
-
-## Preserved current-main checkpoint history
-
-
-## Preserved draft checkpoint additions before integration
-
-## Current correction durability draft984 — October31,2026
-
-Owner chat01a19026-efc8-7c21-94d7-b143ca1ad404, branch codex/correction-retry-current-review-305, related305/310. Integrates current main59275d70 including merged979/983. Original author4d839d03 and independent compatibility review4eaa84e0 remain unchanged; all five carried source/verifier/test blobs match the already published draft51b4c141. Original author checkout/branch are untouched.
-
-Brian explicitly answered “Allow draft publication” through the connected GitHub access, no broader permissions and no merge. His separate982 approval arrived after that PR had merged concurrently; this chat verified the tested complete tree and did not perform that merge. The earlier publication pause is lifted for these two drafts only.
-
-Original independent focused53 pass/one existing Windows directory skip, unchanged storage/worker authority declarations, negative2 pass/3 intended failures and typecheck remain source-bound. All9 initial published-head checks passed51b4c141 (Verify41211538415). New current-main integration requires its own exact-head CI; earlier results do not substitute.
-
-Current-main cumulative production image39d2439f (1,334 inputs, digest634eb17c, source0db17931) passes the real correction PostgreSQL verifier including directory-sync retry controls, with complete85-table before/after restoration. The same image passes four actual reload browser cases21.8s and the separate844 normal/lost-reply controls. Earlier source-bound author/initial-image qualification remains distinct evidence. No production deployment, merge or user acceptance.
-
-All owned disposable containers/networks retired after conservation; four original stopped containers/all four volumes preserved. Exact desktop runtime claim overnight-integrated-review-20261031 released after terminal children. Qualified image/private logs retained. Next: publish integrated tree with five unchanged source blobs, verify final-head CI and retain draft for review/individual approval.
-
-## Preserved compatibility-review record
-
-## Current-main compatibility review of unpublished correction durability — October 30, 2026
-
-- Review owner: chat `01a19026-efc8-7c21-94d7-b143ca1ad404`, branch `codex/correction-retry-current-review-305`, base main `8deb01a7`. Existing #305/#310. This is a separate compatibility-review copy of original committed `4d839d03`, not takeover of its source claim or permission to bypass its recorded publication restriction.
-- Original checkout at `C:\Users\Admin\Documents\Codex\2026-10-25\task-2\correction-retry-305` is verified clean at `4d839d03`; no matching local Node process. It remains untouched. Author's later `runtime-qualification-report.txt` records successful source-bound Linux/PostgreSQL checks and retired owned resources; publication/authentication remains separately constrained.
-- Applied the original five noncheckpoint files cleanly with three-way integration onto current main, preserving #978 primary-read/close behavior and #980 bounded correction reads. No new implementation policy, ticket, publication, merge, source-claim recovery or runtime change.
-- Current-main negative control reproduces exactly two passes/three expected failures. Integrated focused checks pass 53/zero failures/one existing Windows directory-descriptor skip; full current-schema typecheck passes. Exact source comparison preserves seven storage declarations (including bounded read and ordered-close handling) and all seven worker authority/maintenance functions. Four other carried files match original `4d839d03` after line-ending normalization. No actionable compatibility finding.
-- Private evidence: `.local-data/negative.log`, `focused.log`, `typecheck.log`, `check-source.cjs` and `review-summary.json`. Dependency link points to this chat's private current-schema dependency copy, not the original author's dependencies. All three exact host-review claims are released and processes terminal; no Docker/database resource was created here.
-- Next: retain this local review commit for the original delivery owner/authorized publisher. Do not bypass the original specific publication restriction. Current integrated production/Linux SQL/actual-head CI and any applicable compiled workflow qualification remain pending; older author evidence is bound to `4d839d03`, not a substitute. No new issue, external publication or merge. No user answer is needed to retain the completed review.
 
 ## Preserved current-main checkpoint history
 

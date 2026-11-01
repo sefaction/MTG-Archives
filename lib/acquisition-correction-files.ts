@@ -82,10 +82,22 @@ export async function readCorrectionBlob(ownerPlayerId: string, digest: string, 
 }
 
 // An existing original may be left by a publication whose directory sync failed.
-// Verify its bytes and repeat the durability barrier before releasing source pins.
+// Verify its bytes and repeat every containing-directory barrier before releasing
+// source pins. The configured upload root is the provisioned storage mount.
 export async function verifyCorrectionBlobDurability(ownerPlayerId: string, digest: string, expectedBytes: number) {
   await readCorrectionBlob(ownerPlayerId, digest, expectedBytes);
-  await syncDirectory(await ownerDirectory(ownerPlayerId));
+  const directory = await ownerDirectory(ownerPlayerId);
+  const namespace = path.dirname(directory);
+  const failures: unknown[] = [];
+  for (const target of [directory, namespace, path.dirname(namespace)]) {
+    try { await syncDirectory(target); } catch (error) { failures.push(error); }
+  }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) {
+    const code = (failures[0] as NodeJS.ErrnoException | null)?.code;
+    throw Object.assign(new AggregateError(failures, "Correction storage directory barriers failed", { cause: failures[0] }),
+      typeof code === "string" ? { code } : {});
+  }
 }
 
 // Preparation is outside the database transaction. Only the current leased

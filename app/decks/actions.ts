@@ -45,7 +45,6 @@ import {
 import { DECK_FOLDER_ROOT_VALUE, canMoveFolder } from "@/lib/deck-folders";
 import { parseDeckTags, replaceDeckTags } from "@/lib/deck-tags";
 import {
-  areAllPrintingsInLeague,
   requireLeaguePrinting,
 } from "@/lib/commander-league-inventory";
 
@@ -1281,7 +1280,7 @@ export async function returnDeckCardToInventory(fd: FormData) {
   revalidatePath("/locations");
 }
 
-export async function commitDeckImport(fd: FormData) {
+export async function commitDeckImport(fd: FormData): Promise<{ error: string } | void> {
   const deckId = formString(fd, "deckId");
   const { user, deck } = await requireManagedDeck(deckId);
   const mode = formString(fd, "mode") === "replace" ? "replace" : "merge";
@@ -1364,18 +1363,8 @@ export async function commitDeckImport(fd: FormData) {
     });
   if (lines.length === 0)
     throw new Error("No resolved decklist lines to commit.");
-  if (deck.commanderLeagueDeck) {
-    const available = await areAllPrintingsInLeague(
-      deck.commanderLeagueDeck.leagueId,
-      lines.map((line) => line.cardId),
-    );
-    if (!available) {
-      return {
-        error:
-          "The list was not imported. One or more selected printings are not in this League's linked inventory. Resolve the list again or choose an available League printing.",
-      };
-    }
-  }
+  // A League decklist can include cards outside its current pool. Availability
+  // is displayed from live stock; it must not prevent saving the list.
   const physicalCopyCount = lines.reduce(
     (total, line) => total + line.physicalQuantity,
     0,

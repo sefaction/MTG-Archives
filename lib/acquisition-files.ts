@@ -169,12 +169,16 @@ export async function writeAcquisitionPhotoBytes(
     // A complete file may come from a publication whose directory sync failed.
     // Retry that durability barrier before acknowledging existing bytes too.
     if (process.platform === "win32") return;
-    let dir;
-    try {
-      dir = await open(directory, "r");
-      await dir.sync();
-    } catch (error) { failures.push(error); }
-    try { await dir?.close(); } catch (error) { failures.push(error); }
+    // The new photo directory also needs its entry persisted in the configured
+    // storage root. Repeat both barriers on retries after an earlier failure.
+    for (const folder of [directory, path.dirname(directory)]) {
+      let dir;
+      try {
+        dir = await open(folder, "r");
+        await dir.sync();
+      } catch (error) { failures.push(error); }
+      try { await dir?.close(); } catch (error) { failures.push(error); }
+    }
   }
   function finish() {
     if (failures.length === 1) throw failures[0];

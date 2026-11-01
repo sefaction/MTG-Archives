@@ -26,7 +26,7 @@ const fault = code => Object.assign(Error("bounded storage control"), { code });
 async function exercise(faults = new Map(), publish = false) {
   await fsp.mkdir(path.join(process.cwd(), ".local-data"), { recursive: true });
   const root = await fsp.mkdtemp(path.join(process.cwd(), ".local-data/correction-prepare-"));
-  const directory = path.join(root, "owner"), temporary = path.join(directory, "temporary");
+  const directory = path.join(root, "correction-library-v1", "owner"), temporary = path.join(directory, "temporary");
   await fsp.mkdir(temporary, { recursive: true });
   const source = path.join(root, "source.original"), neighbor = path.join(root, "neighbor.original");
   const bytes = Buffer.from("synthetic protected source original"), digest = digestOf(bytes);
@@ -63,7 +63,10 @@ async function exercise(faults = new Map(), publish = false) {
       }
       return fsp.unlink(file);
     },
-    link: fsp.link, syncDirectory: async () => { calls.push("directory-sync"); },
+    link: fsp.link, syncDirectory: async target => {
+      assert.ok([directory, path.dirname(directory), root].includes(target), "Stay inside the provisioned storage root");
+      calls.push(target === directory ? "directory-sync" : target === root ? "root-sync" : "namespace-sync");
+    },
     readCorrectionBlob: async (_owner, expected, length) => {
       const data = await fsp.readFile(path.join(directory, expected + ".original"));
       assert.equal(data.length, length); assert.equal(digestOf(data), expected); return data;
@@ -152,6 +155,7 @@ test("successful prepare, duplicate immutable publish and cleanup remain intact"
   const result = await exercise(new Map(), true);
   assert.equal(result.failed, false); assert.equal(result.published, true);
   assert.deepEqual(result.parts, []);
-  assert.deepEqual(result.calls, ["open", "write", "sync", "close", "directory-sync", "directory-sync", "unlink"]);
+  assert.deepEqual(result.calls, ["open", "write", "sync", "close",
+    "directory-sync", "namespace-sync", "root-sync", "directory-sync", "namespace-sync", "root-sync", "unlink"]);
 });
 

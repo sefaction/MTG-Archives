@@ -1,5 +1,19 @@
 # Complete trade and reverse-import acquisition schedules
 
+## Current accepted P7 disposition — October 31, 2026
+
+[#309 was accepted and closed](https://github.com/sefaction/MTG-Archives/issues/309#issuecomment-6387769493) on October 24 against its finite
+transactional scope. The [current P7 status](ACQUISITION_WRITER_MATRIX.md)
+records that accepted boundary and the separate release requirements remaining
+in #310/#302. Earlier statements below that #309 must stay open or still await
+acceptance describe the preserved pre-closure record, not a current blocker.
+
+All original requirement rows, writer schedules, failures, source bindings and
+coverage limits below remain unchanged. This documentation update performs no
+new test, phase closure, acceptance transfer, deployment or runtime operation.
+
+## Preserved qualification and October 24 delivery history
+
 Related to #309/#302. This finishes the recorded complete trade-action gap and
 the opposite CSV ordering in the named P7 writer matrix. Production algorithms,
 schema, transaction options, retry and advisory-capacity policies are unchanged.
