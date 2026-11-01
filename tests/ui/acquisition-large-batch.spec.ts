@@ -62,9 +62,11 @@ test('large scan-image batches retain every input through ordinary native queues
   expect(endpoint).toMatch(/^(npipe:\/\/|unix:\/\/)/);
   if(process.env.DOCKER_HOST)expect(process.env.DOCKER_HOST).toMatch(/^(npipe:\/\/|unix:\/\/)/);
   if(isolatedTarget){
-    const containers=JSON.parse(docker('inspect',...isolatedLoadRoles.map(role=>isolatedTarget.containers[role].id)));
+    const containers=JSON.parse(docker('inspect',...isolatedLoadRoles.map(role=>isolatedTarget.containers[role].id),
+      ...(isolatedTarget.ingressProxy?[isolatedTarget.ingressProxy.id]:[])));
     const network=JSON.parse(docker('network','inspect',isolatedTarget.networkId))[0];
-    assertIsolatedAcquisitionLoadRuntime(isolatedTarget,containers,network);
+    const ingress=isolatedTarget.ingressProxy?JSON.parse(docker('network','inspect',isolatedTarget.ingressProxy.networkId))[0]:undefined;
+    assertIsolatedAcquisitionLoadRuntime(isolatedTarget,containers,network,ingress);
     if(!process.env.MTG_ACQUISITION_LARGE_BATCH_REPORT_PATH)throw Error('Isolated load requires a durable report path');
   }
   const targets=count===100?[100]:[160,80,40,20];
