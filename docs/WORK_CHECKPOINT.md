@@ -1,3 +1,30 @@
+## #305 matching-photo warning — November 1, 2026
+
+Owner: root /01a19026-efc8-7c21-94d7-b143ca1ad404. Branch
+`codex/acquisition-duplicate-photo-warning-305-20261101`; candidate integrates
+main4819029a (#992, observed merged by its other owner). Four qualified source
+files retain their6d4d9800 blobs. [Qualification and retained failures](ACQUISITION_MATCHING_PHOTO_WARNING.md).
+
+This closes the original Batch2 duplicate-upload-warning implementation gap in
+the shared current capture screen: full authorized batch, current durable photo
+generations, informational only, separate physical copies preserved. No new
+capture provider or deferred hardware/device gate. #305/#302/#310 stay open.
+
+Six focused groups and strict helper types pass. Standard production build and
+source/compiled-client proof pass. Actual isolated web/PG browser workflow passes
+6.3s: lost-response replay, cross-owner refusal and other-batch isolation,
+fifteenth-slot match, separate two-copy preview, reload, retake, desktop/390/320
+layouts. Final17slots/18photo rows/0Inventory. Screenshots inspected; both fresh
+containers/bridge retired, four protected peers exact, shared claim released.
+Private receipts: this worktree `.local-data/browser-36883734/`, image-probe-cli2
+and unit results. Earlier failed setup receipts are retained, not relabeled.
+
+Next: publish the coherent draft PR and run required exact-head CI. Independent
+review and this PR's merge remain separate. #996/252a97f6 has all nine checks
+but no root merge grant; #883 and #1000 approved merges are reconciled. No root
+production action is authorized. Foundry remains unavailable on this computer;
+repository and current GitHub records supply the operating context.
+
 ## Current #992 main integration — November 1, 2026
 
 Guard source2a5de7e6 integrates merged mainc9e3e7f5, including externally approved/merged #883 and corrected #1000. All nine non-checkpoint #992 contribution blobs remain exact. The existing76 affected controls, app-aware focused types and independent guard review remain applicable; required new-head CI and independent integration review are pending. Earlier successful checks stay bound to their own heads.
