@@ -69,6 +69,8 @@ async function locked<T>(
     { maxWait: 10000, timeout: 60000 },
   );
 }
+// Shared bounded maintenance authority for derived public catalogue indexes.
+export { locked as withAcquisitionCatalogMaintenance };
 export async function beginAcquisitionCatalog(
   db: PrismaClient,
   actor: AcquisitionActor,

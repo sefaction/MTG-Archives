@@ -170,7 +170,7 @@ type Lookup = (
 export function createCatalogReconciliationHandler(
   db: PrismaClient,
   lookup: Lookup = (query, signal) =>
-    resolveCachedAcquisitionCatalog(db, query, signal),
+    resolveCachedAcquisitionCatalog(db, query, signal, undefined, { preferCompleteSnapshot: true }),
 ) {
   let snapshot: RecognitionSnapshot | undefined;
   let snapshotAt = 0;
@@ -334,9 +334,22 @@ export function createCatalogReconciliationHandler(
       snapshot = await loadAcquisitionRecognitionSnapshot(db,snapshot);
       snapshotAt = Date.now();
     }
+    // Coverage belongs to enumerated printing identities. An English snapshot
+    // cannot authorize a foreign projection or a newer locally cached printing
+    // that was never a member of a checked lookup result.
+    const checkedLocalPrintings = new Set(completed.flatMap(result =>
+      result.status === "FOUND" && result.printingCoverage === "CHECKED"
+        ? result.cards.flatMap(card => {
+          const local = snapshot!.byScryfallId.get(card.id);
+          if (!local || (result.sourceCoverage &&
+              (card.lang !== result.sourceCoverage.language || local.lang !== result.sourceCoverage.language))) return [];
+          return [local.id];
+        }) : []));
+    const sourceCoverage = [...new Map(completed.flatMap(result => result.sourceCoverage
+      ? [[result.sourceCoverage.sourceDigest, result.sourceCoverage] as const] : [])).values()];
     const found = completed.some(r=>r.status==="FOUND"&&r.printingCoverage==="CHECKED");
     const status:AcquisitionCatalogStatus["status"] = completed.some(r=>r.status==="PROVIDER_ERROR")
-      ? "PROVIDER_ERROR" : completed.some(r=>r.status==="INCOMPLETE") ? "INCOMPLETE"
+      ? "PROVIDER_ERROR" : completed.some(r=>r.status==="INCOMPLETE") || sourceCoverage.length > 1 ? "INCOMPLETE"
       : found ? "RESOLVED" : attempted.size ? "NOT_FOUND" : "UNREADABLE";
     const resolve = (confirmedBatchLanguage?:string) => {
     let proposals = proposeOrientedAcquisitionPrintings(
@@ -370,7 +383,9 @@ export function createCatalogReconciliationHandler(
         p.reasons.includes("SET_AND_COLLECTOR_TEXT") &&
         stampedNames.has(p.card.name),
     );
-    if (status !== "RESOLVED" || stampUnverified || input.manualAnalysis?.region || reference) {
+    const printingUnverified = proposals.proposals.some(proposal =>
+      proposal.reasons.includes("STRONG_EXACT_PRINTING") && !checkedLocalPrintings.has(proposal.card.id));
+    if (status !== "RESOLVED" || printingUnverified || stampUnverified || input.manualAnalysis?.region || reference) {
       if (proposals.status === "STRONG_MATCH")
         proposals.status = "REVIEW_REQUIRED";
       proposals.automaticAcceptance = false;
@@ -423,6 +438,7 @@ export function createCatalogReconciliationHandler(
       ...(languageOptions.length ? {batchLanguageProposals:{version:1,options:languageOptions}} : {}),
       catalog: {
         status,
+        ...(sourceCoverage.length ? { sourceCoverage } : {}),
         printingCoverage:
           found && status === "RESOLVED" ? "CHECKED" : "UNRESOLVED",
         lookups: attempted.size,
