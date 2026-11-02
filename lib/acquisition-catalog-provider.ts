@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { OfflineCatalogCoverage } from "./acquisition-catalog-offline-lookup";
 import { acquisitionCatalogCardSchema } from "./acquisition-catalog";
 import {
   catalogQuerySchema,
@@ -20,6 +21,7 @@ export type CatalogLookupResult = {
   errorKind?: ScryfallClientError["kind"];
   retryAfterMs?: number;
   httpStatus?: number;
+  sourceCoverage?: OfflineCatalogCoverage;
 };
 export const acquisitionCatalogProvider = {
   card: getAcquisitionCardResult,

@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
+import { buildOfflineAcquisitionCatalog } from "../lib/acquisition-catalog-offline-index";
 import {
   beginAcquisitionCatalog,
   applyAcquisitionCatalogBatch,
@@ -68,7 +69,13 @@ async function main() {
     processedRows: run.processedRows,
     status: run.status,
   });
-  if (run.status === "COMPLETE") return;
+  const prepareOffline = async () => {
+    const coverage = await buildOfflineAcquisitionCatalog(db, actor, run.id, file, progress => {
+      if (progress.preparedRows % 2048 === 0) report({ event: "catalog-offline-progress", ...progress });
+    });
+    report({ event: "catalog-offline-ready", ...coverage });
+  };
+  if (run.status === "COMPLETE") { await prepareOffline(); return; }
   const started = Date.now();
   let row = 0,
     offset = 0;
@@ -112,6 +119,7 @@ async function main() {
       ...run,
       elapsedMs: Date.now() - started,
     });
+    await prepareOffline();
   } catch (error) {
     await db.acquisitionCatalogRefresh.updateMany({
       where: { id: run.id, status: { not: "COMPLETE" } },
