@@ -1,6 +1,6 @@
 "use client";
 import {AcquisitionLanguageSelect} from "./AcquisitionLanguageSelect";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ScannerContinuation } from "@/lib/scanner-continuation";
 import { readScannerStart, saveScannerStart, clearScannerStart, type PendingScannerStart } from "@/lib/scanner-browser-start";
@@ -9,6 +9,7 @@ import { ScannerSourceFields, ScannerRunControls, type ScannerChoice } from "./S
 import { AcquisitionBulkReview } from "./AcquisitionBulkReview";
 import { useAcquisitionDrafts } from "./useAcquisitionDrafts";
 import { acquisitionDraftKey } from "@/lib/acquisition-browser-review-draft";
+import { acquisitionPhotoMatchCounts } from "@/lib/acquisition-photo-matches";
 import { SCANNER_CAPTURE_PROVIDER } from "@/lib/scanner-run-protocol";
 import { COUNTED_SCANNER_DEVICE } from "@/lib/scanner-counted-profile";
 import { StorageDestinationPicker } from "./StorageDestinationPicker";
@@ -147,6 +148,7 @@ export function AcquisitionCapture({
   }, []);
   const [batchId, setBatchId] = useState(initialBatch);
   const [progress, setProgress] = useState<Progress | null>(null);
+  const photoMatches = useMemo(() => acquisitionPhotoMatchCounts(progress?.slots ?? []), [progress?.slots]);
   const captureRoot = useRef<HTMLDivElement>(null);
   const progressPanel = useRef<HTMLElement>(null);
   const hasProgress = Boolean(progress);
@@ -1215,6 +1217,12 @@ export function AcquisitionCapture({
                         Card {slot.position + 1}
                         {photo?.inputKind === "CARD_SCAN" ? " · Card scan" : ""}
                       </p>
+                      {photoMatches.has(slot.id) && (
+                        <p role="status" className="text-sm break-words rounded border border-amber-500/50 bg-amber-500/10 p-2">
+                          This photo file appears {photoMatches.get(slot.id)} times in this batch.
+                          {" "}Check for an accidental repeat. Separate physical cards still count separately.
+                        </p>
+                      )}
                       {photo && !photo.purgedAt ? (
                         <AcquisitionPhotoReview
                           userId={userId}

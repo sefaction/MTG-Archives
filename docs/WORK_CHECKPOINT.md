@@ -1,3 +1,48 @@
+## Approved #1001 integration with approved merged #996 — November 1, 2026
+
+Brian separately approved #996/6a75b398 and #1001/8b2d41af, merge only.
+#996 is verified merged ata8a89c27/treea3043d7e with all nine checks and final
+independent review. This routine integration retains all six non-checkpoint
+warning contribution blobs exactly; the fifteen incoming offline-catalogue
+files are exact to that separately approved merge. Both checkpoint contributions
+and the complete common history are preserved once. No new feature scope or
+production grant is inferred. Required integrated-head CI, source-bound local
+combined web/browser review and authorized narrow integration review are pending
+before completing the separately approved1001 merge. Earlier actual tests and
+failed setup attempts retain their original source bindings and limitations.
+
+## Preserved approved #1001 warning delivery
+
+## #305 matching-photo warning — November 1, 2026
+
+Owner: root /01a19026-efc8-7c21-94d7-b143ca1ad404. Branch
+`codex/acquisition-duplicate-photo-warning-305-20261101`; candidate integrates
+main4819029a (#992, observed merged by its other owner). Four qualified source
+files retain their6d4d9800 blobs. [Qualification and retained failures](ACQUISITION_MATCHING_PHOTO_WARNING.md).
+
+This closes the original Batch2 duplicate-upload-warning implementation gap in
+the shared current capture screen: full authorized batch, current durable photo
+generations, informational only, separate physical copies preserved. No new
+capture provider or deferred hardware/device gate. #305/#302/#310 stay open.
+
+Six focused groups and strict helper types pass. Standard production build and
+source/compiled-client proof pass. Actual isolated web/PG browser workflow passes
+6.3s: lost-response replay, cross-owner refusal and other-batch isolation,
+fifteenth-slot match, separate two-copy preview, reload, retake, desktop/390/320
+layouts. Final17slots/18photo rows/0Inventory. Screenshots inspected; both fresh
+containers/bridge retired, four protected peers exact, shared claim released.
+Private receipts: this worktree `.local-data/browser-36883734/`, image-probe-cli2
+and unit results. Earlier failed setup receipts are retained, not relabeled.
+
+Next: publish the coherent draft PR and run required exact-head CI. Independent
+review and this PR's merge remain separate. #996/252a97f6 has all nine checks
+but no root merge grant; #883 and #1000 approved merges are reconciled. No root
+production action is authorized. Foundry remains unavailable on this computer;
+repository and current GitHub records supply the operating context.
+
+
+## Preserved approved #996 offline-catalogue delivery
+
 ## #996 integration of merged #992 — November 1, 2026
 
 Existing draft #996 retains all fifteen reviewed non-checkpoint feature blobs
