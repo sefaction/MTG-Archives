@@ -14,6 +14,8 @@ async function exercise(faults=[],options={}){
  const calls=[],failures=[],owners=[0,1,2,3].map(i=>({tag:String(i)}));let sweep=0;const report={};
  const step=name=>{calls.push(name);if(faults.includes(name)){const error=Error(name);failures.push(error);throw error}};
  const context={...ownedFixtureFiles,workflow:async()=>{if(options.workflowFails)throw options.primary;},owners,contexts:owners.map(o=>({close:async()=>step('close-'+o.tag)})),AggregateError,timer:null,report,
+ isolatedResources:options.observeResources?{stop:async()=>{step('resource-stop');return ['bounded-resource-summary']}}:undefined,
+ nativeTargets:['acquisition-recognition','acquisition-visual','acquisition-printing'].map(name=>({name,container:`mtg-archives-${name}-worker-1`})),
  save:()=>step('report'),failedResponses:[],captureBrowserFailures:async()=>step('browser-report'),docker:()=>'',
  database:body=>{if(body.startsWith('feedback:')){const i=sweep++;step((i<4?'early-':'late-')+(i%4));return {}}
   if(body.startsWith('inventory:')){step(body);return 0}if(body.startsWith('fingerprint:'))return {};
@@ -34,4 +36,20 @@ for(const fault of [...essential,'report','browser-report','inventory:0','assert
 test('all actual teardown causes survive',async()=>{const result=await exercise(essential);assert.ok(result.error instanceof AggregateError);assert.deepEqual(result.error.errors,result.failures);assert.equal(result.failures.length,essential.length);assert.equal(result.report.passed,false)});
 test('normal actual four-owner teardown completes before qualification',async()=>{const result=await exercise();assert.equal(result.error,undefined);assert.equal(result.report.passed,true);assert.ok(result.calls.indexOf('late-3')<result.calls.indexOf('final-report'))});
 registerWorkflowControls('large batch', (faults=[],options={})=>exercise(faults.map(name=>name==='early-feedback'?'early-0':name),options),essential);
+
+test('isolated resource observation stops before fixture retirement and retains its summary',async()=>{
+ const result=await exercise([],{observeResources:true});
+ assert.equal(result.error,undefined);assert.equal(result.report.passed,true);
+ assert.deepEqual(result.report.isolatedResources,['bounded-resource-summary']);
+ assert.ok(result.calls.indexOf('resource-stop')<result.calls.indexOf('early-0'));
+ for(const name of essential)assert.ok(result.calls.includes(name),'missing '+name);
+});
+
+test('isolated resource-stop failure preserves a falsy workflow cause and every later cleanup attempt',async()=>{
+ const result=await exercise(['resource-stop','early-0','late-0'],{observeResources:true,workflowFails:true,primary:undefined});
+ assert.ok(result.error instanceof AggregateError);
+ assert.deepEqual(result.error.errors,[undefined,...result.failures]);
+ assert.equal(result.failures[0].message,'resource-stop');assert.equal(result.report.passed,false);
+ for(const name of essential)assert.ok(result.calls.includes(name),'missing '+name);
+});
 
