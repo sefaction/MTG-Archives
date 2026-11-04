@@ -454,7 +454,7 @@ export async function getWishlistView(
       orderBy: { updatedAt: "desc" },
     }),
     prisma.deck.findMany({
-      where: { ownerUserId },
+      where: { ownerUserId, commanderLeagueDeck: null },
       select: {
         id: true,
         name: true,

@@ -958,12 +958,18 @@ export async function commitDeckCardToDeck(fd: FormData) {
   const inventoryItemId = formString(fd, "inventoryItemId");
   const quantity = normalizePositiveQuantity(fd.get("quantity"));
   const { user, deck } = await requireManagedDeck(deckId);
+  rejectLeagueInventoryCommitment(deck);
   if (!deck.ownerUser.playerId) {
     throw new Error("Deck owner is not linked to an inventory owner.");
   }
 
   await prisma.$transaction(async (tx) => {
     await lockWritableDeck(tx, deckId, deck.ownerUserId);
+    rejectLeagueInventoryCommitment({
+      commanderLeagueDeck: await tx.commanderLeagueDeck.findUnique({
+        where: { archiveDeckId: deckId }, select: { id: true },
+      }),
+    });
     const [deckCard, source] = await Promise.all([
       tx.deckCard.findFirst({ where: { id: deckCardId, deckId } }),
       tx.inventoryItem.findFirst({

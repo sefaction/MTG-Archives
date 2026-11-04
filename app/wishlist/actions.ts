@@ -117,6 +117,12 @@ async function applyDeckCardPrintingChange(input: {
 }) {
   await prisma.$transaction(async (tx) => {
     await lockWritableDeck(tx, input.deckId, input.expectedOwnerUserId);
+    // Recheck after locking: a stale Wishlist request must never edit a League deck.
+    if (await tx.commanderLeagueDeck.findUnique({
+      where: { archiveDeckId: input.deckId }, select: { id: true },
+    })) {
+      throw new Error("League decks are not part of the standard Wishlist.");
+    }
     const deckCard = await tx.deckCard.findFirst({
       where: { id: input.deckCardId, deckId: input.deckId },
     });
@@ -214,9 +220,15 @@ async function switchDeckCardFromWishlist(
   const scope = await getAccessScope(user);
   const deckId = formString(fd, "deckId");
   const deckCardId = formString(fd, "deckCardId");
-  const deck = await prisma.deck.findUnique({ where: { id: deckId } });
+  const deck = await prisma.deck.findUnique({
+    where: { id: deckId },
+    include: { commanderLeagueDeck: { select: { id: true } } },
+  });
   if (!deck || !canManageDeck(user, deck, scope?.mode === "admin")) {
     throw new Error("You can only edit your own decks.");
+  }
+  if (deck.commanderLeagueDeck) {
+    throw new Error("League decks are not part of the standard Wishlist.");
   }
   if (!user.playerId)
     throw new Error("Your account is not linked to an inventory owner.");
@@ -266,9 +278,15 @@ export async function changeWishlistDeckCardPrinting(fd: FormData) {
   const deckCardId = formString(fd, "deckCardId");
   const cardId = formString(fd, "cardId");
   if (!cardId) throw new Error("Select a specific printing.");
-  const deck = await prisma.deck.findUnique({ where: { id: deckId } });
+  const deck = await prisma.deck.findUnique({
+    where: { id: deckId },
+    include: { commanderLeagueDeck: { select: { id: true } } },
+  });
   if (!deck || !canManageDeck(user, deck, scope?.mode === "admin")) {
     throw new Error("You can only edit your own decks.");
+  }
+  if (deck.commanderLeagueDeck) {
+    throw new Error("League decks are not part of the standard Wishlist.");
   }
   await applyDeckCardPrintingChange({
     expectedOwnerUserId: deck.ownerUserId,
