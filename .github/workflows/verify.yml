@@ -341,6 +341,15 @@ jobs:
       - run: npx prisma generate
       - run: npx prisma migrate deploy
       - run: npx tsx scripts/verify-trade-wishlist-concurrency.ts
+      - name: Create separate normal Wishlist League regression database
+        run: psql 'postgresql://ci:ci@127.0.0.1:5432/postgres' --set ON_ERROR_STOP=1 --command 'CREATE DATABASE wishlist_league_1002'
+      - name: Normal Wishlist League query, action and conservation regressions
+        env:
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/wishlist_league_1002
+          MTG_WISHLIST_LEAGUE_FIXTURE: "1"
+        run: |
+          npx prisma migrate deploy
+          npx tsx scripts/verify-wishlist-league.ts
 
   trade-stock-integrity:
     name: Shared trade stock PostgreSQL audit integrity

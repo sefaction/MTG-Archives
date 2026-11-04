@@ -637,6 +637,14 @@ Both owner checkpoint histories are preserved verbatim below. Their latest revie
 
 ## Current work - correction discard focus #916 / PR #917, October 23, 2026
 
+## Current #1002 Wishlist League exclusion — November 4, 2026
+
+- Owner: laptop Codex task `2026-11-04/1002`, parent thread `01a1a794-6f35-722a-b3ef-b73a5eda5012`; branch `fix/1002-wishlist-exclude-league`, isolated task checkout, base `a4aa01c3`. Brian requested the agreed #1002 fix; no new issue or deployment is authorized.
+- Query excludes League relationships before aggregation. Three printing actions and the Wishlist's shared single-card commitment reject direct/stale League targets while retaining existing permissions/fences.
+- Author checks: 80 focused unit tests, 57 real PostgreSQL checks, full production build/client contracts and two desktop/phone Chromium cases pass. Original action sources fail 14 new controls; same-data old/fixed queries demonstrate removed League demand. See `docs/WISHLIST_LEAGUE_EXCLUSION.md` and ignored `.local-data/evidence/` for results and retained harness failures.
+- Shared test window is held through supported exact-owner lock `issue1002-20261104` only while the owned isolated candidate/database are active. Existing primary stack/root WIP and other worktrees remain untouched. Retire the synthetic fixture/resources and release the exact lock after verification; retain compact evidence/current review image.
+- Next: publish draft PR, verify final-head CI, obtain independent review and reconcile merge authority before merging/closing #1002. No production or hardware work.
+
 ## No-new-issues freeze - 2026-10-24
 
 Brian's current instruction applies to every local and remote worker: **do not create new issues until Brian explicitly lifts this freeze.** This overrides all earlier bug, audit, qualification, replacement, nested/child, and other ticket-creation instructions in repository guidance, startup prompts, and historical checkpoints, including those preserved below.
