@@ -5,6 +5,17 @@ import test from "node:test";
 const source = readFileSync("components/DeckListEditor.tsx", "utf8");
 const deckPage = readFileSync("app/decks/[deckId]/page.tsx", "utf8");
 
+test("individual and bulk commitment sources carry section and finish to their labels", () => {
+  assert.match(deckPage, /locationSection: true/);
+  assert.match(deckPage, /foilStatus: true/);
+  assert.match(deckPage, /locationSection: item\.locationSection/);
+  assert.match(deckPage, /foilStatus: item\.foilStatus/);
+  assert.match(source, /source: deckCommitSourceLabel\(option\)/);
+  assert.match(source, /\{deckCommitSourceLabel\(option\)\} — \{option\.cardName\}/);
+  assert.match(source, /Selected source: \{deckCommitSourceLabel\(selectedOption\)\}/);
+  assert.match(source, /break-words[^"]*md:col-span-4/);
+});
+
 test("deck row editor renders an individual commit form wired to the server action", () => {
   assert.match(
     source,

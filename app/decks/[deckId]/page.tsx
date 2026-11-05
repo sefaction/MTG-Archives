@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import {
   DeckFormat,
   DeckSection,
+  FoilStatus,
   InventoryLocationKind,
   Visibility,
 } from "@prisma/client";
@@ -74,6 +75,8 @@ type DeckPageInventoryItem = {
   cardId: string;
   quantity: number;
   locationId: string | null;
+  locationSection: string | null;
+  foilStatus: FoilStatus;
   card: {
     id: string;
     oracleId: string | null;
@@ -267,6 +270,8 @@ export default async function DeckDetailPage({
             cardId: true,
             quantity: true,
             locationId: true,
+            locationSection: true,
+            foilStatus: true,
             card: {
               select: {
                 id: true,
@@ -395,6 +400,8 @@ export default async function DeckDetailPage({
       .map(({ item, matchType }) => ({
         inventoryItemId: item.id,
         locationName: item.location?.name ?? "Unassigned",
+        locationSection: item.locationSection,
+        foilStatus: item.foilStatus,
         quantity: item.quantity,
         cardName: item.card.name,
         setCode: item.card.setCode,
