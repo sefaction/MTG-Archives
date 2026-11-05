@@ -1,3 +1,20 @@
+## Current work — deck commitment source details #1007 — November 5, 2026
+
+Brian confirmed storage-section intent in the issue-resolution chat. Branch
+`codex/deck-commit-details-1007`, based on main `c6e9a391`, adds storage section
+and Nonfoil/Foil/Etched finish to individual commitment sources and the bulk
+preview, with a wrapping selected-source description for phones. Server actions,
+source IDs, ordering, quantities, ownership and privacy gates remain unchanged.
+
+Sixty focused source/domain checks pass, including section 0, unsectioned
+storage and all finishes. Required exact-head CI and local desktop/phone runtime
+review are pending. The shared laptop runtime has another worker's QC claim;
+its owner cannot currently be verified through supported chat readback. No
+takeover, runtime reload, database mutation or owned temporary process/lock.
+Keep delivery draft until affected runtime review completes under a supported
+exact-owner handoff. Original root WIP and all earlier checkpoint history stay
+intact. Local operational identities and evidence are retained privately.
+
 ## Approved #1001 integration with approved merged #996 — November 1, 2026
 
 Brian separately approved #996/6a75b398 and #1001/8b2d41af, merge only.

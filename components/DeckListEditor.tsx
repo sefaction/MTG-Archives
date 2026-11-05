@@ -15,6 +15,7 @@ import {
   updateDeckCard,
 } from "@/app/decks/actions";
 import { deckSectionLabel } from "@/lib/decks";
+import { deckCommitSourceLabel } from "@/lib/deck-commit-source";
 import type { DeckCardSearchResult } from "@/lib/deck-search";
 import { DeckPrintingChooser } from "@/components/DeckPrintingChooser";
 import type { DeckOptimizationPreview } from "@/lib/deck-optimization";
@@ -62,6 +63,8 @@ export type DeckEditorRow = {
   commitOptions: Array<{
     inventoryItemId: string;
     locationName: string;
+    locationSection: string | null;
+    foilStatus: FoilStatus;
     quantity: number;
     cardName: string;
     setCode: string;
@@ -531,7 +534,7 @@ export function DeckListEditor({
         inventoryItemId: option.inventoryItemId,
         quantity,
         cardName: row.cardName,
-        source: option.locationName,
+        source: deckCommitSourceLabel(option),
         availableExact: row.availableExact,
         availableOther: row.availableOther,
         alreadyCommitted: row.committedToThisDeck,
@@ -1977,7 +1980,7 @@ function CommitInventoryToDeck({
         >
           <input type="hidden" name="deckId" value={deckId} />
           <input type="hidden" name="deckCardId" value={row.id} />
-          <label className={cn(filterFieldClass, "md:col-span-2")}>
+          <label className={cn(filterFieldClass, "min-w-0 md:col-span-2")}>
             Source inventory
             <select
               name="inventoryItemId"
@@ -1985,14 +1988,14 @@ function CommitInventoryToDeck({
               onChange={(event) =>
                 setSelectedInventoryItemId(event.target.value)
               }
-              className={cn(filterSelectClass, "mt-1 w-full")}
+              className={cn(filterSelectClass, "mt-1 w-full min-w-0")}
             >
               {options.map((option) => (
                 <option
                   key={option.inventoryItemId}
                   value={option.inventoryItemId}
                 >
-                  {option.locationName} — {option.cardName} —{" "}
+                  {deckCommitSourceLabel(option)} — {option.cardName} —{" "}
                   {option.setCode.toUpperCase()} #{option.collectorNumber} —{" "}
                   {option.quantity} available
                   {option.matchType === "other" ? " — other printing" : ""}
@@ -2021,6 +2024,18 @@ function CommitInventoryToDeck({
           >
             Commit to deck
           </SubmitButton>
+          {selectedOption ? (
+            <p
+              className="break-words text-xs text-zinc-300 md:col-span-4"
+              aria-live="polite"
+            >
+              Selected source: {deckCommitSourceLabel(selectedOption)} —{" "}
+              {selectedOption.cardName} — {selectedOption.setCode.toUpperCase()} #
+              {selectedOption.collectorNumber} —{" "}
+              {selectedOption.quantity} available
+              {selectedOption.matchType === "other" ? " — other printing" : ""}
+            </p>
+          ) : null}
           <p className="text-xs text-zinc-400 md:col-span-4">
             {selectedOption
               ? `${remainingNeeded} still needed for this row; selected source has ${selectedOption.quantity} available.`
