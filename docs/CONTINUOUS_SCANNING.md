@@ -58,3 +58,17 @@ Current local/hosted results, source bindings, failed setup attempts, resource
 observations and desktop/phone review remain recorded with the PR. #1004's severe
 production progressive-fill report remains unresolved; bounded reads and paging
 do not establish its historical cause or installation performance acceptance.
+
+## Author qualification — November 6, 2026
+
+[PR #1012](https://github.com/sefaction/MTG-Archives/pull/1012) contains the implementation. The product runtime is bound to the Git-generated `fa3b0b3a` archive: all 528 declared product inputs match its raw bytes. The archive differs from Git blobs only in Windows newline conversion (527 text inputs; one raw match). All 439 installed package version/integrity entries match the lockfile; 82 platform-optional entries are absent. Later changes through the qualification handoff affect tests, line endings and documentation only.
+
+Full types, separate production compile/generate phases, client-manifest validation and lint pass. Lint retains the existing unrelated Inventory ref warning. The serial local unit run has 2,561 passes, one existing skip and two setup failures from missing Git in the dependency image; both unchanged Git-dependent tests pass separately on Windows. Twenty changed-function controls pass. All nine Verify checks and the Windows scanner check pass at `598bcf1b`; the final exact-head receipt is tracked on the live PR.
+
+The large valid-original run retains 5,501 physical identities and 8,704,413,833 logical original bytes after 4,500 explicitly seeded historical records and 1,001 real server transfers. Repeated counted-scanner/continuation SQL checks conserve all 85 tables after cleanup. Additional controls preserve late-finalization event receipts, expiry and conflicting same-physical-slot serialization while allowing distinct pending uploads past the removed byte thresholds. Later-page overflow refuses without changing any public table.
+
+A separate 16 MiB photo filesystem exercises actual free-space refusal. The upload stays unready with PHOTO_DISK_SPACE guidance; retry in a new process on normal storage retains its epoch/photo identity and produces exactly one slot, photo and preparation job. Desktop 1366px and touch-enabled 320px review pass newest/page-number/previous navigation across 56 pages, whole-batch matching-file warnings and private original delivery. Both layouts have no horizontal overflow or page errors, and browser review conserves all 85 public tables.
+
+Failures remain preserved: initial heap/generated-client setup, runner/adapter mistakes, CRLF-only diff and raw-binding refusals, a 176.297-second correlated artifact query and the first CI receipt/obsolete-quota assertions. The query now resolves the selected candidates through direct artifact/correction IDs; the multi-batch case passes without extending its transaction timeout. The receipt assertion is restored unchanged; obsolete quota expectations are replaced by the agreed continuing-intake behavior plus an additional conflicting-slot race. None of these outcomes diagnoses #1004’s historical production incident.
+
+The reviewed app, database and loopback proxy are retained stopped for future owned review; obsolete test containers and the temporary disk-test volume are retired and the runtime claim is released. Named-installation deployment, physical operation, recognition accuracy, independent review and reporter acceptance remain separate. No merge or production change is performed.
