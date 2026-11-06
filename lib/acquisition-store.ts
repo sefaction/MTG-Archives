@@ -1253,12 +1253,26 @@ export async function getAcquisitionPhoto(
   photoId: string,
 ) {
   return transaction(db, async (tx) => {
-    const row = await read(tx, actor, sessionId);
+    // Image delivery needs the owner's live authorization and batch visibility,
+    // not every candidate, observation, event and receipt in the batch. Keep
+    // these reads in the same transaction without hydrating unrelated reviews.
+    identity.parse(sessionId);
+    const row = await tx.acquisitionSession.findUnique({
+      where: { id: sessionId },
+      select: {
+        ownerPlayerId: true,
+        trashedAt: true,
+        deletedAt: true,
+        run: { select: { id: true } },
+      },
+    });
+    if (!row) throw new Error("Capture session unavailable");
+    await authorize(tx, actor, row.ownerPlayerId);
     requireVisibleAcquisitionBatch(row);
     const photo = await tx.acquisitionPhoto.findUnique({
       where: { id: photoId },
     });
-    if (!photo || photo.runId !== row.run!.id || !photo.ready || photo.purgedAt)
+    if (!photo || photo.runId !== row.run?.id || !photo.ready || photo.purgedAt)
       throw new Error("Photo unavailable");
     return photo;
   });
@@ -1294,7 +1308,12 @@ export async function getAcquisitionCardReview(
   photoId: string,
 ): Promise<AcquisitionCardReview> {
   return transaction(db, async (tx) => {
-    const row = await read(tx, actor, sessionId);
+    // The inline scan waits for this record too. Retain this physical card's
+    // complete observation/artifact history without loading every other review.
+    const scopePhoto = await tx.acquisitionPhoto.findUnique({
+      where: { id: photoId }, select: { slotId: true },
+    });
+    const row = await read(tx, actor, sessionId, { photoId, slotId: scopePhoto?.slotId });
     const { photo, candidate } = await reviewPhoto(tx, row, photoId);
     const analysis = acquisitionManualAnalysisSchema.safeParse(candidate.manualAnalysis);
     const currentAnalysis = analysis.success && analysis.data.photoId === photo.id &&

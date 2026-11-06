@@ -1,3 +1,19 @@
+## Current work — scan image reads #1004 — November 6, 2026
+
+Branch `codex/scan-image-loading-1004`, base main `8020c71f`. Brian requested
+new work and confirmed85images/batch; the prior agreed1004scope remains intact.
+The bounded change removes full-batch hydration from photo delivery and scopes
+single-card reviews while preserving authorization, visibility, original bytes
+and saved decisions. Details and limits: [SCAN_IMAGE_READS.md](SCAN_IMAGE_READS.md).
+
+34focused Windows passes/one existing skip and15actualSQL access controls pass;
+ten saved/unreviewed serialized responses match exactly. Local1366/320 browser
+functional checks pass, but an unexplained20.7s candidate first-display interval
+and the original progressive-fill cause remain unresolved. No end-to-end speed
+acceptance, merge, deployment or issue closure. Required exact-head CI and final
+source binding/cleanup remain pending; private operational receipts identify the
+owned isolated runtime and exact-owner guard. Other workers/root WIP protected.
+
 ## Current work — deck commitment source details #1007 — November 5, 2026
 
 Brian confirmed storage-section intent in the issue-resolution chat. Branch
