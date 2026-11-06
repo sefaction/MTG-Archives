@@ -6,9 +6,9 @@ import {inspectAcquisitionPhoto} from "../lib/acquisition-files";
 import {beginAcquisitionPhoto, finalizeAcquisitionPhoto, createAcquisitionSession, executeAcquisitionCommand,
   reserveAcquisitionCaptureSlot, type AcquisitionActor, type CreateAcquisitionInput} from "../lib/acquisition-store";
 
-/** Reserved bytes count even before durable receipt. Competing intakes may not
- * both consume the last available bytes, within a batch or across its owner's
- * independent batches. Metadata-only fixtures never create giant image files. */
+/** Concurrent physical identities remain serialized, while distinct slots and
+ * batches can pass former aggregate-byte thresholds. Metadata-only retained
+ * history exercises those thresholds without allocating giant image files. */
 export async function verifyAcquisitionPhotoLocking(db: PrismaClient, actor: AcquisitionActor,
   base: CreateAcquisitionInput, bytes: Buffer) {
   const metadata=await inspectAcquisitionPhoto(bytes,"image/jpeg");
@@ -43,10 +43,8 @@ export async function verifyAcquisitionPhotoLocking(db: PrismaClient, actor: Acq
     await db.acquisitionCaptureSlot.createMany({data:slots});
     await db.acquisitionPhoto.createMany({data:photos});
   };
-  const assertOneAccepted=(results:PromiseSettledResult<unknown>[])=>{
-    assert.equal(results.filter(r=>r.status==="fulfilled").length,1);
-    const rejected=results.find(r=>r.status==="rejected") as PromiseRejectedResult;
-    assert.match(String(rejected.reason),/Photo storage limit reached/);
+  const assertBothAccepted=(results:PromiseSettledResult<unknown>[])=>{
+    assert.equal(results.filter(r=>r.status==="fulfilled").length,2);
   };
   try {
     const expired=await make(1);
@@ -75,11 +73,11 @@ export async function verifyAcquisitionPhotoLocking(db: PrismaClient, actor: Acq
 
     const batch=await make(105,2);
     await seedReservedBytes(batch,1024**3-metadata.bytes);
-    assertOneAccepted(await Promise.allSettled(batch.inputs.map(input=>
+    assertBothAccepted(await Promise.allSettled(batch.inputs.map(input=>
       beginAcquisitionPhoto(db,actor,batch.id,input))));
-    assert.equal(await db.acquisitionPhoto.count({where:{runId:batch.runId}}),104);
+    assert.equal(await db.acquisitionPhoto.count({where:{runId:batch.runId}}),105);
     assert.deepEqual((await db.acquisitionCaptureSlot.findMany({where:{runId:batch.runId,position:{lt:2}},
-      orderBy:{position:"asc"}})).map(s=>s.generation).sort((a,b)=>a-b),[0,1]);
+      orderBy:{position:"asc"}})).map(s=>s.generation).sort((a,b)=>a-b),[1,1]);
     await db.acquisitionPhoto.updateMany({where:{id:{in:seeded}},data:{bytes:metadata.bytes}});
 
     const ownerFillers=[];
@@ -97,12 +95,23 @@ export async function verifyAcquisitionPhotoLocking(db: PrismaClient, actor: Acq
       remaining-=added;
     }
     assert.equal(remaining,0);
-    assertOneAccepted(await Promise.allSettled(contenders.map(setup=>
+    assertBothAccepted(await Promise.allSettled(contenders.map(setup=>
       beginAcquisitionPhoto(db,actor,setup.id,setup.inputs[0]))));
     const after=await db.acquisitionPhoto.aggregate({where:{run:{session:{ownerPlayerId:base.ownerPlayerId}},
       purgedAt:null},_sum:{bytes:true}});
-    assert.equal(after._sum.bytes,4*1024**3);
-    console.log("PASS: locked uploads recheck expiry and simultaneous intakes preserve final session/owner quota bytes, including unready reservations");
+    assert.equal(after._sum.bytes,4*1024**3+metadata.bytes);
+    for(const setup of [batch,...contenders]) for(const input of setup.inputs) {
+      const first=await beginAcquisitionPhoto(db,actor,setup.id,input);
+      assert.equal((await beginAcquisitionPhoto(db,actor,setup.id,input)).id,first.id);
+    }
+    const physical=await make(1);
+    const race=await Promise.allSettled([0,1].map(()=>beginAcquisitionPhoto(db,actor,physical.id,
+      {...physical.inputs[0],uploadKey:randomUUID()})));
+    assert.equal(race.filter(result=>result.status==="fulfilled").length,1);
+    assert.match(String((race.find(result=>result.status==="rejected") as PromiseRejectedResult).reason),/Photo changed|Retry the unfinished/);
+    assert.equal(await db.acquisitionPhoto.count({where:{runId:physical.runId}}),1);
+    assert.equal((await db.acquisitionCaptureSlot.findUniqueOrThrow({where:{id:physical.inputs[0].slotId}})).generation,1);
+    console.log("PASS: expiry, concurrent distinct slots/batches beyond former byte limits, exact replay and conflicting same-physical-slot serialization; unready originals preserved");
   } finally {
     if(seeded.length) await db.acquisitionPhoto.updateMany({where:{id:{in:seeded}},data:{bytes:metadata.bytes}});
     for(const id of sessions) if(!(await db.acquisitionSession.findUniqueOrThrow({where:{id}})).deletedAt)
