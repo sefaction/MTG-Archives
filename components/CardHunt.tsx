@@ -51,23 +51,23 @@ export function CardHunt({decks, initialDeckId}: {
           <label className="flex items-center gap-2"><input type="radio" name="hunt-source" checked={source === "list"} onChange={() => setSource("list")} /> Paste a list</label>
         </div>
         {source === "deck" ? <label className="block text-sm">Deck
-          <select className={`${filterSelectClass} mt-1 w-full`} value={deckId} onChange={event => setDeckId(event.target.value)} required>
+          <select aria-label="Deck" className={`${filterSelectClass} mt-1 w-full`} value={deckId} onChange={event => setDeckId(event.target.value)} required>
             {!decks.length && <option value="">No personal decks yet — paste a list instead</option>}
             {decks.map(deck => <option key={deck.id} value={deck.id}>{deck.name}</option>)}
           </select>
         </label> : <label className="block text-sm">Cards to find
-          <textarea className={`${filterInputClass} mt-1 min-h-36 w-full`} value={text} onChange={event => setText(event.target.value)}
+          <textarea aria-label="Cards to find" className={`${filterInputClass} mt-1 min-h-36 w-full`} value={text} onChange={event => setText(event.target.value)}
             maxLength={100_000} required placeholder={"1 Sol Ring\n3 Forest (M21) 274\n1 Arcane Signet *F*"} />
           <span className="mt-1 block text-xs text-[var(--app-muted)]">One card per line. Optional set, collector number and *F* foil preference. Up to 500 lines.</span>
         </label>}
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-sm">Finish preference
-            <select className={`${filterSelectClass} mt-1 w-full`} value={finish} onChange={event => setFinish(event.target.value as HuntFinish)}>
+            <select aria-label="Finish preference" className={`${filterSelectClass} mt-1 w-full`} value={finish} onChange={event => setFinish(event.target.value as HuntFinish)}>
               <option value="ANY">Any finish</option><option value="FOIL">Prefer foil</option><option value="NONFOIL">Prefer nonfoil</option><option value="ETCHED">Prefer etched</option>
             </select>
           </label>
           <label className="block text-sm">Pull priority
-            <select className={`${filterSelectClass} mt-1 w-full`} value={mode} onChange={event => setMode(event.target.value as HuntMode)}>
+            <select aria-label="Pull priority" className={`${filterSelectClass} mt-1 w-full`} value={mode} onChange={event => setMode(event.target.value as HuntMode)}>
               <option value="preferences">My preferences first</option><option value="boxes">Optimize boxes</option>
             </select>
           </label>

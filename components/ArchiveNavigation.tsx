@@ -19,6 +19,7 @@ const groups = [
     label: "Build & trade",
     links: [
       ["/decks", "Decks"],
+      ["/card-hunt", "Card Hunt"],
       ["/wishlist", "Wishlist"],
       ["/trades", "Trades"],
       ["/pricing", "Pricing"],
