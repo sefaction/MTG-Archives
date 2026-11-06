@@ -145,10 +145,11 @@ export function planCardHunt(input: {
     }).filter(entry => entry.items.length);
     if (!eligible.length) break;
     const locations = [...new Set(eligible.flatMap(entry => entry.items.map(boxId)))];
-    let best: {id: string; moves: Array<{line: typeof lines[number]; item: HuntStock; quantity: number}>; count: number; penalty: number} | null = null;
+    type Move = {line: typeof lines[number]; item: HuntStock; quantity: number};
+    let best: {id: string; moves: Move[]; count: number; penalty: number} | null = null;
     for (const id of locations) {
       const simulated = new Map<string, number>();
-      const moves: NonNullable<typeof best>["moves"] = [];
+      const moves: Move[] = [];
       let count = 0, penalty = 0;
       // Constrained lines first; a shared stack can never satisfy two lines twice.
       for (const {line, items} of [...eligible].sort((a, b) => a.items.length - b.items.length || compare(a.line.request.id, b.line.request.id))) {

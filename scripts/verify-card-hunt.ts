@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
-import { PrismaClient, type Prisma } from "@prisma/client";
+import { PrismaClient, type Prisma, type Card, type InventoryLocation } from "@prisma/client";
 import { buildCardHunt } from "../lib/card-hunt-service";
 
 export async function seedCardHuntFixture(db: Prisma.TransactionClient, tag: string) {
@@ -9,7 +9,7 @@ export async function seedCardHuntFixture(db: Prisma.TransactionClient, tag: str
   const peer = await db.player.create({data: {name: `${tag}-peer`, displayName: `${tag}-peer`}});
   const user = await db.user.create({data: {username: tag, displayName: "Card Hunt reviewer", passwordHash: "synthetic-not-a-login", playerId: owner.id}});
   const peerUser = await db.user.create({data: {username: `${tag}-peer`, displayName: "Other owner", passwordHash: "synthetic-not-a-login", playerId: peer.id}});
-  const cards = [];
+  const cards: Card[] = [];
   for (const [index, name] of ["Alpha", "Beta", "Gamma", "Missing"].entries()) {
     cards.push(await db.card.create({data: {scryfallId: randomUUID(), oracleId: `${tag}-${index}`, name: `${name} ${tag}`,
       setCode: "tst", collectorNumber: String(index + 1), typeLine: "Artifact", rarity: "common"}}));
@@ -22,7 +22,7 @@ export async function seedCardHuntFixture(db: Prisma.TransactionClient, tag: str
   await db.deckCard.createMany({data: cards.slice(0, 3).map((card, i) => ({deckId: deck.id, cardId: card.id,
     oracleId: card.oracleId, cardName: card.name, quantity: i === 0 ? 2 : 1, section: "MAINBOARD"}))});
   await db.deckCard.create({data: {deckId: deck.id, cardId: cards[3].id, cardName: cards[3].name, quantity: 1, section: "MAYBEBOARD"}});
-  const locations = [];
+  const locations: InventoryLocation[] = [];
   for (const [index, name] of ["Shared box", "Foil box A", "Foil box B", "Already in deck", "Other deck", "Inactive box"].entries()) {
     locations.push(await db.inventoryLocation.create({data: {ownerPlayerId: owner.id, name, normalizedName: `${tag}-${index}`,
       active: index !== 5, ...(index === 3 || index === 4 ? {kind: "DECK", systemManaged: true, deckId: index === 3 ? deck.id : otherDeck.id} : {})}}));
