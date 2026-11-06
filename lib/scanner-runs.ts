@@ -360,9 +360,9 @@ export async function finishScannerRun(db: PrismaClient, authorization: string |
             const nextId = scannerContinuationRunId(run.id, offset);
             const marker = await readScannerStartMarker(nextId), retired = await scannerStartRetired(nextId);
             await tx.scannerRun.create({data: {id: nextId, agentId: run.agentId, acquisitionRunId: run.acquisitionRunId,
-              epoch, requestPayload: scannerCanonical({continuationOf: run.id, offset}), deviceId: run.deviceId,
+              epoch: marker?.epoch ?? epoch, requestPayload: scannerCanonical({continuationOf: run.id, offset}), deviceId: run.deviceId,
               device: run.device!, settings: run.settings!, loadedCount: null, physicalTarget: nextTarget,
-              ...(marker ? {status: "RECONCILIATION" as const, epoch: marker.epoch, executionId: marker.executionId} :
+              ...(marker ? {status: "RECONCILIATION" as const, executionId: marker.executionId} :
                 retired ? {status: "CANCELLED_BEFORE_START" as const, stopRequestedAt: new Date(), reconciliation: {
                   mode: "CANCELLED_WITHOUT_START", actorUserId: actor.userId, recordedAt: new Date().toISOString(),
                   evidence: "Durable prior retirement; no new continuation START authorized",
