@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { scannerContinuationRunId } from "./scanner-continuation-identity";
 import { scannerFeedTarget } from "./acquisition-continuation";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
@@ -14,7 +14,7 @@ import { canonicalAcquisitionCreation, type CreateAcquisitionInput } from "./acq
 import { inspectAcquisitionPhoto, writeAcquisitionPhotoBytes } from "./acquisition-files";
 import { candidateKey, correctPhysicalCount, confirmPhysicalCountBatch, type TargetPolicy } from "./acquisition-domain";
 import { persistScannerStartMarker, scannerStartMarkerExists, scannerSiteEpoch,
-  scannerStartRetired, persistScannerStartRetirement } from "./scanner-control-files";
+  scannerStartRetired, persistScannerStartRetirement, readScannerStartMarker } from "./scanner-control-files";
 import { lockAndReadInventoryCapacity } from "./inventory-capacity";
 import { ScannerRunConflict } from "./scanner-errors";
 import { isCountedScannerDevice, countedScannerSettings } from "./scanner-counted-profile";
@@ -357,12 +357,21 @@ export async function finishScannerRun(db: PrismaClient, authorization: string |
             section: row.section, excludeSessionId: row.id});
           const pending = await tx.acquisitionCandidate.count({where: {runId: run.acquisitionRunId, receipt: null}});
           if (space.remaining === null || pending + nextTarget <= space.remaining) {
-            await tx.scannerRun.create({data: {id: randomUUID(), agentId: run.agentId, acquisitionRunId: run.acquisitionRunId,
+            const nextId = scannerContinuationRunId(run.id, offset);
+            const marker = await readScannerStartMarker(nextId), retired = await scannerStartRetired(nextId);
+            await tx.scannerRun.create({data: {id: nextId, agentId: run.agentId, acquisitionRunId: run.acquisitionRunId,
               epoch, requestPayload: scannerCanonical({continuationOf: run.id, offset}), deviceId: run.deviceId,
               device: run.device!, settings: run.settings!, loadedCount: null, physicalTarget: nextTarget,
+              ...(marker ? {status: "RECONCILIATION" as const, epoch: marker.epoch, executionId: marker.executionId} :
+                retired ? {status: "CANCELLED_BEFORE_START" as const, stopRequestedAt: new Date(), reconciliation: {
+                  mode: "CANCELLED_WITHOUT_START", actorUserId: actor.userId, recordedAt: new Date().toISOString(),
+                  evidence: "Durable prior retirement; no new continuation START authorized",
+                }} : {}),
               counted: true, sequenceOffset: offset, segment: run.segment + 1,
               seriesRootId: run.seriesRootId, seriesOrdinal: run.seriesOrdinal}});
-            await tx.acquisitionSession.update({where: {id: row.id}, data: {phase: "CAPTURING", revision: {increment: 1}}});
+            await tx.acquisitionSession.update({where: {id: row.id}, data: {
+              phase: marker ? "STOPPING" : retired ? "COMPLETE" : "CAPTURING",
+              ...(retired && !marker ? {scannerReserved: offset} : {}), revision: {increment: 1}}});
           }
         }
       }

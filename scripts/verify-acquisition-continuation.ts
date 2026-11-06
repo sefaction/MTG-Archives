@@ -3,10 +3,11 @@ import {createHash, randomUUID} from "node:crypto";
 import {mkdir, mkdtemp, writeFile, link, readFile, rm} from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
-import type {PrismaClient} from "@prisma/client";
+import {Prisma, type PrismaClient} from "@prisma/client";
 import {createScannerPairing, claimScannerPairing, recordScannerPulse} from "../lib/scanner-store";
 import {scannerSecret} from "../lib/scanner-protocol";
 import {scannerSiteEpoch} from "../lib/scanner-control-files";
+import {scannerContinuationRunId} from "../lib/scanner-continuation-identity";
 import {COUNTED_SCANNER_DEVICE, COUNTED_SCANNER_BACKEND, countedScannerSettings} from "../lib/scanner-counted-profile";
 import {createScannerBatch, claimScannerRun, receiveScannerImage, finishScannerRun, getScannerBatch, stopScannerBatch,
   refillScannerBatch, endScannerBatch} from "../lib/scanner-runs";
@@ -155,6 +156,28 @@ export async function verifyAcquisitionContinuation(db: PrismaClient, options: {
     assert.equal((await commitAcquisitionCards(db, actor, initial.sessionId, request)).id, receipt.id);
     assert.equal(await db.inventoryItem.count({where: {currentOwnerId: tag, quantity: 1}}), 1);
     assert.equal(await db.acquisitionCommitMember.count({where: {runId: run.id}}), 1);
+    // Roll SQL back to the instant before a completed feed queued its successor,
+    // retaining the successor's real durable START file outside that rollback.
+    await pulse();
+    const source = await db.scannerRun.findFirstOrThrow({where: {acquisitionRunId: run.id, sequenceOffset: 5000}});
+    const nextId = scannerContinuationRunId(source.id, 5500);
+    assert.equal((await db.scannerRun.findFirstOrThrow({where: {acquisitionRunId: run.id, sequenceOffset: 5500}})).id, nextId);
+    const beforeRestore = await acquisitionContinuationSnapshot(db), rollback = new Error("RESTORE_PROBE_ROLLBACK");
+    await assert.rejects(db.$transaction(async tx => {
+      await tx.scannerRun.deleteMany({where: {acquisitionRunId: run.id, segment: {gt: source.segment}}});
+      await tx.scannerRun.update({where: {id: source.id}, data: {status: "STARTED", outcome: Prisma.DbNull, reconciliation: Prisma.DbNull}});
+      await tx.acquisitionSession.update({where: {id: initial.sessionId}, data: {phase: "CAPTURING"}});
+      // Keep the real outer Serializable transaction; the adapter only avoids
+      // attempting a nested Prisma transaction during this rollback probe.
+      const within = {$transaction: async (work: (inner: typeof tx) => unknown) => work(tx)} as unknown as PrismaClient;
+      await finishScannerRun(within, authorization, {version: 1, runId: source.id, epoch,
+        executionId: source.executionId, outcome: source.outcome}, epoch);
+      assert.equal((await tx.scannerRun.findUniqueOrThrow({where: {id: nextId}})).status, "RECONCILIATION");
+      assert.equal((await tx.acquisitionSession.findUniqueOrThrow({where: {id: initial.sessionId}})).phase, "STOPPING");
+      await assert.rejects(claimScannerRun(within, authorization, {version: 1, runId: nextId, epoch, executionId: randomUUID()}, epoch));
+      throw rollback;
+    }, {isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000}), error => error === rollback);
+    assert.deepEqual(await acquisitionContinuationSnapshot(db), beforeRestore, "restore probe must conserve all public tables");
     console.log(JSON.stringify({pass: true, seeded: 4500, actualTransfers: accepted.length, saved: all.size,
       originalBytes: bytes.length, logicalRetainedBytes: bytes.length * 5501, pages: 56, physicalFeeds: 0,
       sessionId: initial.sessionId, userId: tag, root}));

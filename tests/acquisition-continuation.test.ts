@@ -5,6 +5,7 @@ import test from "node:test";
 import { Script } from "node:vm";
 import ts from "typescript";
 import { scannerFeedTarget, acquisitionReviewPage } from "../lib/acquisition-continuation";
+import {scannerContinuationRunId} from "../lib/scanner-continuation-identity";
 import { scannerBatchSchema, scannerRunFinishSchema, scannerCanonical } from "../lib/scanner-run-protocol";
 import { countedScannerSettings } from "../lib/scanner-counted-profile";
 import { correctPhysicalCount, candidateKey } from "../lib/acquisition-domain";
@@ -43,6 +44,7 @@ function fixture(target: number | null = null) {
   const created: any[] = [];
   const agent: any = {userId: "user", lastSeenAt: new Date(), revokedAt: null, devices: []};
   let remaining: number | null = null;
+  const markers = {started: false, retired: false, executionId: randomUUID()};
   const db: any = {
     $queryRaw: async () => [],
     scannerRun: {
@@ -56,7 +58,9 @@ function fixture(target: number | null = null) {
     scannerAgent: {findUniqueOrThrow: async () => agent},
   };
   const exports: any = {};
-  new Script(compiled).runInNewContext({exports, scannerRunFinishSchema, scannerCanonical, scannerFeedTarget, randomUUID,
+  new Script(compiled).runInNewContext({exports, scannerRunFinishSchema, scannerCanonical, scannerFeedTarget, scannerContinuationRunId,
+    scannerStartMarkerExists: async () => markers.started, scannerStartRetired: async () => markers.retired,
+    readScannerStartMarker: async () => markers.started ? {epoch: run.epoch, executionId: markers.executionId} : null,
     scannerTransaction: async (_: unknown, work: any) => work(db),
     agentRun: async () => ({run: {...run}, actor: {userId: "user", adminMode: false}}),
     lockScannerSeries: async () => ({root: {seriesStoppedAt: null}}),
@@ -73,7 +77,7 @@ function fixture(target: number | null = null) {
     knownPhysicalItems: null, sourceExhausted: "UNKNOWN", nativeError: null};
   const call = () => exports.finish(db, "credential", {version: 1, runId: run.id, epoch: run.epoch,
     executionId: run.executionId, outcome}, run.epoch);
-  return {row, run, agent, created, outcome, call, setRemaining: (n: number) => {remaining = n;}};
+  return {row, run, agent, created, outcome, call, markers, setRemaining: (n: number) => {remaining = n;}};
 }
 
 test("clean internal completion crosses the former sequence cap without a new logical batch", async () => {
@@ -82,10 +86,25 @@ test("clean internal completion crosses the former sequence cap without a new lo
   assert.equal(f.created[0].acquisitionRunId, f.run.acquisitionRunId);
   assert.equal(f.created[0].sequenceOffset, 5003);
   assert.equal(f.created[0].physicalTarget, 500);
+  assert.equal(f.created[0].id, scannerContinuationRunId(f.run.id, 5003));
   assert.equal(f.created[0].deviceId, f.run.deviceId);
   assert.equal(f.row.phase, "CAPTURING");
   await f.call(); assert.equal(f.created.length, 1, "finish replay must never authorize another feed");
   assert.equal(f.row.phase, "CAPTURING", "old finish replay must not pause the new feed");
+});
+
+for (const marker of ["started", "retired"] as const) test(`restored prior ${marker} marker cannot trigger a fresh automatic feed`, async () => {
+  const f = fixture(); await f.call();
+  const priorId = f.created[0].id;
+  f.created.length = 0;
+  f.run.outcome = null; f.run.reconciliation = null; f.run.status = "STARTED"; f.row.phase = "CAPTURING";
+  f.markers[marker] = true;
+  await f.call();
+  assert.equal(f.created[0].id, priorId);
+  assert.equal(f.created[0].status, marker === "started" ? "RECONCILIATION" : "CANCELLED_BEFORE_START");
+  assert.equal(f.row.phase, marker === "started" ? "STOPPING" : "COMPLETE");
+  if (marker === "started") assert.equal(f.created[0].executionId, f.markers.executionId);
+  else assert.equal(f.created[0].executionId, undefined);
 });
 
 test("the final requested count completes without another feed", async () => {
