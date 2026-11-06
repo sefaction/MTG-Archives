@@ -22,6 +22,7 @@ import { verifyBackupScannerSettlement } from "./verify-backup-scanner-settlemen
 import { verifyRestoreCredentials } from "./verify-restore-credentials";
 import { verifyRestoreWorkers } from "./verify-restore-workers";
 import { verifyCountedScanner } from "./verify-counted-scanner";
+import { verifyAcquisitionContinuation } from "./verify-acquisition-continuation";
 import { verifyPhotoPressure } from "./verify-photo-pressure";
 import { verifyAcquisitionBatchManagement } from "./verify-acquisition-batch-management";
 import { verifyScannerStartRetirement } from "./verify-scanner-start-retirement";
@@ -555,6 +556,7 @@ async function run() {
   await verifyRestoreCredentials(db);
   await verifyRestoreWorkers(db);
   await verifyCountedScanner(db);
+  await verifyAcquisitionContinuation(db);
   await verifyPhotoPressure(db);
   await verifyScannerStartRetirement(db);
   await verifyAcquisitionBatchManagement(db, actor, stranger, input(), admin);

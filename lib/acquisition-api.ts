@@ -65,6 +65,8 @@ export function acquisitionProgressDto(
     destinationCurrent: state.destinationCurrent,
     slots: state.slots,
     reservedSlots: state.reservedSlots,
+    pagination: state.pagination,
+    photoMatches: state.photoMatches,
     availableSlots: state.availableSlots,
     photoPreparation: state.photoPreparation,
     defaults: state.defaults,

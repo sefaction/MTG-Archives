@@ -1,3 +1,11 @@
+## Current #1005 continuous scanning — November 6, 2026
+
+Owner chat01a1ac9d; branch codex/continuous-scanning-1005 from main8020c71f. Brian explicitly selected1005 for implementation. One logical scanner batch now continues through guarded500-image feeds, retained-byte intake quotas are removed, and100-position review pages keep reads/selected writes bounded. Original identities/order, privacy, actual disk/file/feeder/destination and retention protections remain. Bounded image reads from draft1011 are included;1004 remains unresolved/open. No merge, production or physical operation authorized.
+
+Author evidence:20changed-function controls pass; largeSQL4500seeded+1001actualtransfers=5501images/56pages/8,704,413,833logicaloriginalbytes passes replay, privacy, pendingretention, refill, Stop and laterpagecommit. ExistingcountedSQL passes. A second-batch source projection exposed a176.297s artifactquery/P2028; exactsource/query/DBfailure preserved. ID-based artifact/correction lookup corrects it; repeatedcounted+5501workflow+cleanup restores all85public table fingerprints. Later-pageoverflow refusal conserves all85tables. First integrated types pass before later changes; finaltypes/core/build, desktop/phone, exact-headCI remain pending and PR must staydraft.
+
+Owned isolated app/DB/network/volume and active runtimeclaim continuous-scanning-1005-validation-20261106 are in private .local-data/evidence/current.json. All17pre-existing primary/QC IDs protected; original failures, source/fixture snapshots and synthetic inputs retained. Next finish finalqualification, preserve compact failure/review evidence, retire exactowned resources/releaseclaim, and request individual PRapproval only after readiness. Historical checkpoint below is preserved.
+
 ## Current work — deck commitment source details #1007 — November 5, 2026
 
 Brian confirmed storage-section intent in the issue-resolution chat. Branch

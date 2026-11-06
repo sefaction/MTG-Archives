@@ -20,7 +20,7 @@ export const scannerBatchSchema = z.object({
   requestKey: z.string().uuid(), agentId: z.string().uuid(),
   deviceId: z.string().min(1).max(256),
   locationId: z.string().min(1).max(200), section: z.string().max(100),
-  quantity: z.number().int().min(1).max(5000).nullable(),
+  quantity: z.number().int().min(1).max(2147483647).nullable(),
   loadedCount: z.number().int().min(1).max(500).nullable(),
   settings: scannerSettingsSchema,
   operatorLoadedSimplexFronts: z.literal(true),
@@ -55,11 +55,11 @@ export const scannerPreflightProblemSchema = z.object({
 }).strict();
 // Server-written upload guidance shares the existing diagnostic JSON column;
 // helper preflight reports cannot submit these codes or arbitrary text.
-export const scannerUploadProblemSchema = z.object({
+export const scannerUploadProblemSchema = z.union([z.object({
   code: z.literal("PHOTO_STORAGE_LIMIT"), scope: z.enum(["OWNER", "BATCH"]),
   limitBytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
   observedAt: z.string().datetime(),
-}).strict();
+}).strict(), z.object({code: z.literal("PHOTO_DISK_SPACE"), observedAt: z.string().datetime()}).strict()]);
 export const scannerTransferSchema = scannerExecutionSchema.extend({
   artifactId: z.string().uuid(), sequence: z.number().int().min(1).max(5000),
   timestamp: z.string().datetime({ offset: true }),

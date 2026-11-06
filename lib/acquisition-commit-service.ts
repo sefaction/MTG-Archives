@@ -14,6 +14,7 @@ import {
   type AcquisitionCommitReceipt,
 } from "./acquisition-commit";
 import { acquisitionReviewDecisionSchema } from "./acquisition-review";
+import { allocatedAcquisitionCandidates } from "./acquisition-allocation-store";
 import { candidateCommitReadiness, candidateKey } from "./acquisition-domain";
 import { SCANNER_CAPTURE_PROVIDER } from "./scanner-run-protocol";
 import { lockAndReadInventoryCapacity } from "./inventory-capacity";
@@ -28,10 +29,12 @@ async function lockedSession(
   tx: Tx,
   actor: AcquisitionActor,
   sessionId: string,
+  photoIds: string[],
 ) {
-  await readAcquisitionRow(tx, actor, sessionId);
+  await readAcquisitionRow(tx, actor, sessionId, {});
   await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
-  return readAcquisitionRow(tx, actor, sessionId);
+  const photos = await tx.acquisitionPhoto.findMany({where: {id: {in: photoIds}}, select: {slotId: true}});
+  return readAcquisitionRow(tx, actor, sessionId, {slotIds: photos.map(photo => photo.slotId)});
 }
 async function prepare(
   tx: Tx,
@@ -58,6 +61,7 @@ async function prepare(
   // physical slot must itself be settled, current and certain before this subset
   // can commit. We do not label the entire capture run complete.
   const session = hydrateAcquisitionRow(row).session;
+  const allocated = await allocatedAcquisitionCandidates(tx, row.run!.id, row.target, photos.map(photo => photo.slotId));
   const chosen = photos
     .map((photo) => {
       const candidate = row.run!.candidates.find(
@@ -78,8 +82,9 @@ async function prepare(
         candidateKey(session.run.runId, candidate.physicalId),
       );
       const reasons = readiness.reasons.filter(
-        (r) => !(r === "ACQUISITION_NOT_SETTLED" && row.phase === "STOPPING"),
+        (r) => r !== "OVERFLOW" && !(r === "ACQUISITION_NOT_SETTLED" && row.phase === "STOPPING"),
       );
+      if (!allocated.has(candidate.physicalId)) reasons.push("OVERFLOW");
       if (reasons.length)
         throw new Error(
           "Choose reviewed cards with a confirmed physical count",
@@ -192,7 +197,7 @@ export async function previewAcquisitionCommit(
         await prepare(
           tx,
           actor,
-          await lockedSession(tx, actor, sessionId),
+          await lockedSession(tx, actor, sessionId, selection.photoIds),
           selection,
         )
       ).preview,
@@ -223,7 +228,7 @@ export async function commitAcquisitionCards(
   input.photoIds.sort();
   const requestDigest = digest({ actorId: actor.userId, ...input });
   return acquisitionTransaction(db, async (tx) => {
-    const row = await lockedSession(tx, actor, sessionId);
+    const row = await lockedSession(tx, actor, sessionId, input.photoIds);
     const existing = await tx.acquisitionCommit.findUnique({
       where: {
         runId_requestKey: { runId: row.run!.id, requestKey: input.requestKey },
