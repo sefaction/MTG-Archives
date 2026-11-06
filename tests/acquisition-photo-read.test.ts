@@ -36,11 +36,15 @@ test("single-card review reads retain its complete source history without unrela
   (f.db as any).acquisitionArtifact = {findMany: async (args: any) => {
     assert.equal(args.where.runId, "run");
     assert.deepEqual(JSON.parse(JSON.stringify(args.where.OR)), [{id: {in: ["older", "current"]}}, {sourceId: "photo"}]);
-    return [{id: "older"}, {id: "current"}];
+    return [{id: "older", sourceId: "older-photo"}, {id: "current", sourceId: "photo"}];
   }};
   (f.db as any).acquisitionCountCorrection = {findMany: async (args: any) => {
     assert.deepEqual(JSON.parse(JSON.stringify(args.where)), {runId: "run", candidateId: {in: ["candidate"]}});
     return [{candidate: {physicalId: "slot"}}];
+  }};
+  (f.db as any).acquisitionEvent = {findMany: async (args: any) => {
+    assert.deepEqual(JSON.parse(JSON.stringify(args.where)), {runId: "run", sourceEventId: {in: ["photo:older-photo", "photo:photo"]}});
+    return [{sourceEventId: "photo:older-photo"}, {sourceEventId: "photo:photo"}];
   }};
   f.db.acquisitionSession.findUnique = async (args: any) => { query = args; return f.row; };
   await exports.read!(f.db, f.actor, "batch", { photoId: "photo", slotId: "slot" });
@@ -52,6 +56,7 @@ test("single-card review reads retain its complete source history without unrela
   assert.equal(scope.corrections.take, 0);
   assert.equal(f.row.run.artifacts.length, 2);
   assert.equal(f.row.run.corrections.length, 1);
+  assert.equal(f.row.run.events.length, 2);
 });
 
 function fixture() {

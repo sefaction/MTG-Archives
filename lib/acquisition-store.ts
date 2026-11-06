@@ -277,8 +277,7 @@ async function read(tx: Tx, actor: AcquisitionActor, sessionId: string, photoSco
     ...include.run.include,
     candidates: {...include.run.include.candidates, where: {physicalId}},
     artifacts: {take: 0},
-    events: {...include.run.include.events, where: {sourceEventId: {in:
-      photoScope.photoId ? [`photo:${photoScope.photoId}`] : []}}},
+    events: {...include.run.include.events, take: 0},
     corrections: {...include.run.include.corrections, take: 0},
   }}} : include;
   const row = await tx.acquisitionSession.findUnique({
@@ -300,6 +299,11 @@ async function read(tx: Tx, actor: AcquisitionActor, sessionId: string, photoSco
     row.run.corrections = row.run.candidates.length ? await tx.acquisitionCountCorrection.findMany({where: {
       runId: row.run.id, candidateId: {in: row.run.candidates.map(candidate => candidate.id)},
     }, include: {candidate: {select: {physicalId: true}}}, orderBy: {createdAt: "asc"}}) : [];
+    const photoIds = [...new Set([...row.run.artifacts.map(artifact => artifact.sourceId),
+      ...(photoScope.photoId ? [photoScope.photoId] : [])])];
+    row.run.events = photoIds.length ? await tx.acquisitionEvent.findMany({where: {
+      runId: row.run.id, sourceEventId: {in: photoIds.map(id => `photo:${id}`)},
+    }, orderBy: {sessionRevision: "asc"}}) : [];
   }
   return row;
 }

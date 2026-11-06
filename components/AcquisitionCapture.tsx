@@ -147,6 +147,7 @@ export function AcquisitionCapture({
   }, []);
   const [batchId, setBatchId] = useState(initialBatch);
   const [reviewPage, setReviewPage] = useState(0);
+  const [pageChoice, setPageChoice] = useState("1");
   const reviewRequest = useRef(0);
   const [progress, setProgress] = useState<Progress | null>(null);
   const photoMatches = useMemo(() => new Map(progress?.photoMatches?.map(match => [match.slotId, match.count]) ?? []), [progress?.photoMatches]);
@@ -173,6 +174,10 @@ export function AcquisitionCapture({
   }
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  function showReviewPage(page: number) {
+    if (!Number.isInteger(page) || page < 0 || !progress || page >= progress.pagination.pages) return;
+    setReviewPage(page); setPageChoice(String(page + 1)); setVisibleCount(12); setSelectedPhotos([]);
+  }
   const [camera, setCamera] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [uploads, setUploadState] = useState<Upload[]>([]);
@@ -1115,10 +1120,18 @@ export function AcquisitionCapture({
               <h3 className="font-semibold">Saved cards</h3>
               {progress.pagination.pages > 1 && <nav className="flex flex-wrap items-center gap-2 my-3" aria-label="Saved-card pages">
                 <button className={button} disabled={busy || !cachedDrafts.ready || dirtyPhotos.size > 0 || progress.pagination.page === 0}
-                  onClick={() => { setReviewPage(progress.pagination.page - 1); setVisibleCount(12); setSelectedPhotos([]); }}>Previous cards</button>
-                <span>Page {progress.pagination.page + 1} of {progress.pagination.pages} · {progress.reservedSlots} saved positions</span>
+                  onClick={() => showReviewPage(progress.pagination.page - 1)}>Previous cards</button>
+                <span>Page {progress.pagination.page + 1} of {progress.pagination.pages} · {progress.reservedSlots} images</span>
                 <button className={button} disabled={busy || !cachedDrafts.ready || dirtyPhotos.size > 0 || progress.pagination.page + 1 >= progress.pagination.pages}
-                  onClick={() => { setReviewPage(progress.pagination.page + 1); setVisibleCount(12); setSelectedPhotos([]); }}>Next cards</button>
+                  onClick={() => showReviewPage(progress.pagination.page + 1)}>Next cards</button>
+                <button className={button} disabled={busy || !cachedDrafts.ready || dirtyPhotos.size > 0 || progress.pagination.page + 1 >= progress.pagination.pages}
+                  onClick={() => showReviewPage(progress.pagination.pages - 1)}>Newest cards</button>
+                <label className="flex items-center gap-2">Go to page
+                  <input className={input + " w-20"} type="number" min={1} max={progress.pagination.pages} value={pageChoice}
+                    onChange={event => setPageChoice(event.target.value)} />
+                </label>
+                <button className={button} disabled={busy || !cachedDrafts.ready || dirtyPhotos.size > 0 || !/^\d+$/.test(pageChoice) || Number(pageChoice) < 1 || Number(pageChoice) > progress.pagination.pages}
+                  onClick={() => showReviewPage(Number(pageChoice) - 1)}>Go</button>
                 {!!dirtyPhotos.size && <p>Save or discard your current edits before changing pages.</p>}
                 <p className="text-sm w-full">Filters, counts, bulk review and Inventory selection apply to this page. Scanning continues while you browse older cards.</p>
               </nav>}
