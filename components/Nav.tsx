@@ -23,6 +23,7 @@ const mainLinks = [
   { href: "/public/inventory", label: "Public" },
   { href: "/pricing", label: "Pricing" },
   { href: "/decks", label: "Decks" },
+  { href: "/card-hunt", label: "Card Hunt" },
   { href: "/wishlist", label: "Wishlist" },
   { href: "/locations", label: "Locations" },
   { href: "/imports", label: "Import" },
