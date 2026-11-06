@@ -90,8 +90,10 @@ export async function verifyCountedScanner(db: PrismaClient) {
     await assert.rejects(createScannerBatch(db,actor,setup(first,box,"",169),epoch),/remaining capacity/);
     const unbounded=await location(null,[]);
     const beforeUnbounded=await db.acquisitionSession.count({where:{createdByUserId:tag}});
-    await assert.rejects(createScannerBatch(db,actor,setup(first,unbounded,""),epoch));
-    assert.equal(await db.acquisitionSession.count({where:{createdByUserId:tag}}),beforeUnbounded);
+    const unlimited = await createScannerBatch(db,actor,setup(first,unbounded,""),epoch);
+    assert.equal(unlimited.logicalTarget,null); assert.equal(unlimited.physicalTarget,500);
+    assert.equal(await db.acquisitionSession.count({where:{createdByUserId:tag}}),beforeUnbounded+1);
+    await stopScannerBatch(db,tag,unlimited.runId);
     const unboundedFixed=await createScannerBatch(db,actor,setup(first,unbounded,"",2),epoch);
     assert.equal(unboundedFixed.physicalTarget,2);
     await stopScannerBatch(db,tag,unboundedFixed.runId);
@@ -128,11 +130,10 @@ export async function verifyCountedScanner(db: PrismaClient) {
               uploadKey: slot.requestKey,generation: 1,digest: "0".repeat(64),bytes: 10*1024**2,mediaType: "image/png",width: 75,height: 105,ready: true,readyAt: new Date()}))});
             process.env.ACQUISITION_PHOTO_OWNER_LIMIT_GIB = "1";
             process.env.ACQUISITION_PHOTO_BATCH_LIMIT_GIB = "4";
-            await assert.rejects(receiveScannerImage(db,helper.token,t,epoch,bytes,"image/png"),/Photo storage limit reached/);
-            const blocked = await getScannerBatch(db,tag,c.runId);
-            assert.equal(blocked.status,"STARTED"); assert.equal((blocked.uploadProblem as Prisma.JsonObject)?.code,"PHOTO_STORAGE_LIMIT");
-            assert.equal(blocked.preflightProblem,null);
-            process.env.ACQUISITION_PHOTO_OWNER_LIMIT_GIB = "64";
+            // #1005 removes aggregate intake caps. This legacy cleanup watermark
+            // must not stop or duplicate an existing scanner transfer.
+            const pending = await getScannerBatch(db,tag,c.runId);
+            assert.equal(pending.status,"STARTED"); assert.equal(pending.preflightProblem,null);
             const receipt = await receiveScannerImage(db,helper.token,t,epoch,bytes,"image/png");
             assert.equal(receipt.ready,true);
             assert.equal((await getScannerBatch(db,tag,c.runId)).uploadProblem,null);

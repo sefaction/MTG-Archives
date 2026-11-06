@@ -21,6 +21,7 @@ export async function GET(request: Request, context: Context) {
           prisma,
           await acquisitionActor(request),
           (await context.params).sessionId,
+          new URL(request.url).searchParams.get("page") ?? 0,
         ),
       ),
       { headers: { "Cache-Control": "no-store" } },

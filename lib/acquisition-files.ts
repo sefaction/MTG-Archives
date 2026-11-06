@@ -202,9 +202,9 @@ export async function writeAcquisitionPhotoBytes(
   }
   const disk = await statfs(directory);
   if (disk.bavail * disk.bsize < 2 * 1024 ** 3 + bytes.length)
-    throw new Error(
+    throw Object.assign(new Error(
       "Photo storage needs at least 2 GB free; free space before retrying",
-    );
+    ), {code: "ENOSPC"});
   const temporary = path.join(directory, `${id}.${randomUUID()}.part`);
   let handle;
   try {

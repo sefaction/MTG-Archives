@@ -1,32 +1,14 @@
-# Scan-photo storage allowance
+# Scan-photo storage and cleanup
 
-The web service enforces a retained-original allowance per account and per batch.
-Defaults remain 4 GiB per account and 1 GiB per batch. Set positive whole GiB values
-in both the web and acquisition-worker containers' environments:
+Intake has no aggregate account or batch allowance. Keep scanning in the same logical batch across automatic internal feeds; saved originals do not require review or cleanup before another feed. See [continuation](CONTINUOUS_SCANNING.md).
 
-```
-ACQUISITION_PHOTO_OWNER_LIMIT_GIB=64
-ACQUISITION_PHOTO_BATCH_LIMIT_GIB=4
-```
+The existing per-image validation, immutable writes, ownership checks, 2 GiB free-disk reserve, durable scanner spool and seven-day post-commit retention remain. Genuine disk exhaustion leaves the same uploads pending and retryable; free actual storage space before retrying. No protected original is deleted to make room.
 
-These example limits support roughly 10,000 retained 600 DPI fronts per account
-at about 6 MB each, subject to image sizes and batch limits. They are allowances,
-not allocated disk space. Choose them for the available upload disk and retention
-policy. Per-image limits, ownership checks, serialized quota admission and seven-day
-post-commit retention remain in place. Canonical images and processing evidence
-consume additional disk space outside this original-byte allowance.
+`ACQUISITION_PHOTO_OWNER_LIMIT_GIB` keeps its existing 4 GiB default only as a pressure-cleanup watermark for the acquisition worker. It never blocks intake. `ACQUISITION_PHOTO_BATCH_LIMIT_GIB` is deprecated and no longer limits a batch. Existing Compose forwarding is retained for upgrades; no database migration or helper binary change is required. Historical allowance warnings clear when the same uploads succeed.
 
-The standard and Unraid Compose templates forward these settings. Update the web
-and acquisition-worker services after configuring them; no database migration or helper update is required.
-Changing a setting on an older release with hard-coded limits has no effect.
+## Preserved pressure-cleanup policy
 
-When the allowance blocks a scanner upload, the page explains that uploads are
-waiting and originals remain on the scanner computer. The helper retries its
-existing retained files after space becomes available. Do not rescan those cards:
-upload recovery does not feed the scanner or add copies to Inventory. An unfinished
-physical segment stays started until its retained uploads and final receipt settle.
-
-Every minute, retained originals at or above 90% of an account's allowance trigger
+Every minute, retained originals at or above 90% of the account cleanup watermark trigger
 pressure cleanup. It removes the oldest eligible batches toward 80%, in bounded
 passes of up to five batches and 25 photos per batch. Larger deletions resume on
 later passes even after pressure falls. Normal seven-day expiry remains in place
@@ -46,6 +28,6 @@ cannot restore a batch with missing photos. Inventory copies and immutable audit
 receipts remain. The scanner helper may remove its matching local originals only
 after the server confirms byte deletion and the transfer has settled.
 
-The allowance counts pending and retained originals, not physical disk capacity.
-If protected batches consume the allowance, cleanup cannot free them; increasing
-the allowance remains the recovery path. It does not remove unfinished reviews.
+The cleanup watermark counts retained original bytes, not physical disk capacity.
+Protected batches remain protected even above that watermark; it is not an intake
+cap. Actual disk pressure requires freeing real space without removing unfinished reviews.

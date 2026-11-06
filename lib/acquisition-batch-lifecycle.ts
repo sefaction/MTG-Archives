@@ -15,14 +15,14 @@ export async function manageAcquisitionBatch(db: PrismaClient, actor: Acquisitio
   sessionId: string, value: unknown, now = new Date()) {
   const action = batchLifecycleAction.parse(value);
   return acquisitionTransaction(db, async tx => {
-    const authorized = await readAcquisitionRow(tx, actor, sessionId);
+    const authorized = await readAcquisitionRow(tx, actor, sessionId, {});
     const runId = authorized.run!.id;
     const runs = await tx.scannerRun.findMany({where: {acquisitionRunId: runId}, orderBy: {segment: "asc"}});
     const rootId = runs[0]?.seriesRootId;
     if (rootId) await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`scanner-series-v1:${rootId}`}, 0))`;
     await tx.$queryRaw`SELECT id FROM "ScannerRun" WHERE "acquisitionRunId"=${runId} ORDER BY segment FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id=${sessionId} FOR UPDATE`;
-    const row = await readAcquisitionRow(tx, actor, sessionId);
+    const row = await readAcquisitionRow(tx, actor, sessionId, {});
     if (row.deletedAt) throw new Error("Capture batch has expired and cannot be restored");
     const currentRuns = await tx.scannerRun.findMany({where: {acquisitionRunId: runId}});
     const draining = currentRuns.some(r => !scannerTransferIsSettled(r));

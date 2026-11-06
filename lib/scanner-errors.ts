@@ -1,5 +1,4 @@
 import { ZodError } from "zod";
-import { AcquisitionPhotoStorageLimitError } from "./acquisition-photo-limits";
 
 export class ScannerConnectionDenied extends Error {
   constructor() { super("Scanner connection unavailable"); }
@@ -12,8 +11,8 @@ export class ScannerRunConflict extends Error {
 }
 
 export function scannerRunError(error: unknown) {
-  if (error instanceof AcquisitionPhotoStorageLimitError)
-    return Response.json({ error: error.message, code: "PHOTO_STORAGE_LIMIT" },
+  if (error && typeof error === "object" && "code" in error && ["ENOSPC", "EDQUOT"].includes(String(error.code)))
+    return Response.json({ error: "Photo storage is full. Free disk space, then retry; saved scans are kept.", code: "PHOTO_DISK_SPACE" },
       { status: 409, headers: { "Cache-Control": "no-store" } });
   if (!(error instanceof ScannerRunConflict)) return scannerConnectionError(error);
   return Response.json({ error: "This scanner batch needs review or reconciliation. Saved originals are kept." },

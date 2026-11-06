@@ -64,6 +64,21 @@ export async function scannerStartMarkerExists(runId: string) {
   }
 }
 
+/** Recover only the original execution identity, never invent or backfill one. */
+export async function readScannerStartMarker(runId: string) {
+  z.string().uuid().parse(runId);
+  try {
+    const marker = z.object({version: z.literal(1), runId: z.string().uuid(),
+      epoch: z.string().uuid(), executionId: z.string().uuid()}).strict()
+      .parse(await read(path.join(await directory(), `${runId}.start.json`)));
+    if (marker.runId !== runId) throw new Error("Scanner start evidence needs reconciliation");
+    return marker;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  }
+}
+
 const retiredStart = z.object({ version: z.literal(1), runId: z.string().uuid(),
   userId: z.string().min(1).max(200), epoch: z.string().uuid(), requestHash: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
 export async function scannerStartRetired(runId: string) {

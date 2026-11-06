@@ -15,16 +15,5 @@ export function acquisitionPhotoLimits(env: Record<string, string | undefined> =
   };
 }
 
-export class AcquisitionPhotoStorageLimitError extends Error {
-  constructor(public readonly scope: "OWNER" | "BATCH", public readonly limitBytes: number) {
-    super(`Photo storage limit reached (${limitBytes / GIB} GiB ${scope === "OWNER" ? "for this account" : "for this batch"}). Waiting scans are saved on the scanner computer. Cleanup checks completed and trashed batches every minute. If space remains full, ask an administrator to increase the scan-photo allowance.`);
-  }
-}
-
-export function requireAcquisitionPhotoSpace(ownerBytes: number, batchBytes: number, incomingBytes: number,
-  limits = acquisitionPhotoLimits()) {
-  if (ownerBytes + incomingBytes > limits.owner)
-    throw new AcquisitionPhotoStorageLimitError("OWNER", limits.owner);
-  if (batchBytes + incomingBytes > limits.batch)
-    throw new AcquisitionPhotoStorageLimitError("BATCH", limits.batch);
-}
+// Legacy names retained only for the existing safe pressure-cleanup policy.
+// These are cleanup watermarks, never upload admission or saved-image caps.

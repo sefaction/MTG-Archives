@@ -9,7 +9,6 @@ import { ScannerSourceFields, ScannerRunControls, type ScannerChoice } from "./S
 import { AcquisitionBulkReview } from "./AcquisitionBulkReview";
 import { useAcquisitionDrafts } from "./useAcquisitionDrafts";
 import { acquisitionDraftKey } from "@/lib/acquisition-browser-review-draft";
-import { acquisitionPhotoMatchCounts } from "@/lib/acquisition-photo-matches";
 import { SCANNER_CAPTURE_PROVIDER } from "@/lib/scanner-run-protocol";
 import { COUNTED_SCANNER_DEVICE } from "@/lib/scanner-counted-profile";
 import { StorageDestinationPicker } from "./StorageDestinationPicker";
@@ -147,8 +146,11 @@ export function AcquisitionCapture({
     setScannerChoice(value); setScannerEnabled(enabled); if (enabled && value && value.deviceId !== COUNTED_SCANNER_DEVICE) setCustomLimit(false);
   }, []);
   const [batchId, setBatchId] = useState(initialBatch);
+  const [reviewPage, setReviewPage] = useState(0);
+  const [pageChoice, setPageChoice] = useState("1");
+  const reviewRequest = useRef(0);
   const [progress, setProgress] = useState<Progress | null>(null);
-  const photoMatches = useMemo(() => acquisitionPhotoMatchCounts(progress?.slots ?? []), [progress?.slots]);
+  const photoMatches = useMemo(() => new Map(progress?.photoMatches?.map(match => [match.slotId, match.count]) ?? []), [progress?.photoMatches]);
   const captureRoot = useRef<HTMLDivElement>(null);
   const progressPanel = useRef<HTMLElement>(null);
   const hasProgress = Boolean(progress);
@@ -172,6 +174,10 @@ export function AcquisitionCapture({
   }
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  function showReviewPage(page: number) {
+    if (!Number.isInteger(page) || page < 0 || !progress || page >= progress.pagination.pages) return;
+    setReviewPage(page); setPageChoice(String(page + 1)); setVisibleCount(12); setSelectedPhotos([]);
+  }
   const [camera, setCamera] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [uploads, setUploadState] = useState<Upload[]>([]);
@@ -234,7 +240,7 @@ export function AcquisitionCapture({
   const [reviewNavigation, setReviewNavigation] = useState("");
   function nextAwaitingReview(after: number) {
     const next = nextAwaitingAcquisitionSlot(progress?.slots ?? [], after, hasDraft);
-    if (!next) { setReviewNavigation("No other cards awaiting review."); return; }
+    if (!next) { setReviewNavigation("No other cards awaiting review on this page. Check the other saved-card pages."); return; }
     setReviewNavigation(`Card ${next.position + 1} awaiting review.`);
     setReviewFilter("all");
     setVisibleCount(count => Math.max(count, next.position + 1));
@@ -369,12 +375,13 @@ export function AcquisitionCapture({
   const refresh = useCallback(async () => {
     if (!batchId) return;
     try {
-      const state = await request<Progress>(`/api/acquisition/${batchId}`);
-      if (mounted.current) setProgress(state);
+      const attempt = ++reviewRequest.current;
+      const state = await request<Progress>(`/api/acquisition/${batchId}?page=${reviewPage}`);
+      if (mounted.current && attempt === reviewRequest.current) setProgress(state);
     } catch (e) {
       if (mounted.current) setError((e as Error).message);
     }
-  }, [batchId]);
+  }, [batchId, reviewPage]);
   useEffect(() => {
     if (!batchId) return;
     void refresh();
@@ -786,7 +793,7 @@ export function AcquisitionCapture({
             ? "Choose a destination to check available space."
             : capacityError ? "Capacity is unavailable. Refresh capacity to try again."
             : capacityReady
-            ? remaining === null ? "Choose a card count for this batch." : remaining+" spaces available after pending cards and unfinished batch reservations."
+            ? remaining === null ? "No destination capacity set. Scanning continues until you stop; an empty feeder waits for refill." : remaining+" spaces available after pending cards and unfinished batch reservations."
             : "Checking available capacity."} {capacityReady && scannerCapacity?.pendingSection ? scannerCapacity.pendingSection+(scannerCapacity.pendingSection === 1 ? " space is" : " spaces are")+" held by other batches "+(section.trim() ? "in this section." : "directly in this location.") : ""}</p>}
           {capacityError && <p role="alert">{capacityError}</p>}
           {countedScanner && customLimit && capacityReady && remaining !== null && quantity > remaining &&
@@ -821,7 +828,7 @@ export function AcquisitionCapture({
             className={primary}
             disabled={
                 busy || checkingStart || startStorageError || refreshingCapacity || (!pendingScanner && (
-                !capacityReady || !!needsNextSection || (countedScanner && remaining === null && !customLimit) ||
+                !capacityReady || !!needsNextSection ||
               !destination ||
               (scannerEnabled && !scannerChoice) ||
               remaining === 0 ||
@@ -878,10 +885,10 @@ export function AcquisitionCapture({
             </h2>
             <p role="status" aria-live="polite">
               {uploads.filter((p) => p.status !== "failed").length} uploading ·{" "}
-              {readyPhotos} {readyPhotos === 1 ? "photo" : "photos"} saved · {prepared} {prepared === 1 ? "photo" : "photos"} prepared
+              On this page: {readyPhotos} {readyPhotos === 1 ? "photo" : "photos"} saved · {prepared} {prepared === 1 ? "photo" : "photos"} prepared
             </p>
             <p className="text-sm">
-              {reviewCounts.ready} ready to preview ·{" "}
+              On this page: {reviewCounts.ready} ready to preview ·{" "}
               {reviewCounts.awaiting} pending review or reconciliation · {reviewCounts.added} added
             </p>
             <div className="flex flex-wrap items-center gap-2 mt-2" aria-label="Batch actions">
@@ -1111,6 +1118,23 @@ export function AcquisitionCapture({
               className={panel + " scroll-mt-[var(--scan-scroll-offset,14rem)]"}
             >
               <h3 className="font-semibold">Saved cards</h3>
+              {progress.pagination.pages > 1 && <nav className="flex flex-wrap items-center gap-2 my-3" aria-label="Saved-card pages">
+                <button className={button} disabled={busy || !cachedDrafts.ready || dirtyPhotos.size > 0 || progress.pagination.page === 0}
+                  onClick={() => showReviewPage(progress.pagination.page - 1)}>Previous cards</button>
+                <span>Page {progress.pagination.page + 1} of {progress.pagination.pages} · {progress.reservedSlots} images</span>
+                <button className={button} disabled={busy || !cachedDrafts.ready || dirtyPhotos.size > 0 || progress.pagination.page + 1 >= progress.pagination.pages}
+                  onClick={() => showReviewPage(progress.pagination.page + 1)}>Next cards</button>
+                <button className={button} disabled={busy || !cachedDrafts.ready || dirtyPhotos.size > 0 || progress.pagination.page + 1 >= progress.pagination.pages}
+                  onClick={() => showReviewPage(progress.pagination.pages - 1)}>Newest cards</button>
+                <label className="flex items-center gap-2">Go to page
+                  <input className={input + " w-20"} type="number" min={1} max={progress.pagination.pages} value={pageChoice}
+                    onChange={event => setPageChoice(event.target.value)} />
+                </label>
+                <button className={button} disabled={busy || !cachedDrafts.ready || dirtyPhotos.size > 0 || !/^\d+$/.test(pageChoice) || Number(pageChoice) < 1 || Number(pageChoice) > progress.pagination.pages}
+                  onClick={() => showReviewPage(Number(pageChoice) - 1)}>Go</button>
+                {!!dirtyPhotos.size && <p>Save or discard your current edits before changing pages.</p>}
+                <p className="text-sm w-full">Filters, counts, bulk review and Inventory selection apply to this page. Scanning continues while you browse older cards.</p>
+              </nav>}
               <div className="flex flex-wrap items-end justify-between gap-3 my-3">
                 <div
                   className="flex flex-wrap gap-1"
@@ -1171,7 +1195,7 @@ export function AcquisitionCapture({
               </div>
               {Object.hasOwn(acquisitionReviewProblemLabels, reviewFilter) &&
                 <p className="text-sm mb-3" role="status">
-                  Problem counts cover the whole batch and can overlap. Unsaved corrections stay visible.
+                  Problem counts cover this page and can overlap. Unsaved corrections stay visible.
                   {reviewFilter === "quality" && " These photos have clipped edges or need a crop to check."}
                   {reviewFilter === "no-match" && " Cards still being checked are not counted as no match."}
                 </p>}

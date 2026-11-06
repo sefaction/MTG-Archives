@@ -6,7 +6,8 @@ import { z } from "zod";
 import { SCANNER_CAPTURE_PROVIDER, scannerCanonical } from "./scanner-run-protocol";
 import { acquisitionImageInputKindSchema, type AcquisitionImageInputKind } from "./acquisition-image-input";
 import {acquisitionConflictBackoff} from "./acquisition-upload";
-import { requireAcquisitionPhotoSpace } from "./acquisition-photo-limits";
+import { allocatedAcquisitionCandidates } from "./acquisition-allocation-store";
+import { ACQUISITION_REVIEW_PAGE, acquisitionReviewPage } from "./acquisition-continuation";
 import { isAdminUser } from "./auth-policy";
 import { requireVisibleAcquisitionBatch, requireProcessingAcquisitionBatch } from "./acquisition-batch-policy";
 import { getStorageLocations } from "./storage-summary";
@@ -264,10 +265,10 @@ function hydrate(row: Stored): StoredCapture {
     destinationCurrent: destinationCurrent(row),
   };
 }
-type PhotoReadScope = {slotId?: string; photoId?: string};
+type PhotoReadScope = {slotId?: string; slotIds?: string[]; photoId?: string};
 async function read(tx: Tx, actor: AcquisitionActor, sessionId: string, photoScope?: PhotoReadScope) {
   identity.parse(sessionId);
-  const physicalId = {in: photoScope?.slotId ? [photoScope.slotId] : []};
+  const physicalId = {in: photoScope?.slotIds ?? (photoScope?.slotId ? [photoScope.slotId] : [])};
   // Upload writes affect one reserved physical candidate. Reading every earlier
   // card here makes unrelated native publications join its serializable read set.
   // Keep the existing reducer/persistence rules, with that candidate's complete
@@ -275,13 +276,9 @@ async function read(tx: Tx, actor: AcquisitionActor, sessionId: string, photoSco
   const scoped = photoScope ? {...include, run: {include: {
     ...include.run.include,
     candidates: {...include.run.include.candidates, where: {physicalId}},
-    artifacts: {where: {OR: [
-      ...(photoScope.photoId ? [{sourceId: photoScope.photoId}] : []),
-      {observations: {some: {candidate: {physicalId}}}},
-    ]}},
-    events: {...include.run.include.events, where: {sourceEventId: {in:
-      photoScope.photoId ? [`photo:${photoScope.photoId}`] : []}}},
-    corrections: {...include.run.include.corrections, where: {candidate: {physicalId}}},
+    artifacts: {take: 0},
+    events: {...include.run.include.events, take: 0},
+    corrections: {...include.run.include.corrections, take: 0},
   }}} : include;
   const row = await tx.acquisitionSession.findUnique({
     where: { id: sessionId },
@@ -289,6 +286,25 @@ async function read(tx: Tx, actor: AcquisitionActor, sessionId: string, photoSco
   });
   if (!row) throw new Error("Capture session unavailable");
   await authorize(tx, actor, row.ownerPlayerId);
+  if (photoScope && row.run) {
+    // Resolve from the already selected candidates. A correlated EXISTS over
+    // every artifact can choose a quadratic plan after unrelated batches grow.
+    const artifactIds = [...new Set(row.run.candidates.flatMap(candidate => candidate.observations.map(o => o.artifactId)))];
+    row.run.artifacts = artifactIds.length || photoScope.photoId ? await tx.acquisitionArtifact.findMany({where: {
+      runId: row.run.id, OR: [
+        ...(artifactIds.length ? [{id: {in: artifactIds}}] : []),
+        ...(photoScope.photoId ? [{sourceId: photoScope.photoId}] : []),
+      ],
+    }}) : [];
+    row.run.corrections = row.run.candidates.length ? await tx.acquisitionCountCorrection.findMany({where: {
+      runId: row.run.id, candidateId: {in: row.run.candidates.map(candidate => candidate.id)},
+    }, include: {candidate: {select: {physicalId: true}}}, orderBy: {createdAt: "asc"}}) : [];
+    const photoIds = [...new Set([...row.run.artifacts.map(artifact => artifact.sourceId),
+      ...(photoScope.photoId ? [photoScope.photoId] : [])])];
+    row.run.events = photoIds.length ? await tx.acquisitionEvent.findMany({where: {
+      runId: row.run.id, sourceEventId: {in: photoIds.map(id => `photo:${id}`)},
+    }, orderBy: {sessionRevision: "asc"}}) : [];
+  }
   return row;
 }
 async function lockedPhotoTransaction<T>(db: PrismaClient, actor: AcquisitionActor,
@@ -339,12 +355,12 @@ export async function createAcquisitionSession(
             requestKey: input.requestKey,
           },
         },
-        include,
+        select: {id: true, requestPayload: true},
       });
       if (existing) {
         if (existing.requestPayload !== requestPayload)
           throw new Error("Capture creation identity conflict");
-        return hydrate(existing);
+        return hydrate(await read(tx, actor, existing.id, usesPhotoSlots(input.run.providerId) ? {} : undefined));
       }
       if (input.defaults?.openerPlayerId && !await tx.player.findUnique({
         where: {id: input.defaults.openerPlayerId}, select: {id: true},
@@ -469,7 +485,7 @@ async function save(
   const runId = row.run!.id;
   if (usesPhotoSlots(row.run!.providerId)) {
     const slots = await tx.acquisitionCaptureSlot.findMany({
-      where: { runId },
+      where: { runId, id: {in: after.candidates.map(candidate => candidate.input.id)} },
     });
     for (const candidate of after.candidates) {
       const slot = slots.find((s) => s.id === candidate.input.id);
@@ -581,13 +597,13 @@ async function mutate(
     const before = hydrate(row);
     const after = apply(before.session, before.destinationCurrent);
     if (after === before.session) return { ...before, replay: true };
-    if (
+    if (!usesPhotoSlots(row.run!.providerId) && (
       after.candidates.length > 1000 ||
       after.artifacts.length > 2000 ||
       after.receipts.length > 4000 ||
       after.receipts.reduce((n, e) => n + Buffer.byteLength(e.payload), 0) >
         16 * 1024 * 1024
-    )
+    ))
       throw new Error(
         "Capture staging limit reached; retain source evidence and start a new session",
       );
@@ -701,9 +717,9 @@ export async function executeAcquisitionCommand(
   });
   return transaction(db, async (tx) => {
     await beforeWrite?.(tx);
-    await read(tx, actor, sessionId);
+    await read(tx, actor, sessionId, {});
     await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
-    const row = await read(tx, actor, sessionId);
+    const row = await read(tx, actor, sessionId, {});
     const previous = await tx.acquisitionCommand.findUnique({
       where: {
         runId_requestKey: { runId: row.run!.id, requestKey: input.requestKey },
@@ -729,7 +745,7 @@ export async function executeAcquisitionCommand(
         payload,
       },
     });
-    return { ...hydrate(await read(tx, actor, sessionId)), replay: false };
+    return { ...hydrate(await read(tx, actor, sessionId, {})), replay: false };
   });
 }
 
@@ -743,9 +759,9 @@ export async function reserveAcquisitionCaptureSlot(
 ) {
   identity.parse(requestKey);
   return transaction(db, async (tx) => {
-    await read(tx, actor, sessionId);
+    await read(tx, actor, sessionId, {});
     await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
-    const row = await read(tx, actor, sessionId);
+    const row = await read(tx, actor, sessionId, {});
     const run = row.run!;
     if (run.providerId !== "phone-photo-v1")
       throw new Error("Provider does not use phone slots");
@@ -756,22 +772,18 @@ export async function reserveAcquisitionCaptureSlot(
     if (row.phase !== "CAPTURING" || !destinationCurrent(row))
       throw new Error("Capture is not accepting new photos");
     // No mixing unreserved candidates into the exact phone provider.
-    const slots = await tx.acquisitionCaptureSlot.findMany({
-      where: { runId: run.id },
-    });
-    if (
-      run.candidates.some(
-        (c) => !slots.some((slot) => slot.id === c.physicalId),
-      )
-    )
-      throw new Error("Phone capture identities need reconciliation");
-    if (row.target !== null && slots.length >= row.target)
+    const slots = await tx.acquisitionCaptureSlot.count({where: {runId: run.id}});
+    const invalid = await tx.$queryRaw<{id: string}[]>`SELECT c.id FROM "AcquisitionCandidate" c
+      WHERE c."runId"=${run.id} AND NOT EXISTS (SELECT 1 FROM "AcquisitionCaptureSlot" slot
+        WHERE slot.id=c."physicalId" AND slot."runId"=c."runId") LIMIT 1`;
+    if (invalid.length) throw new Error("Phone capture identities need reconciliation");
+    if (row.target !== null && slots >= row.target)
       throw new Error("Capture batch is full");
     const slot = await tx.acquisitionCaptureSlot.create({
       data: {
         runId: run.id,
         requestKey,
-        position: slots.length,
+        position: slots,
       },
     });
     await tx.acquisitionSession.update({
@@ -855,13 +867,18 @@ export async function getAcquisitionProgress(
   db: PrismaClient,
   actor: AcquisitionActor,
   sessionId: string,
+  requestedPage: unknown = 0,
 ) {
+  const page = acquisitionReviewPage(requestedPage);
   return transaction(db, async (tx) => {
-    const row = await read(tx, actor, sessionId);
-    requireVisibleAcquisitionBatch(row);
+    const header = await read(tx, actor, sessionId, {});
+    requireVisibleAcquisitionBatch(header);
+    const total = await tx.acquisitionCaptureSlot.count({where: {runId: header.run!.id}});
+    const offset = Math.min(page * ACQUISITION_REVIEW_PAGE, Math.max(0, Math.ceil(total / ACQUISITION_REVIEW_PAGE) - 1) * ACQUISITION_REVIEW_PAGE);
     const slots = await tx.acquisitionCaptureSlot.findMany({
-      where: { runId: row.run!.id },
+      where: { runId: header.run!.id },
       orderBy: { position: "asc" },
+      skip: offset, take: ACQUISITION_REVIEW_PAGE,
       include: {
         photos: {
           orderBy: { generation: "desc" },
@@ -879,6 +896,7 @@ export async function getAcquisitionProgress(
         },
       },
     });
+    const row = await read(tx, actor, sessionId, {slotIds: slots.map(slot => slot.id)});
     const jobs = await tx.acquisitionProcessingJob.groupBy({
       by: ["status"],
       where: { runId: row.run!.id },
@@ -918,6 +936,14 @@ export async function getAcquisitionProgress(
         GROUP BY a."sourceId"`
       : [];
     const evidenceVersionByPhoto=new Map(evidenceVersions.map(row=>[row.photoId,row.version]));
+    const photoMatches = currentPhotoIds.length ? await tx.$queryRaw<{slotId: string; count: number}[]>`
+      SELECT p."slotId", counts.n::int AS count FROM "AcquisitionPhoto" p
+      JOIN "AcquisitionCaptureSlot" slot ON slot.id=p."slotId" AND slot."runId"=p."runId" AND slot.generation=p.generation
+      JOIN (SELECT p.digest,p.bytes,count(*) AS n FROM "AcquisitionPhoto" p
+        JOIN "AcquisitionCaptureSlot" slot ON slot.id=p."slotId" AND slot."runId"=p."runId" AND slot.generation=p.generation
+        WHERE p."runId"=${row.run!.id} AND p.ready AND p."purgedAt" IS NULL GROUP BY p.digest,p.bytes) counts
+        ON counts.digest=p.digest AND counts.bytes=p.bytes
+      WHERE p.id IN (${Prisma.join(currentPhotoIds)}) AND p.ready AND p."purgedAt" IS NULL AND counts.n>1` : [];
     const state = hydrate(row);
     const problemSources = slots.flatMap(slot => {
       const photo = slot.photos.find(p => p.ready && !p.purgedAt && p.generation === slot.generation);
@@ -966,18 +992,19 @@ export async function getAcquisitionProgress(
     );
     // Advisory physical blockers only. A fresh commit preview still revalidates
     // ownership, printing, destination, revisions and every selected photo.
-    const allocated = new Set(captureSummary(state.session).allocated);
+    const allocated = await allocatedAcquisitionCandidates(tx, row.run!.id, row.target, slots.map(slot => slot.id));
     const physicalReasons = new Map(state.session.candidates.map(candidate => {
       const reasons: string[] = [];
       if (candidate.excluded) reasons.push("UNAVAILABLE");
       else {
         if (countReasons(candidate).length) reasons.push("COUNT_UNCERTAIN");
-        if (!allocated.has(candidate.key)) reasons.push("OVERFLOW");
+        if (!allocated.has(candidate.input.id)) reasons.push("OVERFLOW");
       }
       return [candidate.input.id, reasons] as const;
     }));
     return {
       ...state,
+      photoMatches,
       correctionLibrary: await correctionUsage(tx, row.ownerPlayerId),
       photoPreparation: photoJobs.map((j) => ({
         photoId: j.artifact.sourceId,
@@ -1015,9 +1042,10 @@ export async function getAcquisitionProgress(
         committed,
         received: row.run!.candidates.some((c) => c.physicalId === slot.id),
       }; }),
-      reservedSlots: slots.length,
+      pagination: { page: offset / ACQUISITION_REVIEW_PAGE, pageSize: ACQUISITION_REVIEW_PAGE, total, pages: Math.max(1, Math.ceil(total / ACQUISITION_REVIEW_PAGE)) },
+      reservedSlots: total,
       availableSlots:
-        row.target === null ? null : Math.max(0, row.target - slots.length),
+        row.target === null ? null : Math.max(0, row.target - total),
       // Stage totals are not resolved-card totals. The UI must not label a
       // canonicalization job COMPLETE as a reviewed/commit-ready card.
       processingStages: jobs.map((job) => ({
@@ -1118,22 +1146,8 @@ export async function beginAcquisitionPhoto(
       throw new Error(
         "Capture card is already committed; use Inventory to change it",
       );
-    // Every intake for this owner takes the same quota lock. Pending writes count.
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${row.ownerPlayerId}, 314))`;
-    const [ownerUsage, sessionUsage] = await Promise.all([
-      tx.acquisitionPhoto.aggregate({
-        where: {
-          run: { session: { ownerPlayerId: row.ownerPlayerId } },
-          purgedAt: null,
-        },
-        _sum: { bytes: true },
-      }),
-      tx.acquisitionPhoto.aggregate({
-        where: { runId: run.id, purgedAt: null },
-        _sum: { bytes: true },
-      }),
-    ]);
-    requireAcquisitionPhotoSpace(ownerUsage._sum.bytes ?? 0, sessionUsage._sum.bytes ?? 0, metadata.bytes);
+    // Actual disk admission is checked at the durable file write.
+    // Retained originals have no aggregate account or batch allowance.
     const photo = await tx.acquisitionPhoto.create({
       data: {
         runId: run.id,
@@ -1253,12 +1267,26 @@ export async function getAcquisitionPhoto(
   photoId: string,
 ) {
   return transaction(db, async (tx) => {
-    const row = await read(tx, actor, sessionId);
+    // Image delivery needs the owner's live authorization and batch visibility,
+    // not every candidate, observation, event and receipt in the batch. Keep
+    // these reads in the same transaction without hydrating unrelated reviews.
+    identity.parse(sessionId);
+    const row = await tx.acquisitionSession.findUnique({
+      where: { id: sessionId },
+      select: {
+        ownerPlayerId: true,
+        trashedAt: true,
+        deletedAt: true,
+        run: { select: { id: true } },
+      },
+    });
+    if (!row) throw new Error("Capture session unavailable");
+    await authorize(tx, actor, row.ownerPlayerId);
     requireVisibleAcquisitionBatch(row);
     const photo = await tx.acquisitionPhoto.findUnique({
       where: { id: photoId },
     });
-    if (!photo || photo.runId !== row.run!.id || !photo.ready || photo.purgedAt)
+    if (!photo || photo.runId !== row.run?.id || !photo.ready || photo.purgedAt)
       throw new Error("Photo unavailable");
     return photo;
   });
@@ -1294,7 +1322,12 @@ export async function getAcquisitionCardReview(
   photoId: string,
 ): Promise<AcquisitionCardReview> {
   return transaction(db, async (tx) => {
-    const row = await read(tx, actor, sessionId);
+    // The inline scan waits for this record too. Retain this physical card's
+    // complete observation/artifact history without loading every other review.
+    const scopePhoto = await tx.acquisitionPhoto.findUnique({
+      where: { id: photoId }, select: { slotId: true },
+    });
+    const row = await read(tx, actor, sessionId, { photoId, slotId: scopePhoto?.slotId });
     const { photo, candidate } = await reviewPhoto(tx, row, photoId);
     const analysis = acquisitionManualAnalysisSchema.safeParse(candidate.manualAnalysis);
     const currentAnalysis = analysis.success && analysis.data.photoId === photo.id &&
@@ -1395,9 +1428,11 @@ export async function saveAcquisitionReview(
 ) {
   const input = acquisitionReviewRequestSchema.parse(raw);
   return transaction(db, async (tx) => {
-    await read(tx, actor, sessionId);
+    await read(tx, actor, sessionId, {});
     await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
-    const row = await read(tx, actor, sessionId);
+    const photoId = "photoId" in input ? input.photoId : undefined;
+    const source = photoId ? await tx.acquisitionPhoto.findUnique({where: {id: photoId}, select: {slotId: true}}) : null;
+    const row = await read(tx, actor, sessionId, source ? {slotId: source.slotId, photoId} : {});
     requireVisibleAcquisitionBatch(row);
     if (input.action === "defaults") {
       if (row.defaultsRevision !== input.revision)

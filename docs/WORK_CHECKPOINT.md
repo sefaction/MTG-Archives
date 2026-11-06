@@ -1,3 +1,13 @@
+## Current #1005 qualification — November 6, 2026
+
+Branch `codex/continuous-scanning-1005`, [PR #1012](https://github.com/sefaction/MTG-Archives/pull/1012), owner chat01a1ac9d. Brian selected continuous scans across internal chunks. One logical batch uses guarded 500-image feeds, no aggregate original-byte intake caps, and 100-position review pages with whole-batch duplicate warnings/global commit allocation. Deterministic continuation IDs preserve durable START/retirement authority across database rollback. Original/order/owner, actual disk/file/feeder/destination, replay and retention protections remain. Draft1011 reads are incorporated; #1004 remains unresolved/open. No merge, production or physical operation.
+
+Product source/build `3ca0e6e1`: all529 runtime inputs match Git bytes;439 installed package integrity/version entries match. Full types/phased production build/manifests/lint and desktop1366/phone320 pass. Nine Verify checks plus Windows pass at3ca0e6e1; report-only final-head receipts are tracked on PR/private checkpoint.23focused controls pass. Large SQL4500seeded+1001actualtransfers=5501images/56pages/8.7GBlogical originals passes; repeated cleanup, later-page overflow, final browser and actual START/database rollback each conserve all85tables. Original marker epoch/execution and bytes remain unchanged; real low-disk retry retains one slot/photo/job. Earlier local core2561pass/one skip/two missing-Git setup failures has both tests separately passing on Windows; stable current-head Core is green.
+
+Original query/P2028, receipt/obsolete-quota, setup/runner/newline, reconciliation-constraint and epoch-type failures remain preserved. No assertion, constraint, physical count, timeout or ownership safety check was weakened. Details/limits: docs/CONTINUOUS_SCANNING.md and private .local-data/evidence/. Current app/DB/proxy are retained stopped after the recovery review and exact-owner release.13primary IDs remain unchanged; four pre-existing QC containers disappeared without attribution in retained event history. This task targeted only its named resources. No owned live child or new issue.
+
+Next: verify the report-only head CI and mark ready for Brian’s individual review/merge decision. Preserve stopped review/rollback resources, failure evidence and other WIP. Historical checkpoint below is unchanged.
+
 ## Current work — deck commitment source details #1007 — November 5, 2026
 
 Brian confirmed storage-section intent in the issue-resolution chat. Branch
