@@ -1,5 +1,14 @@
 ## Current #1005 qualification — November 6, 2026
 
+
+## Current work: Collector view #1010, November 7, 2026
+
+- Local branch codex/collector-view-1010, product source bfa6a930; read-only grouped-card and printing/finish completion with explicit English-paper catalog rules. Root policy/manual WIP is untouched.
+- Installed additively in regular localhost:13001, image 4b78d1af; includes the prior Card Hunt basic-land option. Nine full-row collection-table hashes and all thirteen service configurations conserved; no migrations, seeds or worker restarts.
+- Full-branch and cumulative builds/manifests pass; 40 focused checks pass, real PostgreSQL 85-table read/rollback passes, final desktop/phone/API suites 3/3 each pass. See docs/COLLECTOR_VIEW.md for source binding, original failures and evidence limits.
+- Ownership comment and git push denied before execution; no PR, hosted exact-head CI or merge. Next step requires explicit permission to publish the branch and open a draft PR. Brian's own-account review is pending.
+- All five owned fixture/build containers, isolated network and four intermediate image tags retired. Current/rollback images and compact evidence retained. Exact-owned runtime guard released; no live temporary resources or lock.
+
 Branch `codex/continuous-scanning-1005`, [PR #1012](https://github.com/sefaction/MTG-Archives/pull/1012), owner chat01a1ac9d. Brian selected continuous scans across internal chunks. One logical batch uses guarded 500-image feeds, no aggregate original-byte intake caps, and 100-position review pages with whole-batch duplicate warnings/global commit allocation. Deterministic continuation IDs preserve durable START/retirement authority across database rollback. Original/order/owner, actual disk/file/feeder/destination, replay and retention protections remain. Draft1011 reads are incorporated; #1004 remains unresolved/open. No merge, production or physical operation.
 
 Product source/build `3ca0e6e1`: all529 runtime inputs match Git bytes;439 installed package integrity/version entries match. Full types/phased production build/manifests/lint and desktop1366/phone320 pass. Nine Verify checks plus Windows pass at3ca0e6e1; report-only final-head receipts are tracked on PR/private checkpoint.23focused controls pass. Large SQL4500seeded+1001actualtransfers=5501images/56pages/8.7GBlogical originals passes; repeated cleanup, later-page overflow, final browser and actual START/database rollback each conserve all85tables. Original marker epoch/execution and bytes remain unchanged; real low-disk retry retains one slot/photo/job. Earlier local core2561pass/one skip/two missing-Git setup failures has both tests separately passing on Windows; stable current-head Core is green.
@@ -1815,7 +1824,7 @@ final handoff before06:00. Existing services preserved; no automation/scheduler.
 - PR569 native51fb585, PR571 recovery45de76d, PR572 acceptance39bd01b are OPEN.
   All3 required current-head checks pass for each. Stack569→571→572.
 - Local Docker has exact509 web sources (processing-recovery image) with native
-  LF/index guard and preserved printing reuse; localhost13001 healthy. Primary
+  LF/index guard and preserved printing reuse; localhost:13001 healthy. Primary
   branchlocal/cumulative-inventory-review-v4 is stale; do not build from it.
 - Actual24 scan/worker-crash recovery PASS12.2min; unchanged90s lease, attempt1→2,
   recovered99.196s. Saved LP review/revision/observations and originals preserved;
@@ -6301,7 +6310,7 @@ final handoff before06:00. Existing services preserved; no automation/scheduler.
 - PR569 native51fb585, PR571 recovery45de76d, PR572 acceptance39bd01b are OPEN.
   All3 required current-head checks pass for each. Stack569→571→572.
 - Local Docker has exact509 web sources (processing-recovery image) with native
-  LF/index guard and preserved printing reuse; localhost13001 healthy. Primary
+  LF/index guard and preserved printing reuse; localhost:13001 healthy. Primary
   branchlocal/cumulative-inventory-review-v4 is stale; do not build from it.
 - Actual24 scan/worker-crash recovery PASS12.2min; unchanged90s lease, attempt1→2,
   recovered99.196s. Saved LP review/revision/observations and originals preserved;

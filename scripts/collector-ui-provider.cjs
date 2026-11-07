@@ -10,4 +10,3 @@ const reply=()=>res.end(JSON.stringify({object:'list',total_cards:1,has_more:fal
 if(['e0','e1','e2'].includes(set)){const timer=setTimeout(reply,5000);res.on('close',()=>clearTimeout(timer));return;}
 return reply();
 }).listen(14001,'0.0.0.0');
-
