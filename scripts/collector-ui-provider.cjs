@@ -6,5 +6,8 @@ if(url.pathname==='/sets')return res.end(JSON.stringify({object:'list',data:sets
 const set=(url.searchParams.get('q')||'').match(/set:(\w+)/)?.[1], page=Number(url.searchParams.get('page')||1);
 if(set==='tst')return res.end(JSON.stringify({object:'list',total_cards:4,has_more:page===1,data:cards.slice((page-1)*2,page*2)}));
 if(set==='inc')return res.end(JSON.stringify({object:'list',total_cards:3,has_more:false,data:[{...cards[0],set}]}));
-return res.end(JSON.stringify({object:'list',total_cards:1,has_more:false,data:[{...cards[0],set}]}));
+const reply=()=>res.end(JSON.stringify({object:'list',total_cards:1,has_more:false,data:[{...cards[0],set}]}));
+if(['e0','e1','e2'].includes(set)){const timer=setTimeout(reply,5000);res.on('close',()=>clearTimeout(timer));return;}
+return reply();
 }).listen(14001,'0.0.0.0');
+

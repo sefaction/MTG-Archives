@@ -102,3 +102,8 @@ test("one departing subscriber does not abort another owner using same public ca
   await new Promise(resolve => setImmediate(resolve)); controller.abort(); complete();
   assert.equal(await first, null); assert.equal((await second).cards.length, 1);
 });
+
+test("Collector has a required client-manifest contract", async () => {
+  const {CLIENT_MANIFEST_CONTRACTS} = await import("../lib/build-client-manifests");
+  assert.deepEqual(CLIENT_MANIFEST_CONTRACTS["/collector/page"], ["CollectorView"]);
+});

@@ -15,6 +15,7 @@ export const CLIENT_MANIFEST_CONTRACTS: Record<string, string[]> = {
     "ImportProgressPanel",
     "ImportResolverDialog",
   ],
+  "/collector/page": ["CollectorView"],
   "/inventory/page": ["InventoryAdvancedSearch", "InventoryBrowser"],
   "/public/inventory/page": ["InventoryAdvancedSearch", "InventoryBrowser"],
   "/league/page": ["league/LeaguePicker"],

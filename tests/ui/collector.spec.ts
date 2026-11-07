@@ -10,7 +10,10 @@ async function login(page: import("@playwright/test").Page, username = "collecto
 }
 for (const viewport of [{width: 1366,height: 900},{width: 390,height: 844}]) {
   test(`Collector ${viewport.width}: counts, modes, paging, retry and navigation`, async ({page}) => {
-    await page.setViewportSize(viewport); await login(page); await page.goto("/collector");
+    await page.setViewportSize(viewport); await login(page);
+    if (viewport.width < 1100) await page.locator("summary").filter({hasText: /^Menu$/}).click();
+    await page.getByRole("navigation", {name: "Archive navigation"}).getByRole("link", {name: "Collector", exact: true}).click();
+    await page.waitForURL(/\/collector$/);
     await expect(page.getByRole("heading",{name:"Collector",exact:true})).toBeVisible();
     await expect(page.getByText("2 / 2 cards",{exact:true})).toBeVisible();
     await page.getByLabel("Completion view").selectOption("variants");
@@ -22,6 +25,9 @@ for (const viewport of [{width: 1366,height: 900},{width: 390,height: 844}]) {
     await expect(page.locator("article")).toHaveCount(12);
     await page.getByRole("button",{name:"Next",exact:true}).click();
     await expect(page.locator("article")).toHaveCount(4);
+    // Previous-page provider requests are deliberately delayed five seconds.
+    // New uncached sets must progress instead of waiting for abandoned work.
+    await expect(page.getByText("0 / 2 variants", {exact:true}).first()).toBeVisible({timeout:2000});
     await page.getByRole("button",{name:"Previous",exact:true}).click();
     await page.getByLabel("Find a set").fill("Incomplete");
     await expect(page.getByText(/Complete set catalog unavailable/)).toBeVisible();
@@ -32,6 +38,7 @@ for (const viewport of [{width: 1366,height: 900},{width: 390,height: 844}]) {
     await expect(page.getByText("2 / 6 variants",{exact:true})).toBeVisible();
     await page.getByRole("link",{name:"Back to inventory",exact:true}).click();
     await page.waitForURL(/\/inventory$/);
+    await expect(page.getByRole("link", {name: "Collector view", exact: true})).toBeVisible();
     await page.goBack(); await expect(page.getByRole("heading",{name:"Collector",exact:true})).toBeVisible();
     await expect(page.getByText("2 / 2 cards",{exact:true})).toBeVisible();
   });

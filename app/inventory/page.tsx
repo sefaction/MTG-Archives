@@ -1119,6 +1119,7 @@ export default async function InventoryPage({
             {adminModeActive ? "All owners · Admin mode" : "Your collection"}
           </p>
         </div>
+        <a className="text-sm text-sky-300 underline" href="/collector">Collector view</a>
         <a className="text-sm text-sky-300 underline" href="/pricing">
           View value trends
         </a>
