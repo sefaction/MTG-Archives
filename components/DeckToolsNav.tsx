@@ -54,6 +54,9 @@ export function DeckToolsNav({
           </span>
         ),
       )}
+      <Link href={`/card-hunt?deckId=${encodeURIComponent(deckId)}`} className="deck-workspace-button">
+        Card Hunt
+      </Link>
     </nav>
   );
 }

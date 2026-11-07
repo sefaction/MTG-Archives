@@ -14,6 +14,7 @@ Evidence abbreviations: **I** = InventoryBrowser, InventoryAdvancedSearch and in
 | `/` | Brand / landing | Signed-in versus anonymous entry | app/page.tsx; entry smoke |
 | `/dashboard` | Overview | Current-user dashboard; League entry | app/dashboard/page.tsx; launch links |
 | `/inventory` | Collection / Inventory | Owner scope; deliberate admin mode; capability-gated actions | I; inventory-detail, inventory-color-filter, inventory-scryfall-query |
+| `/card-hunt` | Build & trade / Card Hunt | Own personal deck or pasted-list read-only storage plan; excludes deck commitments and trade reservations; finish/printing preference and box optimization | card-hunt planner tests; verify-card-hunt PostgreSQL controls; desktop/phone author review |
 | `/locations` | Collection / Locations | Owner tree; authorized owner controls; system/deck location limits | L; location-hierarchy, location-scale, vault-map |
 | `/imports` | Collection / Add / Import / Export | Own capture/review/history; restricted maintenance and undo | M; inventory-export and import units |
 | `/imports/scan` | Collection / Imports / Scan cards | Owned photo batches and private camera/library intake; explicit Admin Mode | Acquisition photo intake tests |
