@@ -12,6 +12,11 @@ deck or paste a list using the existing decklist syntax. Maybeboard is excluded
 unless selected. Copies already committed to the source deck reduce what remains
 to pull, consuming each committed quantity once across duplicate requests.
 
+For a deck hunt, turn on **Ignore basic lands** to leave known basics (including
+snow basics) out of the pull and shortage lists. The summary shows how many
+copies were skipped. Nonbasic lands and cards without a known type stay in the
+hunt. The option starts off and does not change the deck or its commitments.
+
 The default **My preferences first** prioritizes an explicit finish preference,
 then the requested printing. Any finish is the default; the deck/list supplies the
 printing preference. A pasted `*F*` annotation overrides the global finish for that

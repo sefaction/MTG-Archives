@@ -46,6 +46,35 @@ export async function seedCardHuntFixture(db: Prisma.TransactionClient, tag: str
   return {user, peerUser, deck, peerDeck, otherDeck, cards, alternate, locations, shared};
 }
 
+export async function seedBasicLandHuntFixture(
+  db: Prisma.TransactionClient, input: {userId: string; ownerId: string; locationId: string; tag: string},
+) {
+  const cards: Card[] = [];
+  for (const [name, typeLine] of [
+    ["Forest", "Basic Land — Forest"], ["Snow Island", "Basic Snow Land — Island"],
+    ["Forest Dual", "Land — Forest Island"],
+  ]) {
+    cards.push(await db.card.create({data: {name: `${name} ${input.tag}`, typeLine,
+      setCode: "tst", collectorNumber: String(cards.length + 30), rarity: "common",
+      scryfallId: randomUUID(), oracleId: randomUUID()}}));
+  }
+  const deck = await db.deck.create({data: {ownerUserId: input.userId, name: "Basic land option test"}});
+  const onlyBasics = await db.deck.create({data: {ownerUserId: input.userId, name: "Only basic lands test"}});
+  await db.deckCard.createMany({data: [
+    ...cards.map((card, index) => ({deckId: deck.id, cardId: card.id, oracleId: card.oracleId, cardName: card.name, quantity: 4 - index})),
+    {deckId: deck.id, cardName: `Unknown land ${input.tag}`, quantity: 1},
+    {deckId: onlyBasics.id, cardId: cards[0].id, cardName: cards[0].name, quantity: 3},
+  ]});
+  const committed = await db.inventoryLocation.create({data: {ownerPlayerId: input.ownerId, deckId: deck.id,
+    kind: "DECK", systemManaged: true, name: "Committed basics fixture", normalizedName: `committed-basics-${input.tag}`}});
+  await db.inventoryItem.createMany({data: [
+    {currentOwnerId: input.ownerId, cardId: cards[0].id, locationId: input.locationId, quantity: 2, condition: "NM"},
+    {currentOwnerId: input.ownerId, cardId: cards[0].id, locationId: committed.id, quantity: 1, condition: "NM"},
+    {currentOwnerId: input.ownerId, cardId: cards[2].id, locationId: input.locationId, quantity: 1, condition: "NM"},
+  ]});
+  return {deck, onlyBasics, cards};
+}
+
 export async function cardHuntSnapshot(db: PrismaClient | Prisma.TransactionClient) {
   const tables = await db.$queryRaw<{tablename: string}[]>`SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename`;
   const result: Record<string, unknown> = {};
@@ -67,6 +96,9 @@ async function main() {
     const before = await cardHuntSnapshot(db);
     await db.$transaction(async tx => {
       const f = await seedCardHuntFixture(tx, `hunt-${randomUUID()}`);
+      const lands = await seedBasicLandHuntFixture(tx, {
+        userId: f.user.id, ownerId: f.user.playerId!, locationId: f.locations[0].id, tag: randomUUID(),
+      });
       const baseline = await cardHuntSnapshot(tx);
       const preferred = await buildCardHunt(tx, f.user, {deckId: f.deck.id, finish: "FOIL"});
       assert.equal(preferred.boxes.length, 3); assert.equal(preferred.planned, 3);
@@ -90,10 +122,38 @@ async function main() {
       await assert.rejects(buildCardHunt(tx, f.user, {text: ""}), /Choose a deck/);
       await assert.rejects(buildCardHunt(tx, f.user, {text: "1000001 Card"}), /whole quantities/);
       await assert.rejects(buildCardHunt(tx, f.user, {text: "1 Card\n".repeat(501)}), /500 card lines/);
+      const withBasics = await buildCardHunt(tx, f.user, {deckId: lands.deck.id});
+      assert.equal(withBasics.requested, 10);
+      assert.equal(withBasics.alreadyInDeck, 1);
+      assert.equal(withBasics.planned, 3);
+      assert.equal(withBasics.shortage, 6);
+      assert.equal(withBasics.ignoredBasicLandCopies, 0);
+      for (const mode of ["preferences", "boxes"]) {
+        const withoutBasics = await buildCardHunt(tx, f.user, {
+          deckId: lands.deck.id, mode, ignoreBasicLands: true,
+        });
+        assert.equal(withoutBasics.ignoredBasicLandCopies, 7);
+        assert.equal(withoutBasics.requested, 3);
+        assert.equal(withoutBasics.planned, 1);
+        assert.equal(withoutBasics.shortage, 2);
+        assert.equal(withoutBasics.alreadyInDeck, 0);
+        assert.ok(withoutBasics.lines.some(line => line.request.cardId === lands.cards[2].id));
+        assert.ok(withoutBasics.lines.some(line => !line.request.cardId && line.shortage === 1));
+        assert.ok(withoutBasics.lines.every(line => !lands.cards.slice(0, 2).some(card => card.id === line.request.cardId)));
+      }
+      const emptyHunt = await buildCardHunt(tx, f.user, {deckId: lands.onlyBasics.id, ignoreBasicLands: true});
+      assert.equal(emptyHunt.ignoredBasicLandCopies, 3);
+      assert.equal(emptyHunt.requested, 0);
+      assert.equal(emptyHunt.shortage, 0);
+      assert.deepEqual(emptyHunt.boxes, []);
+      const pastedBasic = await buildCardHunt(tx, f.user, {text: `1 ${lands.cards[0].name}`, ignoreBasicLands: true});
+      assert.equal(pastedBasic.planned, 1);
+      assert.equal(pastedBasic.ignoredBasicLandCopies, 0);
       assert.deepEqual(await cardHuntSnapshot(tx), baseline, "All public tables remain unchanged by plans and refused requests");
       console.log(JSON.stringify({case: "card-hunt-postgres", tables: Object.keys(baseline).length,
         preferredBoxes: preferred.boxes.length, optimizedBoxes: optimized.boxes.length,
-        modernAndLegacyReservations: "pass", ownerIsolation: "pass", duplicateDemand: "pass", readOnly: "pass"}));
+        modernAndLegacyReservations: "pass", ownerIsolation: "pass", duplicateDemand: "pass",
+        basicLandOption: "pass", readOnly: "pass"}));
       throw rollback;
     }, {timeout: 60_000}).catch(error => {if (error !== rollback) throw error;});
     assert.deepEqual(await cardHuntSnapshot(db), before, "Fixture rollback conserves every public table");
