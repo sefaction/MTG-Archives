@@ -25,7 +25,6 @@ function SetTile({set, mode}: {set: SetRow; mode: "grouped" | "variants"}) {
   const [retry, setRetry] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
-    setError("");
     void (async () => {
       try {
         const response = await loadTile(`/api/collector?set=${encodeURIComponent(set.code)}`, controller.signal);
@@ -45,7 +44,7 @@ function SetTile({set, mode}: {set: SetRow; mode: "grouped" | "variants"}) {
       <span className="shrink-0 text-xs uppercase text-[var(--app-muted)]">{set.code}</span>
     </div>
     {error ? <div role="status" className="mt-4 text-sm"><p>{error}</p>
-      <button type="button" className="mt-2 underline" onClick={() => {setValue(undefined); setRetry(n => n + 1);}}>Retry {set.code.toUpperCase()}</button></div> :
+      <button type="button" className="mt-2 underline" onClick={() => {setError(""); setValue(undefined); setRetry(n => n + 1);}}>Retry {set.code.toUpperCase()}</button></div> :
       count ? <div className="mt-4">
         <div className="flex justify-between gap-2 text-sm"><span>{count.owned.toLocaleString()} / {count.total.toLocaleString()} {mode === "grouped" ? "cards" : "variants"}</span><span>{count.total ? `${count.percent}%` : "No eligible cards"}</span></div>
         <progress className="mt-2 h-3 w-full accent-emerald-500" max={100} value={count.percent} aria-label={`${set.name} completion`} />

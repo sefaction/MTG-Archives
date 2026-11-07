@@ -6,7 +6,7 @@ import {type CollectorCard} from "../lib/collector";
 import {cardHuntSnapshot, seedCardHuntFixture} from "./verify-card-hunt";
 async function main() {
   const url = new URL(process.env.DATABASE_URL ?? "http://invalid");
-  if (process.env.MTG_LOCAL_PILOT_TEST !== "1" || !["127.0.0.1", "localhost", "mtg-collector-1010-db"].includes(url.hostname) || url.pathname !== "/collector_1010")
+  if (process.env.MTG_LOCAL_PILOT_TEST !== "1" || !["127.0.0.1", "localhost", "mtg-collector-1010-db"].includes(url.hostname) || !/^\/(?:collector_1010|import_integrity)$/.test(url.pathname))
     throw Error("Use only the explicit disposable Collector database");
   const db = new PrismaClient(); const rollback = new Error("EXPECTED_ROLLBACK");
   try {

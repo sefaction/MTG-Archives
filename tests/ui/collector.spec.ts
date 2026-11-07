@@ -31,6 +31,7 @@ for (const viewport of [{width: 1366,height: 900},{width: 390,height: 844}]) {
     await page.getByLabel("Find a set").fill("Collector test");
     await expect(page.getByText("2 / 6 variants",{exact:true})).toBeVisible();
     await page.getByRole("link",{name:"Back to inventory",exact:true}).click();
+    await page.waitForURL(/\/inventory$/);
     await page.goBack(); await expect(page.getByRole("heading",{name:"Collector",exact:true})).toBeVisible();
     await expect(page.getByText("2 / 2 cards",{exact:true})).toBeVisible();
   });
