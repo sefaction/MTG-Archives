@@ -46,3 +46,9 @@ All thirteen ordinary services preserve environment hashes, mounts, limits, comm
 Five owned fixture/build containers, their isolated network and four superseded image tags were removed after qualification. Current Collector image and the prior card-hunt-basics-c7f2d9f3 rollback image are retained. Exact-owner runtime guard released; no temporary preview or worker remains. Compact logs, source manifests, screenshots and original failure traces remain locally. Observed cleanup headroom: 286.50 GiB host disk, 792 GiB Docker filesystem; host free memory 1789 MiB at that instant. No broad prune, application-volume deletion or retention change.
 
 Publication remains blocked: the ownership comment and branch push were denied before execution. Ask for explicit permission to publish codex/collector-view-1010 and open a draft PR. No PR, hosted exact-head CI, merge, production deployment or user acceptance is claimed.
+
+## Production publication request (November 8, 2026)
+
+After reviewing the local Collector preview, Brian said, "It's a good start. Let's get it pushed to production." This newer instruction authorizes preparing and publishing this feature for production; the prior publication denial above remains historical. The coordinating parent retains merge and deployment execution.
+
+Remote main 0991b755 contains only the independently merged Card Hunt basic-land batch since the prior Collector base. It was merged cleanly into this branch. Its four changed paths are CardHunt UI/service, its verifier and guide; Collector runtime files and assertions are unchanged. The shared seedCardHuntFixture and cardHuntSnapshot functions used by Collector's SQL verifier are unchanged. Prior Collector build, SQL and browser evidence remains applicable; final-head hosted CI is required on this integrated branch. No local runtime reload or production change is needed for this publication step.
