@@ -1,6 +1,7 @@
 import { Prisma, TradeStatus, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { parseDecklistText } from "./deck-import";
+import { isBasicLandCard } from "./card-types";
 import { isSystemDeckLocation } from "./deck-inventory";
 import { buildReservedInventoryQuantities } from "./trade-lines";
 import { huntMatches, huntPrintingMatches, planCardHunt, type HuntRequest, type HuntStock } from "./card-hunt";
@@ -11,6 +12,7 @@ export const cardHuntInput = z.object({
   mode: z.enum(["preferences", "boxes"]).default("preferences"),
   finish: z.enum(["ANY", "NONFOIL", "FOIL", "ETCHED"]).default("ANY"),
   includeMaybeboard: z.boolean().default(false),
+  ignoreBasicLands: z.boolean().default(false),
 }).refine(value => Boolean(value.deckId) !== Boolean(value.text?.trim()), {
   message: "Choose a deck or paste a card list.",
 });
@@ -33,6 +35,7 @@ export async function buildCardHunt(
   let title = "Pasted card list";
   let requests: HuntRequest[];
   const warnings: string[] = [];
+  const basicLandIds = new Set<string>();
   if (input.deckId) {
     // Even administrator mode cannot silently plan against someone else's stock.
     const deck = await db.deck.findFirst({
@@ -41,12 +44,18 @@ export async function buildCardHunt(
         where: input.includeMaybeboard ? {} : {section: {not: "MAYBEBOARD"}},
         orderBy: [{section: "asc"}, {id: "asc"}],
         select: {id: true, cardId: true, oracleId: true, cardName: true, quantity: true,
-          card: {select: {oracleId: true, setCode: true, collectorNumber: true}}},
+          card: {select: {oracleId: true, setCode: true, collectorNumber: true,
+            ...(input.ignoreBasicLands ? {typeLine: true, cardFaces: true} : {})}}},
       }},
     });
     if (!deck) throw new CardHuntError("Deck not found.", 404);
     if (deck.commanderLeagueDeck) throw new CardHuntError("Card Hunt uses personal storage. League decks use their League pool.");
     title = deck.name;
+    if (input.ignoreBasicLands) {
+      for (const entry of deck.cards) {
+        if (isBasicLandCard(entry.card)) basicLandIds.add(entry.id);
+      }
+    }
     requests = deck.cards.map(card => ({id: card.id, name: card.cardName,
       quantity: card.quantity, cardId: card.cardId, oracleId: card.oracleId ?? card.card?.oracleId,
       setCode: card.card?.setCode, collectorNumber: card.card?.collectorNumber}));
@@ -63,6 +72,21 @@ export async function buildCardHunt(
   if (!requests.length) throw new CardHuntError("Add at least one card to hunt.");
   if (requests.length > 500 || requests.some(request => !Number.isSafeInteger(request.quantity) || request.quantity < 1 || request.quantity > 1_000_000))
     throw new CardHuntError("Use up to 500 card lines with whole quantities from 1 to 1,000,000.");
+
+  let ignoredBasicLandCopies = 0;
+  if (basicLandIds.size) {
+    requests = requests.filter(request => {
+      if (!basicLandIds.has(request.id)) return true;
+      ignoredBasicLandCopies += request.quantity;
+      return false;
+    });
+  }
+  const result = (stock: HuntStock[]) => ({
+    title, warnings, generatedAt: new Date().toISOString(), ignoredBasicLandCopies,
+    ...planCardHunt({ownerId: user.playerId!, requests, stock, mode: input.mode, finish: input.finish}),
+  });
+  // An all-basic deck is a valid empty hunt when the user opted to skip basics.
+  if (!requests.length) return result([]);
 
   const cardIds = [...new Set(requests.flatMap(request => request.cardId ? [request.cardId] : []))];
   const oracleIds = [...new Set(requests.flatMap(request => request.oracleId ? [request.oracleId] : []))];
@@ -114,6 +138,5 @@ export async function buildCardHunt(
       request.alreadyInDeck = request.quantity - needed;
     }
   }
-  return {title, warnings, generatedAt: new Date().toISOString(),
-    ...planCardHunt({ownerId: user.playerId, requests, stock, mode: input.mode, finish: input.finish})};
+  return result(stock);
 }
