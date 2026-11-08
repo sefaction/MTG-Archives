@@ -14,6 +14,7 @@ Evidence abbreviations: **I** = InventoryBrowser, InventoryAdvancedSearch and in
 | `/` | Brand / landing | Signed-in versus anonymous entry | app/page.tsx; entry smoke |
 | `/dashboard` | Overview | Current-user dashboard; League entry | app/dashboard/page.tsx; launch links |
 | `/inventory` | Collection / Inventory | Owner scope; deliberate admin mode; capability-gated actions | I; inventory-detail, inventory-color-filter, inventory-scryfall-query |
+| `/collector` | Collection / Collector | Read-only current-owner English paper set completion, including deck commitments and reserved copies; grouped cards or printing/finish variants; tokens excluded and complete provider catalog required | collector units; verify-collector PostgreSQL conservation; desktop/phone Collector review |
 | `/card-hunt` | Build & trade / Card Hunt | Own personal deck or pasted-list read-only storage plan; excludes deck commitments and trade reservations; finish/printing preference and box optimization | card-hunt planner tests; verify-card-hunt PostgreSQL controls; desktop/phone author review |
 | `/locations` | Collection / Locations | Owner tree; authorized owner controls; system/deck location limits | L; location-hierarchy, location-scale, vault-map |
 | `/imports` | Collection / Add / Import / Export | Own capture/review/history; restricted maintenance and undo | M; inventory-export and import units |

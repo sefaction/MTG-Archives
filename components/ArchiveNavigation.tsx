@@ -11,6 +11,7 @@ const groups = [
     label: "Collection",
     links: [
       ["/inventory", "Inventory"],
+      ["/collector", "Collector"],
       ["/locations", "Locations"],
       ["/imports", "Import"],
     ],

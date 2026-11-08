@@ -20,6 +20,7 @@ import { normalizeNavigationLayout } from "@/lib/navigation-layout";
 const mainLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/inventory", label: "Inventory" },
+  { href: "/collector", label: "Collector" },
   { href: "/public/inventory", label: "Public" },
   { href: "/pricing", label: "Pricing" },
   { href: "/decks", label: "Decks" },

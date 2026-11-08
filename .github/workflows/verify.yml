@@ -258,6 +258,8 @@ jobs:
         run: npx tsx scripts/verify-import-commit.ts
       - name: Card Hunt preferences, reservations, ownership and read-only conservation
         run: npx tsx scripts/verify-card-hunt.ts
+      - name: Collector deck ownership, tokens and read-only conservation
+        run: npx tsx scripts/verify-collector.ts
       - name: Install PostgreSQL client for asynchronous pricing checks
         run: sudo apt-get update -qq && sudo apt-get install -y postgresql-client
       - name: Read-only pricing queries, event-loop responsiveness and time limits

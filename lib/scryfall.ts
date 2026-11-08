@@ -693,3 +693,16 @@ export function __resetScryfallClientForTests() {
   recentErrorKind = null;
   requestCount = 0;
 }
+
+// Collector metadata requests use the shared throttle/retry client. Pagination
+// is constructed locally rather than following an upstream next_page URL.
+export function getCollectorSetsResult(signal?: AbortSignal) {
+  return requestJson<unknown>("sets", { signal }, "collector_sets");
+}
+export function getCollectorSetPageResult(set: string, page: number, signal?: AbortSignal) {
+  if (!/^[a-z0-9]{2,8}$/.test(set) || !Number.isInteger(page) || page < 1 || page > 100)
+    throw new Error("Invalid collector catalog request");
+  const params = new URLSearchParams({q: `set:${set} game:paper lang:en`, unique: "prints",
+    order: "set", include_extras: "true", include_variations: "true", page: String(page)});
+  return requestJson<unknown>(`cards/search?${params}`, {signal}, "collector_set_page");
+}
