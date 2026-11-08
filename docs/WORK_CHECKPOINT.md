@@ -1,6 +1,13 @@
 ## Current #1005 qualification — November 6, 2026
 
 
+## Current work: Collector production publication, November 8, 2026
+
+- Brian reviewed the local Collector preview and explicitly requested production delivery. Draft PR https://github.com/sefaction/MTG-Archives/pull/1015 is published from codex/collector-view-1010, integrating main 0991b755. This supersedes the prior publication blocker below; neither denied attempt had executed.
+- Collector product files and shared SQL seed/snapshot helpers remain unchanged from prior qualification. Fresh Collector/Card Hunt/client/auth/manifest tests pass 53/53. Final-head hosted CI and independent integration review are pending. No merge or production deployment has been performed by this worker.
+- No runtime resources/locks acquired for this publication step. Existing additive local preview, source evidence, root WIP and issue freeze are preserved. Parent coordinates final review, merge and production preparation.
+
+
 ## Current work: Collector view #1010, November 7, 2026
 
 - Local branch codex/collector-view-1010, product source bfa6a930; read-only grouped-card and printing/finish completion with explicit English-paper catalog rules. Root policy/manual WIP is untouched.
