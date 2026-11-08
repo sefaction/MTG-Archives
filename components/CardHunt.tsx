@@ -5,7 +5,7 @@ import { useState } from "react";
 import type { HuntFinish, HuntMode, HuntPlan } from "@/lib/card-hunt";
 import { filterInputClass, filterSelectClass, filterPrimaryButtonClass } from "./filterStyles";
 
-type Result = HuntPlan & {title: string; warnings: string[]; generatedAt: string};
+type Result = HuntPlan & {title: string; warnings: string[]; generatedAt: string; ignoredBasicLandCopies: number};
 const finishLabel = (value: string) => ({FOIL: "Foil", NONFOIL: "Nonfoil", ETCHED: "Etched"}[value] ?? value);
 
 export function CardHunt({decks, initialDeckId}: {
@@ -18,6 +18,7 @@ export function CardHunt({decks, initialDeckId}: {
   const [finish, setFinish] = useState<HuntFinish>("ANY");
   const [mode, setMode] = useState<HuntMode>("preferences");
   const [includeMaybeboard, setIncludeMaybeboard] = useState(false);
+  const [ignoreBasicLands, setIgnoreBasicLands] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<Result | null>(null);
@@ -31,7 +32,7 @@ export function CardHunt({decks, initialDeckId}: {
     setPending(true); setError(""); setResult(null);
     try {
       const response = await fetch("/api/card-hunt", {method: "POST", headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({...(source === "deck" ? {deckId} : {text}), mode, finish, includeMaybeboard})});
+        body: JSON.stringify({...(source === "deck" ? {deckId, ignoreBasicLands} : {text}), mode, finish, includeMaybeboard})});
       const value = await response.json();
       if (!response.ok) throw new Error(value.error ?? "The hunt could not be prepared.");
       setResult(value); setBoxPage(0); setLinePage(0); setFilter(""); setShowLines(false);
@@ -76,6 +77,9 @@ export function CardHunt({decks, initialDeckId}: {
           "Prioritize your finish preference, then the deck or list's printing. Group those copies into boxes. Other available copies can fill gaps." :
           "Favor boxes that cover more of your list. Finish and printing preferences break ties; any substitutions are marked."}</p>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={includeMaybeboard} onChange={event => setIncludeMaybeboard(event.target.checked)} /> Include maybeboard</label>
+        {source === "deck" && <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={ignoreBasicLands} onChange={event => setIgnoreBasicLands(event.target.checked)} /> Ignore basic lands
+        </label>}
         <button type="submit" className={filterPrimaryButtonClass}>{pending ? "Finding your cards…" : "Build hunt"}</button>
       </fieldset>
       <p className="mt-3 text-xs text-[var(--app-muted)]">Uses your available storage copies. Cards in decks and active trade reservations are excluded. A hunt is a plan; it does not reserve or move cards.</p>
@@ -86,6 +90,10 @@ export function CardHunt({decks, initialDeckId}: {
       <div className="app-panel p-4">
         <h2 className="break-words text-xl font-semibold">{result.title}</h2>
         <p role="status" className="mt-2">{result.boxes.length} {result.boxes.length === 1 ? "box" : "boxes"} · {result.planned} to pull · {result.shortage} short{result.alreadyInDeck ? ` · ${result.alreadyInDeck} already in this deck` : ""}</p>
+        {result.ignoredBasicLandCopies > 0 && <p className="mt-2 text-sm">
+          {result.ignoredBasicLandCopies} basic land {result.ignoredBasicLandCopies === 1 ? "copy" : "copies"} skipped.
+          {!result.lines.length && " No other cards to hunt."}
+        </p>}
         <p className="mt-2 text-xs text-[var(--app-muted)]">Availability is a snapshot. Refresh the hunt before pulling if your inventory or trades change. Box optimization is a practical grouping suggestion, not a guaranteed minimum.</p>
         {source === "deck" && <Link href={`/decks/${encodeURIComponent(deckId)}`} className="mt-2 inline-block text-sm underline">Back to deck</Link>}
         {result.warnings.length > 0 && <details className="mt-3 text-sm"><summary>List notes ({result.warnings.length})</summary><ul className="mt-2 list-inside list-disc">{result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></details>}
@@ -95,7 +103,7 @@ export function CardHunt({decks, initialDeckId}: {
         <ul className="mt-2 space-y-1 text-sm">{result.lines.filter(line => line.shortage > 0).map(line =>
           <li key={line.request.id} className="break-words">{line.shortage} × {line.request.name} — not enough available in storage</li>)}</ul>
       </div>}
-      <div className="app-panel p-4">
+      {result.lines.length > 0 && <div className="app-panel p-4">
         <button type="button" onClick={() => setShowLines(value => !value)} aria-expanded={showLines} className="text-sm underline">{showLines ? "Hide" : "Show"} requested cards and alternate printings</button>
         {showLines && <div className="mt-3 space-y-3">
           {result.lines.slice(linePage * 25, (linePage + 1) * 25).map(line => <div key={line.request.id} className="min-w-0 border-b border-[var(--app-border)] pb-3 text-sm">
@@ -105,7 +113,7 @@ export function CardHunt({decks, initialDeckId}: {
           </div>)}
           {result.lines.length > 25 && <Pagination page={linePage} total={Math.ceil(result.lines.length / 25)} onChange={setLinePage} label="Requested cards" />}
         </div>}
-      </div>
+      </div>}
       {result.boxes.length > 0 && <label className="block text-sm">Find a box, section or card
         <input className={`${filterInputClass} mt-1 w-full`} value={filter} onChange={event => {setFilter(event.target.value); setBoxPage(0);}} />
       </label>}
