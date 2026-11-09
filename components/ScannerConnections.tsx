@@ -56,6 +56,12 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
   const showWaiting = waiting && !agents.some(agent => agent.online);
   const hasOnline = agents.some(agent => agent.online);
   const showSetup = !hasOnline || addAnother;
+  const helperDownload = <div className="flex flex-wrap gap-2 items-center">
+    <a className={filterButtonClass} href="/api/scanners/installer" download>
+      {showSetup ? "Download Windows scanner helper" : "Update Windows scanner helper"}
+    </a>
+    {installerVersion && <span className="text-sm">Version {installerVersion}</span>}
+  </div>;
   async function action(value: object) {
     setBusy(true); setError("");
     try {
@@ -93,25 +99,30 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
       ? "The helper is connected and checking scanner drivers. You can set up the destination while it finishes."
       : "Choose a destination and scanner source below, then start the batch."}</p>}
     {expanded && <div className="space-y-3 mt-3 min-w-0">
-      {installerAvailable && <div className="flex flex-wrap gap-2 items-center">
-        <a className={filterButtonClass} href="/api/scanners/installer" download>
-          {hasOnline && !addAnother ? "Update Windows scanner helper" : "Download Windows scanner helper"}
-        </a>
-        {installerVersion && <span className="text-sm">Version {installerVersion}</span>}
-        <p className="text-sm w-full">Open the download to install or update. Finish the current scan before updating; saved scans and connections are kept.</p>
-      </div>}
+      {installerAvailable && !showSetup && <>
+        {helperDownload}
+        <p className="text-sm">Finish the current scan before opening the update. The update keeps saved scans and connections.</p>
+      </>}
       {hasOnline && <button type="button" className={filterButtonClass}
         onClick={() => setAddAnother(!addAnother)}>{addAnother ? "Hide setup" : "Add another computer"}</button>}
       {showSetup && <>
-      <p>Use the Windows computer connected to your scanner. Install its manufacturer driver first.</p>
+      <p>Follow these steps on the Windows computer connected to your scanner.</p>
       {agents.length > 0 && <div className="space-y-2">
         <button type="button" className={filterPrimaryButtonClass} onClick={openHelper}>Open scanner helper</button>
         <p className="text-sm">Already connected this computer before? Open its saved connection instead of pairing again. Check that the scanner is plugged in and powered on.</p>
       </div>}
       <ol className="list-decimal list-inside space-y-2">
+        <li>
+          <strong>Install the manufacturer’s Windows driver.</strong>{" "}
+          For an fi-7160, open <a className="underline" href="https://www.pfu.ricoh.com/global/scanners/fisp/dl/fi-7160.html"
+            target="_blank" rel="noreferrer">Ricoh’s fi-7160 driver downloads</a> and select your Windows version.
+          Install <strong>PaperStream IP (TWAIN) 3.40.2</strong>. The helper uses the 32-bit TWAIN driver on Windows x64.
+        </li>
         <li>{installerAvailable ? <>
-          Install the downloaded Windows scanner helper on this computer.
-          <span className="block">Open MTGArchivesScannerSetup.exe from your Downloads folder and finish installation.</span>
+          <strong>Install the scanner helper.</strong>
+          {helperDownload}
+          <p>Open MTGArchivesScannerSetup.exe from your Downloads folder and finish installation.
+            The helper includes its scanning runtime and NAPS2 components.</p>
         </> : <>
           {installerState === "loading" && <p role="status">Checking the Windows helper download…</p>}
           {installerState === "unavailable" && <p role="status">The Windows scanner helper installer is not available on this site. Ask the site administrator to provide it before setting up a new computer.</p>}
@@ -129,7 +140,15 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
             <button type="button" className={filterButtonClass} disabled={busy} onClick={() => void connect()}>
               Connect installed helper</button>
           </details>}</li>
-        <li>When your scanner is online, <a className="underline" href="#scanner-source">choose its source in Card input below</a>.</li>
+        <li>
+          <strong>Check the scanner and card profile before loading cards.</strong>{" "}
+          Look for your scanner under the connected computer below. If it is missing, check USB, power and the driver.
+          <p>For the fi-7160, look for <strong>fi-7160 (Cards, Pre-Pick Off)</strong>. Before loading cards,
+            have the Cards profile verified in PaperStream for the MTG Archives helper on this computer.
+            Use 600 DPI, single-sided RGB, a centered 2.7 × 3.6 inch frame and Pre-Pick Off.
+            Turn off automatic crop, deskew and blank-page removal. If the profile is missing or differs, pause here and ask your site administrator for help.</p>
+          Then <a className="underline" href="#scanner-source">choose your scanner source in Card input below</a>.
+        </li>
       </ol>
       {showWaiting && <p role="status">Waiting for the scanner helper to connect. This usually takes a few seconds.</p>}
       {showWaiting && <details><summary>Nothing opened?</summary>

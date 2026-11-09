@@ -34,6 +34,13 @@ test.describe("Windows helper installation setup", () => {
     const panel=page.getByRole("region",{name:"Scanner connections"});
     await panel.getByRole("button",{name:"Connect a scanner",exact:true}).click();
     await expect(panel.getByText(/installer is not available on this site/)).toBeVisible();
+    const setupSteps=panel.locator("ol > li");
+    await expect(setupSteps).toHaveCount(4);
+    await expect(setupSteps.nth(0).getByRole("link",{name:/fi-7160 driver downloads/}))
+      .toHaveAttribute("href","https://www.pfu.ricoh.com/global/scanners/fisp/dl/fi-7160.html");
+    await expect(setupSteps.nth(0)).toContainText("PaperStream IP (TWAIN) 3.40.2");
+    await expect(setupSteps.nth(3)).toContainText("have the Cards profile verified in PaperStream for the MTG Archives helper");
+    await expect(setupSteps.nth(3)).toContainText("If the profile is missing or differs, pause here");
     await expect(panel.getByRole("button",{name:"Connect this computer",exact:true})).toBeDisabled();
     await expect(panel.getByRole("link",{name:/Download Windows scanner helper/})).toHaveCount(0);
     await expect(panel.getByText(/This opens an installed helper; it does not install one/)).toBeVisible();
@@ -65,7 +72,7 @@ test.describe("Windows helper installation setup", () => {
     release!();
     await expect(panel.getByRole("alert")).toHaveText("Could not check the Windows helper download. Try again.");
     await panel.getByRole("button",{name:"Check download again",exact:true}).click();
-    await expect(panel.getByRole("link",{name:"Download Windows scanner helper",exact:true})).toBeVisible();
+    await expect(panel.locator("ol > li").nth(1).getByRole("link",{name:"Download Windows scanner helper",exact:true})).toBeVisible();
     await expect(panel.getByRole("button",{name:"Connect this computer",exact:true})).toBeEnabled();
     await expect(panel.getByText(/Open MTGArchivesScannerSetup.exe from your Downloads folder/)).toBeVisible();
     expect(attempts).toBe(2);
