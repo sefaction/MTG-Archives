@@ -204,13 +204,17 @@ test("account navigation preference persists across sessions, isolates users and
       }));
       expect(railScroll.overflow).toBe("auto");
       expect(railScroll.viewport).toBeLessThanOrEqual(384);
-      await expect(zoomRail.getByRole("link", { name: "Commander League", exact: true })).toBeInViewport();
+      expect(railScroll.content).toBeGreaterThan(railScroll.viewport);
       expect(await zoomPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
         .toBe(true);
       await zoomPage.screenshot({ path: "test-results/navigation-browser-zoom.png", animations: "disabled" });
       for (let index = 0; index < 12 && !(await decksLink.evaluate((node) => node === document.activeElement)); index++)
         await zoomPage.keyboard.press("Tab");
       await expect(decksLink).toBeFocused();
+      const leagueLink = zoomRail.getByRole("link", { name: "Commander League", exact: true });
+      for (let index = 0; index < 4; index++) await zoomPage.keyboard.press("Tab");
+      await expect(leagueLink).toBeFocused();
+      await expect(leagueLink).toBeInViewport();
       await zoomPage.keyboard.press("Escape");
       await expect(zoomMenu).toBeFocused();
       for (const [name, route] of [
