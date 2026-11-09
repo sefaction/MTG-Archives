@@ -57,7 +57,7 @@ export default async function DeckSampleHandsPage({
         </div>
       </section>
 
-      <DeckToolsNav deckId={deck.id} active="hands" />
+      <DeckToolsNav deckId={deck.id} active="hands" canHunt={deck.canHunt} />
       <SampleHands cards={deck.cards} initialSeed={randomUUID()} />
     </main>
   );

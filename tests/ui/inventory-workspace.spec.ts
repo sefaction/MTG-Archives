@@ -267,10 +267,12 @@ test("real Inventory workspace composes search, preserves context and reflows wi
     await expect(filters).toBeFocused();
     await page.locator(".archive-navigation > summary").click();
     await expect(
-      navigation.getByRole("link", { name: "Locations", exact: true }),
+      navigation.getByRole("link", { name: "Inventory", exact: true }),
     ).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.locator(".archive-navigation > summary")).toBeFocused();
+    await expect(page.getByRole("navigation", { name: "Inventory sections" })
+      .getByRole("link", { name: "Locations", exact: true })).toBeVisible();
     for (const width of [390, 320]) {
       await page.setViewportSize({ width, height: 844 });
       expect(

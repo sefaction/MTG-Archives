@@ -44,9 +44,9 @@ test("account navigation preference persists across sessions, isolates users and
     const shell = page.locator(".archive-shell");
     await expect(shell).toHaveAttribute("data-navigation-layout", "sidebar");
     const rail = page.locator(".archive-rail");
-    await expect(rail.getByText("Preferences", { exact: true })).toBeVisible();
+    await expect(rail.getByRole("link")).toHaveCount(8);
     await expect(
-      rail.getByRole("link", { name: "Settings", exact: true }),
+      shell.locator(".archive-utilities").getByRole("link", { name: "Settings", exact: true }),
     ).toHaveAttribute("href", "/settings");
     await expect(
       rail.getByRole("link", { name: "Password", exact: true }),
@@ -126,9 +126,7 @@ test("account navigation preference persists across sessions, isolates users and
       ).toBe(true);
       for (const name of [
         "Inventory",
-        "Locations",
         "Decks",
-        "Settings",
         "Commander League",
       ]) {
         await expect(
@@ -137,6 +135,9 @@ test("account navigation preference persists across sessions, isolates users and
             .getByRole("link", { name, exact: true }),
         ).toBeVisible();
       }
+      await expect(page.getByRole("navigation", { name: "Inventory sections" })
+        .getByRole("link", { name: "Locations", exact: true })).toBeVisible();
+      await expect(shell.locator(".archive-utilities").getByRole("link", { name: "Settings", exact: true })).toBeVisible();
     }
     await page.setViewportSize({ width: 1366, height: 768 });
     for (const theme of [
@@ -169,7 +170,7 @@ test("account navigation preference persists across sessions, isolates users and
       await expect(
         page
           .locator(".archive-rail")
-          .getByRole("link", { name: "Locations", exact: true }),
+          .getByRole("link", { name: "Inventory", exact: true }),
       ).toBeVisible();
       expect(
         await page.evaluate(
@@ -202,7 +203,8 @@ test("account navigation preference persists across sessions, isolates users and
         viewport: node.clientHeight,
       }));
       expect(railScroll.overflow).toBe("auto");
-      expect(railScroll.content).toBeGreaterThan(railScroll.viewport);
+      expect(railScroll.viewport).toBeLessThanOrEqual(384);
+      await expect(zoomRail.getByRole("link", { name: "Commander League", exact: true })).toBeInViewport();
       expect(await zoomPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
         .toBe(true);
       await zoomPage.screenshot({ path: "test-results/navigation-browser-zoom.png", animations: "disabled" });
@@ -213,8 +215,6 @@ test("account navigation preference persists across sessions, isolates users and
       await expect(zoomMenu).toBeFocused();
       for (const [name, route] of [
         ["Decks", "/decks"],
-        ["Settings", "/settings"],
-        ["Locations", "/locations"],
         ["Inventory", "/inventory"],
       ]) {
         await zoomMenu.focus();
@@ -230,6 +230,12 @@ test("account navigation preference persists across sessions, isolates users and
         await zoomPage.keyboard.press("Escape");
         await expect(zoomMenu).toBeFocused();
       }
+      const section = zoomPage.getByRole("navigation", { name: "Inventory sections" });
+      await section.getByRole("link", { name: "Locations", exact: true }).click();
+      await expect(zoomPage).toHaveURL(/\/locations$/);
+      await expect(section.getByRole("link", { name: "Locations", exact: true })).toHaveAttribute("aria-current", "page");
+      await zoomPage.locator(".archive-utilities").getByRole("link", { name: "Settings", exact: true }).click();
+      await expect(zoomPage).toHaveURL(/\/settings$/);
     } finally {
       await zoomContext.close();
     }
@@ -269,7 +275,7 @@ test("account navigation preference persists across sessions, isolates users and
         .evaluate((node) => getComputedStyle(node).marginLeft),
     ).toBe("196px");
     await expect(
-      page.getByRole("link", { name: "Account", exact: true }),
+      shell.locator(".archive-utilities").getByRole("link", { name: "Settings", exact: true }),
     ).toBeVisible();
     await page.getByRole("button", { name: "Log out", exact: true }).click();
     await expect(shell).toHaveCount(0);
