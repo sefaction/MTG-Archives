@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
 import { Nav } from "@/components/Nav";
+import { MemberWishlist } from "@/components/MemberWishlist";
 import { WishlistSearchAdd } from "@/components/WishlistSearchAdd";
 import { WishlistTable } from "@/components/WishlistTable";
 import { normalizeCollectionCardSize } from "@/components/cardGrid";
@@ -36,13 +38,12 @@ function colorIdentityLabel(value: unknown) {
   return String(value || "").toLowerCase();
 }
 
-function matchesTab(group: WishlistGroup, tab: string) {
-  if (tab === "manual") return group.manualQuantity > 0;
-  if (tab === "decks") return group.deckQuantity > 0;
-  if (tab === "available") return group.readyQuantity > 0;
-  if (tab === "missing") return group.getQuantity > 0;
-  return true;
-}
+const wishlistReasons = [
+  { value: "combined", label: "Combined", href: "/wishlist" },
+  { value: "decks", label: "Deck needs", href: "/wishlist?reason=decks" },
+  { value: "members", label: "From members", href: "/wishlist?reason=members" },
+  { value: "manual", label: "Manual wishes", href: "/wishlist?reason=manual" },
+] as const;
 
 function sourceMatches(group: WishlistGroup, source: string) {
   if (!source) return true;
@@ -116,7 +117,51 @@ export default async function WishlistPage({
 }) {
   const user = await requireLogin();
   const params = await searchParams;
-  const tab = params.tab || "all";
+  // Existing links used the tab parameter for both reason and availability.
+  const legacyReason = params.tab === "manual" || params.tab === "decks"
+    ? params.tab
+    : "combined";
+  const selectedReason = wishlistReasons.find(
+    ({ value }) => value === (params.reason ?? legacyReason),
+  ) ?? wishlistReasons[0];
+  const reason = selectedReason.value;
+  const availability =
+    params.tab === "available" || params.tab === "missing" ? params.tab : "all";
+  const heading = (
+    <>
+      <Nav />
+      <section className="space-y-2">
+        <h1 className="text-3xl font-bold">Wishlist</h1>
+        <p className="text-zinc-400">Browse the cards you want by reason.</p>
+      </section>
+      <nav
+        className="flex flex-wrap gap-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-1"
+        aria-label="Wishlist reason"
+      >
+        {wishlistReasons.map((option) => (
+          <Link
+            key={option.value}
+            href={option.href}
+            aria-current={reason === option.value ? "page" : undefined}
+            className={cn(
+              "rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100",
+              reason === option.value && "bg-sky-950/60 font-semibold text-sky-100",
+            )}
+          >
+            {option.label}
+          </Link>
+        ))}
+      </nav>
+    </>
+  );
+  if (reason === "members") {
+    return (
+      <main className="space-y-6 p-4 sm:p-8">
+        {heading}
+        <MemberWishlist ownerUserId={user.id} page={params.memberPage} />
+      </main>
+    );
+  }
   const q = (params.q || "").trim().toLowerCase();
   const source = params.source || "";
   const deck = (params.deck || "").trim().toLowerCase();
@@ -131,9 +176,13 @@ export default async function WishlistPage({
   const cardSize = normalizeCollectionCardSize(params.cardSize);
   const pageSize = Math.min(100, asNumber(params.pageSize, 25));
   const page = Math.max(1, asNumber(params.page, 1));
-  const view = await getWishlistView(prisma, user.id, user.playerId);
+  const view = await getWishlistView(prisma, user.id, user.playerId, reason);
 
-  let groups = view.groups.filter((group) => matchesTab(group, tab));
+  let groups = view.groups.filter(
+    (group) =>
+      (availability !== "available" || group.readyQuantity > 0) &&
+      (availability !== "missing" || group.getQuantity > 0),
+  );
   if (q) {
     groups = groups.filter(
       (group) =>
@@ -188,14 +237,11 @@ export default async function WishlistPage({
   );
 
   return (
-    <main className="space-y-6 p-8">
-      <Nav />
-      <section className="space-y-2">
-        <h1 className="text-3xl font-bold">Wishlist</h1>
-        <p className="text-zinc-400">
-          Manual requests and unfilled deck slots in an inventory-style browser.
-        </p>
-      </section>
+    <main className="space-y-6 p-4 sm:p-8">
+      {heading}
+      <h2 className="text-xl font-semibold">
+        {reason === "combined" ? "Manual wishes and deck needs" : selectedReason.label}
+      </h2>
 
       <details className="rounded border border-sky-900/70 bg-sky-950/20">
         <summary className="cursor-pointer list-none p-4 font-semibold text-sky-100">
@@ -235,6 +281,7 @@ export default async function WishlistPage({
       </section>
 
       <form className="space-y-3 rounded border border-zinc-800 p-4">
+        <input type="hidden" name="reason" value={reason} />
         <div className="flex flex-wrap items-end gap-3">
           <label className={filterFieldClass}>
             Search
@@ -246,17 +293,15 @@ export default async function WishlistPage({
             />
           </label>
           <label className={filterFieldClass}>
-            View
+            Availability
             <input type="hidden" name="viewMode" value={viewMode} />
             <input type="hidden" name="cardSize" value={cardSize} />
             <select
               name="tab"
-              defaultValue={tab}
+              defaultValue={availability}
               className={cn(filterSelectClass, "mt-1 block")}
             >
               <option value="all">All</option>
-              <option value="manual">Manual</option>
-              <option value="decks">Needed for Decks</option>
               <option value="available">Ready</option>
               <option value="missing">Get</option>
             </select>
@@ -298,7 +343,7 @@ export default async function WishlistPage({
           </label>
           <input type="hidden" name="page" value="1" />
           <button className={filterPrimaryButtonClass}>Apply</button>
-          <a href="/wishlist" className={filterButtonClass}>
+          <a href={selectedReason.href} className={filterButtonClass}>
             Clear Filters
           </a>
         </div>
@@ -442,9 +487,10 @@ export default async function WishlistPage({
         pageSize={pageSize}
         viewMode={viewMode}
         cardSize={cardSize}
-        query={params}
+        query={{ ...params, reason, tab: availability }}
       />
-      <WishlistSearchAdd />
+      {reason !== "decks" && <WishlistSearchAdd />}
+      {reason === "combined" && <MemberWishlist ownerUserId={user.id} preview />}
     </main>
   );
 }
