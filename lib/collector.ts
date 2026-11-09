@@ -6,12 +6,28 @@ export const collectorCardSchema = z.object({
   games: z.array(z.string()), layout: z.string(), type_line: z.string().optional(),
   card_faces: z.array(z.object({type_line: z.string().optional()})).optional(),
   oversized: z.boolean(), finishes: z.array(z.enum(["nonfoil", "foil", "etched"])).min(1),
+  collector_number: z.string().optional(),
 });
 export type CollectorCard = z.infer<typeof collectorCardSchema>;
 export type CollectorOwned = { currentOwnerId: string; quantity: number; language: string;
   foilStatus: string; card: { scryfallId: string } };
 export type CollectorCounts = { owned: number; total: number; percent: number };
 export type CollectorProgress = { grouped: CollectorCounts; variants: CollectorCounts };
+export type CollectorMode = keyof CollectorProgress;
+export type CollectorDetailRow = {
+  id: string;
+  name: string;
+  quantity: number;
+  collectorNumber?: string;
+  finish?: CollectorCard["finishes"][number];
+};
+export type CollectorDetail = {
+  rows: CollectorDetailRow[];
+  progress: CollectorCounts;
+  page: number;
+  pages: number;
+  matches: number;
+};
 
 export function eligibleCollectorCard(card: CollectorCard) {
   return card.lang === "en" && !card.digital && card.games.includes("paper") && !card.oversized &&
@@ -19,23 +35,55 @@ export function eligibleCollectorCard(card: CollectorCard) {
     ![card.type_line, ...(card.card_faces ?? []).map(face => face.type_line)].some(type => /\b(Token|Emblem|Card)\b/.test(type ?? ""));
 }
 const groupKey = (card: CollectorCard) => card.oracle_id ?? `name:${card.name}`;
-export function collectorProgress(cards: CollectorCard[], owned: CollectorOwned[], ownerId: string): CollectorProgress {
+function collectorTally(cards: CollectorCard[], owned: CollectorOwned[], ownerId: string) {
   const eligible = new Map(cards.filter(eligibleCollectorCard).map(card => [card.id, card]));
-  const groups = new Set<string>(), variants = new Set<string>();
-  const ownedGroups = new Set<string>(), ownedVariants = new Set<string>();
+  const groups = new Map<string, CollectorDetailRow>();
+  const variants = new Map<string, CollectorDetailRow>();
   for (const card of eligible.values()) {
-    groups.add(groupKey(card));
-    for (const finish of card.finishes) variants.add(`${card.id}:${finish}`);
+    const group = groupKey(card);
+    if (!groups.has(group)) groups.set(group, {id: group, name: card.name, quantity: 0});
+    for (const finish of card.finishes) {
+      const id = `${card.id}:${finish}`;
+      variants.set(id, {id, name: card.name, quantity: 0, collectorNumber: card.collector_number, finish});
+    }
   }
   for (const item of owned) {
     if (item.currentOwnerId !== ownerId || item.quantity <= 0 || item.language.toLowerCase() !== "en") continue;
     const card = eligible.get(item.card.scryfallId);
     if (!card) continue;
-    const variant = `${card.id}:${item.foilStatus.toLowerCase()}`;
-    if (!variants.has(variant)) continue;
-    ownedGroups.add(groupKey(card)); ownedVariants.add(variant);
+    const variant = variants.get(`${card.id}:${item.foilStatus.toLowerCase()}`);
+    if (!variant) continue;
+    variant.quantity += item.quantity;
+    const group = groups.get(groupKey(card))!;
+    group.quantity += item.quantity;
   }
-  const count = (have: number, total: number): CollectorCounts => ({owned: have, total,
-    percent: total ? Math.floor(have / total * 1000) / 10 : 0});
-  return {grouped: count(ownedGroups.size, groups.size), variants: count(ownedVariants.size, variants.size)};
+  return {grouped: groups, variants};
+}
+
+function count(rows: Map<string, CollectorDetailRow>): CollectorCounts {
+  let owned = 0;
+  for (const row of rows.values()) {
+    if (row.quantity > 0) owned++;
+  }
+  return {owned, total: rows.size, percent: rows.size ? Math.floor(owned / rows.size * 1000) / 10 : 0};
+}
+
+export function collectorProgress(cards: CollectorCard[], owned: CollectorOwned[], ownerId: string): CollectorProgress {
+  const {grouped, variants} = collectorTally(cards, owned, ownerId);
+  return {grouped: count(grouped), variants: count(variants)};
+}
+
+const PAGE_SIZE = 50;
+const byCardName = new Intl.Collator("en", {numeric: true});
+export function collectorDetail(cards: CollectorCard[], owned: CollectorOwned[], ownerId: string,
+  {mode, page, missingOnly}: {mode: CollectorMode; page: number; missingOnly: boolean}): CollectorDetail {
+  const targets = collectorTally(cards, owned, ownerId)[mode];
+  const rows = Array.from(targets.values()).filter(row => !missingOnly || row.quantity === 0);
+  rows.sort((a, b) => byCardName.compare(a.name, b.name) ||
+    byCardName.compare(a.collectorNumber ?? "", b.collectorNumber ?? "") ||
+    byCardName.compare(a.id, b.id));
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const current = Math.min(page, pages);
+  return {rows: rows.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE),
+    progress: count(targets), page: current, pages, matches: rows.length};
 }

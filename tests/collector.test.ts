@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {collectorCardSchema, collectorProgress, eligibleCollectorCard, type CollectorCard, type CollectorOwned} from "../lib/collector";
+import {collectorCardSchema, collectorDetail, collectorProgress, eligibleCollectorCard, type CollectorCard, type CollectorOwned} from "../lib/collector";
 import {fetchCollectorCatalog} from "../lib/collector-catalog";
 const card = (id: string, extra: Partial<CollectorCard> = {}): CollectorCard => ({id, oracle_id: "oracle", name: "Test Card", set: "tst", lang: "en", digital: false, games: ["paper"], layout: "normal", type_line: "Creature — Wizard", oversized: false, finishes: ["nonfoil", "foil"], ...extra});
 const item = (id: string, extra: Partial<CollectorOwned> = {}): CollectorOwned => ({currentOwnerId: "me", quantity: 1, language: "EN", foilStatus: "NONFOIL", card: {scryfallId: id}, ...extra});
@@ -37,6 +37,37 @@ test("missing oracle falls back to exact full name and etched is an independent 
 });
 test("unknown printings and unsupported finishes do not fabricate ownership", () => {
   assert.equal(collectorProgress([card("a", {finishes: ["foil"]})], [item("a"), item("b")], "me").grouped.owned, 0);
+});
+test("set detail sums eligible owned copies across printings and finishes while preserving completion", () => {
+  const cards = [
+    card("a", {collector_number: "10"}), card("b", {collector_number: "2"}),
+    card("c", {name: "Missing Card", oracle_id: undefined, finishes: ["etched"]}),
+    card("t", {layout: "token"}),
+  ];
+  const owned = [
+    item("a", {quantity: 2}), item("a", {quantity: 3}),
+    item("a", {foilStatus: "FOIL", quantity: 4}), item("b", {quantity: 6}),
+    item("c", {foilStatus: "ETCHED", language: "FR"}), item("c", {foilStatus: "ETCHED", currentOwnerId: "other"}),
+    item("c"), item("t", {quantity: 200}),
+  ];
+  const grouped = collectorDetail(cards, owned, "me", {mode: "grouped", page: 1, missingOnly: false});
+  assert.deepEqual(grouped.rows.map(row => [row.name, row.quantity]), [["Missing Card", 0], ["Test Card", 15]]);
+  const variants = collectorDetail(cards, owned, "me", {mode: "variants", page: 1, missingOnly: false});
+  assert.deepEqual(variants.rows.map(row => [row.id, row.collectorNumber, row.quantity]),
+    [["c:etched", undefined, 0], ["b:foil", "2", 0], ["b:nonfoil", "2", 6], ["a:foil", "10", 4], ["a:nonfoil", "10", 5]]);
+  assert.deepEqual({grouped: grouped.progress, variants: variants.progress}, collectorProgress(cards, owned, "me"));
+});
+test("missing-only set detail bounds pages and keeps the complete catalog denominator", () => {
+  const cards = Array.from({length: 102}, (_, index) => card(String(index), {oracle_id: String(index), name: `Card ${index}`}));
+  const owned = [item("0"), item("1")];
+  const first = collectorDetail(cards, owned, "me", {mode: "grouped", page: 1, missingOnly: true});
+  const last = collectorDetail(cards, owned, "me", {mode: "grouped", page: 1000, missingOnly: true});
+  assert.equal(first.rows.length, 50);
+  assert.equal(last.rows.length, 50);
+  assert.equal(last.page, 2);
+  assert.equal(last.matches, 100);
+  assert.deepEqual(last.progress, {owned: 2, total: 102, percent: 1.9});
+  assert.deepEqual([...first.rows, ...last.rows].map(row => row.name), cards.slice(2).map(row => row.name));
 });
 function provider(pages: unknown[]) { let n = 0; return async () => ({ok: true as const, data: pages[n++], correlationId: "test", requestsMade: 1}); }
 const page = (cards: CollectorCard[], total = cards.length, more = false) => ({object: "list", data: cards, total_cards: total, has_more: more});
