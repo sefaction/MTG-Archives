@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {randomUUID} from "node:crypto";
 import {PrismaClient} from "@prisma/client";
-import {readCollectorProgress} from "../lib/collector-service";
+import {readCollectorDetail, readCollectorProgress} from "../lib/collector-service";
 import {type CollectorCard} from "../lib/collector";
 import {cardHuntSnapshot, seedCardHuntFixture} from "./verify-card-hunt";
 async function main() {
@@ -33,6 +33,16 @@ async function main() {
       const unknown = await readCollectorProgress(tx, "no-such-owner", "tst", catalog);
       assert.equal(unknown.grouped.owned, 0);
       await assert.rejects(readCollectorProgress(tx, "", "tst", catalog));
+      const ownDetails = await readCollectorDetail(tx, f.user.playerId!, "tst", catalog,
+        {mode: "grouped", page: 1, missingOnly: false});
+      assert.deepEqual(ownDetails.progress, progress.grouped);
+      assert.equal(ownDetails.rows.find(row => row.name === "Deck only")?.quantity, 1);
+      assert.ok(!ownDetails.rows.some(row => row.name === "Token"));
+      const missingDetails = await readCollectorDetail(tx, f.user.playerId!, "tst", catalog,
+        {mode: "variants", page: 1, missingOnly: true});
+      assert.deepEqual(missingDetails.progress, progress.variants);
+      assert.equal(missingDetails.rows.length, 3);
+      assert.equal(missingDetails.rows.find(row => row.name === "Deck only" && row.finish === "foil")?.quantity, 0);
       assert.deepEqual(await cardHuntSnapshot(tx), baseline, "Progress reads preserve all tables");
       console.log(JSON.stringify({case: "collector-postgres", tables: Object.keys(baseline).length, progress, peer, deckOwnership: "pass", tokenConservation: "pass", privacy: "pass"}));
       throw rollback;
