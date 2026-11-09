@@ -131,6 +131,15 @@ async function main() {
   same(await db.inventoryAuditLog.count(), 1);
   same((await getWishlistView(db, uid, pid)).summary, { manualRows: 2, deckRows: 1,
     needQuantity: 5, readyQuantity: 1, getQuantity: 4, estimatedGetCost: 17 });
+  const manualView = await getWishlistView(db, uid, pid, "manual");
+  const deckView = await getWishlistView(db, uid, pid, "decks");
+  same(manualView.groups.map(g => g.card.id).sort(), ["manual", "shared"]);
+  same(manualView.summary, { manualRows: 2, deckRows: 0, needQuantity: 3,
+    readyQuantity: 0, getQuantity: 3, estimatedGetCost: 12 });
+  same(deckView.groups.map(g => g.card.id), ["shared"]);
+  same(deckView.summary, { manualRows: 0, deckRows: 1, needQuantity: 2,
+    readyQuantity: 1, getQuantity: 1, estimatedGetCost: 5 });
+  same(deckView.groups[0].sources.decks.map(d => d.deckId), ["normal"]);
   // Manual changes remain available even for a printing also used by League decks.
   const manual = new FormData(); manual.set("wishlistItemId", "wish-shared");
   manual.set("quantity", "4");
@@ -141,6 +150,13 @@ async function main() {
   same(after.leagueCards, baseline.leagueCards); same(after.links, baseline.links);
   same(after.submissions, baseline.submissions);
   same(after.wishes.map(({ updatedAt, ...row }) => row), baseline.wishes.map(({ updatedAt, ...row }) => row));
+  await db.player.create({ data: { id: "trade-member", name: "trade-member", displayName: "Fixture trade partner" } });
+  await db.player.create({ data: { id: "private-member", name: "private-member", displayName: "Private trade partner" } });
+  await db.tradeWishlistItem.createMany({ data: [
+    { ownerUserId: uid, cardId: "shared", targetOwnerPlayerId: "trade-member", quantity: 4 },
+    { ownerUserId: uid, cardId: "league-only", targetOwnerPlayerId: "trade-member", status: "CANCELLED" },
+    { ownerUserId: "other-user", cardId: "manual", targetOwnerPlayerId: "private-member", quantity: 7 },
+  ] });
   console.log(`PASS ${checks} isolated PostgreSQL query/action/conservation checks; populated fixture retained for browser tests.`);
 }
 main().finally(() => db.$disconnect());
