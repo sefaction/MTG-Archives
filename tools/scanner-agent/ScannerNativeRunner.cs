@@ -126,7 +126,8 @@ public static class ScannerNativeRunner
         a.Settings == b.Settings && a.PhysicalTarget == b.PhysicalTarget && a.Counted == b.Counted &&
         a.SequenceOffset == b.SequenceOffset && a.Segment == b.Segment;
     public static async Task PollAndRun(HttpClient client, Guid agentId, string token, string root,
-        IReadOnlyList<Device> devices, CancellationToken stop, Func<IScannerBackend>? backendFactory = null, Func<object>? backendDescription = null)
+        IReadOnlyList<Device> devices, CancellationToken stop, Func<IScannerBackend>? backendFactory = null,
+        Func<object>? backendDescription = null, string advertisedVersion = ScannerConnection.Version)
     {
         var poll = await Post(client, "api/scanner-agent/runs", token, new { action = "poll", version = 1 });
         if (poll.GetProperty("agentId").GetGuid() != agentId) throw new InvalidOperationException("Scanner connection changed");
@@ -150,6 +151,8 @@ public static class ScannerNativeRunner
         }
         if (run.Status != "QUEUED" || run.StopRequested || run.ExecutionId != null)
             throw new InvalidOperationException("Started scanner run has no local journal; manual reconciliation required");
+        if (run.Counted && run.Settings.Dpi == 300 && advertisedVersion != ScannerConnection.CountedResolutionVersion)
+            throw new InvalidOperationException("The connected site does not support counted scanning at 300 DPI");
         var helperIdentity = poll.TryGetProperty("helperIdentityReporting", out var reporting) && reporting.ValueKind == JsonValueKind.True
             ? ScannerHelperIdentity.Current : null;
         using var prepared = await PrepareSource(client, token, run, root, devices, backendFactory);
@@ -188,7 +191,7 @@ public static class ScannerNativeRunner
             try {
                 if (DateTime.UtcNow >= nextPulse)
                 {
-                    await Post(client, "api/scanner-agent/pulse", token, new { version = 1, agentVersion = ScannerConnection.Version, devices });
+                    await Post(client, "api/scanner-agent/pulse", token, new { version = 1, agentVersion = advertisedVersion, devices });
                     var status = await Post(client, "api/scanner-agent/runs", token, new { action = "poll", version = 1 });
                     if (status.GetProperty("epoch").GetGuid() != run.Epoch) backend.RequestStop("site generation changed; retain/drain");
                     var current = status.GetProperty("run");

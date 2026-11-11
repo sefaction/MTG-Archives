@@ -109,6 +109,19 @@ public static class ScannerNativeSelfTest
                 File.Exists(Path.Combine(directory,artifact.FileName)) ||
                 !File.Exists(Path.Combine(directory,"binding.json")))
                 throw new InvalidDataException("Eligible original was not retired safely");
+            var trial = instruction with { RunId = Guid.NewGuid(), DeviceId = CountedTwainBackend.DeviceId,
+                Settings = settings with { WidthInches = 2.7m, HorizontalPlacement = "Center" },
+                Counted = true, Status = "QUEUED", ExecutionId = null };
+            handler.Instruction = trial;
+            var trialRefused = false;
+            try {
+                await ScannerNativeRunner.PollAndRun(client, agentId, "fixture", root,
+                    [CountedTwainBackend.ProfileDevice], CancellationToken.None, noBackend);
+            } catch (InvalidOperationException error) when (error.Message == "The connected site does not support counted scanning at 300 DPI") {
+                trialRefused = true;
+            }
+            if (!trialRefused || backendCalls != 0 || Directory.Exists(Path.Combine(runsRoot, trial.RunId.ToString())))
+                throw new InvalidOperationException("An older site reached preparation for a queued 300 DPI scan");
             Console.WriteLine("PASS native helper ACK-loss replay, duplicate-run recovery without backend, epoch/binding/receipt fencing and server-gated original expiry; no hardware");
         } finally {
             if(Path.GetDirectoryName(root)!=Path.GetFullPath(fixtureRoot) || !Guid.TryParse(Path.GetFileName(root),out _))

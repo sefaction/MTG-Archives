@@ -6,8 +6,8 @@ import { Script } from "node:vm";
 import ts from "typescript";
 import { scannerFeedTarget, acquisitionReviewPage } from "../lib/acquisition-continuation";
 import {scannerContinuationRunId} from "../lib/scanner-continuation-identity";
-import { scannerBatchSchema, scannerRunFinishSchema, scannerCanonical } from "../lib/scanner-run-protocol";
-import { countedScannerSettings } from "../lib/scanner-counted-profile";
+import { scannerBatchSchema, scannerRunFinishSchema, scannerCanonical, scannerSettingsSchema } from "../lib/scanner-run-protocol";
+import { countedScannerSettings, COUNTED_RESOLUTION_SCANNER_VERSION, supportsCountedResolution } from "../lib/scanner-counted-profile";
 import { correctPhysicalCount, candidateKey } from "../lib/acquisition-domain";
 
 test("internal feed bounds do not cap the logical batch or the saved-card page", () => {
@@ -42,7 +42,7 @@ function fixture(target: number | null = null) {
     revision: 0, excluded: false, countConfirmed: false, uncertainty: [], observations: [{id: `photo${index}`}],
   })), corrections: []};
   const created: any[] = [];
-  const agent: any = {userId: "user", lastSeenAt: new Date(), revokedAt: null, devices: []};
+  const agent: any = {userId: "user", agentVersion: "0.3.0-native", lastSeenAt: new Date(), revokedAt: null, devices: []};
   let remaining: number | null = null;
   const markers = {started: false, retired: false, executionId: randomUUID()};
   const db: any = {
@@ -69,7 +69,7 @@ function fixture(target: number | null = null) {
     saveAcquisitionRow: async (_tx: unknown, _row: unknown, _before: unknown, after: any) => {session = after;},
     correctPhysicalCount, candidateKey,
     scannerDeviceSchema: {array: () => ({safeParse: () => ({success: true, data: [{id: "device", qualification: "KnownWorking"}]})})},
-    isCountedScannerDevice: () => true,
+    isCountedScannerDevice: () => true, scannerSettingsSchema, supportsCountedResolution,
     readScannerCapacity: async () => ({remaining}),
     denied: () => Error("denied"), ScannerRunConflict: Error,
   });
@@ -91,6 +91,23 @@ test("clean internal completion crosses the former sequence cap without a new lo
   assert.equal(f.row.phase, "CAPTURING");
   await f.call(); assert.equal(f.created.length, 1, "finish replay must never authorize another feed");
   assert.equal(f.row.phase, "CAPTURING", "old finish replay must not pause the new feed");
+});
+
+test("automatic continuation retains 300 DPI only when the current helper supports it", async () => {
+  for (const version of ["0.3.0-native", COUNTED_RESOLUTION_SCANNER_VERSION]) {
+    const f = fixture();
+    f.agent.agentVersion = version;
+    f.run.settings = { ...countedScannerSettings, dpi: 300 };
+    await f.call();
+    if (version === COUNTED_RESOLUTION_SCANNER_VERSION) {
+      assert.equal(f.created.length, 1);
+      assert.deepEqual(f.created[0].settings, f.run.settings);
+      assert.equal(f.row.phase, "CAPTURING");
+    } else {
+      assert.equal(f.created.length, 0);
+      assert.equal(f.row.phase, "PAUSED");
+    }
+  }
 });
 
 for (const marker of ["started", "retired"] as const) test(`restored prior ${marker} marker cannot trigger a fresh automatic feed`, async () => {

@@ -6,7 +6,7 @@ import { scannerTransaction, authenticateScanner, listScannerAgents } from "./sc
 import { SCANNER_CAPTURE_PROVIDER, scannerBatchSchema, scannerRunClaimSchema,
   scannerTransferSchema, scannerRunFinishSchema, scannerReconcileSchema, scannerCanonical,
   scannerPreflightReportSchema, scannerPreflightProblemSchema, scannerUploadProblemSchema, scannerRefillSchema,
-  scannerRefillReconciliationIsSafe } from "./scanner-run-protocol";
+  scannerRefillReconciliationIsSafe, scannerSettingsSchema } from "./scanner-run-protocol";
 import { createAcquisitionSession, executeAcquisitionCommand, getAcquisitionProgress,
   readAcquisitionRow, hydrateAcquisitionRow, saveAcquisitionRow,
   beginAcquisitionPhoto, finalizeAcquisitionPhoto, type AcquisitionActor } from "./acquisition-store";
@@ -17,7 +17,7 @@ import { persistScannerStartMarker, scannerStartMarkerExists, scannerSiteEpoch,
   scannerStartRetired, persistScannerStartRetirement, readScannerStartMarker } from "./scanner-control-files";
 import { lockAndReadInventoryCapacity } from "./inventory-capacity";
 import { ScannerRunConflict } from "./scanner-errors";
-import { isCountedScannerDevice, countedScannerSettings } from "./scanner-counted-profile";
+import { isCountedScannerDevice, countedScannerSettings, supportsCountedResolution } from "./scanner-counted-profile";
 import { readScannerCapacity } from "./scanner-capacity";
 import { readStorageLayout } from "./storage-layout";
 import { normalizeLocationSection } from "./inventory-locations";
@@ -29,13 +29,16 @@ import {cancelledSettledScannerTransfer} from "./scanner-drain-policy";
 type Tx = Prisma.TransactionClient;
 const denied = () => new ScannerRunConflict();
 const include = { acquisitionRun: { include: { session: true } } } as const;
-function currentCountedSource(agent: { devices: Prisma.JsonValue; lastSeenAt: Date | null }, deviceId: string) {
+function currentCountedSource(agent: { devices: Prisma.JsonValue; lastSeenAt: Date | null; agentVersion: string | null },
+  deviceId: string, dpi: 300 | 600) {
   const parsed = scannerDeviceSchema.array().safeParse(agent.devices);
   const device = parsed.success ? parsed.data.find(d => d.id === deviceId) : undefined;
   if (!agent.lastSeenAt || Date.now() - agent.lastSeenAt.getTime() >= 30000 ||
       !device || !isCountedScannerDevice(device) ||
       !["Qualified", "KnownWorking"].includes(device.qualification))
     throw new ScannerRunConflict("Choose a ready scanner that supports card counts before starting or refilling. Refresh scanner setup.");
+  if (!supportsCountedResolution(agent.agentVersion, dpi))
+    throw new ScannerRunConflict("Reconnect with the updated Windows helper to scan at 300 DPI.");
   return device;
 }
 async function lockScannerCreation(tx: Tx, requestKey: string) {
@@ -80,11 +83,11 @@ export async function createScannerBatch(db: PrismaClient, actor: AcquisitionAct
   const device = helper?.devices.find(d => d.id === input.deviceId);
   if (!helper?.online || !device || device.qualification === "Unsupported") throw denied();
   const counted = isCountedScannerDevice(device);
-  if (counted) currentCountedSource(helper, device.id);
+  if (counted) currentCountedSource(helper, device.id, input.settings.dpi);
   if ((input.continuous || input.continueFrom) && (!counted || !input.continuous || input.quantity !== null))
     throw new ScannerRunConflict("Section series requires a count controlled source and automatic section capacity");
-  if (counted && scannerCanonical(input.settings) !== scannerCanonical(countedScannerSettings))
-    throw new ScannerRunConflict("Count controlled fi-7160 requires the qualified 600 DPI centered profile");
+  if (counted && scannerCanonical(input.settings) !== scannerCanonical({ ...countedScannerSettings, dpi: input.settings.dpi }))
+    throw new ScannerRunConflict("Count controlled fi-7160 requires the centered Cards profile");
   const location = await db.inventoryLocation.findUnique({ where: { id: input.locationId } });
   if (!location) throw denied();
   const layout = readStorageLayout(location.storageLayout, location.type);
@@ -135,7 +138,7 @@ export async function createScannerBatch(db: PrismaClient, actor: AcquisitionAct
     const agent = await tx.scannerAgent.findUniqueOrThrow({ where: { id: helper.id } });
     if (agent.revokedAt || agent.userId !== actor.userId || !agent.lastSeenAt || Date.now() - agent.lastSeenAt.getTime() >= 30000)
       throw denied();
-    const admittedDevice = counted ? currentCountedSource(agent, device.id) : device;
+    const admittedDevice = counted ? currentCountedSource(agent, device.id, input.settings.dpi) : device;
     const run = await tx.scannerRun.create({ data: { id: input.requestKey, agentId: helper.id,
       acquisitionRunId: row.run!.id, epoch, requestPayload: scannerCanonical(input), deviceId: device.id,
       device: admittedDevice, settings: input.settings, loadedCount: input.loadedCount, counted,
@@ -170,7 +173,8 @@ export async function claimScannerRun(db: PrismaClient, authorization: string | 
         ...(current.helperIdentity ? { helperIdentity: current.helperIdentity } : {}) };
     }
     if (current.status !== "QUEUED" || current.stopRequestedAt) throw denied();
-    if (current.counted) currentCountedSource(await tx.scannerAgent.findUniqueOrThrow({ where: { id: current.agentId } }), current.deviceId);
+    if (current.counted) currentCountedSource(await tx.scannerAgent.findUniqueOrThrow({ where: { id: current.agentId } }),
+      current.deviceId, scannerSettingsSchema.parse(current.settings).dpi);
     const progress = await getStartState(tx, actor, current.acquisitionRun.sessionId);
     if (!progress.destinationCurrent || progress.session.phase !== "CAPTURING" ||
       !current.counted && progress.session.target !== null && current.loadedCount !== null && current.loadedCount > progress.session.target) throw denied();
@@ -350,6 +354,7 @@ export async function finishScannerRun(db: PrismaClient, authorization: string |
         const device = scannerDeviceSchema.array().safeParse(agent.devices);
         const ready = !agent.revokedAt && agent.userId === actor.userId && agent.lastSeenAt &&
           Date.now() - agent.lastSeenAt.getTime() < 30000 && device.success &&
+          supportsCountedResolution(agent.agentVersion, scannerSettingsSchema.parse(run.settings).dpi) &&
           device.data.some(d => d.id === run.deviceId && isCountedScannerDevice(d) && ["Qualified", "KnownWorking"].includes(d.qualification));
         const state = hydrateAcquisitionRow(row);
         if (ready && state.destinationCurrent) {
@@ -567,7 +572,7 @@ export async function refillScannerBatch(db: PrismaClient, userId: string, value
       throw new ScannerRunConflict("Run cannot resume until the previous scan is complete and its saved count is verified.");
     const agent = await tx.scannerAgent.findUniqueOrThrow({ where: { id: prior.agentId } });
     if (agent.revokedAt || agent.userId !== userId || !agent.lastSeenAt || Date.now() - agent.lastSeenAt.getTime() >= 30000) throw denied();
-    const refillDevice = currentCountedSource(agent, prior.deviceId);
+    const refillDevice = currentCountedSource(agent, prior.deviceId, scannerSettingsSchema.parse(prior.settings).dpi);
     if (await tx.scannerRun.count({ where: { agentId: agent.id, reconciliation: { equals: Prisma.DbNull } } })) throw denied();
     const offset = prior.sequenceOffset + Number(outcome!.imageCount), remaining = scannerFeedTarget(state.session.target, offset);
     if (remaining <= 0) throw denied();

@@ -4,7 +4,7 @@ Local hardware spike for [#473](https://github.com/sefaction/MTG-Archives/issues
 
 ## Run
 
-Helper 0.4.4 opens one chosen saved website/account connection. Opening the helper
+Helper 0.4.5 opens one chosen saved website/account connection. Opening the helper
 shows a chooser; sign-in resumes only the remembered choice. Ambiguous, revoked,
 missing or unreadable selections stay idle. Website reconnect is limited to that
 website. See [connection selection](../../docs/SCANNER_CONNECTION_SELECTION.md).
@@ -62,9 +62,20 @@ segment/journal within the same acquisition session.
 With the hopper and transport freshly confirmed empty and clear,
 `counted-prepare <request.json>` exercises actual counted preparation and closes
 without Start, a website connection or images. Use a fresh run UUID, the counted
-device ID, 600 DPI, 2.7-by-3.6 frame, Center, simplex and finite target. Both backend
-and companion refuse Start in this empty-check mode. It prints the verified native
-preparation and closure proofs and fails if restoration or actual process exit fails.
+device ID, 600 DPI, 2.7-by-3.6 frame, Center, simplex and finite target. Repeat with
+300 DPI to check preparation at that resolution. Both backend and companion refuse Start in
+this empty-check mode. The preparation report confirms both resolution axes were
+verified, and the closure report confirms restoration and actual process exit.
+
+On a site that supports both resolutions, helper 0.4.5 offers **300 DPI** for the
+counted fi-7160 source in Scan cards. **600 DPI (default)** remains the default.
+Both choices retain the Cards profile, centered 2.7-by-3.6-inch frame, RGB simplex,
+Pre-Pick Off and the existing count, capacity, Stop, refill and recovery guards.
+Brian's November 11 direction accepts equivalent operation apart from scanning
+speed; a physical comparison is not a delivery requirement for
+[#1003](https://github.com/sefaction/MTG-Archives/issues/1003). No measured speed
+or image-quality result is claimed. The older site/helper compatibility checks
+still refuse unsupported 300 DPI runs before scanner preparation.
 
 For the separately reviewed site-connected helper, `serve CONNECTION-ID`
 checks retained originals without starting a scanner. Every five minutes while

@@ -47,7 +47,7 @@ internal static class CountedTwainWorker
             (Func<object, ReturnCode>)(v => { throw new InvalidOperationException("Vendor SET forbidden"); }));
         GuardedFeedPolicy.RequireObservedInvariant(cap.CanGetCurrent, cap.CanGetCurrent ? cap.GetCurrent() : null);
     }
-    private static void CaptureReadback(DataSource source, int target)
+    private static void CaptureReadback(DataSource source, int target, int dpi)
     {
         Readback(source.Capabilities.CapFeederEnabled, BoolType.True);
         Readback(source.Capabilities.CapDuplexEnabled, BoolType.False);
@@ -57,8 +57,8 @@ internal static class CountedTwainWorker
         Readback(source.Capabilities.ICapXferMech, XferMech.Native);
         Readback(source.Capabilities.ICapPixelType, PixelType.RGB);
         Readback(source.Capabilities.ICapBitDepth, 24);
-        Readback(source.Capabilities.ICapXResolution, (TWFix32)600f);
-        Readback(source.Capabilities.ICapYResolution, (TWFix32)600f);
+        Readback(source.Capabilities.ICapXResolution, (TWFix32)(float)dpi);
+        Readback(source.Capabilities.ICapYResolution, (TWFix32)(float)dpi);
         Readback(source.Capabilities.ICapUnits, Unit.Inches);
         Readback(source.Capabilities.ICapAutoDiscardBlankPages, BlankPage.Disable);
         TWImageLayout layout; Require(source.DGImage.ImageLayout.Get(out layout));
@@ -82,6 +82,14 @@ internal static class CountedTwainWorker
         var line = Console.ReadLine();
         if (line == null || line.Length > 4096) throw new InvalidOperationException("Helper command unavailable");
         return json.Deserialize<Dictionary<string, object>>(line);
+    }
+    private static int ReadDpi(Dictionary<string, object> prepare)
+    {
+        // Existing helpers used this channel only for 600 DPI.
+        object value;
+        if (!prepare.TryGetValue("dpi", out value)) return 600;
+        if (value is int && ((int)value == 300 || (int)value == 600)) return (int)value;
+        throw new ArgumentException("Unsupported counted resolution");
     }
     private static int Main(string[] args)
     {
@@ -108,6 +116,7 @@ internal static class CountedTwainWorker
                 !(input["profileVersion"] is int) || (int)input["profileVersion"] != ProfileVersion ||
                 !input.ContainsKey("requireEmpty") || !(input["requireEmpty"] is bool) ||
                 target < 1 || target > 5000) throw new ArgumentException("Invalid preparation");
+            int dpi = ReadDpi(input);
             Owners(parent);
             PlatformInfo.Current.PreferNewDSM = false;
             session = new TwainSession(TWIdentity.CreateFromAssembly(DataGroups.Image | DataGroups.Control, Assembly.GetExecutingAssembly()));
@@ -131,18 +140,18 @@ internal static class CountedTwainWorker
             Exact(source.Capabilities.ICapXferMech, XferMech.Native);
             Exact(source.Capabilities.ICapPixelType, PixelType.RGB);
             Exact(source.Capabilities.ICapBitDepth, 24);
-            Exact(source.Capabilities.ICapXResolution, (TWFix32)600f);
-            Exact(source.Capabilities.ICapYResolution, (TWFix32)600f);
+            Exact(source.Capabilities.ICapXResolution, (TWFix32)(float)dpi);
+            Exact(source.Capabilities.ICapYResolution, (TWFix32)(float)dpi);
             Exact(source.Capabilities.ICapUnits, Unit.Inches);
             Exact(source.Capabilities.ICapAutoDiscardBlankPages, BlankPage.Disable);
             TWImageLayout layout; Require(source.DGImage.ImageLayout.Get(out layout));
             if (Math.Abs((double)layout.Frame.Left) > .001 || Math.Abs((double)layout.Frame.Top) > .001 ||
                 Math.Abs((double)layout.Frame.Right - 2.7) > .001 || Math.Abs((double)layout.Frame.Bottom - 3.6) > .001)
                 throw new InvalidOperationException("Current driver frame differs from qualified profile");
-            CaptureReadback(source, target);
+            CaptureReadback(source, target, dpi);
             Send(new { kind = "prepared", profileVersion = ProfileVersion, target, source = source.Name,
                 driver = source.Version.ToString(), protocol = source.ProtocolVersion.ToString(),
-                widthInches = (double)layout.Frame.Right, heightInches = (double)layout.Frame.Bottom, dpi = 600,
+                widthInches = (double)layout.Frame.Right, heightInches = (double)layout.Frame.Bottom, dpi,
                 autoScan = false, blankDiscard = false, captureReadbacksVerified = true, observedInvariantVerified = true,
                 feederLoaded = source.Capabilities.CapFeederLoaded.GetCurrent() == BoolType.True });
             var next = Read();
@@ -178,7 +187,7 @@ internal static class CountedTwainWorker
                 session.TransferCanceled += delegate { failures++; Send(new { kind = "problem", code = "TRANSFER_CANCELLED" }); };
                 session.SourceDisabled += delegate { disabled.Set(); };
                 Owners(parent);
-                CaptureReadback(source, target);
+                CaptureReadback(source, target, dpi);
                 if (source.Capabilities.CapFeederLoaded.GetCurrent() != BoolType.True) { empty = true; result = 0; }
                 else
                 {
@@ -228,16 +237,17 @@ internal static class CountedTwainWorker
     {
         if (!new[] { "normal", "early-empty", "overtransfer", "restore-error", "late-exit-error", "closure-proof-missing", "prepare-close-error",
             "blank-discard-auto", "blank-proof-missing", "blank-proof-malformed", "old-profile", "wrong-driver", "wrong-source",
-            "wrong-frame", "capture-proof-missing", "invariant-proof-missing", "invariant-proof-malformed" }.Contains(scenario)) return 2;
+            "wrong-frame", "wrong-resolution", "capture-proof-missing", "invariant-proof-missing", "invariant-proof-malformed" }.Contains(scenario)) return 2;
         var prepare = Read(); int target = Convert.ToInt32(prepare["target"]);
         if ((string)prepare["action"] != "prepare" || target < 1 || target > 3) return 2;
-        var proof = new Dictionary<string, object> { { "kind", "prepared" }, { "target", target }, { "dpi", 600 }, { "autoScan", false },
+        var proof = new Dictionary<string, object> { { "kind", "prepared" }, { "target", target }, { "dpi", ReadDpi(prepare) }, { "autoScan", false },
             { "blankDiscard", false }, { "profileVersion", ProfileVersion }, { "driver", ProfileDriver }, { "protocol", "2.4" },
             { "source", "PaperStream IP fi-7160" }, { "widthInches", 2.7 }, { "heightInches", 3.6 },
             { "captureReadbacksVerified", true }, { "observedInvariantVerified", true }, { "feederLoaded", false }, { "fixture", true } };
         if (scenario == "blank-proof-missing") proof.Remove("blankDiscard");
         if (scenario == "blank-proof-malformed") proof["blankDiscard"] = 0;
         if (scenario == "blank-discard-auto") proof["blankDiscard"] = true;
+        if (scenario == "wrong-resolution") proof["dpi"] = 600;
         if (scenario == "old-profile") proof["profileVersion"] = 1;
         if (scenario == "wrong-driver") proof["driver"] = "3.40 3.40.2.1815 different build";
         if (scenario == "wrong-source") proof["source"] = "Other scanner";
