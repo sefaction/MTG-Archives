@@ -4,7 +4,7 @@ Local hardware spike for [#473](https://github.com/sefaction/MTG-Archives/issues
 
 ## Run
 
-Helper 0.4.4 opens one chosen saved website/account connection. Opening the helper
+Helper 0.4.5 opens one chosen saved website/account connection. Opening the helper
 shows a chooser; sign-in resumes only the remembered choice. Ambiguous, revoked,
 missing or unreadable selections stay idle. Website reconnect is limited to that
 website. See [connection selection](../../docs/SCANNER_CONNECTION_SELECTION.md).
@@ -62,9 +62,19 @@ segment/journal within the same acquisition session.
 With the hopper and transport freshly confirmed empty and clear,
 `counted-prepare <request.json>` exercises actual counted preparation and closes
 without Start, a website connection or images. Use a fresh run UUID, the counted
-device ID, 600 DPI, 2.7-by-3.6 frame, Center, simplex and finite target. Both backend
-and companion refuse Start in this empty-check mode. It prints the verified native
-preparation and closure proofs and fails if restoration or actual process exit fails.
+device ID, 600 DPI, 2.7-by-3.6 frame, Center, simplex and finite target. Repeat with
+300 DPI to check trial preparation. Both backend and companion refuse Start in
+this empty-check mode. The preparation report confirms both resolution axes were
+verified, and the closure report confirms restoration and actual process exit.
+
+On a site that supports the trial, helper 0.4.5 offers **300 DPI (trial)** for the
+counted fi-7160 source in Scan cards. Use **600 DPI (default)** as the baseline.
+For an operator-supervised comparison, repeat the same representative loads at
+both resolutions with the same Cards profile, centered guides and Pre-Pick Off.
+Record the helper and driver versions, verified settings, scan elapsed time and
+cards per minute, plus the count of emitted cards and saved originals. Compare
+title and collector-number legibility, recognition and review corrections. Record
+any feeding, transfer or image-quality differences against [#1003](https://github.com/sefaction/MTG-Archives/issues/1003).
 
 For the separately reviewed site-connected helper, `serve CONNECTION-ID`
 checks retained originals without starting a scanner. Every five minutes while

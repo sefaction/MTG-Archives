@@ -79,7 +79,8 @@ export async function recordScannerPulse(db: PrismaClient, authorization: string
       // Native-run keepalive pulses and older helpers omit diagnostics. Only an
       // explicit diagnostic report replaces them; an empty report clears them.
       discoveryIssues: pulse.discoveryIssues } });
-    return { version: 1, agentId: agent.id, nextPollMs: 5000, discoveryReporting: true, discoveryProgressReporting: true, connectionAccount };
+    return { version: 1, agentId: agent.id, nextPollMs: 5000, discoveryReporting: true, discoveryProgressReporting: true,
+      countedResolutionReporting: true, connectionAccount };
   });
 }
 export async function listScannerAgents(db: PrismaClient, userId: string, now = new Date()) {

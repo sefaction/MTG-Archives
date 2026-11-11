@@ -5,7 +5,8 @@ import type { getScannerBatch } from "@/lib/scanner-runs";
 import { filterButtonClass as button, filterInputClass as input, filterPanelClass as panel } from "./filterStyles";
 import { scannerPreflightMessage, scannerUploadMessage } from "@/lib/scanner-preflight-message";
 import { ScannerDiscoveryNotice } from "./ScannerDiscoveryNotice";
-import { isCountedScannerDevice, countedScannerSettings } from "@/lib/scanner-counted-profile";
+import { COUNTED_SCANNER_DEVICE, isCountedScannerDevice, countedScannerSettings,
+  isNativeScannerVersion, supportsCountedResolution } from "@/lib/scanner-counted-profile";
 type Agent = Awaited<ReturnType<typeof listScannerAgents>>[number];
 type Run = Awaited<ReturnType<typeof getScannerBatch>>;
 export type ScannerChoice = { agentId: string; deviceId: string; loadedCount: null;
@@ -20,10 +21,12 @@ async function call<T>(path: string, body?: object): Promise<T> {
 export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, remaining, disabled }: { initialEnabled: boolean; initialChoice?: ScannerChoice; onChange: (value: ScannerChoice | null, enabled: boolean, detecting?: boolean) => void; remaining: number | null; disabled: boolean }) {
   const [agents, setAgents] = useState<Agent[]>([]), [selected, setSelected] = useState(initialChoice ? `${initialChoice.agentId}/${initialChoice.deviceId}` : "");
   const [enabled, setEnabled] = useState(initialEnabled);
-  const [dpi, setDpi] = useState<300 | 600>(initialChoice?.settings.dpi ?? 600), [error, setError] = useState("");
+  const initialCounted = initialChoice?.deviceId === COUNTED_SCANNER_DEVICE;
+  const [dpi, setDpi] = useState<300 | 600>(initialCounted ? 600 : initialChoice?.settings.dpi ?? 600);
+  const [countedDpi, setCountedDpi] = useState<300 | 600>(initialCounted ? initialChoice.settings.dpi : 600);
+  const [error, setError] = useState("");
   const [placement, setPlacement] = useState<ScannerChoice["settings"]["horizontalPlacement"]>(initialChoice?.settings.horizontalPlacement ?? "Center");
   const frame = initialChoice?.settings;
-  const counted = isCountedScannerDevice(agents.flatMap(a=>a.devices).find(d=>selected.endsWith('/'+d.id)) ?? { id: "", backend: "" });
   const refresh = async () => { try { setAgents((await call<{ agents: Agent[] }>("/api/scanners")).agents); setError(""); } catch (e) { setError((e as Error).message); } };
   useEffect(() => {
     if (!enabled) return;
@@ -31,9 +34,13 @@ export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, r
     const timer = setInterval(() => void refresh(), 5000);
     return () => { clearTimeout(immediate); clearInterval(timer); };
   }, [enabled]);
-  const sources = agents.filter(a=>a.online && a.agentVersion === "0.3.0-native").flatMap(a=>a.devices
+  const sources = agents.filter(a=>a.online && isNativeScannerVersion(a.agentVersion)).flatMap(a=>a.devices
     .filter(d=>d.qualification!=="Unsupported").map(d=>({ key: `${a.id}/${d.id}`, agentId: a.id, device: d,
-      detecting: a.discoveryIssues?.some(issue=>issue.code==="DISCOVERY_IN_PROGRESS") ?? false })));
+      detecting: a.discoveryIssues?.some(issue=>issue.code==="DISCOVERY_IN_PROGRESS") ?? false,
+      supports300Dpi: supportsCountedResolution(a.agentVersion, 300) })));
+  const source = sources.find(s=>s.key === selected);
+  const counted = !!source && isCountedScannerDevice(source.device);
+  const countedResolutionReady = !counted || countedDpi === 600 || source.supports300Dpi;
   const detecting = agents.some(agent=>agent.online &&
     (!selected || selected.startsWith(`${agent.id}/`)) &&
     agent.discoveryIssues?.some(issue=>issue.code==="DISCOVERY_IN_PROGRESS")) &&
@@ -49,13 +56,12 @@ export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, r
     }
   }, [agents, selected, sources]);
   useEffect(() => {
-    const source = sources.find(s=>s.key === selected);
-    onChange(enabled && source && !source.detecting ? { agentId: source.agentId, deviceId: source.device.id, loadedCount: null,
-        operatorLoadedSimplexFronts: true, settings: counted ? countedScannerSettings : { dpi, widthInches: frame?.widthInches ?? 2.6, heightInches: frame?.heightInches ?? 3.6, horizontalPlacement: placement,
+    onChange(enabled && source && !source.detecting && countedResolutionReady ? { agentId: source.agentId, deviceId: source.device.id, loadedCount: null,
+        operatorLoadedSimplexFronts: true, settings: counted ? { ...countedScannerSettings, dpi: countedDpi } : { dpi, widthInches: frame?.widthInches ?? 2.6, heightInches: frame?.heightInches ?? 3.6, horizontalPlacement: placement,
           duplex: false, color: "RGB", autoCrop: false, deskew: false, removeBlank: false } } : null, enabled, enabled && detecting);
   // sources are refreshed by explicit user action; dependencies are the underlying inputs.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agents, selected, enabled, dpi, placement, remaining, onChange, frame, detecting, counted]);
+  }, [agents, selected, enabled, dpi, placement, remaining, onChange, frame, detecting, counted, countedDpi, countedResolutionReady]);
   return <fieldset id="scanner-source" className="space-y-3 min-w-0 my-3" disabled={disabled}>
     <legend className="font-semibold">3. Card input</legend>
     <label className="flex gap-2 items-start"><input type="checkbox" checked={enabled}
@@ -72,6 +78,14 @@ export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, r
       <ScannerDiscoveryNotice issues={agents.filter(agent=>agent.online &&
         (!selected || agent.id===sources.find(source=>source.key===selected)?.agentId))
         .flatMap(agent=>agent.discoveryIssues ?? [])} />
+      {counted && (source.supports300Dpi || countedDpi === 300) && <label className="block">Resolution
+        <select className={input+" block w-full max-w-full mt-1"} value={countedDpi}
+          onChange={e=>setCountedDpi(e.target.value === "300" ? 300 : 600)}>
+          <option value={600}>600 DPI (default)</option>
+          <option value={300} disabled={!source.supports300Dpi}>300 DPI (trial)</option>
+        </select>
+      </label>}
+      {!countedResolutionReady && <p role="alert">Reconnect with the updated Windows helper to scan at 300 DPI, or choose 600 DPI.</p>}
       <details hidden={counted}><summary className="cursor-pointer text-sm">Scan settings · {dpi} DPI · {placement === "Center" ? "Center" : placement === "Start" ? "Start edge" : "End edge"}</summary>
         <label className="block mt-2">Resolution<select className={input+" block mt-1"} value={dpi} onChange={e=>setDpi(Number(e.target.value) as 300|600)}>
           <option value={600}>600 DPI (default)</option><option value={300}>300 DPI</option></select></label>
@@ -81,7 +95,7 @@ export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, r
         <p className="text-sm mt-2">Match the position of the cards in the feeder. Use Center when the guides hold cards in the middle.</p>
         <p className="text-sm mt-2">Simplex color, fixed {frame?.widthInches ?? 2.6} × {frame?.heightInches ?? 3.6} inch frame; crop, deskew and blank removal off.</p>
       </details>
-      <p className="text-sm">{counted ? "600 DPI card fronts with the Cards profile and Pre-Pick Off. Clean runs count saved fronts automatically. If the hopper empties early, refill and resume the same batch. Clear the transport before Start. Stop waits for the current scan." : "Load card fronts and clear the transport. Start scans everything in the feeder; it does not stop at a chosen count. Keep the loaded cards within the destination's remaining capacity. Stop requests drain the feeder."}</p>
+      <p className="text-sm">{counted ? `${countedDpi} DPI card fronts with the Cards profile and Pre-Pick Off. Clean runs count saved fronts automatically. If the hopper empties early, refill and resume the same batch. Clear the transport before Start. Stop waits for the current scan.` : "Load card fronts and clear the transport. Start scans everything in the feeder; it does not stop at a chosen count. Keep the loaded cards within the destination's remaining capacity. Stop requests drain the feeder."}</p>
       {error && <p role="alert">{error}</p>}
     </>}
   </fieldset>;

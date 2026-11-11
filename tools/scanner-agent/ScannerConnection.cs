@@ -15,7 +15,8 @@ public record EnrollmentCredential(string Secret, string? PairCode, string Site,
 public static class ScannerConnection
 {
     public const string Version = "0.3.0-native";
-    public const string HelperVersion = "0.4.4";
+    internal const string CountedResolutionVersion = "0.4.0-native";
+    public const string HelperVersion = "0.4.5";
     private static string Root => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MTGArchives", "ScannerAgent");
     public static Uri Site(string value, bool allowLocal)
     {
@@ -79,11 +80,12 @@ public static class ScannerConnection
         return result;
     }
     internal static Dictionary<string, object> DiscoveryPulse(IReadOnlyList<Device> devices,
-        IReadOnlyList<ScannerDiscoveryIssue> issues, bool reporting, bool progressReporting = false) {
+        IReadOnlyList<ScannerDiscoveryIssue> issues, bool reporting, bool progressReporting = false,
+        string advertisedVersion = Version) {
         var pending = issues.Any(issue => issue.Code == "DISCOVERY_IN_PROGRESS");
         // Older sites cannot gate Start on progress. Do not advertise sources
         // there until discovery settles, or send them an unknown diagnostic code.
-        var pulse = new Dictionary<string, object> { ["version"] = 1, ["agentVersion"] = Version,
+        var pulse = new Dictionary<string, object> { ["version"] = 1, ["agentVersion"] = advertisedVersion,
             ["devices"] = pending && !progressReporting ? Array.Empty<Device>() : devices };
         if (reporting) pulse["discoveryIssues"] = progressReporting ? issues :
             issues.Where(issue => issue.Code != "DISCOVERY_IN_PROGRESS").ToArray();
@@ -467,6 +469,7 @@ public static class ScannerConnection
             var discovery = new ScannerDiscoveryRefresh(discoveryBackend);
             var discoveryReporting = false; // Older websites accept the unchanged pulse.
             var discoveryProgressReporting = false;
+            var advertisedVersion = Version;
             var nextRetention = DateTime.MinValue;
             try {
                 while (!stop.IsCancellationRequested && !File.Exists(CloseRequest(connection.AgentId)))
@@ -475,7 +478,7 @@ public static class ScannerConnection
                         if (args[0] == "report") await discovery.RefreshIfDue();
                         else await discovery.PulseTurn();
                         devices = discovery.Devices;
-                        var pulse = DiscoveryPulse(devices, discovery.Issues, discoveryReporting, discoveryProgressReporting);
+                        var pulse = DiscoveryPulse(devices, discovery.Issues, discoveryReporting, discoveryProgressReporting, advertisedVersion);
                         JsonElement acknowledgement;
                         try { acknowledgement = await Send(client, "api/scanner-agent/pulse", pulse, connection.AgentId, $"{connection.AgentId}.{credential.Secret}"); }
                         catch (InvalidOperationException) when (credential.PairCode != null) {
@@ -484,6 +487,15 @@ public static class ScannerConnection
                         }
                         discoveryReporting = acknowledgement.TryGetProperty("discoveryReporting", out var reporting) && reporting.ValueKind == JsonValueKind.True;
                         discoveryProgressReporting = acknowledgement.TryGetProperty("discoveryProgressReporting", out var progressReporting) && progressReporting.ValueKind == JsonValueKind.True;
+                        var negotiatedVersion = acknowledgement.TryGetProperty("countedResolutionReporting", out var resolutionReporting) &&
+                            resolutionReporting.ValueKind == JsonValueKind.True ? CountedResolutionVersion : Version;
+                        if (negotiatedVersion != advertisedVersion || args[0] == "report" && discoveryReporting && !pulse.ContainsKey("discoveryIssues")) {
+                            // Publish the negotiated version before polling a queued Start. A fresh connection can have a 300 DPI run waiting.
+                            await Send(client, "api/scanner-agent/pulse",
+                                DiscoveryPulse(devices, discovery.Issues, discoveryReporting, discoveryProgressReporting, negotiatedVersion),
+                                connection.AgentId, $"{connection.AgentId}.{credential.Secret}");
+                            advertisedVersion = negotiatedVersion;
+                        }
                         connection = RememberAccount(connection, acknowledgement);
                         if (credential.PairCode != null) {
                             credential = credential with { PairCode = null }; SaveCredential(connection, credential);
@@ -491,16 +503,12 @@ public static class ScannerConnection
                         Console.WriteLine(discovery.Pending ? "Scanner connection online; checking scanner drivers. No scan requested." :
                             $"Scanner connection online; {devices.Count} source(s). No scan requested.");
                         if (!discovery.Pending && discovery.Issues.Count > 0) Console.WriteLine("Some scanner drivers could not be checked; available sources remain usable. See the website for recovery guidance.");
-                        if (args[0] == "report") {
-                            if (discoveryReporting && !pulse.ContainsKey("discoveryIssues"))
-                                await Send(client, "api/scanner-agent/pulse", DiscoveryPulse(devices, discovery.Issues, true),
-                                    connection.AgentId, $"{connection.AgentId}.{credential.Secret}");
-                            break;
-                        }
+                        if (args[0] == "report") break;
                         if (!discoveryFixture && !discovery.Pending && !File.Exists(CloseRequest(connection.AgentId))) await ScannerNativeRunner.PollAndRun(client, connection.AgentId,
                             $"{connection.AgentId}.{credential.Secret}", Root, devices, stop.Token,
                             fixture ? () => new ScannerFixtureBackend(args[2]) : null,
-                            fixture ? () => new { backend = "fixture", purpose = "LOCAL_PROTOCOL_TEST_ONLY" } : null);
+                            fixture ? () => new { backend = "fixture", purpose = "LOCAL_PROTOCOL_TEST_ONLY" } : null,
+                            advertisedVersion);
                         if (args[0] == "serve" && DateTime.UtcNow >= nextRetention) {
                             nextRetention = DateTime.UtcNow.AddMinutes(5);
                             try {
