@@ -5,7 +5,7 @@
 [Setup]
 AppId=MTGArchives.ScannerAgent
 AppName=MTG Archives Scanner Helper
-AppVersion=0.4.5
+AppVersion=0.4.6
 AppPublisher=MTG Archives
 DefaultDirName={localappdata}\Programs\MTG Archives Scanner Helper
 DefaultGroupName=MTG Archives Scanner Helper
@@ -16,7 +16,7 @@ OutputBaseFilename=MTGArchivesScannerSetup
 Compression=lzma2
 SolidCompression=yes
 UninstallDisplayIcon={app}\Mtg.ScannerAgent.exe
-CloseApplications=yes
+CloseApplications=no
 RestartApplications=no
 
 [Tasks]
@@ -27,6 +27,10 @@ Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubd
 
 [Icons]
 Name: "{group}\MTG Archives Scanner Helper"; Filename: "{app}\Mtg.ScannerAgent.exe"
+Name: "{group}\fi-7160 Scanner Setup"; Filename: "{app}\Mtg.ScannerAgent.exe"; Parameters: "setup7160"
+
+[Run]
+Filename: "{app}\Mtg.ScannerAgent.exe"; Parameters: "setup7160"; Description: "Set up the fi-7160 driver and Cards profiles"; Flags: postinstall nowait skipifsilent
 
 [Registry]
 Root: HKCU; Subkey: "Software\Classes\mtg-archive-scanner"; ValueType: string; ValueData: "URL:MTG Archives Scanner Connection"; Flags: uninsdeletekey

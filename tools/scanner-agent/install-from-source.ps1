@@ -27,6 +27,8 @@ $text = ($sources | ForEach-Object { "$($_.Name) $((Get-FileHash -LiteralPath $_
 foreach ($sharedSource in @('CountFeedPolicy.cs', 'OwnedTwainLoop.cs', 'GuardedFeedPolicy.cs')) {
   $text += "`n$sharedSource $((Get-FileHash -LiteralPath (Join-Path $PSScriptRoot ('..\scanner-twain-count\' + $sharedSource)) -Algorithm SHA256).Hash)"
 }
+$profilePayload = Join-Path $PSScriptRoot 'Profiles\MTG-Cards-7160-v1.pav'
+$text += "`nProfiles/MTG-Cards-7160-v1.pav $((Get-FileHash -LiteralPath $profilePayload -Algorithm SHA256).Hash)"
 $bytes = [Text.Encoding]::UTF8.GetBytes($text)
 $sha = [Security.Cryptography.SHA256]::Create()
 try { $fingerprint = ([BitConverter]::ToString($sha.ComputeHash($bytes)) -replace '-', '').Substring(0,16).ToLowerInvariant() }
@@ -37,7 +39,7 @@ New-Item -ItemType Directory -Path $published -Force | Out-Null
 try {
   & $DotnetPath restore $project --locked-mode
   if ($LASTEXITCODE -ne 0) { throw 'Locked scanner restore failed' }
-  & $DotnetPath publish $project --no-restore -c Release -f net8.0-windows -p:SelfContained=false -o $published
+  & $DotnetPath publish $project --no-restore -c Release -f net8.0-windows -p:SelfContained=false -p:UseSharedCompilation=false -nodeReuse:false -o $published
   if ($LASTEXITCODE -ne 0) { throw 'Scanner publish failed' }
   foreach ($name in @('Mtg.ScannerAgent.dll','Mtg.ScannerAgent.runtimeconfig.json','NAPS2.Worker.exe','counted-twain\Mtg.CountedTwain.exe','counted-twain\NTwain.dll')) {
     if (-not (Test-Path -LiteralPath (Join-Path $published $name) -PathType Leaf)) {
@@ -50,6 +52,8 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'Scanner native self-check failed' }
   & $DotnetPath (Join-Path $published 'Mtg.ScannerAgent.dll') discovery-selftest *> (Join-Path $buildRoot 'discovery-selftest.log')
   if ($LASTEXITCODE -ne 0) { throw 'Scanner discovery self-check failed; no scanner used' }
+  & $DotnetPath (Join-Path $published 'Mtg.ScannerAgent.dll') setup7160-selftest *> (Join-Path $buildRoot 'setup7160-selftest.log')
+  if ($LASTEXITCODE -ne 0) { throw 'fi-7160 setup package self-check failed; no installer or scanner used' }
   $canonicalPublish = (Get-Item -LiteralPath $published).FullName.TrimEnd('\','/')
   $files = @(Get-ChildItem -LiteralPath $published -File -Recurse | Sort-Object FullName | ForEach-Object {
     if (-not $_.FullName.StartsWith($canonicalPublish + [IO.Path]::DirectorySeparatorChar,

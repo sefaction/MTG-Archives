@@ -3,6 +3,28 @@ using Mtg.Scanner;
 
 try
 {
+    if (args.Length == 1 && args[0] == "setup7160") { Fi7160SetupWizard.Show(false); return; }
+    if (args.Length == 1 && args[0] == "setup7160-status")
+    {
+        Console.WriteLine(JsonSerializer.Serialize(new { kind = "Fi7160SetupStatus", software = new Fi7160SetupSystem().Inspect(), effectiveSettingsVerified = false, scannerOpened = false }));
+        return;
+    }
+    if (args.Length is 1 or 2 && args[0] == "setup7160-preview")
+    {
+        var scenario = args.Length == 2 ? args[1] : "fresh";
+        if (scenario is not ("fresh" or "installed" or "disconnected" or "incompatible" or "restart" or "recovery")) throw new ArgumentException("Unknown setup preview scenario.");
+        Fi7160SetupWizard.Show(true, scenario); return;
+    }
+    if (args.Length == 1 && args[0] == "setup7160-selftest") { await Fi7160SetupSelfTest.Run(); return; }
+    if (args.Length == 2 && args[0] == "setup7160-verify-driver")
+    {
+        if (!Path.IsPathFullyQualified(args[1])) throw new ArgumentException("An absolute driver package path is required.");
+        await Fi7160SetupPackages.Verify(args[1], Fi7160SetupPackages.Driver, default);
+        Console.WriteLine(JsonSerializer.Serialize(new { kind = "VerifiedFi7160DriverPackage",
+            version = Fi7160SetupPackages.DriverVersion, bytes = Fi7160SetupPackages.Driver.Bytes,
+            sha256 = Fi7160SetupPackages.Driver.Sha256, installed = false, scannerOpened = false }));
+        return;
+    }
     if (await ScannerCountedPreparation.Run(args)) return;
     if (await ScannerConnection.Run(args)) return;
     if (args.Length == 0 || args[0] is not ("list" or "list-wia" or "caps" or "scan" or "scan-diagnostic"))

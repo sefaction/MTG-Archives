@@ -4,6 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { findScannerInstaller } from "../lib/scanner-installer";
+import { hasFi7160SetupWizard } from "../lib/scanner-setup-version";
+
+test("setup guidance follows the downloaded installer's capabilities through legacy rollouts", () => {
+  for (const version of [null, "", "0.3.7", "0.4.5", "0.4.6-preview", "unknown"]) assert.equal(hasFi7160SetupWizard(version), false);
+  for (const version of ["0.4.6", "0.4.10", "0.5.0", "1.0.0"]) assert.equal(hasFi7160SetupWizard(version), true);
+});
 
 test("image installer supersedes persistent old package; development staging still works", async () => {
   const root = await mkdtemp(join(tmpdir(), "mtg-installer-"));

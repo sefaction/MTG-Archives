@@ -16,7 +16,7 @@ public static class ScannerConnection
 {
     public const string Version = "0.3.0-native";
     internal const string CountedResolutionVersion = "0.4.0-native";
-    public const string HelperVersion = "0.4.5";
+    public const string HelperVersion = "0.4.6";
     private static string Root => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MTGArchives", "ScannerAgent");
     public static Uri Site(string value, bool allowLocal)
     {

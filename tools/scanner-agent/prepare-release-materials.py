@@ -41,6 +41,10 @@ def helper_source_archive(destination):
         for name in ('CountFeedPolicy.cs', 'OwnedTwainLoop.cs', 'GuardedFeedPolicy.cs'):
             relative = 'tools/scanner-twain-count/' + name
             archive.write(ROOT / relative, relative)
+        # Embedded setup data is required when rebuilding corresponding source.
+        for name in ('MTG-Cards-7160-v1.pav', 'README.md'):
+            relative = 'tools/scanner-agent/Profiles/' + name
+            archive.write(ROOT / relative, relative)
 
 
 def prepare(publish, cache):
