@@ -57,7 +57,8 @@ for (const viewport of [{width: 1366,height: 900},{width: 390,height: 844}]) {
     await expect(page.getByText("2 / 6 variants",{exact:true})).toBeVisible();
     await page.getByRole("link",{name:"Back to inventory",exact:true}).click();
     await page.waitForURL(/\/inventory$/);
-    await expect(page.getByRole("link", {name: "Collector view", exact: true})).toBeVisible();
+    await expect(page.getByRole("navigation", {name: "Inventory sections"})
+      .getByRole("link", {name: "Collector", exact: true})).toBeVisible();
     await page.goBack(); await expect(page.getByRole("heading",{name:"Collector",exact:true})).toBeVisible();
     await expect(page.getByText("2 / 2 cards",{exact:true})).toBeVisible();
   });
@@ -79,3 +80,53 @@ test("API authentication, owner spoofing, peer privacy and unlinked accounts",as
   await page.context().clearCookies();await login(page,"collector-unlinked");
   expect((await page.request.get("/api/collector?set=tst")).status()).toBe(403);
 });
+
+for (const fixture of [
+  {width: 1366, height: 900, username: "collector-ui", missing: 4},
+  {width: 390, height: 844, username: "collector-peer", missing: 3},
+]) {
+  test(`Set Completion ${fixture.width}: individual and bulk adds, preferences and removal`, async ({page}) => {
+    await page.setViewportSize(fixture);
+    await login(page, fixture.username);
+    await page.goto("/collector?set=tst&view=variants");
+    const detail = page.locator("section[aria-labelledby='collector-set-heading']");
+    const rows = detail.getByRole("listitem");
+    const target = rows.filter({hasText: "Variant wizard"}).filter({hasText: "#2 · Nonfoil"});
+    const bulk = detail.getByRole("button", {name: "Add all missing to Wishlist"});
+    await expect(detail.getByRole("button", {name: "Add to Wishlist", exact: true})).toHaveCount(fixture.missing);
+    await target.getByRole("button", {name: "Add to Wishlist"}).click();
+    await expect(target.getByText("On Wishlist")).toBeVisible();
+    await bulk.click();
+    await expect(detail.getByText(`${fixture.missing - 1} added to Set Completion. 1 already on your wishlist.`)).toBeVisible();
+    await expect(detail.getByText("On Wishlist", {exact: true})).toHaveCount(fixture.missing);
+    await bulk.click();
+    await expect(detail.getByText(`${fixture.missing} already on your wishlist.`, {exact: true})).toBeVisible();
+
+    await detail.getByRole("link", {name: "Open Set Completion wishlist"}).click();
+    const wishes = page.getByRole("region", {name: "Set Completion", exact: true});
+    await expect(wishes.getByText("Wanted 1", {exact: true})).toHaveCount(fixture.missing);
+    const wish = wishes.getByRole("listitem").filter({hasText: "Variant wizard"}).filter({hasText: "#2 · Nonfoil preferred"});
+    await wish.getByText("Preferences for Variant wizard", {exact: true}).click();
+    await expect(wish.getByLabel("Allow another set")).not.toBeChecked();
+    await expect(wish.getByLabel("Allow a different finish")).not.toBeChecked();
+    await wish.getByLabel("Allow another set").check();
+    await wish.getByLabel("Allow a different finish").check();
+    await wish.getByRole("button", {name: "Save preferences"}).click();
+    await expect(wish.getByRole("button", {name: "Save preferences"})).toBeEnabled();
+    await page.reload();
+    await wish.getByText("Preferences for Variant wizard", {exact: true}).click();
+    await expect(wish.getByLabel("Allow another set")).toBeChecked();
+    await expect(wish.getByLabel("Allow a different finish")).toBeChecked();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+    await page.screenshot({path: `.local-data/set-completion-${fixture.width}.png`, fullPage: true});
+
+    await page.getByRole("link", {name: "Combined", exact: true}).click();
+    await expect(wishes.getByText("Wanted 1", {exact: true})).toHaveCount(fixture.missing);
+    await wishes.getByRole("link", {name: "View all Set Completion wishes"}).click();
+    await wish.getByText("Preferences for Variant wizard", {exact: true}).click();
+    page.once("dialog", dialog => dialog.accept());
+    await wish.getByRole("button", {name: "Remove wish"}).click();
+    await expect(wish).toHaveCount(0);
+    await expect(wishes.getByText("Wanted 1", {exact: true})).toHaveCount(fixture.missing - 1);
+  });
+}

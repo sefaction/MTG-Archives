@@ -4,17 +4,22 @@ import { parseDecklistText } from "./deck-import";
 import { isBasicLandCard } from "./card-types";
 import { isSystemDeckLocation } from "./deck-inventory";
 import { buildReservedInventoryQuantities } from "./trade-lines";
-import { huntMatches, huntPrintingMatches, planCardHunt, type HuntRequest, type HuntStock } from "./card-hunt";
+import { huntMatches, huntPrintingMatches, isPullableHuntStock, planCardHunt, type HuntRequest, type HuntStock } from "./card-hunt";
 
 export const cardHuntInput = z.object({
   deckId: z.string().trim().min(1).max(100).optional(),
   text: z.string().max(100_000).optional(),
+  card: z.object({
+    id: z.string().trim().min(1).max(100),
+    scope: z.enum(["card", "printing"]),
+    finish: z.enum(["NONFOIL", "FOIL", "ETCHED"]).optional(),
+  }).optional(),
   mode: z.enum(["preferences", "boxes"]).default("preferences"),
   finish: z.enum(["ANY", "NONFOIL", "FOIL", "ETCHED"]).default("ANY"),
   includeMaybeboard: z.boolean().default(false),
   ignoreBasicLands: z.boolean().default(false),
-}).refine(value => Boolean(value.deckId) !== Boolean(value.text?.trim()), {
-  message: "Choose a deck or paste a card list.",
+}).refine(value => [value.deckId, value.text?.trim(), value.card].filter(Boolean).length === 1, {
+  message: "Choose a deck, paste a card list, or choose a card.",
 });
 
 export class CardHuntError extends Error {
@@ -33,9 +38,14 @@ export async function buildCardHunt(
   if (!user.playerId) throw new CardHuntError("Link your account to an inventory owner to hunt cards.");
   const input = parsed.data;
   let title = "Pasted card list";
-  let requests: HuntRequest[];
+  let requests: HuntRequest[] = [];
   const warnings: string[] = [];
   const basicLandIds = new Set<string>();
+  const card = input.card ? await db.card.findUnique({
+    where: { id: input.card.id },
+    select: { id: true, name: true, oracleId: true, setCode: true, collectorNumber: true },
+  }) : null;
+  if (input.card && !card) throw new CardHuntError("Card not found.", 404);
   if (input.deckId) {
     // Even administrator mode cannot silently plan against someone else's stock.
     const deck = await db.deck.findFirst({
@@ -59,7 +69,7 @@ export async function buildCardHunt(
     requests = deck.cards.map(card => ({id: card.id, name: card.cardName,
       quantity: card.quantity, cardId: card.cardId, oracleId: card.oracleId ?? card.card?.oracleId,
       setCode: card.card?.setCode, collectorNumber: card.card?.collectorNumber}));
-  } else {
+  } else if (!input.card) {
     const source = parseDecklistText(input.text!);
     const lines = source.lines.filter(line => input.includeMaybeboard || line.section !== "MAYBEBOARD");
     if (lines.some(line => line.errors.length || !line.parsedName || !line.quantity || /^0+\s*x?\s+/i.test(line.rawLine.trim())))
@@ -69,7 +79,7 @@ export async function buildCardHunt(
       quantity: line.quantity!, setCode: line.parsedSetCode, collectorNumber: line.parsedCollectorNumber,
       finish: line.foil ? "FOIL" : undefined}));
   }
-  if (!requests.length) throw new CardHuntError("Add at least one card to hunt.");
+  if (!requests.length && !input.card) throw new CardHuntError("Add at least one card to hunt.");
   if (requests.length > 500 || requests.some(request => !Number.isSafeInteger(request.quantity) || request.quantity < 1 || request.quantity > 1_000_000))
     throw new CardHuntError("Use up to 500 card lines with whole quantities from 1 to 1,000,000.");
 
@@ -86,16 +96,25 @@ export async function buildCardHunt(
     ...planCardHunt({ownerId: user.playerId!, requests, stock, mode: input.mode, finish: input.finish}),
   });
   // An all-basic deck is a valid empty hunt when the user opted to skip basics.
-  if (!requests.length) return result([]);
+  if (!requests.length && !input.card) return result([]);
 
   const cardIds = [...new Set(requests.flatMap(request => request.cardId ? [request.cardId] : []))];
   const oracleIds = [...new Set(requests.flatMap(request => request.oracleId ? [request.oracleId] : []))];
   const names = [...new Set(requests.filter(request => !request.oracleId).map(request => request.name))];
-  const items = await db.inventoryItem.findMany({
-    where: {currentOwnerId: user.playerId, quantity: {gt: 0}, OR: [
+  let match: Prisma.InventoryItemWhereInput = { OR: [
       {cardId: {in: cardIds}}, {card: {oracleId: {in: oracleIds}}},
       ...names.map(name => ({card: {name: {equals: name, mode: Prisma.QueryMode.insensitive}}})),
-    ]},
+  ] };
+  if (card && input.card) {
+    title = card.name;
+    match = input.card.scope === "printing"
+      ? { cardId: card.id, foilStatus: input.card.finish }
+      : card.oracleId
+        ? { card: { oracleId: card.oracleId } }
+        : { card: { name: { equals: card.name, mode: Prisma.QueryMode.insensitive }, OR: [{ oracleId: null }, { oracleId: "" }] } };
+  }
+  const items = await db.inventoryItem.findMany({
+    where: {currentOwnerId: user.playerId, quantity: {gt: 0}, ...match},
     orderBy: {id: "asc"},
     select: {id: true, currentOwnerId: true, quantity: true, cardId: true, foilStatus: true,
       language: true, condition: true, locationSection: true,
@@ -122,6 +141,22 @@ export async function buildCardHunt(
     location: item.location ? {id: item.location.id, name: item.location.name,
       section: item.locationSection, ownerId: item.location.ownerPlayerId,
       active: item.location.active, isDeck: isSystemDeckLocation(item.location)} : null}));
+  if (card && input.card) {
+    const quantity = stock.reduce((total, item) =>
+      total + (isPullableHuntStock(item, user.playerId!) ? Math.max(0, item.quantity - item.reserved) : 0), 0);
+    if (!quantity) return result([]);
+    requests = [{
+      id: card.id,
+      name: card.name,
+      quantity,
+      ...(input.card.scope === "printing" ? {
+        cardId: card.id,
+        setCode: card.setCode,
+        collectorNumber: card.collectorNumber,
+        finish: input.card.finish,
+      } : { oracleId: card.oracleId }),
+    }];
+  }
   if (input.deckId) {
     const committed = new Map(items.filter(item => item.currentOwnerId === user.playerId &&
       item.location?.ownerPlayerId === user.playerId && item.location.deckId === input.deckId)

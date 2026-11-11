@@ -25,7 +25,19 @@ export async function GET(request: Request) {
       if (mode === "grouped" || mode === "variants") {
         const detail = await readCollectorDetail(prisma, user.playerId, set, catalog.cards,
           {mode, page, missingOnly: params.get("missing") === "1"});
-        return Response.json({set, ...detail, checkedAt: catalog.checkedAt}, {headers});
+        const wishes = await prisma.collectorWishlistItem.findMany({
+          where: {
+            ownerUserId: user.id,
+            setCode: set,
+            mode,
+            targetKey: {in: detail.rows.map(row => row.id)},
+          },
+          select: {targetKey: true},
+        });
+        return Response.json({
+          set, ...detail, checkedAt: catalog.checkedAt,
+          wishlistedIds: wishes.map(wish => wish.targetKey),
+        }, {headers});
       }
       const progress = await readCollectorProgress(prisma, user.playerId, set, catalog.cards);
       return Response.json({set, ...progress,

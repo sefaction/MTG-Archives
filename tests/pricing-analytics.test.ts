@@ -6,11 +6,9 @@ import { money } from "../lib/pricing-analytics";
 test("pricing analytics page and navigation are wired", () => {
   assert.equal(existsSync("app/pricing/page.tsx"), true);
   const pricingPage = readFileSync("app/pricing/page.tsx", "utf8");
-  const nav = readFileSync("components/Nav.tsx", "utf8");
-  const inventory = readFileSync("app/inventory/page.tsx", "utf8");
+  const nav = readFileSync("components/ArchiveNavigation.tsx", "utf8");
   const adminPrices = readFileSync("app/admin/prices/page.tsx", "utf8");
-  assert.match(nav, /href: "\/pricing"/);
-  assert.match(inventory, /View value trends/);
+  assert.match(nav, /\["\/pricing", "Pricing"\]/);
   assert.match(adminPrices, /Pricing worker/);
   assert.match(pricingPage, /Pricing analytics/);
   assert.match(pricingPage, /getPricingDashboard/);

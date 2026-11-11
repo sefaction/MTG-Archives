@@ -1119,10 +1119,7 @@ export default async function InventoryPage({
             {adminModeActive ? "All owners · Admin mode" : "Your collection"}
           </p>
         </div>
-        <a className="text-sm text-sky-300 underline" href="/collector">Collector view</a>
-        <a className="text-sm text-sky-300 underline" href="/pricing">
-          View value trends
-        </a>
+        <a className="shrink-0 text-sm text-sky-300 underline" href="/imports">Add cards</a>
       </div>
       {adminModeActive ? (
         <details className="border border-zinc-800 rounded p-3 space-y-2">
@@ -1213,13 +1210,13 @@ export default async function InventoryPage({
               <p className="mt-2 text-[var(--app-muted)]">
                 {hasActiveFilters
                   ? "Revise a filter above or clear them to see your collection again."
-                  : "Add cards in Imports to start building your collection."}
+                  : "Add cards to start building your collection."}
               </p>
               <a
                 className="mt-3 inline-flex text-sky-300 underline"
                 href={hasActiveFilters ? clearFiltersHref : "/imports"}
               >
-                {hasActiveFilters ? "Clear filters" : "Go to Imports"}
+                {hasActiveFilters ? "Clear filters" : "Add cards"}
               </a>
             </div>
           ) : null}
@@ -1240,6 +1237,7 @@ export default async function InventoryPage({
             }))}
             cardLabels={cardLabels}
             isAdmin={adminModeActive}
+            huntOwnerId={user?.playerId ?? undefined}
             displayMode={displayMode}
             totalMatchingCount={totalMatchingCount}
             totalMatchingCards={filteredPrintingGroups.reduce(

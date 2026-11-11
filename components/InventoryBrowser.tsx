@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
+import { CardHunt } from "./CardHunt";
 import { INVENTORY_SORT_FIELDS } from "@/lib/inventory-sort";
 import { inventorySortHref } from "./inventorySortNavigation";
 import { StorageDestinationPicker } from "./StorageDestinationPicker";
@@ -1142,6 +1143,7 @@ function CardDetail({
   onEdit,
   onAudit,
   onDelete,
+  canHunt,
 }: {
   row: InventoryRow;
   onClose: () => void;
@@ -1153,10 +1155,41 @@ function CardDetail({
   onEdit?: () => void;
   onAudit?: () => void;
   onDelete?: () => Promise<void>;
+  canHunt: boolean;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const huntButton = useRef<HTMLButtonElement>(null);
+  const huntHeading = useRef<HTMLHeadingElement>(null);
+  const [huntOpen, setHuntOpen] = useState(false);
+  const wasHunting = useRef(false);
   const titleId = useId();
+  const huntTitleId = useId();
   const [wishlistError, setWishlistError] = useState("");
+  useEffect(() => {
+    if (!canHunt) return;
+    const restoreView = (event: PopStateEvent) => {
+      setHuntOpen(event.state?.inventoryCardHunt === row.id);
+    };
+    window.addEventListener("popstate", restoreView);
+    return () => window.removeEventListener("popstate", restoreView);
+  }, [canHunt, row.id]);
+  useEffect(() => {
+    if (huntOpen) huntHeading.current?.focus();
+    else if (wasHunting.current) huntButton.current?.focus();
+    wasHunting.current = huntOpen;
+  }, [huntOpen]);
+
+  function openHunt() {
+    // A same-document entry keeps the selected card, filters, and loaded rows mounted.
+    window.history.pushState({ inventoryCardHunt: row.id }, "");
+    setHuntOpen(true);
+  }
+
+  function closeView() {
+    if (huntOpen) window.history.back();
+    else onClose();
+  }
+
   async function saveTradeWishlist(formData: FormData) {
     setWishlistError("");
     try {
@@ -1213,10 +1246,10 @@ function CardDetail({
   return (
     <dialog
       ref={dialogRef}
-      aria-labelledby={titleId}
+      aria-labelledby={huntOpen ? huntTitleId : titleId}
       onCancel={(event) => {
         event.preventDefault();
-        onClose();
+        closeView();
       }}
       onClick={(event) => {
         if (event.target !== event.currentTarget) return;
@@ -1227,15 +1260,38 @@ function CardDetail({
           event.clientY < rect.top ||
           event.clientY > rect.bottom
         )
-          onClose();
+          closeView();
       }}
       className="fixed inset-y-0 left-auto right-0 m-0 h-dvh max-h-none w-full max-w-2xl overflow-y-auto border-0 border-l border-zinc-800 bg-zinc-950 p-4 text-zinc-100 backdrop:bg-black/50"
     >
+      {huntOpen && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 id={huntTitleId} tabIndex={-1} ref={huntHeading} className="min-w-0 break-words text-xl font-bold">
+              Find available copies of {row.cardName}
+            </h2>
+            <button type="button" onClick={closeView} className={filterButtonClass}>Back to card details</button>
+          </div>
+          <CardHunt card={{
+            id: row.cardId,
+            scope: row.displayMode === "grouped" ? "card" : "printing",
+            setCode: row.setCode,
+            collectorNumber: row.collectorNumber,
+            finish: row.displayMode === "grouped" ? undefined : row.foilStatus ?? (row.foil ? "FOIL" : "NONFOIL"),
+          }} />
+        </div>
+      )}
+      <div hidden={huntOpen}>
       <div className="mb-4 flex flex-col items-start gap-3 sm:flex-row sm:justify-between">
         <h2 id={titleId} className="min-w-0 break-words text-xl font-bold">
           {row.cardName}
         </h2>
         <div className="flex max-w-full flex-wrap justify-end gap-2">
+          {canHunt && (
+            <button ref={huntButton} type="button" onClick={openHunt} className={cn(filterButtonClass, "px-2 py-1")}>
+              Find available copies
+            </button>
+          )}
           {onAddToDeck && deckTargets.length ? (
             <InventoryAddToDeckControl
               row={row}
@@ -1540,6 +1596,7 @@ function CardDetail({
           ) : null}
         </div>
       </div>
+      </div>
     </dialog>
   );
 }
@@ -1582,6 +1639,7 @@ export function InventoryBrowser({
   deckTargets = [],
   onAddToDeck,
   importExportHref,
+  huntOwnerId,
 }: {
   rows: InventoryRow[];
   storageLocations?: StorageLocation[];
@@ -1645,6 +1703,7 @@ export function InventoryBrowser({
   deckTargets?: InventoryDeckTarget[];
   onAddToDeck?: (formData: FormData) => Promise<void>;
   importExportHref?: string;
+  huntOwnerId?: string;
 }) {
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>(
@@ -3416,6 +3475,7 @@ export function InventoryBrowser({
 
       {selected ? (
         <CardDetail
+          key={selected.id}
           row={renderedRows.find((row) => row.id === selected.id) ?? selected}
           onClose={() => setSelected(null)}
           capabilities={capabilities}
@@ -3423,6 +3483,7 @@ export function InventoryBrowser({
           onAddTradeWishlist={onAddTradeWishlist}
           deckTargets={deckTargets}
           onAddToDeck={onAddToDeck}
+          canHunt={huntOwnerId === selected.currentOwnerId}
           onEdit={
             capabilities.canEdit && selected.displayMode === "exact"
               ? () => {

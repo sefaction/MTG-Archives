@@ -1308,7 +1308,7 @@ export default async function ImportsPage({
       <Nav />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Imports</h1>
+          <h1 className="text-3xl font-bold">Add &amp; export</h1>
           <p className="text-sm text-[var(--app-muted)]">
             Add cards, import a collection, or export your inventory.
           </p>
