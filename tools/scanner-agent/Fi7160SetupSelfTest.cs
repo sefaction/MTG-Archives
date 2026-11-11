@@ -91,6 +91,8 @@ internal static class Fi7160SetupSelfTest
         try { Fi7160Profiles.Materialize(Path.Combine(root, "profiles")); } catch (InvalidDataException) { refused = true; }
         if (!refused || File.ReadAllText(bundle) != "unexpected existing data") throw new InvalidDataException("An existing Cards package was overwritten.");
         var beforeImport = Fi7160SetupSystem.BackupProfiles(fixture, Path.Combine(root, "profile-backups"));
+        var recoveryJournal = Path.Combine(root, "profile-import-pending.json");
+        Fi7160SetupSystem.BeginProfileImport(beforeImport, recoveryJournal);
         File.AppendAllText(Path.Combine(fixture, "SettingInfo.ini"), "000044=Unrelated new profile\r\n");
         File.WriteAllText(Path.Combine(fixture, "FTS_EX000044.xml"), "new profile fixture");
         File.WriteAllText(Path.Combine(fixture, "Id.bin"), "updated allocation index");
@@ -102,7 +104,12 @@ internal static class Fi7160SetupSelfTest
         if (!refused || !File.ReadAllBytes(Path.Combine(beforeImport.Directory, "FTS_EX000042.xml")).SequenceEqual(entries["FTS_EX000004.xml"]) ||
             File.ReadAllText(oldProfile) != "changed by an erroneous replacing import")
             throw new InvalidDataException("Replacing import was not refused with a retained backup and no automatic live-store rewrite.");
+        refused = false;
+        try { Fi7160SetupSystem.RecoverProfileImport(recoveryJournal, Path.Combine(root, "profile-backups"), fixture); } catch (InvalidOperationException) { refused = true; }
+        if (!refused || !File.Exists(recoveryJournal)) throw new InvalidDataException("Failed profile preservation cleared the persistent recovery gate.");
         File.WriteAllBytes(oldProfile, entries["FTS_EX000004.xml"]);
+        Fi7160SetupSystem.RecoverProfileImport(recoveryJournal, Path.Combine(root, "profile-backups"), fixture);
+        if (File.Exists(recoveryJournal)) throw new InvalidDataException("Verified unchanged profiles could not leave interrupted-import recovery.");
         File.WriteAllText(Path.Combine(fixture, "SettingInfo.ini"), "[Informations]\r\n000042=Wrong name\r\n");
         refused = false;
         try { Fi7160SetupSystem.VerifyPreserved(beforeImport); } catch (InvalidOperationException) { refused = true; }

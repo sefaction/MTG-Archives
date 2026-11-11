@@ -12,7 +12,7 @@ try
     if (args.Length is 1 or 2 && args[0] == "setup7160-preview")
     {
         var scenario = args.Length == 2 ? args[1] : "fresh";
-        if (scenario is not ("fresh" or "installed" or "disconnected" or "incompatible" or "restart")) throw new ArgumentException("Unknown setup preview scenario.");
+        if (scenario is not ("fresh" or "installed" or "disconnected" or "incompatible" or "restart" or "recovery")) throw new ArgumentException("Unknown setup preview scenario.");
         Fi7160SetupWizard.Show(true, scenario); return;
     }
     if (args.Length == 1 && args[0] == "setup7160-selftest") { await Fi7160SetupSelfTest.Run(); return; }

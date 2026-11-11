@@ -77,6 +77,11 @@ Add remains an explicit manufacturer-dialog step. It does not invent an
 undocumented additive flag or automate the destructive default. Post-import
 checks stop on changed pre-existing files/names and give the retained backup's
 location. They do not silently overwrite the live store to repair a wrong import.
+An import journal is flushed before launching the vendor tool. An interrupted or
+failed preservation check blocks the next configuration step across wizard
+restarts. **Check profile recovery** verifies the retained backup and live
+originals before clearing that gate. If originals differ, it keeps the gate and
+backup; it never restores the live store automatically.
 The PAV parser verifies only the pinned asset; the native importer owns all live
 profile writes.
 
@@ -95,7 +100,7 @@ settings commands before DSM construction. It uses no network or scanner.
 always reports effective settings unverified. `setup7160-verify-driver <absolute
 path>` verifies the real package without executing it.
 
-`setup7160-preview [fresh|installed|disconnected|incompatible|restart]` runs the
+`setup7160-preview [fresh|installed|disconnected|incompatible|restart|recovery]` runs the
 actual form with a fake adapter. It never instantiates the real installer,
 profile importer, website opener or scanner. Preview results are UI evidence,
 not manufacturer installation or hardware verification.

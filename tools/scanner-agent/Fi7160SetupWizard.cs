@@ -69,7 +69,8 @@ internal sealed class Fi7160SetupWizard : Form
             var progress = new Progress<long>(bytes => { if (busy) driver.Text = "Downloading verified manufacturer driver: " + bytes / (1024 * 1024) + " / 245 MiB"; });
             return await system.InstallDriver(progress, cancellation!.Token);
         });
-        import.Click += async (_, _) => await Work(async () => { await system.ImportProfiles(); return "Both Cards profiles are installed. Existing profiles were preserved."; });
+        import.Click += async (_, _) => await Work(async () => { await system.ImportProfiles(); return system.Inspect().Profiles ?
+            "Both Cards profiles are installed. Existing profiles were preserved." : "Existing profiles were verified unchanged. Choose Add Cards profiles to continue."; });
         configure.Click += async (_, _) => await Work(async () => {
             verified = false; await system.Configure(); verified = true;
             return "Helper settings checked at 600 and 300 DPI. No scan was started. Connect to your website to continue.";
@@ -104,7 +105,7 @@ internal sealed class Fi7160SetupWizard : Form
                 "32-bit PaperStream IP is not installed. Setup downloads the supported package directly from Ricoh." :
                 status.DriverSupported ? "PaperStream IP (TWAIN) " + status.DriverVersion + " installed." :
                 "Version " + status.DriverVersion + " is installed. Setup preserves it; supported version is 3.40.2.1815.";
-            profiles.Text = status.Profiles ? "MTG Cards 600 DPI and MTG Cards 300 DPI match the curated fi-7160 settings." : "Both curated Cards profiles still need to be added.";
+            profiles.Text = status.ProfileRecovery ?? (status.Profiles ? "MTG Cards 600 DPI and MTG Cards 300 DPI match the curated fi-7160 settings." : "Both curated Cards profiles still need to be added.");
             if (!status.DriverSupported || !status.Profiles) verified = false;
             effective.Text = verified ? "Effective helper settings checked this session. The website checks again before every Start." :
                 "Pending scanner connection and settings check. Driver/profile installation can finish now.";
@@ -115,7 +116,8 @@ internal sealed class Fi7160SetupWizard : Form
     private void UpdateButtons()
     {
         install.Enabled = !busy && status.DriverVersion == null && !status.RestartRequired;
-        import.Enabled = !busy && status.DriverSupported && !status.Profiles;
+        import.Text = status.ProfileRecovery != null ? "Check profile recovery" : "Add Cards profiles";
+        import.Enabled = !busy && (status.ProfileRecovery != null || status.DriverSupported && !status.Profiles);
         configure.Enabled = !busy && status.DriverSupported && status.Profiles && empty.Checked;
         recheck.Enabled = open.Enabled = site.Enabled = empty.Enabled = !busy;
         close.Text = busy ? "Cancel / finish setup" : "Close setup";
@@ -154,6 +156,7 @@ internal sealed class Fi7160SetupPreview(string scenario) : IFi7160SetupSystem
         "installed" or "disconnected" => new(Fi7160SetupPackages.DriverVersion, true),
         "incompatible" => new("3.50.0.0", false),
         "restart" => new(Fi7160SetupPackages.DriverVersion, false, true),
+        "recovery" => new(Fi7160SetupPackages.DriverVersion, false, false, "A profile import needs a preservation check. Choose Check profile recovery before continuing."),
         _ => new(null, false) };
     public string SuggestedSite => "https://example.com/";
     public Fi7160SetupStatus Inspect() => status;
@@ -163,7 +166,7 @@ internal sealed class Fi7160SetupPreview(string scenario) : IFi7160SetupSystem
         status = status with { DriverVersion = Fi7160SetupPackages.DriverVersion };
         return "Preview: driver installed. No download or installer was run.";
     }
-    public Task ImportProfiles() { status = status with { Profiles = true }; return Task.CompletedTask; }
+    public Task ImportProfiles() { status = status.ProfileRecovery != null ? status with { ProfileRecovery = null } : status with { Profiles = true }; return Task.CompletedTask; }
     public Task Configure() => scenario == "disconnected" ? Task.FromException(new InvalidOperationException("Preview: connect and power on the scanner, then retry. Effective settings remain pending.")) : Task.CompletedTask;
     public void OpenSite(Uri site) { }
 }
