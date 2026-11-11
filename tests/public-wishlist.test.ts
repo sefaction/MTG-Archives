@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { PrismaClient } from "@prisma/client";
 import { getPublicWishlist, normalizePublicWishlistCategories } from "../lib/public-wishlist";
-import { publicInventoryUsername, publicWishlistLink } from "../lib/public-inventory-link";
+import { publicInventoryUsername, publicWishlistLink, publicWishlistPageUsername } from "../lib/public-inventory-link";
 
 const card = { id: "card-1", name: "Wish card", oracleId: "oracle-1", setCode: "tst", collectorNumber: "7", typeLine: "Creature" };
 
@@ -72,6 +72,7 @@ test("public Wishlist links round trip special usernames without changing invent
   for (const username of ["brian", ".", "..", "~brian", "A/B #1", "Éowyn", "%2F"]) {
     const url = new URL(publicWishlistLink(username), "https://example.test");
     assert.equal(publicInventoryUsername(decodeURIComponent(url.pathname.split("/").at(-1)!)), username);
+    assert.equal(publicWishlistPageUsername(url.pathname.split("/").at(-1)!), username);
     assert.ok(url.pathname.startsWith("/public/wishlist/"));
   }
 });

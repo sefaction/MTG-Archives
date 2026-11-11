@@ -2,7 +2,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { notFound } from "next/navigation";
 import { Nav } from "@/components/Nav";
 import { prisma } from "@/lib/prisma";
-import { publicInventoryUsername } from "@/lib/public-inventory-link";
+import { publicWishlistPageUsername } from "@/lib/public-inventory-link";
 import { getPublicWishlist, publicWishlistCategories } from "@/lib/public-wishlist";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function PublicWishlistPage({ params }: { params: Promise<{ username: string }> }) {
   noStore();
   const { username } = await params;
-  const wishlist = await getPublicWishlist(prisma, publicInventoryUsername(username));
+  const wishlist = await getPublicWishlist(prisma, publicWishlistPageUsername(username));
   if (!wishlist) notFound();
   return (
     <main className="space-y-6 p-4 md:p-8">

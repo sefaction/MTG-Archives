@@ -21,6 +21,12 @@ export function publicInventoryUsername(segment: string) {
   return segment.startsWith("~") ? segment.slice(1) : segment;
 }
 
+export function publicWishlistPageUsername(segment: string) {
+  // The installed App Router passes encoded page params to user code. Decode
+  // exactly once here; route handlers already receive decoded params.
+  return publicInventoryUsername(decodeURIComponent(segment));
+}
+
 export function publicInventoryOwnerLink(
   ownerPlayerId: string,
   searchParams: URLSearchParams,
