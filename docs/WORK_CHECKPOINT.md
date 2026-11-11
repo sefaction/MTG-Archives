@@ -1,3 +1,46 @@
+## Current queue reconciliation - November 11, 2026
+
+Owner: this reconciliation task; branch codex/queue-reconciliation-20261111.
+Brian approved this individual PR plus1024/1025/1028/1029, and separately1030/1032.
+Current main2168b992 includes the first four approved merges. Their exact tested
+and merged trees match;1019/1017/1018are closed with original history preserved.
+Initial26-issue/338-worktree/573-branch/67-dirty-copy inventory and preservation
+manifests remain recorded below; current queue has23open issues.
+
+This PR publishes the shared-worker guide and initial reconciliation, with an
+explicit completion follow-up in QUEUE_REVIEW_20261111.md. Worker policy text is
+unchanged from the reviewed head. Fresh current-main checks are required before
+this approved documentation merge.1030/1032have completed their local checks;
+1027physicalcomparison remains. PublicWishlist1021decisions are agreed and its
+bounded draft1033implementation/qualification is active. Normal localDocker
+port13001 is restored; no production/physical/scheduling action was performed.
+
+This documentation batch owns no runtime operation; the separate publicWishlist
+fixture has its exact owner/root claim in the owning private checkpoint. Do not
+use this snapshot to take another worker's runtime. Next: finish current-head CI,
+merge this approved PR, reconcile live queue and continue approved1030/1032.
+
+### Initial reconciliation handoff - preserved
+
+## Current queue reconciliation ? November 11, 2026
+
+Owner: this reconciliation task, branch `codex/queue-reconciliation-20261111`,
+base main `2cbdb58c`. Brian requested all-issue/local-work/claim reconciliation,
+PR publication and individual reviews; no merge or production grant. Initial
+inventory: 26 issues, four draft PRs, 338 worktrees, 573 branches, 67 dirty copies.
+Private patches/index/file manifests are preserved; old worktrees remain intact.
+
+Recent claim chats ended completed and the shared laptop runtime lock is absent.
+No local heavy/runtime operation is owned. Docker cannot start; no app/database
+reload or fresh browser qualification is claimed. #1025 source review/64 tests
+and all nine CI pass; #1027 software review/47 tests plus one existing skip and
+11 CI pass, with physical comparison pending. #1024 has a test-only assertion
+repair at `9eb2fc3e` after the retained CI failure; final-head CI is pending.
+Recovered records/verifier are in #1028/#1029/#1030. See
+[the complete queue and evidence limits](QUEUE_REVIEW_20261111.md). Next: finalize
+hosted checks, publish this guide/reconciliation, update advisory statuses and
+present each individual PR decision. No new issue or unresolved-scope closure.
+
 ## Current #1005 qualification — November 6, 2026
 
 

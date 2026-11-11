@@ -813,7 +813,6 @@ export function AcquisitionCapture({
           </details>
           </div><div className="min-w-0">
           {photoInput ? <p className="text-sm my-3">One card per photo. JPEG, PNG and WebP are supported. Review the saved cards before adding them to Inventory.</p> : <ScannerSourceFields key={pendingScanner?.requestKey ?? "setup"} initialEnabled={pendingScanner || retiredSetup ? true : initialScanner} initialChoice={pendingScanner ?? retiredSetup ?? initialSetup?.scanner} onChange={scannerChanged} disabled={busy || checkingStart || !!pendingScanner || startStorageError || refreshingCapacity} remaining={customLimit ? Math.min(quantity,remaining??quantity) : remaining} />}
-          </div></div>
           <div className="my-3"><AcquisitionLanguageSelect
             value={pendingScanner ? pendingScanner.defaults?.language??null : newLanguage}
             onChange={value=>{setNewLanguage(value);createKey.current="";}} disabled={busy||checkingStart||!!pendingScanner||startStorageError}/>
@@ -849,6 +848,7 @@ export function AcquisitionCapture({
           {!pendingScanner && locationId && scannerEnabled && !scannerChoice && remaining !== 0 && <p className="text-sm mt-2" role="status">{scannerDetecting
             ? "Waiting for scanner detection to finish. Your destination and source choice are kept."
             : "Choose an online scanner source to enable Start scanner batch."}</p>}
+          </div></div>
           {!!recent.length && (
             <div className="mt-4">
               <h3 className="font-semibold">Recent batches</h3>

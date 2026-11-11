@@ -1,0 +1,459 @@
+{
+  "formatVersion": 1,
+  "observedAtUtc": "2026-10-26T15:00:25Z",
+  "baseCommit": "0b514d2a061e06b09b1ebb3a04a52cbd9fb9f8da",
+  "baseTree": "b7822b376f20a25a96c11555b0a2fd08c6174a92",
+  "scope": "Original 28 #692 candidates only. SHA256 covers raw Git blobs, independent of checkout line endings. Static source inventory; no new runtime qualification.",
+  "fixtures": [
+    {
+      "number": 1,
+      "file": "tests/ui/acquisition-batch-dashboard.spec.ts",
+      "gitBlob": "74ee64dd6aa89f2b92d759680bdbde609f38e19a",
+      "sha256": "7d12eb41001e43299a486a8d93bcbe42b3ecb5e3bcebf2277a9db9639bc465ea",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 739,
+      "workflowCauseDelivery": 975,
+      "fileDelivery": null,
+      "fileMode": "no direct source-file phase"
+    },
+    {
+      "number": 2,
+      "file": "tests/ui/acquisition-footer-identifiers.spec.ts",
+      "gitBlob": "d36e2e0ef4541f5c61d1348449b301d4cfffa951",
+      "sha256": "fa93132f5dbef4623b34c74802daae4101afa2b92cd96425d16bc8a675067616",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 738,
+      "workflowCauseDelivery": 975,
+      "fileDelivery": 969,
+      "fileMode": "photo originals/previews"
+    },
+    {
+      "number": 3,
+      "file": "tests/ui/acquisition-large-batch.spec.ts",
+      "gitBlob": "3d919f3471ff199de54ed1d8ec15e3a5e1a25e30",
+      "sha256": "b75d23954bd4ec1db718ec72c6b1b378ba44b606c1cd0fd6877e1669a05ef6fa",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 776,
+      "workflowCauseDelivery": 975,
+      "fileDelivery": 969,
+      "fileMode": "photo originals/previews"
+    },
+    {
+      "number": 4,
+      "file": "tests/ui/acquisition-library-batch.spec.ts",
+      "gitBlob": "830f4f3a210568eba7e56bba0b958fb99ccc85c8",
+      "sha256": "357ae36e5bbe28b2f6d53d9eff66027a966f0bdac27d29596e8621af9d8bcadd",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 737,
+      "workflowCauseDelivery": 975,
+      "fileDelivery": 969,
+      "fileMode": "photo originals/previews"
+    },
+    {
+      "number": 5,
+      "file": "tests/ui/acquisition-live-recovery.spec.ts",
+      "gitBlob": "2b47d0b61e1c659c8fb6f9d6498f9a640e5ca2c8",
+      "sha256": "ce4b3f365d302d5add87f971d30cc97d9d4c215805c5282cb1331c81f71471f9",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 727,
+      "workflowCauseDelivery": 975,
+      "fileDelivery": 969,
+      "fileMode": "photo originals/previews"
+    },
+    {
+      "number": 6,
+      "file": "tests/ui/acquisition-photo-intake.spec.ts",
+      "gitBlob": "5ce88713f447b08d9b0bbccbc761522a49f73fb3",
+      "sha256": "9045d5508cdcb6226727a0bbe5c361dc4943aacf9d17ef3d0c9e9ad0ca73cf57",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 737,
+      "workflowCauseDelivery": 975,
+      "fileDelivery": 967,
+      "fileMode": "photo originals/previews"
+    },
+    {
+      "number": 7,
+      "file": "tests/ui/acquisition-photo-text-streaming.spec.ts",
+      "gitBlob": "175d672e242a2d2757754f247eee3d4a6c4fbd2c",
+      "sha256": "7a8e5add3ce3ae723bd99540be3ea527ce158221a170a3b28fb96be596032094",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 740,
+      "workflowCauseDelivery": 975,
+      "fileDelivery": 969,
+      "fileMode": "photo originals/previews"
+    },
+    {
+      "number": 8,
+      "file": "tests/ui/acquisition-photo-text.spec.ts",
+      "gitBlob": "5e7d4a3c0f0f4d277084cae698f2ceacbaa5b4a5",
+      "sha256": "2f1d7407c74361f268758d543045ead313b0c3fd495c5e6cc0f8d0997c807c2b",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 740,
+      "workflowCauseDelivery": 975,
+      "fileDelivery": 969,
+      "fileMode": "photo originals/previews"
+    },
+    {
+      "number": 9,
+      "file": "tests/ui/acquisition-printing.spec.ts",
+      "gitBlob": "5a056c86b19a85ecbb00a6d803ef7a3959a72e68",
+      "sha256": "79cc4df73d962555efd1c11b48f452805ab7ebf31c58f5b5ba899bbfe3b8e004",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 738,
+      "workflowCauseDelivery": 975,
+      "fileDelivery": 969,
+      "fileMode": "photo originals/previews"
+    },
+    {
+      "number": 10,
+      "file": "tests/ui/acquisition-processing-recovery.spec.ts",
+      "gitBlob": "e13767337343e80c7cd4c8c4c1517300c478eb7a",
+      "sha256": "ae9c5c7c2f92786f38b3e9619a1acf0b2c475a41c243c4fea4f90b5a2ccda344",
+      "feedbackDelivery": 699,
+      "isolationDelivery": 774,
+      "workflowCauseDelivery": 973,
+      "fileDelivery": 969,
+      "fileMode": "photo originals/previews"
+    },
+    {
+      "number": 11,
+      "file": "tests/ui/acquisition-quick-finish.spec.ts",
+      "gitBlob": "e523aa4cfc41b2a655309faebb91b091932b59c4",
+      "sha256": "ca85c4409f1da73163162c94a841fffa36bfd01ae762a4cf02cda52f85ac1def",
+      "feedbackDelivery": 699,
+      "isolationDelivery": 774,
+      "workflowCauseDelivery": 973,
+      "fileDelivery": 969,
+      "fileMode": "photo originals/previews"
+    },
+    {
+      "number": 12,
+      "file": "tests/ui/acquisition-scan-retention.spec.ts",
+      "gitBlob": "7224d4656ce7cc625da6d235ae780a899620d84f",
+      "sha256": "a962cb77df0b2871ac202e33c496973547526ceae2e4049f2e64a2e04592bdc5",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 739,
+      "workflowCauseDelivery": 975,
+      "fileDelivery": 969,
+      "fileMode": "photo originals/previews"
+    },
+    {
+      "number": 13,
+      "file": "tests/ui/acquisition-scanner-background.spec.ts",
+      "gitBlob": "1f88c0b88e076110a0edafa83ba40b0e06e290c1",
+      "sha256": "51b8d9081d05d8fb577eef9c78c8635922049d61607ce0f9eef38ffaac817b7e",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 806,
+      "workflowCauseDelivery": 806,
+      "fileDelivery": 969,
+      "fileMode": "photo originals/previews"
+    },
+    {
+      "number": 14,
+      "file": "tests/ui/acquisition-scanner-crop.spec.ts",
+      "gitBlob": "7f5e7a4ca1891c0ec722de8cdce75c2349bb52c8",
+      "sha256": "80717b1bd68126180ee85ab0d4de0c2d5e0e0bf18fe4cd24772b097d74b799e3",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 971,
+      "workflowCauseDelivery": 971,
+      "fileDelivery": 969,
+      "fileMode": "photo originals/previews"
+    },
+    {
+      "number": 15,
+      "file": "tests/ui/acquisition-scanner-framing.spec.ts",
+      "gitBlob": "ec0878b8d476f9ff262cabe23832ad4973e1a25d",
+      "sha256": "422e462438352425630ea32e60591a004ff683730a5c377813ae0d3331a94cc8",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 738,
+      "workflowCauseDelivery": 975,
+      "fileDelivery": 969,
+      "fileMode": "photo originals/previews"
+    },
+    {
+      "number": 16,
+      "file": "tests/ui/acquisition-stamp-expectations.spec.ts",
+      "gitBlob": "f03bc1ceaf65a9f14543cdd18f4a2a5033a069cf",
+      "sha256": "c0fd05560182509f26106d029047dcec3ec8ec3cf422613e4e5999578e918e64",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 733,
+      "workflowCauseDelivery": 975,
+      "fileDelivery": 969,
+      "fileMode": "photo originals/previews"
+    },
+    {
+      "number": 17,
+      "file": "tests/ui/acquisition-stamp-visibility.spec.ts",
+      "gitBlob": "8b30cfbb5a3533b951091c7d37e0025f8e7eb519",
+      "sha256": "976fcee87179330f3c6bcc4c5ae0b3096a965cd9042a880d9557a3c44303aa6d",
+      "feedbackDelivery": 699,
+      "isolationDelivery": 733,
+      "workflowCauseDelivery": 973,
+      "fileDelivery": 969,
+      "fileMode": "photo originals/previews"
+    },
+    {
+      "number": 18,
+      "file": "tests/ui/acquisition-successive-batches.spec.ts",
+      "gitBlob": "78cf453edf80400c0e0e6f569f8aa6c84cb18cc6",
+      "sha256": "6cbfe3ef510791717562bff3996f5f9b15967854d8b1aa1c0c1606c5ae2e4dd2",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 737,
+      "workflowCauseDelivery": 975,
+      "fileDelivery": 969,
+      "fileMode": "photo originals/previews"
+    },
+    {
+      "number": 19,
+      "file": "tests/ui/acquisition-upload-recovery.spec.ts",
+      "gitBlob": "c9ac948d2098b3664155e8de6534b4cbea4b5963",
+      "sha256": "857c83cf74f1435a8abbfb452785e2c7386e38df1015389a360b9bd290c116ca",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 737,
+      "workflowCauseDelivery": 975,
+      "fileDelivery": 969,
+      "fileMode": "photo originals/previews"
+    },
+    {
+      "number": 20,
+      "file": "tests/ui/scanner-alignment.spec.ts",
+      "gitBlob": "22ec03bd6c75d2956ae35d8a55601099585fc3ea",
+      "sha256": "6e0f19c19ed7545b5809a2ef9c935bb5dff3d6d7fbe1d8e58a4c46538522e181",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 794,
+      "workflowCauseDelivery": 794,
+      "fileDelivery": null,
+      "fileMode": "no direct source-file phase"
+    },
+    {
+      "number": 21,
+      "file": "tests/ui/scanner-counted.spec.ts",
+      "gitBlob": "4125e98a83569a5e32b8372686a6d9ec7e0597ba",
+      "sha256": "2d961e8f266de3320397efe964d29b8bf523c60c102c66439e3548d7201bf341",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 796,
+      "workflowCauseDelivery": 796,
+      "fileDelivery": 965,
+      "fileMode": "photo originals/previews and scanner start markers"
+    },
+    {
+      "number": 22,
+      "file": "tests/ui/scanner-native-authorization.spec.ts",
+      "gitBlob": "c779139db7202c6223c8429e104a98251c4ecd7b",
+      "sha256": "0030bc186316552048ad2419072ebb68a0071e60e1ce2377866bb3cb29984e71",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 798,
+      "workflowCauseDelivery": 798,
+      "fileDelivery": 969,
+      "fileMode": "scanner start markers"
+    },
+    {
+      "number": 23,
+      "file": "tests/ui/scanner-native.spec.ts",
+      "gitBlob": "d73a27b4a17ed655e61dde494842ca1105510cfe",
+      "sha256": "bc4167711c883b34923c95770ee816ab72ccf2a4cfcdde57f35f7c13e10b62cf",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 934,
+      "workflowCauseDelivery": 934,
+      "fileDelivery": 957,
+      "fileMode": "photo originals/previews and scanner start markers"
+    },
+    {
+      "number": 24,
+      "file": "tests/ui/scanner-photo-storage.spec.ts",
+      "gitBlob": "ff7a7e96a2213b9b95dfb01590bf48e7b831e929",
+      "sha256": "1c8567ed432f6a1fb4d78accc527e1c208330f236928758e0e61f2704a773167",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 796,
+      "workflowCauseDelivery": 796,
+      "fileDelivery": 965,
+      "fileMode": "photo originals/previews and scanner start markers"
+    },
+    {
+      "number": 25,
+      "file": "tests/ui/scanner-preflight.spec.ts",
+      "gitBlob": "4cba6346c628a3f9a6b305f649933e9d09e08f76",
+      "sha256": "b64a5effc99dfe8d518be7fdeec37f6fc38799888f07be065dbd1f5805a2a903",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 794,
+      "workflowCauseDelivery": 794,
+      "fileDelivery": 969,
+      "fileMode": "scanner start markers"
+    },
+    {
+      "number": 26,
+      "file": "tests/ui/scanner-rejected-start.spec.ts",
+      "gitBlob": "edf71f8c079a8e977c058de6b0af8f42074857e8",
+      "sha256": "efae21a69034d24eb9714ac676f46c5c5be47b9aa2f2ae7de12b38c3b537b113",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 794,
+      "workflowCauseDelivery": 794,
+      "fileDelivery": 969,
+      "fileMode": "scanner start/retired markers"
+    },
+    {
+      "number": 27,
+      "file": "tests/ui/scanner-section-series.spec.ts",
+      "gitBlob": "35a69b037d1388f1593b506a8cfa1f5e3000c5ce",
+      "sha256": "1c5918fbd5872b671e631ec215851d16feffa28feeb277c510f622e61da866c0",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 796,
+      "workflowCauseDelivery": 796,
+      "fileDelivery": 965,
+      "fileMode": "photo originals/previews and scanner start markers"
+    },
+    {
+      "number": 28,
+      "file": "tests/ui/scanner-start-replay.spec.ts",
+      "gitBlob": "e1042518e35600dc76e336757f55fe39040fafa2",
+      "sha256": "abc477f1df6c8f41a86458c1ad34bf6535463f3e9a6196d11ad95782959df69b",
+      "feedbackDelivery": 700,
+      "isolationDelivery": 794,
+      "workflowCauseDelivery": 794,
+      "fileDelivery": 969,
+      "fileMode": "scanner start markers"
+    }
+  ],
+  "deliveries": [
+    {
+      "number": 693,
+      "merge": "7269863ad45f46d82111a50c2c84947fefdbb3b0",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/693"
+    },
+    {
+      "number": 699,
+      "merge": "76993dfebd10be700791faceba9ead6864b85df9",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/699"
+    },
+    {
+      "number": 700,
+      "merge": "568863edf371f5e3b71b1238afd0d63712048ac1",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/700"
+    },
+    {
+      "number": 727,
+      "merge": "10e063985221a8d2dc65f1f2af6e4d0dce5ffaf7",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/727"
+    },
+    {
+      "number": 733,
+      "merge": "2399f45bbf4745d6a49f073bb38ef642cc493fca",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/733"
+    },
+    {
+      "number": 735,
+      "merge": "83ee35a9658f86e1a8878f94afbf2eb76a60aca2",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/735"
+    },
+    {
+      "number": 737,
+      "merge": "e3d374a3cd52509d29d459157c76463e47aba4e5",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/737"
+    },
+    {
+      "number": 738,
+      "merge": "990fa7ea1903a22697161aa0a9b536ec0fb1d737",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/738"
+    },
+    {
+      "number": 739,
+      "merge": "7c9b4de147795c8343056d4fac29de4eb6aedb90",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/739"
+    },
+    {
+      "number": 740,
+      "merge": "f1fb59eb51da54eb8d29da341a606e9d5dcda67d",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/740"
+    },
+    {
+      "number": 745,
+      "merge": "892dda3fdbaa57b92f5f6dd866d3243821975f50",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/745"
+    },
+    {
+      "number": 774,
+      "merge": "71db7c0b03314d09df47ffb1a2e7085e6a1569c6",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/774"
+    },
+    {
+      "number": 776,
+      "merge": "6a8adad658f4cd6520401cdb0a6b1ee6a387d0be",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/776"
+    },
+    {
+      "number": 787,
+      "merge": "91c8f24756d54de5315843ee21541e4c15f696d0",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/787"
+    },
+    {
+      "number": 789,
+      "merge": "c076cfad7e7124dfcb8119ad32eafc7fbb1a0c67",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/789"
+    },
+    {
+      "number": 794,
+      "merge": "0c2fe02e4a9a691798a33d1d8a2a1b5902681b37",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/794"
+    },
+    {
+      "number": 796,
+      "merge": "7f674ac99fa0afb5fea69e5aed9ed51624cfe67b",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/796"
+    },
+    {
+      "number": 798,
+      "merge": "f0c209c63eba4e30b2fb19b3236244ad8716615d",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/798"
+    },
+    {
+      "number": 806,
+      "merge": "3e4c4278c3a440a2879b2bfe9b51261739242d54",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/806"
+    },
+    {
+      "number": 934,
+      "merge": "e194140b0592843142ef207b06c601a57964c57c",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/934"
+    },
+    {
+      "number": 957,
+      "merge": "4c5de52b8f9985a8bf67f3e0f1b31f83aa6c7b41",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/957"
+    },
+    {
+      "number": 965,
+      "merge": "b4daf3d4ccadffc128e224d12bfc7d711c9e1397",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/965"
+    },
+    {
+      "number": 967,
+      "merge": "751e176458dfd2082587c5770f6a27a10ff8301b",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/967"
+    },
+    {
+      "number": 969,
+      "merge": "82b81aa6eb3f0892366c749cc666d45a8565b4ee",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/969"
+    },
+    {
+      "number": 971,
+      "merge": "1e820d38feea06107410517527f5932fd327c06d",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/971"
+    },
+    {
+      "number": 973,
+      "merge": "160c4645b77bbf574148189e0e9eb019c7d99f3b",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/973"
+    },
+    {
+      "number": 975,
+      "merge": "04c8269805ae7c9e6cdd4f6fb47380efb5d1b839",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/975"
+    },
+    {
+      "number": 976,
+      "merge": "a416395fe852b40c53edb349ee13763dc23b74d9",
+      "url": "https://github.com/sefaction/MTG-Archives/pull/976"
+    }
+  ]
+}
