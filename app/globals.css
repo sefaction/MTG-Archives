@@ -11,6 +11,8 @@ main:has(.archive-shell) {
 }
 .archive-shell {
   margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--app-border);
 }
 .archive-navigation > summary {
   display: none;
@@ -55,8 +57,24 @@ main:has(.archive-shell) {
   display: flex;
   justify-content: flex-end;
   padding-bottom: 12px;
-  border-bottom: 1px solid var(--app-border);
 }
+.archive-destination { position: relative; min-width: 0; }
+.archive-destination-heading { display: flex; align-items: center; }
+.archive-destination-heading > a { flex: 1; }
+.archive-submenu-toggle {
+  flex: none;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 6px;
+  color: var(--app-text);
+}
+.archive-submenu-toggle:hover,
+.archive-submenu-toggle[aria-expanded="true"] { background: var(--app-accent-soft); }
+.archive-submenu-toggle:focus-visible,
+.archive-rail a:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 2px; }
+.archive-submenu { padding: 4px 0 8px 12px; }
+.archive-submenu[hidden] { display: none; }
+.archive-section-tabs { padding-top: 4px; }
 .archive-utilities > div {
   width: auto;
 }
@@ -101,6 +119,20 @@ main:has(.archive-shell) > .account-form {
   }
   .archive-shell[data-navigation-layout="topbar"] .archive-skip {
     left: 16px;
+  }
+  .archive-shell[data-navigation-layout="topbar"] .archive-submenu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 50;
+    width: max-content;
+    min-width: 100%;
+    max-width: calc(100vw - 32px);
+    padding: 6px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-border);
+    border-radius: 8px;
+    box-shadow: 0 8px 30px var(--app-shadow);
   }
 }
 .inventory-page-heading {
@@ -327,6 +359,7 @@ main:has(.archive-shell) > .account-form {
   }
   .archive-shell {
     display: flex;
+    flex-wrap: wrap;
     align-items: start;
     gap: 8px;
   }
@@ -352,6 +385,7 @@ main:has(.archive-shell) > .account-form {
     flex: 1;
     min-width: 0;
   }
+  .archive-shell > nav { flex-basis: 100%; }
   .archive-utilities > div {
     justify-content: flex-end;
     gap: 8px;

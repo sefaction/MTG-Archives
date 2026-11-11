@@ -33,7 +33,7 @@ function AnonymousNavigation({
   );
 }
 
-export async function Nav({ deckHunt = false }: { deckHunt?: boolean } = {}) {
+export async function Nav({ deckHunt = false, sectionNavigation }: { deckHunt?: boolean; sectionNavigation?: ReactNode } = {}) {
   const user = await getCurrentUser();
   const userIsAdmin = isAdminUser(user, user?.player);
   const adminModeActive = await isAdminModeEnabled(user);
@@ -72,6 +72,7 @@ export async function Nav({ deckHunt = false }: { deckHunt?: boolean } = {}) {
         appName={appName}
         deckHunt={deckHunt}
         navigationLayout={normalizeNavigationLayout(user?.navigationLayout)}
+        sectionNavigation={sectionNavigation}
       >
         {!user && (
           <div className="flex flex-wrap items-center gap-4">
