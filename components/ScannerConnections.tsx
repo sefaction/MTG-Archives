@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { filterButtonClass, filterPanelClass, filterPrimaryButtonClass } from "./filterStyles";
 import type { listScannerAgents } from "@/lib/scanner-store";
 import { ScannerDiscoveryNotice } from "./ScannerDiscoveryNotice";
+import { hasFi7160SetupWizard } from "@/lib/scanner-setup-version";
 type Agent = Awaited<ReturnType<typeof listScannerAgents>>[number];
 export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -12,6 +13,7 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
   const [installerCheck, setInstallerCheck] = useState(0);
   const installerAvailable = installerState === "available";
   const [installerVersion, setInstallerVersion] = useState<string | null>(null);
+  const unifiedSetup = hasFi7160SetupWizard(installerVersion);
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -112,17 +114,18 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
         <p className="text-sm">Already connected this computer before? Open its saved connection instead of pairing again. Check that the scanner is plugged in and powered on.</p>
       </div>}
       <ol className="list-decimal list-inside space-y-2">
-        <li>
+        {!unifiedSetup && <li>
           <strong>Install the manufacturer’s Windows driver.</strong>{" "}
           For an fi-7160, open <a className="underline" href="https://www.pfu.ricoh.com/global/scanners/fisp/dl/fi-7160.html"
             target="_blank" rel="noreferrer">Ricoh’s fi-7160 driver downloads</a> and select your Windows version.
           Install <strong>PaperStream IP (TWAIN) 3.40.2</strong>. The helper uses the 32-bit TWAIN driver on Windows x64.
-        </li>
+        </li>}
         <li>{installerAvailable ? <>
-          <strong>Install the scanner helper.</strong>
+          <strong>{unifiedSetup ? "Run the fi-7160 setup." : "Install the scanner helper."}</strong>
           {helperDownload}
           <p>Open MTGArchivesScannerSetup.exe from your Downloads folder and finish installation.
-            The helper includes its scanning runtime and NAPS2 components.</p>
+            {unifiedSetup ? "The setup wizard handles the Ricoh driver, scanner helper and 600/300 DPI Cards profiles. Follow its manufacturer prompts and choose Add profiles when importing. You can install the profiles before connecting the scanner."
+              : "The helper includes its scanning runtime and NAPS2 components."}</p>
         </> : <>
           {installerState === "loading" && <p role="status">Checking the Windows helper download…</p>}
           {installerState === "unavailable" && <p role="status">The Windows scanner helper installer is not available on this site. Ask the site administrator to provide it before setting up a new computer.</p>}
@@ -143,10 +146,10 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
         <li>
           <strong>Check the scanner and card profile before loading cards.</strong>{" "}
           Look for your scanner under the connected computer below. If it is missing, check USB, power and the driver.
-          <p>For the fi-7160, look for <strong>fi-7160 (Cards, Pre-Pick Off)</strong>. Before loading cards,
+          {unifiedSetup ? <p>For the fi-7160, look for <strong>fi-7160 (Cards, Pre-Pick Off)</strong>. Open <strong>fi-7160 Scanner Setup</strong> from the Windows Start menu to apply and check the helper settings with an empty scanner. Choose MTG Cards 600 DPI, confirm Pre-Pick Off and save with OK. The wizard checks both 600 and 300 DPI without scanning. If the scanner is disconnected, this check stays pending.</p> : <p>For the fi-7160, look for <strong>fi-7160 (Cards, Pre-Pick Off)</strong>. Before loading cards,
             have the Cards profile verified in PaperStream for the MTG Archives helper on this computer.
             Use 600 DPI, single-sided RGB, a centered 2.7 × 3.6 inch frame and Pre-Pick Off.
-            Turn off automatic crop, deskew and blank-page removal. If the profile is missing or differs, pause here and ask your site administrator for help.</p>
+            Turn off automatic crop, deskew and blank-page removal. If the profile is missing or differs, pause here and ask your site administrator for help.</p>}
           Then <a className="underline" href="#scanner-source">choose your scanner source in Card input below</a>.
         </li>
       </ol>

@@ -60,12 +60,27 @@ jobs:
           }
           $inventory = Get-Content (Join-Path $installed 'third-party/inventory.json') -Raw | ConvertFrom-Json
           if (-not $inventory.distributionMaterialsComplete -or -not (Test-Path (Join-Path $installed 'third-party/sources/REBUILD.md'))) { throw 'Installed source/notice materials missing' }
+          # A second install must retain per-user pairing/journals/originals.
+          # Synthetic isolated files only; never create credentials or feed.
+          $retained = Join-Path $env:LOCALAPPDATA 'MTGArchives/ScannerAgent/setup-ci-retention'
+          New-Item -ItemType Directory -Path $retained -Force | Out-Null
+          $marker = Join-Path $retained 'pending-original.fixture'
+          [IO.File]::WriteAllText($marker, 'retained original and journal fixture')
+          $before = (Get-FileHash -LiteralPath $marker).Hash
+          $upgrade = Start-Process -FilePath $setup -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/TASKS=""', "/DIR=`"$installed`"") -PassThru -Wait -WindowStyle Hidden
+          if ($upgrade.ExitCode -ne 0 -or (Get-FileHash -LiteralPath $marker).Hash -ne $before) { throw 'Repeated setup changed retained helper data' }
+          $status = Start-Process -FilePath (Join-Path $installed 'Mtg.ScannerAgent.exe') -ArgumentList 'setup7160-status' -PassThru -Wait -WindowStyle Hidden -RedirectStandardOutput (Join-Path $env:RUNNER_TEMP 'setup-status.json')
+          $setupStatus = Get-Content (Join-Path $env:RUNNER_TEMP 'setup-status.json') -Raw | ConvertFrom-Json
+          if ($status.ExitCode -ne 0 -or $setupStatus.scannerOpened -ne $false -or $setupStatus.effectiveSettingsVerified -ne $false) { throw 'Software status falsely verified a scanner' }
           # Rebuild the actual distributed archive, rather than this checkout.
           $extracted = Join-Path $env:RUNNER_TEMP 'mtg-scanner-corresponding-source'
           Expand-Archive -LiteralPath (Join-Path $installed 'third-party/sources/mtg-scanner-helper-source.zip') -DestinationPath $extracted
           & (Join-Path $extracted 'tools/scanner-agent/install-from-source.ps1') -InstallRoot (Join-Path $env:RUNNER_TEMP 'mtg-scanner-rebuilt-source')
           $process = Start-Process -FilePath (Join-Path $installed 'unins000.exe') -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -PassThru -Wait -WindowStyle Hidden
           if ($process.ExitCode -ne 0) { throw 'Smoke uninstall failed' }
+          if ((Get-FileHash -LiteralPath $marker).Hash -ne $before) { throw 'Uninstall changed retained helper data' }
+          Remove-Item -LiteralPath $marker
+          Remove-Item -LiteralPath $retained
       - name: Upload installer for this exact revision
         uses: actions/upload-artifact@v4
         with:

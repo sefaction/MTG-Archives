@@ -118,7 +118,7 @@ internal static class Fi7160SetupPackages
             throw new InvalidDataException("Invalid pinned scanner setup package.");
     }
 
-    private static void RejectReparseDirectories(string directory)
+    internal static void RejectReparseDirectories(string directory)
     {
         for (var current = new DirectoryInfo(directory); current != null; current = current.Parent)
             if (current.Exists && (current.Attributes & FileAttributes.ReparsePoint) != 0)

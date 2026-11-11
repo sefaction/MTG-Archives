@@ -1,5 +1,17 @@
 # Website-first Windows scanner setup
 
+## Unified setup from helper 0.4.6
+
+The same installer opens [one fi-7160 setup wizard](SCANNER_ONE_INSTALLER.md)
+for the Ricoh driver, helper/runtime/count companion and curated 600/300 DPI Cards
+profiles. The wizard supplies the profile file; choose **Add profiles** in the
+manufacturer dialog. Reopen **fi-7160 Scanner Setup** from the Windows Start menu
+to finish settings checks when the scanner is connected. Driver/profile setup
+can finish while it is disconnected. The website shows this guidance only for
+an installer version that includes the wizard; the separate prerequisite path
+below remains the legacy installer flow. Fresh-PC/connected acceptance remains
+explicit in #1016.
+
 ## Intended user path
 
 On the Windows computer attached to the scanner, sign in to MTG Archives and open **Imports → Scan cards → Connect a scanner**. Follow the steps to install the driver, install the helper, connect it and check the scanner source. Choose **Download Windows scanner helper**, open the downloaded installer, and approve Windows' normal installation prompts. The helper is a per-user, self-contained Windows x64 application with its own NAPS2 components and runtime. Then choose **Connect this computer** and allow the browser to open the helper. The helper confirms the site's origin, claims a ten-minute one-use code without copy/paste, starts its outbound connection, and reports scanner sources to the existing Scan cards controls.

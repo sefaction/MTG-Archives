@@ -50,8 +50,10 @@ internal static class Fi7160SetupSelfTest
             catch (OperationCanceledException) { refusedCancellation = true; }
             if (!refusedCancellation || File.Exists(Path.Combine(root, "cancel", package.FileName)))
                 throw new InvalidDataException("Cancelled setup published a package.");
+            await ProfileAndWizardChecks(root);
             Console.WriteLine("PASS pinned fi-7160 download/cache, tampered/truncated/oversized/redirect refusal, cancelled transfer and existing-file preservation; no network, install, driver or scanner");
         }
+        catch (Exception error) { Console.Error.WriteLine("Setup self-test: " + error); throw; }
         finally
         {
             if (Path.GetDirectoryName(root) != Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar) ||
@@ -59,6 +61,73 @@ internal static class Fi7160SetupSelfTest
                 throw new InvalidOperationException("Unexpected owned setup fixture directory.");
             Directory.Delete(root, true);
         }
+    }
+
+    private static async Task ProfileAndWizardChecks(string root)
+    {
+        var entries = Fi7160Profiles.Entries();
+        var baseline = Fi7160Profiles.Xml(entries["FTS_EX000004.xml"]);
+        var fast = Fi7160Profiles.Xml(entries["FTS_EX000005.xml"]);
+        foreach (var pair in new[] { (baseline, 600), (fast, 300) })
+        {
+            var resolutions = pair.Item1.Elements("capability").Where(c => (string?)c.Element("name") is "4376" or "4377").ToArray();
+            if (resolutions.Length != 4 || resolutions.Any(c => (string?)c.Element("whole") != pair.Item2.ToString() || (string?)c.Element("frac") != "0") ||
+                pair.Item1.Elements("capability").Any(c => (string?)c.Element("valueType") == "12" && !string.IsNullOrEmpty((string?)c.Element("value"))))
+                throw new InvalidDataException("Portable Cards payload includes wrong resolution or personal string metadata.");
+        }
+        foreach (var cap in fast.Elements("capability").Where(c => (string?)c.Element("name") is "4376" or "4377")) cap.Element("whole")!.Value = "600";
+        if (!System.Xml.Linq.XNode.DeepEquals(baseline, fast)) throw new InvalidDataException("The fast preset changed a setting other than resolution.");
+        var fixture = Path.Combine(root, "profile-store"); Directory.CreateDirectory(fixture);
+        File.WriteAllText(Path.Combine(fixture, "SettingInfo.ini"), "[Informations]\r\n000042=" + Fi7160Profiles.Name600 + "\r\n000043=" + Fi7160Profiles.Name300 + "\r\n");
+        File.WriteAllBytes(Path.Combine(fixture, "FTS_EX000042.xml"), entries["FTS_EX000004.xml"]);
+        File.WriteAllBytes(Path.Combine(fixture, "FTS_EX000043.xml"), entries["FTS_EX000005.xml"]);
+        if (!Fi7160Profiles.Installed(fixture)) throw new InvalidDataException("Vendor-remapped profile IDs were not recognized.");
+        File.WriteAllBytes(Path.Combine(fixture, "FTS_EX000043.xml"), entries["FTS_EX000004.xml"]);
+        if (Fi7160Profiles.Installed(fixture)) throw new InvalidDataException("A profile name alone produced readiness with wrong settings.");
+        var bundle = Fi7160Profiles.Materialize(Path.Combine(root, "profiles"));
+        if (Fi7160Profiles.Materialize(Path.Combine(root, "profiles")) != bundle) throw new InvalidDataException("Repeat profile preparation changed its package.");
+        File.WriteAllText(bundle, "unexpected existing data");
+        var refused = false;
+        try { Fi7160Profiles.Materialize(Path.Combine(root, "profiles")); } catch (InvalidDataException) { refused = true; }
+        if (!refused || File.ReadAllText(bundle) != "unexpected existing data") throw new InvalidDataException("An existing Cards package was overwritten.");
+        if (Fi7160SetupSystem.ScanPage("https://example.com/").AbsoluteUri != "https://example.com/imports/scan?input=scanner" ||
+            Fi7160SetupSystem.ScanPage("http://127.0.0.1:13001").Port != 13001)
+            throw new InvalidDataException("The wizard lost its website origin or local review port.");
+        foreach (var url in new[] { "http://example.com/", "https://example.com/other", "https://name:password@example.com/", "file:///C:/example" })
+        {
+            refused = false; try { Fi7160SetupSystem.ScanPage(url); } catch (ArgumentException) { refused = true; }
+            if (!refused) throw new InvalidDataException("An unsafe setup website was accepted.");
+        }
+        using var proof = System.Text.Json.JsonDocument.Parse("{\"verified\":true,\"sourceClosed\":true,\"dsmClosed\":true,\"ownedLoopJoined\":true,\"acquisitionEnables\":0}");
+        Fi7160SetupCompanion.RequireProof(proof.RootElement);
+        foreach (var field in new[] { "verified", "sourceClosed", "dsmClosed", "ownedLoopJoined", "acquisitionEnables" })
+        {
+            var malformed = System.Text.Json.Nodes.JsonNode.Parse(proof.RootElement.GetRawText())!.AsObject(); malformed.Remove(field);
+            using var missing = System.Text.Json.JsonDocument.Parse(malformed.ToJsonString());
+            refused = false; try { Fi7160SetupCompanion.RequireProof(missing.RootElement); } catch (InvalidDataException) { refused = true; }
+            if (!refused) throw new InvalidDataException("Missing settings/closure proof produced readiness.");
+        }
+        foreach (var scenario in new[] { "fresh", "installed", "incompatible", "restart" })
+        {
+            var system = new Fi7160SetupPreview(scenario); var state = system.Inspect();
+            if (scenario == "fresh") { await system.InstallDriver(new Progress<long>(), default); await system.ImportProfiles(); state = system.Inspect(); }
+            if (state.DriverSupported != (scenario is "fresh" or "installed")) throw new InvalidDataException("Wrong driver/restart wizard gate.");
+        }
+        foreach (var command in new object[] {
+            new { action = "start", parent = Environment.ProcessId, emptyClearConfirmed = true },
+            new { action = "configure-settings-only", parent = Environment.ProcessId, emptyClearConfirmed = false } })
+        {
+            var start = new System.Diagnostics.ProcessStartInfo(CountedTwainBackend.WorkerPath) { UseShellExecute = false, CreateNoWindow = true,
+                RedirectStandardInput = true, RedirectStandardOutput = true };
+            start.ArgumentList.Add("setup-profile-v1");
+            using var child = System.Diagnostics.Process.Start(start)!;
+            await child.StandardInput.WriteLineAsync(System.Text.Json.JsonSerializer.Serialize(command)); child.StandardInput.Close();
+            var response = await child.StandardOutput.ReadToEndAsync(); await child.WaitForExitAsync();
+            if (child.ExitCode != 1 || !response.Contains("\"sourceClosed\":false", StringComparison.Ordinal) ||
+                !response.Contains("\"verified\":false", StringComparison.Ordinal) || !response.Contains("\"acquisitionEnables\":0", StringComparison.Ordinal))
+                throw new InvalidDataException("Invalid settings command reached native setup or claimed success.");
+        }
+        Console.WriteLine("PASS portable fi-7160 profiles, resolution-only delta, remapped IDs, wrong-settings refusal, retry preservation, website origins, missing closure proof, restart/version gates and real companion no-START dispatch");
     }
 
     private static async Task Refused(string root, string name, Fi7160SetupPackages.Package package, Handler handler)

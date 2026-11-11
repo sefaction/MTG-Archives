@@ -95,6 +95,7 @@ internal static class CountedTwainWorker
     {
         if (args.Length == 1 && args[0] == "selftest") { CountFeedPolicy.SelfTest(); GuardedFeedPolicy.SelfTest(); return 0; }
         if (args.Length == 2 && args[0] == "fixture-channel-v1") return Fixture(args[1]);
+        if (args.Length == 1 && args[0] == "setup-profile-v1") return ConfigureSettingsOnly();
         // The helper backend also refuses this route, but a direct companion
         // launch must not reopen the failed physical profile during qualification.
         // Refuse before input, ownership, a TWAIN session or any driver call.
@@ -232,6 +233,80 @@ internal static class CountedTwainWorker
                 restoredSettings, sourceClosed, dsmClosed, ownedLoopJoined, acquisitionEnables = started ? 1 : 0 });
         }
         return result;
+    }
+    // A separate command with no acquisition path and no START reader. Unlike
+    // PREPARE, this must allow a fresh application's frame to be configured in
+    // the manufacturer's settings UI before checking the effective profile.
+    private static int ConfigureSettingsOnly()
+    {
+        if (IntPtr.Size != 4) return 2;
+        TwainSession session = null; OwnedTwainLoop loop = null; DataSource source = null;
+        var settingsClosed = new ManualResetEvent(false);
+        bool verified = false, unexpectedTransfer = false, sourceDone = false, dsmDone = false, joined = false;
+        try
+        {
+            var command = Read();
+            if (!command.ContainsKey("action") || !(command["action"] is string) ||
+                (string)command["action"] != "configure-settings-only" ||
+                !command.ContainsKey("parent") || !(command["parent"] is int) ||
+                !command.ContainsKey("emptyClearConfirmed") || !(command["emptyClearConfirmed"] is bool) ||
+                !(bool)command["emptyClearConfirmed"]) throw new ArgumentException("Settings-only confirmation required");
+            Owners((int)command["parent"]);
+            PlatformInfo.Current.PreferNewDSM = false;
+            session = new TwainSession(TWIdentity.CreateFromAssembly(DataGroups.Image | DataGroups.Control, Assembly.GetExecutingAssembly()));
+            loop = new OwnedTwainLoop();
+            loop.Invoke(delegate { Require(session.Open(loop.Hook)); });
+            source = session.Single(d => d.Name == "PaperStream IP fi-7160"); Require(source.Open());
+            if (source.Version.ToString() != ProfileDriver || source.ProtocolVersion.ToString() != "2.4")
+                throw new InvalidOperationException("Unsupported settings driver");
+            RequireEmpty(source);
+            if (!source.Capabilities.CapEnableDSUIOnly.CanGetCurrent ||
+                source.Capabilities.CapEnableDSUIOnly.GetCurrent() != BoolType.True)
+                throw new InvalidOperationException("Settings-only UI is unavailable; no acquisition fallback");
+            session.TransferReady += delegate(object sender, TransferReadyEventArgs e) { unexpectedTransfer = true; e.CancelAll = true; };
+            session.DataTransferred += delegate { unexpectedTransfer = true; };
+            session.TransferError += delegate { unexpectedTransfer = true; };
+            session.SourceDisabled += delegate { settingsClosed.Set(); };
+            // DAT_ENABLEDSUIONLY, never NoUI/ShowUI acquisition. No vendor SETs.
+            Require(source.Enable(SourceEnableMode.ShowUIOnly, false, loop.WindowHandle));
+            while (!settingsClosed.WaitOne(1000)) { }
+            if (session.State != 4 || unexpectedTransfer) throw new InvalidOperationException("Unexpected settings state");
+            RequireEmpty(source);
+            TWImageLayout layout; Require(source.DGImage.ImageLayout.Get(out layout));
+            if (Math.Abs((double)layout.Frame.Left) > .001 || Math.Abs((double)layout.Frame.Top) > .001 ||
+                Math.Abs((double)layout.Frame.Right - 2.7) > .001 || Math.Abs((double)layout.Frame.Bottom - 3.6) > .001)
+                throw new InvalidOperationException("Select the imported Cards profile");
+            ObservedInvariant(source);
+            verified = true;
+        }
+        catch { Send(new { kind = "settings-problem", code = "SETTINGS_NOT_VERIFIED" }); }
+        finally
+        {
+            // A vendor window must close normally. Never kill the child or
+            // destroy its owned message loop while a native source is open.
+            if (session != null)
+            {
+                while (session.State > 4) { verified = false; settingsClosed.WaitOne(1000); Thread.Sleep(100); }
+                if (session.State == 4 && source != null)
+                    try { Require(source.Close()); sourceDone = true; } catch { verified = false; }
+                if (session.State == 3)
+                    try { Require(session.Close()); dsmDone = true; } catch { verified = false; }
+                if (loop != null)
+                {
+                    while (session.State != 2) { verified = false; Thread.Sleep(1000); }
+                    loop.Dispose(); joined = true;
+                }
+            }
+            settingsClosed.Dispose();
+            Send(new { kind = "settings-completed", verified, sourceClosed = sourceDone, dsmClosed = dsmDone,
+                ownedLoopJoined = joined, acquisitionEnables = 0 });
+        }
+        return verified && sourceDone && dsmDone && joined ? 0 : 1;
+    }
+    private static void RequireEmpty(DataSource source)
+    {
+        if (!source.Capabilities.CapFeederLoaded.CanGetCurrent || source.Capabilities.CapFeederLoaded.GetCurrent() != BoolType.False)
+            throw new InvalidOperationException("Hopper must be empty; settings cannot enable acquisition");
     }
     private static int Fixture(string scenario)
     {

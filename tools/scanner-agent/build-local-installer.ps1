@@ -20,7 +20,7 @@ try {
   & $DotnetPath restore $project --locked-mode -r win-x64
   if ($LASTEXITCODE -ne 0) { throw 'Locked scanner restore failed' }
   & $DotnetPath publish $project --no-restore -c Release -r win-x64 --self-contained true `
-    -p:OutputType=WinExe -p:PublishSingleFile=false -p:PublishTrimmed=false -o $published
+    -p:OutputType=WinExe -p:PublishSingleFile=false -p:PublishTrimmed=false -p:UseSharedCompilation=false -nodeReuse:false -o $published
   if ($LASTEXITCODE -ne 0) { throw 'Self-contained scanner publish failed' }
   foreach ($name in @('Mtg.ScannerAgent.exe','NAPS2.Worker.exe','NAPS2.Sdk.dll')) {
     if (-not (Test-Path -LiteralPath (Join-Path $published $name) -PathType Leaf)) { throw "Missing $name" }

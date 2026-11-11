@@ -99,4 +99,24 @@ test.describe("Windows helper installation setup", () => {
     expect(Number(database(`console.log(await p.acquisitionSession.count({where:{createdByUserId:${JSON.stringify(tag)}}}));`))).toBe(0);
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
   });
+
+  test("a unified installer guides driver and presets in one entry point on desktop and phone", async ({page}) => {
+    await page.route(/\/api\/scanners\/installer\?info$/, route => route.fulfill({json:{available:true,version:"0.4.6"}}));
+    await page.goto("/imports/scan");
+    const panel = page.getByRole("region", {name:"Scanner connections"});
+    await panel.getByRole("button", {name:"Connect a scanner",exact:true}).click();
+    await expect(panel.locator("ol > li")).toHaveCount(3);
+    await expect(panel).toContainText("Run the fi-7160 setup.");
+    await expect(panel).toContainText("Ricoh driver, scanner helper and 600/300 DPI Cards profiles");
+    await expect(panel).toContainText("choose Add profiles");
+    await expect(panel).toContainText("If the scanner is disconnected, this check stays pending.");
+    await expect(panel.getByRole("button", {name:"Connect this computer",exact:true})).toBeEnabled();
+    for (const width of [1366,320]) {
+      await page.setViewportSize({width,height:900});
+      await panel.scrollIntoViewIfNeeded();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await panel.screenshot({path:`test-results/scanner-unified-setup-${width}.png`});
+    }
+    expect(Number(database(`console.log(await p.scannerPairing.count({where:{userId:${JSON.stringify(tag)}}}));`))).toBe(0);
+  });
 });
