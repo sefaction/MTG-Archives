@@ -94,7 +94,30 @@ ownership before setting these inputs, then run
 `node --import tsx scripts/verify-scan-destination-filter.ts`.
 
 The no-opt-in and nonlocal-host refusals were checked without opening a database.
-Actual PostgreSQL execution remains pending: Docker could not start during the
-reconciliation. This draft adds a verification tool; it neither reopens completed
-#855 nor establishes database, installation or reporter acceptance. The original
-failed build and peer-conservation intervals remain in the historical record.
+After Docker recovered, the complete verifier passed on disposable PostgreSQL 16
+at source `97c8c39b`. All 85 public tables' rows matched before and after, including
+migration history; the batch-number sequence advanced for exactly eight synthetic
+sessions. This sequence allocation is an expected nontransactional effect,
+reported separately from row conservation. All 13 pre-existing containers retained
+their identities, configuration, mounts, networks, lifetimes and restart counts.
+The two owned fixture containers and their internal network were retired.
+
+The runner used a raw Git archive of the tested revision. Every transferred file
+matched its archive hash. The generated client was rebuilt from that source;
+Prisma's formatted source schema exactly matched its generated schema. The earlier
+raw-schema hash mismatch was formatting and index-directive ordering, not a
+demonstrated model difference. A separate setup attempt tried an automatic package
+install before the dependency link existed and failed without running the test.
+
+Actual database execution exposed two invalid historical fixture assumptions:
+the synthetic token was not a 64-character SHA256 hash, and post-Start scanner
+states lacked execution identities. Each helper also needs its own unreconciled
+run. The corrected fixture satisfies those constraints, preserves every original
+capacity assertion, and checks that scanner agents roll back too. Both original
+failed runs remain retained; no database constraint or product guard was relaxed.
+
+This PR adds a qualified verification tool; it neither reopens completed #855 nor
+establishes installation or reporter acceptance. Earlier failed build and
+peer-conservation intervals remain in the historical record. Source archives,
+schema proofs, migration output, failure logs and before/after dumps stay in the
+private completion evidence; no application data or credentials are published.
