@@ -1,3 +1,22 @@
+## Current queue reconciliation ? November 11, 2026
+
+Owner: this reconciliation task, branch `codex/queue-reconciliation-20261111`,
+base main `2cbdb58c`. Brian requested all-issue/local-work/claim reconciliation,
+PR publication and individual reviews; no merge or production grant. Initial
+inventory: 26 issues, four draft PRs, 338 worktrees, 573 branches, 67 dirty copies.
+Private patches/index/file manifests are preserved; old worktrees remain intact.
+
+Recent claim chats ended completed and the shared laptop runtime lock is absent.
+No local heavy/runtime operation is owned. Docker cannot start; no app/database
+reload or fresh browser qualification is claimed. #1025 source review/64 tests
+and all nine CI pass; #1027 software review/47 tests plus one existing skip and
+11 CI pass, with physical comparison pending. #1024 has a test-only assertion
+repair at `9eb2fc3e` after the retained CI failure; final-head CI is pending.
+Recovered records/verifier are in #1028/#1029/#1030. See
+[the complete queue and evidence limits](QUEUE_REVIEW_20261111.md). Next: finalize
+hosted checks, publish this guide/reconciliation, update advisory statuses and
+present each individual PR decision. No new issue or unresolved-scope closure.
+
 ## Current #1005 qualification — November 6, 2026
 
 
