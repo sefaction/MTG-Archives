@@ -117,10 +117,12 @@ internal sealed class Fi7160SetupWizard : Form
     {
         install.Enabled = !busy && status.DriverVersion == null && !status.RestartRequired;
         import.Text = status.ProfileRecovery != null ? "Check profile recovery" : "Add Cards profiles";
+        import.AccessibleName = import.Text;
         import.Enabled = !busy && (status.ProfileRecovery != null || status.DriverSupported && !status.Profiles);
         configure.Enabled = !busy && status.DriverSupported && status.Profiles && empty.Checked;
         recheck.Enabled = open.Enabled = site.Enabled = empty.Enabled = !busy;
         close.Text = busy ? "Cancel / finish setup" : "Close setup";
+        close.AccessibleName = close.Text;
     }
     private async Task Work(Func<Task<string>> action)
     {
