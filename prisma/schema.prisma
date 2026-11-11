@@ -169,6 +169,7 @@ model User {
   deckFolders                  DeckFolder[]
   deckTags                     DeckTag[]
   wishlistItems                WishlistItem[]
+  collectorWishlistItems       CollectorWishlistItem[]
   tradeWishlistItems           TradeWishlistItem[]
   notifications                Notification[]                      @relation("NotificationRecipient")
   notificationActions          Notification[]                      @relation("NotificationActor")
@@ -814,6 +815,25 @@ model WishlistItem {
   @@unique([ownerUserId, cardId])
   @@index([ownerUserId, updatedAt])
   @@index([cardId])
+}
+
+model CollectorWishlistItem {
+  id                String   @id @default(cuid())
+  ownerUserId       String
+  ownerUser         User     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  setCode           String
+  mode              String
+  targetKey         String
+  cardName          String
+  collectorNumber   String?
+  preferredFinish   String
+  allowOtherSets    Boolean  @default(false)
+  allowOtherFinishes Boolean @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([ownerUserId, setCode, mode, targetKey])
+  @@index([ownerUserId, createdAt])
 }
 
 model InventoryLocation {

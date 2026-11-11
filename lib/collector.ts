@@ -14,6 +14,11 @@ export type CollectorOwned = { currentOwnerId: string; quantity: number; languag
 export type CollectorCounts = { owned: number; total: number; percent: number };
 export type CollectorProgress = { grouped: CollectorCounts; variants: CollectorCounts };
 export type CollectorMode = keyof CollectorProgress;
+export const collectorFinishLabels: Record<CollectorCard["finishes"][number], string> = {
+  nonfoil: "Nonfoil",
+  foil: "Foil",
+  etched: "Etched",
+};
 export type CollectorDetailRow = {
   id: string;
   name: string;
@@ -71,6 +76,32 @@ function count(rows: Map<string, CollectorDetailRow>): CollectorCounts {
 export function collectorProgress(cards: CollectorCard[], owned: CollectorOwned[], ownerId: string): CollectorProgress {
   const {grouped, variants} = collectorTally(cards, owned, ownerId);
   return {grouped: count(grouped), variants: count(variants)};
+}
+
+const preferredFinishes = ["nonfoil", "foil", "etched"] as const;
+
+export function collectorWishlistTargets(
+  cards: CollectorCard[],
+  owned: CollectorOwned[],
+  ownerId: string,
+  mode: CollectorMode,
+) {
+  const rows = collectorTally(cards, owned, ownerId)[mode];
+  const groupedFinishes = new Map<string, CollectorCard["finishes"][number]>();
+  if (mode === "grouped") {
+    for (const card of cards.filter(eligibleCollectorCard)) {
+      const key = groupKey(card);
+      const current = groupedFinishes.get(key);
+      const preferred = preferredFinishes.find(finish => card.finishes.includes(finish))!;
+      if (!current || preferredFinishes.indexOf(preferred) < preferredFinishes.indexOf(current)) {
+        groupedFinishes.set(key, preferred);
+      }
+    }
+  }
+  return Array.from(rows.values(), row => ({
+    ...row,
+    preferredFinish: row.finish ?? groupedFinishes.get(row.id)!,
+  }));
 }
 
 const PAGE_SIZE = 50;
