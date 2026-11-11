@@ -49,9 +49,6 @@ async function verify() {
       await tx.acquisitionSession.create({ data: { createdByUserId: tag, ownerPlayerId: foreignOwner,
         locationId: foreign.id, section: "", requestKey: randomUUID(), requestPayload: "fixture",
         placement: {}, policy: {}, scannerReserved: 100 } });
-      const agent = await tx.scannerAgent.create({ data: { id: tag, userId: tag,
-        tokenHash: createHash("sha256").update(tag).digest("hex"), credentialHash: "fixture-only", name: tag,
-        expiresAt: new Date(Date.now() + 60000) } });
 
       async function session(input: { section: string; reserved: number; candidates?: number;
         slots?: number; committed?: number; trashed?: boolean; deleted?: boolean; status?: string }) {
@@ -81,9 +78,18 @@ async function verify() {
               commitId: receipt.id, inventoryItemId: stock.id, snapshot: {} } });
           }
         }
-        if (input.status) await tx.scannerRun.create({ data: { id: randomUUID(), agentId: agent.id,
-          acquisitionRunId: runId, epoch: randomUUID(), requestPayload: "fixture", deviceId: "fixture",
-          device: {}, settings: {}, status: input.status } });
+        if (input.status) {
+          // Independent helpers may each have one unreconciled transfer. A
+          // post-Start status also needs its durable execution identity.
+          const agentId = randomUUID();
+          await tx.scannerAgent.create({ data: { id: agentId, userId: tag,
+            tokenHash: createHash("sha256").update(agentId).digest("hex"), credentialHash: "fixture-only", name: tag,
+            expiresAt: new Date(Date.now() + 60000) } });
+          await tx.scannerRun.create({ data: { id: randomUUID(), agentId,
+            acquisitionRunId: runId, epoch: randomUUID(), requestPayload: "fixture", deviceId: "fixture",
+            executionId: input.status === "QUEUED" ? null : randomUUID(),
+            device: {}, settings: {}, status: input.status } });
+        }
       }
 
       await session({ section: " A ", reserved: 5, candidates: 3, slots: 4, committed: 1 }); // 4 held
@@ -137,6 +143,7 @@ async function verify() {
   assert.equal(await db.inventoryLocation.count({ where: { id: tag } }), 0);
   assert.equal(await db.inventoryItem.count({ where: { currentOwnerId: tag } }), 0);
   assert.equal(await db.acquisitionSession.count({ where: { ownerPlayerId: tag } }), 0);
+  assert.equal(await db.scannerAgent.count({ where: { userId: tag } }), 0);
   console.log("PASS scoped actual-Prisma capacity list/authoritative parity, reservations/receipts, unresolved transfers, full/over and rollback cleanup");
 }
 
