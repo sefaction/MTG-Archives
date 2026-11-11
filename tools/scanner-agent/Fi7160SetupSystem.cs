@@ -127,41 +127,43 @@ internal sealed class Fi7160SetupSystem : IFi7160SetupSystem
             throw new InvalidOperationException("Both Cards presets were not found with the expected settings. Retry and choose Add profiles, then Import. Existing profiles were checked for preservation.");
     }
 
-    private sealed record Backup(string Directory, Dictionary<string, string> Hashes, Dictionary<string, string> Names);
-    private static Backup BackupProfiles()
+    internal sealed record Backup(string Directory, string Store, Dictionary<string, string> Hashes, Dictionary<string, string> Names);
+    internal static Backup BackupProfiles(string? profileStore = null, string? backupRoot = null)
     {
-        var destination = Path.Combine(SetupRoot, "profile-backups", DateTime.UtcNow.ToString("yyyyMMddTHHmmss") + "-" + Guid.NewGuid().ToString("N"));
+        var store = profileStore ?? Fi7160Profiles.Store;
+        var destination = Path.Combine(backupRoot ?? Path.Combine(SetupRoot, "profile-backups"), DateTime.UtcNow.ToString("yyyyMMddTHHmmss") + "-" + Guid.NewGuid().ToString("N"));
         Fi7160SetupPackages.RejectReparseDirectories(destination);
         Directory.CreateDirectory(destination);
         var hashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (Directory.Exists(Fi7160Profiles.Store))
+        if (Directory.Exists(store))
         {
-            foreach (var file in Directory.EnumerateFiles(Fi7160Profiles.Store, "*", SearchOption.AllDirectories))
+            foreach (var file in Directory.EnumerateFiles(store, "*", SearchOption.AllDirectories))
             {
                 Fi7160SetupPackages.RejectReparseDirectories(Path.GetDirectoryName(file)!);
                 if ((File.GetAttributes(file) & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException("The profile store contains a linked file; keep it and contact support.");
-                var relative = Path.GetRelativePath(Fi7160Profiles.Store, file);
+                var relative = Path.GetRelativePath(store, file);
                 var target = Path.Combine(destination, relative);
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                 File.Copy(file, target, false);
-                hashes.Add(relative, Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(target))));
+                hashes.Add(relative, HashFile(target));
             }
         }
         var names = Names(Path.Combine(destination, "SettingInfo.ini"));
         File.WriteAllText(Path.Combine(destination, "setup-backup-manifest.json"), JsonSerializer.Serialize(hashes));
-        return new(destination, hashes, names);
+        return new(destination, store, hashes, names);
     }
+    private static string HashFile(string file) { using var input = File.OpenRead(file); return Convert.ToHexString(SHA256.HashData(input)); }
     private static Dictionary<string, string> Names(string file) => !File.Exists(file) ? new() : File.ReadLines(file)
         .Where(line => line.Length >= 7 && line[6] == '=' && line[..6].All(char.IsAsciiDigit))
         .ToDictionary(line => line[..6], line => line[7..], StringComparer.Ordinal);
-    private static void VerifyPreserved(Backup backup)
+    internal static void VerifyPreserved(Backup backup)
     {
-        var names = Names(Path.Combine(Fi7160Profiles.Store, "SettingInfo.ini"));
+        var names = Names(Path.Combine(backup.Store, "SettingInfo.ini"));
         var changed = backup.Names.Any(p => !names.TryGetValue(p.Key, out var value) || p.Value != value);
         foreach (var item in backup.Hashes.Where(p => p.Key is not ("Id.bin" or "SettingInfo.ini")))
         {
-            var file = Path.Combine(Fi7160Profiles.Store, item.Key);
-            if (!File.Exists(file) || Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(file))) != item.Value) changed = true;
+            var file = Path.Combine(backup.Store, item.Key);
+            if (!File.Exists(file) || HashFile(file) != item.Value) changed = true;
         }
         if (changed) throw new InvalidOperationException("The vendor import changed an existing profile. Setup has stopped. Your pre-import backup is at " + backup.Directory + ". Keep it for recovery; do not scan or repeat the import.");
     }

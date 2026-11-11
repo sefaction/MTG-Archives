@@ -11,7 +11,10 @@ $project = Join-Path $PSScriptRoot 'ScannerAgent.csproj'
 $script = Join-Path $PSScriptRoot 'ScannerAgent.iss'
 $repository = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $output = if ($OutputDir) { [IO.Path]::GetFullPath($OutputDir) } else { Join-Path $repository '.local-data\imports\scanner-installer' }
-$build = Join-Path $repository ('.local-data\scanner-installer-build-' + [guid]::NewGuid().ToString('N'))
+# Inno's compressor still encounters MAX_PATH in deep worktrees. Keep its
+# uniquely owned staging tree short; the final package remains in OutputDir.
+$buildTempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')
+$build = Join-Path $buildTempRoot ('mtg-scanner-installer-' + [guid]::NewGuid().ToString('N'))
 $published = Join-Path $build 'publish'
 if (-not (Test-Path -LiteralPath $IsccPath -PathType Leaf)) { throw 'Inno Setup 6 compiler is required for the local installer build' }
 New-Item -ItemType Directory -Path $published,$output -Force | Out-Null
@@ -52,7 +55,9 @@ try {
   else { Write-Output 'This local test artifact is not approved for public distribution.' }
 } finally {
   Pop-Location
-  if ($build.StartsWith((Join-Path $repository '.local-data\scanner-installer-build-'),[StringComparison]::OrdinalIgnoreCase)) {
+  $resolvedBuild = [IO.Path]::GetFullPath($build)
+  if ([IO.Path]::GetDirectoryName($resolvedBuild).Equals($buildTempRoot,[StringComparison]::OrdinalIgnoreCase) -and
+      [IO.Path]::GetFileName($resolvedBuild) -match '^mtg-scanner-installer-[a-f0-9]{32}$') {
     Remove-Item -LiteralPath $build -Recurse -Force -ErrorAction SilentlyContinue
   }
 }

@@ -90,6 +90,23 @@ internal static class Fi7160SetupSelfTest
         var refused = false;
         try { Fi7160Profiles.Materialize(Path.Combine(root, "profiles")); } catch (InvalidDataException) { refused = true; }
         if (!refused || File.ReadAllText(bundle) != "unexpected existing data") throw new InvalidDataException("An existing Cards package was overwritten.");
+        var beforeImport = Fi7160SetupSystem.BackupProfiles(fixture, Path.Combine(root, "profile-backups"));
+        File.AppendAllText(Path.Combine(fixture, "SettingInfo.ini"), "000044=Unrelated new profile\r\n");
+        File.WriteAllText(Path.Combine(fixture, "FTS_EX000044.xml"), "new profile fixture");
+        File.WriteAllText(Path.Combine(fixture, "Id.bin"), "updated allocation index");
+        Fi7160SetupSystem.VerifyPreserved(beforeImport); // Native additive changes are allowed.
+        var oldProfile = Path.Combine(fixture, "FTS_EX000042.xml");
+        File.WriteAllText(oldProfile, "changed by an erroneous replacing import");
+        refused = false;
+        try { Fi7160SetupSystem.VerifyPreserved(beforeImport); } catch (InvalidOperationException) { refused = true; }
+        if (!refused || !File.ReadAllBytes(Path.Combine(beforeImport.Directory, "FTS_EX000042.xml")).SequenceEqual(entries["FTS_EX000004.xml"]) ||
+            File.ReadAllText(oldProfile) != "changed by an erroneous replacing import")
+            throw new InvalidDataException("Replacing import was not refused with a retained backup and no automatic live-store rewrite.");
+        File.WriteAllBytes(oldProfile, entries["FTS_EX000004.xml"]);
+        File.WriteAllText(Path.Combine(fixture, "SettingInfo.ini"), "[Informations]\r\n000042=Wrong name\r\n");
+        refused = false;
+        try { Fi7160SetupSystem.VerifyPreserved(beforeImport); } catch (InvalidOperationException) { refused = true; }
+        if (!refused) throw new InvalidDataException("Changed/deleted pre-existing profile names were accepted.");
         if (Fi7160SetupSystem.ScanPage("https://example.com/").AbsoluteUri != "https://example.com/imports/scan?input=scanner" ||
             Fi7160SetupSystem.ScanPage("http://127.0.0.1:13001").Port != 13001)
             throw new InvalidDataException("The wizard lost its website origin or local review port.");
