@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Nav } from "@/components/Nav";
 import { PublicShareLink } from "@/components/PublicShareLink";
-import { publicInventoryLink } from "@/lib/public-inventory-link";
+import { publicInventoryLink, publicWishlistLink } from "@/lib/public-inventory-link";
+import { normalizePublicWishlistCategories, publicWishlistCategories } from "@/lib/public-wishlist";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import {
   cn,
@@ -70,6 +71,23 @@ export default async function SettingsPage({
   }
   const scope = await getAccessScope(user);
   const adminModeActive = scope?.mode === "admin";
+  async function updatePublicWishlist(fd: FormData) {
+    "use server";
+    const actor = await requireLogin();
+    const categories = normalizePublicWishlistCategories(fd.getAll("publicWishlistCategories"));
+    await prisma.$transaction(async tx => {
+      const before = await tx.user.findUniqueOrThrow({ where: { id: actor.id }, select: { publicWishlistCategories: true } });
+      await tx.user.update({ where: { id: actor.id }, data: { publicWishlistCategories: categories } });
+      await tx.inventoryAuditLog.create({ data: {
+        changedByUserId: actor.id, changeType: "public_wishlist_categories_updated",
+        beforeJson: { publicWishlistCategories: before.publicWishlistCategories },
+        afterJson: { publicWishlistCategories: categories },
+      } });
+    });
+    revalidatePath(publicWishlistLink(actor.username));
+    revalidatePath("/settings");
+    redirect("/settings?wishlistSaved=1#public-wishlist-sharing");
+  }
   const notificationPreferences = await getLocalNotificationPreferences(
     user.id,
   );
@@ -547,6 +565,22 @@ export default async function SettingsPage({
           </SubmitButton>
         </div>
       </form>
+      <section id="public-wishlist-sharing" aria-labelledby="public-wishlist-sharing-heading" className="space-y-3 rounded border border-[var(--app-border)] p-4">
+        <h2 id="public-wishlist-sharing-heading" className="text-xl font-semibold">Public Wishlist sharing</h2>
+        <p className="text-sm app-muted">Choose which categories to share. All categories start private; leave every box unchecked to share none.</p>
+        <p className="text-sm app-muted">Visitors see card names, wanted quantities, printing and finish preferences, and category labels. Notes, deck names, trade partners and storage details stay private.</p>
+        <PublicShareLink href={publicWishlistLink(user.username)} label="Your public Wishlist" />
+        {params.wishlistSaved === "1" && <p role="status">Wishlist sharing saved.</p>}
+        <form action={updatePublicWishlist} className="space-y-3">
+          <fieldset className="space-y-2"><legend className="mb-2 font-medium">Shared Wishlist categories</legend>
+            {publicWishlistCategories.map(category => <label key={category.value} className="flex min-h-11 items-center gap-2">
+              <input type="checkbox" name="publicWishlistCategories" value={category.value} defaultChecked={user.publicWishlistCategories.includes(category.value)} />
+              {category.label}
+            </label>)}
+          </fieldset>
+          <SubmitButton className={filterPrimaryButtonClass} pendingLabel="Saving sharing…">Save Wishlist sharing</SubmitButton>
+        </form>
+      </section>
     </main>
   );
 }
