@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {collectorCardSchema, collectorDetail, collectorProgress, eligibleCollectorCard, type CollectorCard, type CollectorOwned} from "../lib/collector";
+import {collectorCardSchema, collectorDetail, collectorProgress, collectorWishlistTargets, eligibleCollectorCard, type CollectorCard, type CollectorOwned} from "../lib/collector";
 import {fetchCollectorCatalog} from "../lib/collector-catalog";
 const card = (id: string, extra: Partial<CollectorCard> = {}): CollectorCard => ({id, oracle_id: "oracle", name: "Test Card", set: "tst", lang: "en", digital: false, games: ["paper"], layout: "normal", type_line: "Creature — Wizard", oversized: false, finishes: ["nonfoil", "foil"], ...extra});
 const item = (id: string, extra: Partial<CollectorOwned> = {}): CollectorOwned => ({currentOwnerId: "me", quantity: 1, language: "EN", foilStatus: "NONFOIL", card: {scryfallId: id}, ...extra});
@@ -68,6 +68,20 @@ test("missing-only set detail bounds pages and keeps the complete catalog denomi
   assert.equal(last.matches, 100);
   assert.deepEqual(last.progress, {owned: 2, total: 102, percent: 1.9});
   assert.deepEqual([...first.rows, ...last.rows].map(row => row.name), cards.slice(2).map(row => row.name));
+});
+test("grouped wishes prefer a supported standard finish while printing targets retain their finish", () => {
+  const cards = [
+    card("a", {finishes: ["foil"]}), card("b", {finishes: ["etched", "nonfoil"]}),
+    card("c", {oracle_id: undefined, name: "Etched only", finishes: ["etched"]}),
+    card("token", {layout: "token"}),
+  ];
+  const owned = [item("a", {foilStatus: "FOIL"})];
+  assert.deepEqual(collectorWishlistTargets(cards, owned, "me", "grouped")
+    .map(target => [target.id, target.preferredFinish, target.quantity]),
+  [["oracle", "nonfoil", 1], ["name:Etched only", "etched", 0]]);
+  assert.deepEqual(collectorWishlistTargets(cards, owned, "me", "variants")
+    .map(target => [target.id, target.preferredFinish, target.quantity]),
+  [["a:foil", "foil", 1], ["b:etched", "etched", 0], ["b:nonfoil", "nonfoil", 0], ["c:etched", "etched", 0]]);
 });
 function provider(pages: unknown[]) { let n = 0; return async () => ({ok: true as const, data: pages[n++], correlationId: "test", requestsMade: 1}); }
 const page = (cards: CollectorCard[], total = cards.length, more = false) => ({object: "list", data: cards, total_cards: total, has_more: more});
