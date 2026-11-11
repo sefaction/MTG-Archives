@@ -82,7 +82,7 @@ export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, r
         <select className={input+" block w-full max-w-full mt-1"} value={countedDpi}
           onChange={e=>setCountedDpi(e.target.value === "300" ? 300 : 600)}>
           <option value={600}>600 DPI (default)</option>
-          <option value={300} disabled={!source.supports300Dpi}>300 DPI (trial)</option>
+          <option value={300} disabled={!source.supports300Dpi}>300 DPI</option>
         </select>
       </label>}
       {!countedResolutionReady && <p role="alert">Reconnect with the updated Windows helper to scan at 300 DPI, or choose 600 DPI.</p>}

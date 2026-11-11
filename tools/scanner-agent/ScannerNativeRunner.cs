@@ -152,7 +152,7 @@ public static class ScannerNativeRunner
         if (run.Status != "QUEUED" || run.StopRequested || run.ExecutionId != null)
             throw new InvalidOperationException("Started scanner run has no local journal; manual reconciliation required");
         if (run.Counted && run.Settings.Dpi == 300 && advertisedVersion != ScannerConnection.CountedResolutionVersion)
-            throw new InvalidOperationException("The connected site does not support the counted 300 DPI trial");
+            throw new InvalidOperationException("The connected site does not support counted scanning at 300 DPI");
         var helperIdentity = poll.TryGetProperty("helperIdentityReporting", out var reporting) && reporting.ValueKind == JsonValueKind.True
             ? ScannerHelperIdentity.Current : null;
         using var prepared = await PrepareSource(client, token, run, root, devices, backendFactory);
