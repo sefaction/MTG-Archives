@@ -148,7 +148,7 @@ export default async function DashboardPage({
           </p>
         </Link>
         <Link className="rounded border border-zinc-800 p-4" href="/imports">
-          <h2 className="font-semibold">Import</h2>
+          <h2 className="font-semibold">Add &amp; export</h2>
           <p className="text-sm text-zinc-400">
             Upload a CSV, review matches, and add cards.
           </p>
@@ -199,7 +199,7 @@ export default async function DashboardPage({
           </ul>
         ) : (
           <p className="text-sm text-zinc-400">
-            No inventory entries yet. Use Import to upload a CSV or add cards.
+            No inventory entries yet. Open Add &amp; export to upload a CSV or add cards.
           </p>
         )}
       </section>

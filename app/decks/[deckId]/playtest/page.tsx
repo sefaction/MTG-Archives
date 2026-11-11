@@ -61,7 +61,7 @@ export default async function DeckPlaytestPage({
         </div>
       </section>
 
-      <DeckToolsNav deckId={deck.id} active="playtest" />
+      <DeckToolsNav deckId={deck.id} active="playtest" canHunt={deck.canHunt} />
       {deck.cards
         .filter((card) => card.section !== "MAYBEBOARD" || card.isCommander)
         .reduce((sum, card) => sum + card.quantity, 0) > MAX_PLAYTEST_CARDS ? (

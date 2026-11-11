@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { MemberWishlist } from "@/components/MemberWishlist";
+import { SetCompletionWishlist } from "@/components/SetCompletionWishlist";
 import { WishlistSearchAdd } from "@/components/WishlistSearchAdd";
 import { WishlistTable } from "@/components/WishlistTable";
 import { normalizeCollectionCardSize } from "@/components/cardGrid";
@@ -42,6 +43,7 @@ const wishlistReasons = [
   { value: "combined", label: "Combined", href: "/wishlist" },
   { value: "decks", label: "Deck needs", href: "/wishlist?reason=decks" },
   { value: "members", label: "From members", href: "/wishlist?reason=members" },
+  { value: "sets", label: "Set Completion", href: "/wishlist?reason=sets" },
   { value: "manual", label: "Manual wishes", href: "/wishlist?reason=manual" },
 ] as const;
 
@@ -154,11 +156,13 @@ export default async function WishlistPage({
       </nav>
     </>
   );
-  if (reason === "members") {
+  if (reason === "members" || reason === "sets") {
     return (
       <main className="space-y-6 p-4 sm:p-8">
         {heading}
-        <MemberWishlist ownerUserId={user.id} page={params.memberPage} />
+        {reason === "members"
+          ? <MemberWishlist ownerUserId={user.id} page={params.memberPage} />
+          : <SetCompletionWishlist ownerUserId={user.id} page={params.setPage} />}
       </main>
     );
   }
@@ -490,7 +494,10 @@ export default async function WishlistPage({
         query={{ ...params, reason, tab: availability }}
       />
       {reason !== "decks" && <WishlistSearchAdd />}
-      {reason === "combined" && <MemberWishlist ownerUserId={user.id} preview />}
+      {reason === "combined" && <>
+        <MemberWishlist ownerUserId={user.id} preview />
+        <SetCompletionWishlist ownerUserId={user.id} preview />
+      </>}
     </main>
   );
 }
