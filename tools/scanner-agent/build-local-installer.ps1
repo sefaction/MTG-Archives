@@ -32,6 +32,8 @@ try {
   if ($transportCheck.ExitCode -ne 0) { throw 'Scanner transport self-check failed' }
   $discoveryCheck = Start-Process -FilePath $helper -ArgumentList 'discovery-selftest' -Wait -PassThru -WindowStyle Hidden
   if ($discoveryCheck.ExitCode -ne 0) { throw 'Scanner discovery self-check failed' }
+  $setupCheck = Start-Process -FilePath $helper -ArgumentList 'setup7160-selftest' -Wait -PassThru -WindowStyle Hidden
+  if ($setupCheck.ExitCode -ne 0) { throw 'fi-7160 setup package self-check failed' }
   & (Join-Path $PSScriptRoot 'prepare-local-notices.ps1') -PublishDir $published -PythonPath $PythonPath
   if ($ReleaseMaterials) {
     & $PythonPath (Join-Path $PSScriptRoot 'prepare-release-materials.py') --publish $published

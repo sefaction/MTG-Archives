@@ -3,6 +3,16 @@ using Mtg.Scanner;
 
 try
 {
+    if (args.Length == 1 && args[0] == "setup7160-selftest") { await Fi7160SetupSelfTest.Run(); return; }
+    if (args.Length == 2 && args[0] == "setup7160-verify-driver")
+    {
+        if (!Path.IsPathFullyQualified(args[1])) throw new ArgumentException("An absolute driver package path is required.");
+        await Fi7160SetupPackages.Verify(args[1], Fi7160SetupPackages.Driver, default);
+        Console.WriteLine(JsonSerializer.Serialize(new { kind = "VerifiedFi7160DriverPackage",
+            version = Fi7160SetupPackages.DriverVersion, bytes = Fi7160SetupPackages.Driver.Bytes,
+            sha256 = Fi7160SetupPackages.Driver.Sha256, installed = false, scannerOpened = false }));
+        return;
+    }
     if (await ScannerCountedPreparation.Run(args)) return;
     if (await ScannerConnection.Run(args)) return;
     if (args.Length == 0 || args[0] is not ("list" or "list-wia" or "caps" or "scan" or "scan-diagnostic"))

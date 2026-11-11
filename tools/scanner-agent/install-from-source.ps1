@@ -50,6 +50,8 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'Scanner native self-check failed' }
   & $DotnetPath (Join-Path $published 'Mtg.ScannerAgent.dll') discovery-selftest *> (Join-Path $buildRoot 'discovery-selftest.log')
   if ($LASTEXITCODE -ne 0) { throw 'Scanner discovery self-check failed; no scanner used' }
+  & $DotnetPath (Join-Path $published 'Mtg.ScannerAgent.dll') setup7160-selftest *> (Join-Path $buildRoot 'setup7160-selftest.log')
+  if ($LASTEXITCODE -ne 0) { throw 'fi-7160 setup package self-check failed; no installer or scanner used' }
   $canonicalPublish = (Get-Item -LiteralPath $published).FullName.TrimEnd('\','/')
   $files = @(Get-ChildItem -LiteralPath $published -File -Recurse | Sort-Object FullName | ForEach-Object {
     if (-not $_.FullName.StartsWith($canonicalPublish + [IO.Path]::DirectorySeparatorChar,
