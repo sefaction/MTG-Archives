@@ -1,0 +1,93 @@
+import { expect, test } from "@playwright/test";
+import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+
+test("section shortcuts support hover, keyboard, touch and persistent header tabs", async ({ page, browser, baseURL }) => {
+  test.skip(process.env.MTG_LOCAL_PILOT_TEST !== "1", "Requires an owned disposable review database");
+  const container = process.env.MTG_NAVIGATION_TEST_CONTAINER ?? "";
+  expect(container).toMatch(/^mtg-navigation-hover-review$/);
+  expect(baseURL).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
+  test.setTimeout(120_000);
+  const username = `navigation-${randomUUID()}`;
+  const password = randomUUID();
+  function database(body: string) {
+    return JSON.parse(execFileSync("docker", ["exec", "-i", container, "node"], {
+      input: `const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().then(x=>console.log(JSON.stringify(x))).finally(()=>p.$disconnect());`,
+      encoding: "utf8", timeout: 30_000,
+    }));
+  }
+  const userId: string = database(`return (await p.user.create({data:{username:${JSON.stringify(username)},passwordHash:await require('bcryptjs').hash(${JSON.stringify(password)},10),navigationLayout:'topbar',player:{create:{name:${JSON.stringify(username)}}}}})).id;`);
+  try {
+    await page.setViewportSize({ width: 1366, height: 900 });
+    await page.goto("/login");
+    await page.getByLabel(/username or email/i).fill(username);
+    await page.getByLabel(/^password$/i).fill(password);
+    await page.getByRole("button", { name: /^log in$/i }).click();
+    await page.waitForURL(/\/dashboard/);
+    const rail = page.locator(".archive-rail");
+    const inventory = rail.getByRole("link", { name: "Inventory", exact: true });
+    await inventory.hover();
+    const submenu = page.locator("#archive-submenu-inventory");
+    await expect(submenu).toBeVisible();
+    await expect(page).toHaveURL(/\/dashboard/);
+    await submenu.getByRole("link", { name: "Locations", exact: true }).click();
+    await expect(page).toHaveURL(/\/locations/);
+    const tabs = page.getByRole("navigation", { name: "Inventory sections" });
+    await expect(tabs.getByRole("link", { name: "Locations", exact: true })).toHaveAttribute("aria-current", "page");
+    expect(await tabs.evaluate(node => node.closest(".archive-shell") !== null)).toBe(true);
+    const tabBounds = (await tabs.boundingBox())!;
+    const headerBounds = (await page.locator(".archive-shell").boundingBox())!;
+    expect(tabBounds.y + tabBounds.height).toBeLessThan(headerBounds.y + headerBounds.height);
+
+    const toggle = rail.getByRole("button", { name: "Inventory sections", exact: true });
+    await page.mouse.move(1000, 700);
+    await toggle.focus();
+    await page.keyboard.press("Enter");
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("Tab");
+    await expect(submenu.getByRole("link", { name: "Cards", exact: true })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(submenu).toBeHidden();
+    await expect(toggle).toBeFocused();
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Tab");
+    await rail.getByRole("link", { name: "Decks", exact: true }).focus();
+    await expect(submenu).toBeHidden();
+    await inventory.hover();
+    await rail.getByRole("link", { name: "Wishlist", exact: true }).hover();
+    await expect(submenu).toBeHidden();
+    await expect(page.locator("#archive-submenu-wishlist")).toBeVisible();
+    await page.mouse.move(1000, 700);
+    await expect(page.locator("#archive-submenu-wishlist")).toBeHidden();
+
+    for (const [url, label] of [["/wishlist?reason=sets", "Wishlist reason"], ["/trades?view=history", "Trade view"], ["/public/decks", "Public browsing"]]) {
+      await page.goto(url);
+      await expect(page.locator(".archive-shell").getByRole("navigation", { name: label, exact: true })).toBeVisible();
+    }
+    await page.screenshot({ path: "test-results/navigation-subtabs-desktop.png" });
+    database(`await p.user.update({where:{id:${JSON.stringify(userId)}},data:{navigationLayout:'sidebar'}});return true;`);
+    await page.goto("/dashboard");
+    await rail.getByRole("button", { name: "Inventory sections", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await submenu.getByRole("link", { name: "Collector", exact: true }).click();
+    await expect(page).toHaveURL(/\/collector/);
+    await expect(page.locator(".archive-shell").getByRole("navigation", { name: "Inventory sections" })).toBeVisible();
+
+    const touch = await browser.newContext({ baseURL, hasTouch: true, viewport: { width: 320, height: 844 }, storageState: await page.context().storageState() });
+    try {
+      const phone = await touch.newPage();
+      await phone.goto("/inventory");
+      const menu = phone.locator(".archive-navigation > summary");
+      await menu.tap();
+      await phone.getByRole("button", { name: "Inventory sections", exact: true }).tap();
+      await phone.locator("#archive-submenu-inventory").getByRole("link", { name: "Locations", exact: true }).tap();
+      await expect(phone).toHaveURL(/\/locations/);
+      await expect(phone.locator(".archive-navigation")).not.toHaveAttribute("open");
+      await expect(phone.locator(".archive-shell").getByRole("navigation", { name: "Inventory sections" })).toBeVisible();
+      expect(await phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await phone.screenshot({ path: "test-results/navigation-subtabs-phone.png" });
+    } finally { await touch.close(); }
+  } finally {
+    database(`const u=await p.user.findUniqueOrThrow({where:{id:${JSON.stringify(userId)}},select:{playerId:true}});await p.user.delete({where:{id:${JSON.stringify(userId)}}});if(u.playerId)await p.player.delete({where:{id:u.playerId}});return true;`);
+  }
+});

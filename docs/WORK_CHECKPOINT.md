@@ -1,3 +1,11 @@
+## Current hover navigation follow-up - November 11, 2026
+
+- Owner: navigation-hover-20261111, chat 01a1cc4e-9627-74c3-8504-6d6710c0a378; isolated branch `codex/navigation-hover-subtabs` from main `7c658116`. Brian explicitly requested hover access to subtabs and active subtabs above the top divider. Related completed navigation work: #1019/#1024; no new issue created.
+- Scope: Inventory/Wishlist/Trades/Public disclosure shortcuts, ordinary main links, persistent section navigation inside the header, existing counts/context, both saved layouts, keyboard/Escape/outside dismissal and phone touch. Selected deck/league tools retain their resource-specific context.
+- Current checks: isolated production/type/lint/focused tests and desktop/phone browser regression in progress. Private evidence: `.local-data/navigation-hover-20261111/` under the primary repository. Early entrypoint/source setup attempts and the 1536 MiB TypeScript heap failure are retained as failures; later evidence must bind the actual source.
+- Owned runtime: exact shared claim `navigation-hover-20261111` / the chat above; admitted 3072 MiB Docker, 1024 MiB Windows reserve, 4 GiB host/Docker storage. Windows PowerShell compatibility copy preserves finite-number validation and exact stream reads; no ownership/capacity rule changed. Existing regular-local services and root WIP remain protected.
+- Next: complete serial isolated checks, inspect desktop/phone, publish one PR and verify its exact-head CI. Individual merge approval, independent review and production delivery remain separate.
+
 ## Current queue reconciliation - November 11, 2026
 
 Owner: this reconciliation task; branch codex/queue-reconciliation-20261111.

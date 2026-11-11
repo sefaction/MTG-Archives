@@ -7,25 +7,9 @@ export async function PublicNav({
 }: { active?: "home" | "inventory" | "decks" } = {}) {
   const user = await getCurrentUser();
   const appName = process.env.NEXT_PUBLIC_APP_NAME || "MTG Inventory";
-  return (
-    <>
-      {user ? (
-        <Nav />
-      ) : (
-        <nav className="app-nav mb-3 flex flex-wrap items-center justify-between gap-4">
-          <Link href="/" className="app-nav-brand">
-            {appName}
-          </Link>
-          <Link
-            className="rounded-md border border-cyan-700 bg-cyan-950/30 px-3 py-1 text-sm text-cyan-100 hover:border-cyan-500 hover:bg-cyan-900/40"
-            href="/login"
-          >
-            Log in
-          </Link>
-        </nav>
-      )}
+  const publicSections = (
       <nav
-        className="mb-4 flex flex-wrap items-center gap-3 border-b border-[var(--app-border)] pb-3 text-sm"
+        className="flex flex-wrap items-center gap-3 text-sm"
         aria-label="Public browsing"
       >
         <span className="w-full font-semibold text-[var(--app-muted)]">
@@ -58,6 +42,16 @@ export async function PublicNav({
           </Link>
         ) : null}
       </nav>
+  );
+  return user ? (
+    <Nav sectionNavigation={publicSections} />
+  ) : (
+    <>
+      <nav className="app-nav mb-3 flex flex-wrap items-center justify-between gap-4">
+        <Link href="/" className="app-nav-brand">{appName}</Link>
+        <Link className="rounded-md border border-cyan-700 bg-cyan-950/30 px-3 py-1 text-sm text-cyan-100 hover:border-cyan-500 hover:bg-cyan-900/40" href="/login">Log in</Link>
+      </nav>
+      <div className="mb-4 border-b border-[var(--app-border)] pb-3">{publicSections}</div>
     </>
   );
 }

@@ -685,6 +685,7 @@ function TradeViewNav({
         <Link
           key={option.value}
           href={option.href}
+          aria-current={active === option.value ? "page" : undefined}
           className={cn(
             "rounded-md px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-zinc-100",
             active === option.value && "bg-sky-950/60 text-sky-100",
@@ -1001,7 +1002,14 @@ export default async function TradesPage({
 
   return (
     <main className="space-y-5 p-4 sm:p-6 xl:p-8">
-      <Nav />
+      <Nav sectionNavigation={
+        <TradeViewNav
+          active={tradeView}
+          wishlistCount={myTradeWishlistRows.length + wantedFromMeRows.length}
+          activeTradeCount={activeTradeCount}
+          historyTradeCount={historyTradeCount}
+        />
+      } />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Trades</h1>
@@ -1009,12 +1017,6 @@ export default async function TradesPage({
             Pair wishlist cards, build proposals, and manage exchanges.
           </p>
         </div>
-        <TradeViewNav
-          active={tradeView}
-          wishlistCount={myTradeWishlistRows.length + wantedFromMeRows.length}
-          activeTradeCount={activeTradeCount}
-          historyTradeCount={historyTradeCount}
-        />
       </div>
       {tradeView === "wishlist" ? (
         <section className="space-y-3">

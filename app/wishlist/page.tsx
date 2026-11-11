@@ -131,11 +131,7 @@ export default async function WishlistPage({
     params.tab === "available" || params.tab === "missing" ? params.tab : "all";
   const heading = (
     <>
-      <Nav />
-      <section className="space-y-2">
-        <h1 className="text-3xl font-bold">Wishlist</h1>
-        <p className="text-zinc-400">Browse the cards you want by reason.</p>
-      </section>
+      <Nav sectionNavigation={
       <nav
         className="flex flex-wrap gap-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-1"
         aria-label="Wishlist reason"
@@ -154,6 +150,11 @@ export default async function WishlistPage({
           </Link>
         ))}
       </nav>
+      } />
+      <section className="space-y-2">
+        <h1 className="text-3xl font-bold">Wishlist</h1>
+        <p className="text-zinc-400">Browse the cards you want by reason.</p>
+      </section>
     </>
   );
   if (reason === "members" || reason === "sets") {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { NavigationLayout } from "@/lib/navigation-layout";
 import { cn, filterButtonClass } from "./filterStyles";
 
@@ -25,6 +25,98 @@ const inventoryLinks = [
   ["/card-hunt", "Card Hunt"],
 ] as const;
 
+const sectionLinks: Record<string, readonly (readonly [string, string])[]> = {
+  "/inventory": inventoryLinks,
+  "/wishlist": [
+    ["/wishlist", "Combined"],
+    ["/wishlist?reason=decks", "Deck needs"],
+    ["/wishlist?reason=members", "From members"],
+    ["/wishlist?reason=sets", "Set Completion"],
+    ["/wishlist?reason=manual", "Manual wishes"],
+  ],
+  "/trades": [
+    ["/trades", "Trade Desk"],
+    ["/trades?view=wishlist", "Trade Wishlist"],
+    ["/trades?view=active", "Active Trades"],
+    ["/trades?view=history", "History"],
+  ],
+  "/public/inventory": [
+    ["/public", "Public home"],
+    ["/public/inventory", "Public inventory"],
+    ["/public/decks", "Public decks"],
+  ],
+};
+
+function NavigationDestination({ href, label, current, onNavigate, expanded, setExpanded }: {
+  href: string;
+  label: string;
+  current?: "page" | "location";
+  onNavigate: () => void;
+  expanded: boolean;
+  setExpanded: (expanded: boolean) => void;
+}) {
+  const group = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const timeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const links = sectionLinks[href];
+  const panelId = `archive-submenu-${href.split("/")[1]}`;
+  const cancelClose = () => {
+    if (timeout.current) clearTimeout(timeout.current);
+  };
+  useEffect(() => () => { if (timeout.current) clearTimeout(timeout.current); }, []);
+  useEffect(() => {
+    if (!expanded) return;
+    const outside = (event: PointerEvent) => {
+      if (!group.current?.contains(event.target as Node)) setExpanded(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [expanded, setExpanded]);
+  return (
+    <div ref={group} className="archive-destination"
+      onPointerEnter={(event) => {
+        cancelClose();
+        if (event.pointerType === "mouse" && links) setExpanded(true);
+      }}
+      onPointerLeave={() => {
+        cancelClose();
+        timeout.current = setTimeout(() => {
+          if (!group.current?.contains(document.activeElement)) setExpanded(false);
+        }, 200);
+      }}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setExpanded(false);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && expanded) {
+          event.preventDefault();
+          event.stopPropagation();
+          cancelClose();
+          setExpanded(false);
+          button.current?.focus();
+        }
+      }}>
+      <div className="archive-destination-heading">
+        <Link href={href} aria-current={current} onClick={() => {
+          setExpanded(false);
+          onNavigate();
+        }}>{label}</Link>
+        {links && <button ref={button} type="button" className="archive-submenu-toggle"
+          aria-label={`${label} sections`} aria-expanded={expanded} aria-controls={panelId}
+          onClick={() => { cancelClose(); setExpanded(!expanded); }}>
+          <span aria-hidden="true">⌄</span>
+        </button>}
+      </div>
+      {links && <div id={panelId} className="archive-submenu" hidden={!expanded}>
+        {links.map(([target, text]) => <Link key={target} href={target} onClick={() => {
+          setExpanded(false);
+          onNavigate();
+        }}>{text}</Link>)}
+      </div>}
+    </div>
+  );
+}
+
 function inSection(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -33,14 +125,17 @@ export function ArchiveNavigation({
   appName,
   deckHunt = false,
   navigationLayout,
+  sectionNavigation,
   children,
 }: {
   appName: string;
   deckHunt?: boolean;
   navigationLayout: NavigationLayout;
+  sectionNavigation?: ReactNode;
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const [expandedDestination, setExpandedDestination] = useState<string | null>(null);
   const inventoryTab = deckHunt ? undefined : inventoryLinks.find(([href]) => inSection(pathname, href))?.[0];
   const section = deckHunt ? "/decks" : inventoryTab ? "/inventory"
     : destinations.find(([href]) => inSection(pathname, href === "/public/inventory" ? "/public" : href))?.[0];
@@ -80,22 +175,21 @@ export function ArchiveNavigation({
               {appName}
             </Link>
             {destinations.map(([href, label]) => (
-              <Link
+              <NavigationDestination
                 key={href}
                 href={href}
-                aria-current={section === href ? pathname === href ? "page" : "location" : undefined}
-                onClick={closeCompactMenu}
-              >
-                {label}
-              </Link>
+                label={label}
+                current={section === href ? pathname === href ? "page" : "location" : undefined}
+                onNavigate={closeCompactMenu}
+                expanded={expandedDestination === href}
+                setExpanded={(expanded) => setExpandedDestination((current) => expanded ? href : current === href ? null : current)}
+              />
             ))}
           </nav>
         </details>
         <div className="archive-utilities">{children}</div>
-      </header>
-      <span id="archive-content" tabIndex={-1} />
-      {inventoryTab && (
-        <nav aria-label="Inventory sections" className="mb-4 flex flex-wrap gap-2">
+        {sectionNavigation || (inventoryTab && (
+        <nav aria-label="Inventory sections" className="archive-section-tabs flex flex-wrap gap-2">
           {inventoryLinks.map(([href, label]) => (
             <Link
               key={href}
@@ -107,7 +201,9 @@ export function ArchiveNavigation({
             </Link>
           ))}
         </nav>
-      )}
+      ))}
+      </header>
+      <span id="archive-content" tabIndex={-1} />
     </>
   );
 }
