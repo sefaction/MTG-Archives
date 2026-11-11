@@ -34,7 +34,7 @@ async function seed() {
   assert.equal(await db.card.count(), 0);
   const passwordHash = await bcrypt.hash("public-wishlist-fixture-only", 4);
   for (const [id, username] of [[owner, "public-wishlist-owner"], [peer, "public-wishlist-peer"]]) {
-    await db.player.create({ data: { id, name: id, displayName: "PRIVATE-PARTNER-IDENTITY" } });
+    await db.player.create({ data: { id, name: id, displayName: "PRIVATE-PARTNER-IDENTITY-" + id } });
     await db.user.create({ data: { id, username, displayName: "PRIVATE-DISPLAY-NAME", passwordHash, playerId: id } });
   }
   for (const [suffix, username] of [["dot", "."], ["slash", "A/B #1"], ["tilde", "~public"], ["percent", "%2F"]]) {
