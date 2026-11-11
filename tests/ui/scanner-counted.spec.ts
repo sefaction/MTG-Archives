@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import sharp from "sharp";
-import { COUNTED_SCANNER_DEVICE, COUNTED_SCANNER_BACKEND } from "../../lib/scanner-counted-profile";
+import { COUNTED_SCANNER_DEVICE, COUNTED_SCANNER_BACKEND, COUNTED_RESOLUTION_SCANNER_VERSION } from "../../lib/scanner-counted-profile";
 function database(body:string) {
   return execFileSync("docker",["exec","-i","mtg-archives-web-1","node"],{input:
     "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{"+body+"})().catch(e=>{console.error(e.message);process.exitCode=1}).finally(()=>p.$disconnect());",
@@ -23,12 +23,14 @@ test("counted source selects one, preserves hopper remainder, then explicitly re
     await page.getByRole("button",{name:/^log in$/i}).click();await page.waitForURL(/\/dashboard/);
     const pair=await page.request.post("/api/scanners",{headers:origin,data:{action:"pair"}});expect(pair.ok()).toBe(true);
     expect((await page.request.post("/api/scanner-agent/pair",{data:{version:1,pairCode:(await pair.json()).code,agentId,secret,name:"Counted protocol fixture"}})).ok()).toBe(true);
-    const pulse=async(qualification="KnownWorking")=>expect((await page.request.post("/api/scanner-agent/pulse",{headers,data:{version:1,agentVersion:"0.3.0-native",devices:[{...source,qualification}]}})).ok()).toBe(true);
+    let agentVersion = "0.3.0-native";
+    const pulse=async(qualification="KnownWorking")=>expect((await page.request.post("/api/scanner-agent/pulse",{headers,data:{version:1,agentVersion,devices:[{...source,qualification}]}})).ok()).toBe(true);
     await pulse();await page.goto("/imports/scan?input=scanner");
     await page.getByTestId("storage-destination").getByRole("combobox").fill(tag);await page.getByRole("option").first().click();
     await page.getByRole("button",{name:/^A\s/}).click();
     const setup=page.getByRole("region",{name:"New scan batch"}),scanner=page.getByRole("region",{name:"Scanner batch"});
     await expect(setup).toContainText("83 spaces available after pending cards");
+    await expect(setup.getByRole("combobox", {name:"Resolution", exact:true})).toBeHidden();
     await setup.getByLabel("Set a batch limit (optional)").check();await setup.getByLabel("Cards in this batch").fill("1");
     await pulse();await setup.getByRole("button",{name:"Start scanner batch",exact:true}).click();
     await expect(scanner).toContainText("Waiting for the Windows helper to start.");
@@ -85,9 +87,28 @@ test("counted source selects one, preserves hopper remainder, then explicitly re
     await expect(setup.getByRole("button",{name:"Start scanner batch",exact:true})).toBeDisabled();
     expect((await polled()).run).toBeNull();
     await setup.getByLabel("Cards in this batch").fill("3");
+    agentVersion = COUNTED_RESOLUTION_SCANNER_VERSION;
+    await pulse();
+    await setup.getByRole("button", {name:"Refresh scanners"}).click();
+    const resolution = setup.getByRole("combobox", {name:"Resolution", exact:true});
+    await expect(resolution).toHaveValue("600");
+    await resolution.selectOption("300");
+    for (const width of [1366, 320]) {
+      await page.setViewportSize({width,height:768});
+      await expect(resolution).toHaveValue("300");
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    }
     await pulse();await setup.getByRole("button",{name:"Start scanner batch",exact:true}).click();
     await expect(scanner).toContainText("Waiting for the Windows helper to start.");
-    const early=await begin();expect(early.run.physicalTarget).toBe(3);expect(early.run.sessionId).not.toBe(first.run.sessionId);
+    const trial = await polled();
+    agentVersion = "0.3.0-native";
+    await pulse();
+    const downgraded = await page.request.post("/api/scanner-agent/runs", {headers, data:{action:"claim", version:1,
+      runId:trial.run.runId, epoch:trial.epoch, executionId:randomUUID()}});
+    expect(downgraded.status()).toBe(409);
+    expect((await polled()).run.status).toBe("QUEUED");
+    agentVersion = COUNTED_RESOLUTION_SCANNER_VERSION;
+    const early=await begin();expect(early.run.settings).toEqual({...first.run.settings,dpi:300});expect(early.run.physicalTarget).toBe(3);expect(early.run.sessionId).not.toBe(first.run.sessionId);
     const nextSaved=JSON.parse(database("console.log(JSON.stringify(await p.acquisitionSession.findUniqueOrThrow({where:{id:"+JSON.stringify(early.run.sessionId)+"},select:{locationId:true,section:true,target:true,run:{select:{_count:{select:{photos:true}}}}}})));"));
     expect(nextSaved.locationId).toBe(tag);expect(nextSaved.section).toBe("A");expect(nextSaved.target).toBe(3);expect(nextSaved.run._count.photos).toBe(0);
     await transfer(early.claim,2);await finish(early.claim,2,true);
@@ -107,6 +128,7 @@ test("counted source selects one, preserves hopper remainder, then explicitly re
     await scanner.getByRole("button",{name:"Resume unfinished batch",exact:true}).click();
     await expect(scanner).toContainText("Waiting for the Windows helper to start.");
     const resumed=await begin();expect(resumed.run.runId).not.toBe(early.run.runId);expect(resumed.run.sessionId).toBe(early.run.sessionId);
+    expect(resumed.run.settings).toEqual(early.run.settings);
     expect(resumed.run.physicalTarget).toBe(1);expect(resumed.run.sequenceOffset).toBe(2);expect(resumed.run.logicalTarget).toBe(3);
     await transfer(resumed.claim,1);await finish(resumed.claim,1,false);
     await expect(scanner).toContainText("Selected count reached.");await expect(scanner).toContainText("3 images saved.");

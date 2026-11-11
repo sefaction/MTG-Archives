@@ -32,12 +32,12 @@ public sealed class CountedTwainBackend : IScannerBackend
             ["feeder"] = new(Support.ReportedSupported, "PaperStream fi-7160 scoped profile"),
             ["countControl"] = new(Support.ReportedSupported, "Scoped one/two/five/ten physical tests passed; exact driver, twelve capture settings and observed profile invariant required before Start"),
             ["physicalBoundaries"] = new(Support.NotExposed, "Transfer count remains image count; operator reconciliation required")
-        }, [600], "PFU", "fi-7160", "2.4"));
+        }, [300, 600], "PFU", "fi-7160", "2.4"));
     }
     internal static void Validate(ScanRequest request)
     {
         if (request.RunId == Guid.Empty || request.DeviceId != DeviceId || request.SessionPhysicalTarget is not (>= 1 and <= 5000) ||
-            request.Dpi != 600 || request.WidthInches != 2.7m || request.HeightInches != 3.6m ||
+            request.Dpi is not (300 or 600) || request.WidthInches != 2.7m || request.HeightInches != 3.6m ||
             request.HorizontalPlacement != "Center" || request.Duplex || request.ImageStopBudget != null || request.AllowInterruptingStop)
             throw new InvalidOperationException("Unsupported counted profile; no feed authorized");
     }
@@ -63,9 +63,9 @@ public sealed class CountedTwainBackend : IScannerBackend
         if (fixtureScenario != null) start.ArgumentList.Add(fixtureScenario);
         worker = Process.Start(start) ?? throw new InvalidOperationException("Counted worker unavailable");
         await Write(new { action = "prepare", profileVersion = ProfileVersion, parent = Environment.ProcessId,
-            target = request.SessionPhysicalTarget, requireEmpty });
+            target = request.SessionPhysicalTarget, dpi = request.Dpi, requireEmpty });
         var ack = await Read();
-        RequirePrepared(ack, request.SessionPhysicalTarget!.Value, requireEmpty);
+        RequirePrepared(ack, request.SessionPhysicalTarget!.Value, request.Dpi, requireEmpty);
         PreparationEvidence = ack;
         prepared = request;
     }
@@ -77,11 +77,11 @@ public sealed class CountedTwainBackend : IScannerBackend
         p.ValueKind == JsonValueKind.Number && p.TryGetDecimal(out var actual) && Math.Abs(actual - expected) < .001m;
     private static bool String(JsonElement value, string name, string expected) => value.TryGetProperty(name, out var p) &&
         p.ValueKind == JsonValueKind.String && p.GetString() == expected;
-    internal static void RequirePrepared(JsonElement ack, int target, bool requireEmpty = false)
+    internal static void RequirePrepared(JsonElement ack, int target, int dpi, bool requireEmpty)
     {
         if (!String(ack, "kind", "prepared") || !Number(ack, "target", target) || !Number(ack, "profileVersion", ProfileVersion) ||
             !String(ack, "driver", ProfileDriver) || !String(ack, "protocol", "2.4") ||
-            !String(ack, "source", "PaperStream IP fi-7160") || !Number(ack, "dpi", 600) ||
+            !String(ack, "source", "PaperStream IP fi-7160") || !Number(ack, "dpi", dpi) ||
             !Frame(ack, "widthInches", 2.7m) || !Frame(ack, "heightInches", 3.6m) ||
             !True(ack, "captureReadbacksVerified") || !True(ack, "observedInvariantVerified") ||
             !False(ack, "autoScan") || !False(ack, "blankDiscard") || requireEmpty && !False(ack, "feederLoaded"))
@@ -94,7 +94,7 @@ public sealed class CountedTwainBackend : IScannerBackend
         started = true; spool = output;
         output.Event("AcquisitionStarted", new { requested = prepared, route = BackendId,
             actualConfiguration = fixtureScenario != null ? "Fixture channel; no TWAIN session constructed" :
-                "PaperStream 3.40.2.1815 / legacy x86 DSM / verified simplex native RGB24 600 / current 2.7x3.6 frame / AUTOSCAN=false / blank-page discard disabled",
+                $"PaperStream 3.40.2.1815 / legacy x86 DSM / verified simplex native RGB24 {prepared.Dpi} DPI / current 2.7x3.6 frame / AUTOSCAN=false / blank-page discard disabled",
             physicalCount = "UNKNOWN; operator observation required" });
         var retained = 0; var error = false;
         try
