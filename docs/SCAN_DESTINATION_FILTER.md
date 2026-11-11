@@ -77,3 +77,24 @@ npx playwright test tests/ui/scan-destination-filter.spec.ts --workers=1 --repor
 
 The fixture bundles the actual shared component and uses the application's CSS.
 It sets page content locally and sends no HTTP requests to the application.
+
+## Recovered database verifier — November 11, 2026
+
+`scripts/verify-scan-destination-filter.ts` recovers the uncommitted #855 fixture.
+It compares destination summaries with authoritative capacity reads for pending
+cards, configured and unknown sections, Vault sections, foreign ownership,
+retired sessions and a later full snapshot. All fixture writes roll back in one
+transaction; the later snapshot is sequential, not a concurrency check.
+
+The entry guard requires `MTG_LOCAL_PILOT_TEST=1`, a UUID in
+`MTG_ISOLATED_QUALIFICATION_RUN`, an `acquisition_filter_*` database and loopback
+or the explicitly named `mtg-scan-destination-filter-db` fixture host. Confirm
+the exact disposable database, container/network/mount identities and resource
+ownership before setting these inputs, then run
+`node --import tsx scripts/verify-scan-destination-filter.ts`.
+
+The no-opt-in and nonlocal-host refusals were checked without opening a database.
+Actual PostgreSQL execution remains pending: Docker could not start during the
+reconciliation. This draft adds a verification tool; it neither reopens completed
+#855 nor establishes database, installation or reporter acceptance. The original
+failed build and peer-conservation intervals remain in the historical record.
