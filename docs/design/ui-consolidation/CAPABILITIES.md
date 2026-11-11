@@ -34,6 +34,7 @@ Evidence abbreviations: **I** = InventoryBrowser, InventoryAdvancedSearch and in
 | `/pricing/digest/[observedDate]` | Pricing / dated digest | Signed-in recipient only; validated UTC date and owned notification payload | digest page; pricing-digest |
 | `/public` | Public browsing / home | Anonymous/public visibility; signed-in navigation differences | PublicNav; public browse smoke |
 | `/public/inventory` | Public browsing / inventory | No owner/admin edits; eligible signed-in other-owner trade-wishlist action remains | public inventory page/actions, I; trade-wishlist, inventory-detail |
+| `/public/wishlist/[username]` | Public browsing / member Wishlist | Owner-selected categories, none shared by default; public-safe names/quantities/printing-finish preferences only; same anonymous/signed-in boundary | public-wishlist projection/URL tests; disposable PostgreSQL and desktop/phone sharing checks |
 | `/public/decks` | Public browsing / decks | Read-only library, folders/tags/views; authorized shared deck tools | DeckWorkspace; public/private deck checks |
 | `/settings` | Account & settings / profile & preferences | Own identity/appearance/pricing/sharing/categories; explicit save | settings page; settings-themes |
 | `/settings/email` | Account & settings / Notifications / Email | Own address/preferences/test/history; global SMTP availability | email page; email-settings |
