@@ -17,21 +17,6 @@ import { safeLocalReturnPath } from "@/lib/local-return-path";
 import { ArchiveNavigation } from "@/components/ArchiveNavigation";
 import { normalizeNavigationLayout } from "@/lib/navigation-layout";
 
-const mainLinks = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/inventory", label: "Inventory" },
-  { href: "/collector", label: "Collector" },
-  { href: "/public/inventory", label: "Public" },
-  { href: "/pricing", label: "Pricing" },
-  { href: "/decks", label: "Decks" },
-  { href: "/card-hunt", label: "Card Hunt" },
-  { href: "/wishlist", label: "Wishlist" },
-  { href: "/locations", label: "Locations" },
-  { href: "/imports", label: "Import" },
-  { href: "/trades", label: "Trades" },
-  { href: "/settings", label: "Settings" },
-];
-
 function getSafeReturnTo(formData: FormData) {
   return safeLocalReturnPath(formData.get("returnTo"));
 }
@@ -40,8 +25,6 @@ function AnonymousNavigation({
   children,
 }: {
   children: ReactNode;
-  appName: string;
-  adminModeActive: boolean;
 }) {
   return (
     <nav className="app-nav mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -50,7 +33,7 @@ function AnonymousNavigation({
   );
 }
 
-export async function Nav() {
+export async function Nav({ deckHunt = false }: { deckHunt?: boolean } = {}) {
   const user = await getCurrentUser();
   const userIsAdmin = isAdminUser(user, user?.player);
   const adminModeActive = await isAdminModeEnabled(user);
@@ -87,7 +70,7 @@ export async function Nav() {
       ) : null}
       <Navigation
         appName={appName}
-        adminModeActive={adminModeActive}
+        deckHunt={deckHunt}
         navigationLayout={normalizeNavigationLayout(user?.navigationLayout)}
       >
         {!user && (
@@ -95,19 +78,7 @@ export async function Nav() {
             <Link href="/" className="app-nav-brand">
               {appName}
             </Link>
-            {mainLinks.map((link) => (
-              <Link key={link.href} href={link.href} className="app-nav-link">
-                {link.label}
-              </Link>
-            ))}
-            {adminModeActive ? (
-              <Link
-                href="/admin"
-                className="rounded-md border border-amber-700/60 bg-amber-950/30 px-2 py-1 text-sm font-medium text-amber-100 hover:border-amber-500 hover:text-amber-50"
-              >
-                Admin
-              </Link>
-            ) : null}
+            <Link href="/public/inventory" className="app-nav-link">Public</Link>
           </div>
         )}
         <div className="flex w-full min-w-0 flex-wrap items-center gap-3 text-sm text-stone-300 lg:w-auto">
@@ -136,10 +107,15 @@ export async function Nav() {
               />
               <Link
                 className="rounded-md border border-[#364139] px-3 py-1 text-stone-200 hover:border-cyan-700 hover:bg-cyan-950/20 hover:text-cyan-100"
-                href="/change-password"
+                href="/settings"
               >
-                Account
+                Settings
               </Link>
+              {adminModeActive && (
+                <Link href="/admin" className="rounded-md border border-amber-700/60 bg-amber-950/30 px-2 py-1 font-medium text-amber-100 hover:border-amber-500 hover:text-amber-50">
+                  Admin
+                </Link>
+              )}
               <form action={doLogout}>
                 <SubmitButton
                   pendingLabel="Logging out..."

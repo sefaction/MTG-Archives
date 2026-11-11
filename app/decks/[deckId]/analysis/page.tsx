@@ -57,7 +57,7 @@ export default async function DeckAnalysisPage({
         </div>
       </section>
 
-      <DeckToolsNav deckId={deck.id} active="analysis" />
+      <DeckToolsNav deckId={deck.id} active="analysis" canHunt={deck.canHunt} />
       <ManaCurveAnalysis cards={deck.cards} hasCommanders={hasCommanders} />
     </main>
   );

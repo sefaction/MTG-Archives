@@ -15,12 +15,19 @@ const tools: Array<{
   { id: "playtest", label: "Playtest", path: "/playtest", available: true },
 ];
 
+export function deckToolHref(deckId: string, view: unknown) {
+  const path = tools.find((tool) => tool.id === view)?.path ?? "";
+  return `/decks/${encodeURIComponent(deckId)}${path}`;
+}
+
 export function DeckToolsNav({
   deckId,
   active,
+  canHunt,
 }: {
   deckId: string;
   active: DeckToolPage;
+  canHunt: boolean;
 }) {
   return (
     <nav
@@ -31,7 +38,7 @@ export function DeckToolsNav({
         tool.available ? (
           <Link
             key={tool.id}
-            href={`/decks/${deckId}${tool.path}`}
+            href={deckToolHref(deckId, tool.id)}
             aria-current={active === tool.id ? "page" : undefined}
             className={cn(
               "deck-workspace-button",
@@ -54,9 +61,11 @@ export function DeckToolsNav({
           </span>
         ),
       )}
-      <Link href={`/card-hunt?deckId=${encodeURIComponent(deckId)}`} className="deck-workspace-button">
-        Card Hunt
-      </Link>
+      {canHunt && (
+        <Link href={`/card-hunt?${new URLSearchParams({ deckId, from: active })}`} className="deck-workspace-button">
+          Card Hunt
+        </Link>
+      )}
     </nav>
   );
 }

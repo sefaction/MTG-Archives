@@ -71,7 +71,8 @@ test("public entry points point at the global public inventory", () => {
   assert.match(loginPage, /Browse public inventory/);
   assert.match(loginPage, /\/public\/inventory/);
   assert.match(nav, /<Link href="\/" className="app-nav-brand">/);
-  assert.match(nav, /href: "\/public\/inventory", label: "Public"/);
+  assert.match(nav, /<Link href="\/public\/inventory" className="app-nav-link">Public<\/Link>/);
+  assert.match(fs.readFileSync("components/ArchiveNavigation.tsx", "utf8"), /\["\/public\/inventory", "Public"\]/);
   assert.match(dashboardPage, /href="\/public\/inventory"/);
   assert.match(dashboardPage, /Public Inventory/);
   assert.match(middleware, /"\/public"/);
