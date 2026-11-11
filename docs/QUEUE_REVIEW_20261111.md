@@ -5,7 +5,39 @@ work, publication of coherent PRs, and review of each. This authorizes queue
 coordination and publication; individual merge approval and production authority
 remain separate. The no-new-issues freeze remains in force.
 
-## Observed state and ownership
+## Completion follow-up
+
+The tables below preserve the initial reconciliation snapshot. Later GitHub state
+is authoritative. Brian subsequently approved each of #1024, #1025, #1028, #1029
+and this PR, and separately approved #1030 and #1032. Strict current-main checks
+still apply individually before each merge.
+
+Navigation #1024 merged at039c7f81; Collector/Set Completion #1025 at6d3550bc;
+accepted fixture record #1028 atf33b7efd; scan-image notes #1029 at2168b992.
+Each merged tree matched its qualified integration head after all nine checks
+passed. #1019, #1017 and #1018 are completed/closed with original reports and
+history preserved; the queue now has23open issues. #692 remains accepted/closed.
+#1004, #302 and #310 retain their unresolved incident/integrated acceptance.
+
+Docker and normal local port13001 are available again. #1030 has now passed its
+actual disposable PostgreSQL verifier, preserving all85table rows and13existing
+peers; invalid synthetic token/execution fixtures were corrected without removing
+capacity assertions. #1032 has passed full production/types/lint/manifests and
+the original desktop/phone scanner workflow, with conserved rows and peers.
+Both are review-ready and individually approved, awaiting current-main checks.
+#1027 remains draft for supervised physical300/600DPI comparison.
+
+Brian resolved #1021's public Wishlist decisions: no categories public by default
+for existing/new accounts; owner chooses categories including none; only card
+names, wanted quantities, printing/finish preferences and selected category
+labels are public. Notes, deck names, trade partners and storage remain private.
+The bounded implementation is now draft#1033, with PostgreSQL/browser
+qualification underway. This is the active implementation slice, not an umbrella
+reservation. No new issue, production action, physical scan or schedule change
+was performed. Detailed transient runtime/evidence state stays in the owning
+checkpoint and each PR.
+
+## Initial observed state and ownership
 
 GitHub main was `2cbdb58c`. The initial inventory contained 26 open issues,
 four draft PRs, 338 registered worktrees and 573 local branches. Sixty-seven
@@ -25,7 +57,7 @@ Completed handoffs and missing evidence must not appear as active implementation
 or reserve unrelated work. New implementation still needs a bounded current
 claim and a fresh conflict check. No schedule was changed or claimed active.
 
-## All open issues
+## Initial open-issue snapshot
 
 These are next actions, not newly granted production, hardware or merge powers.
 Original bodies, decisions, failures and acceptance criteria stay intact.

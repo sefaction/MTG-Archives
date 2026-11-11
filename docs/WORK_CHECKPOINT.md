@@ -1,3 +1,27 @@
+## Current queue reconciliation - November 11, 2026
+
+Owner: this reconciliation task; branch codex/queue-reconciliation-20261111.
+Brian approved this individual PR plus1024/1025/1028/1029, and separately1030/1032.
+Current main2168b992 includes the first four approved merges. Their exact tested
+and merged trees match;1019/1017/1018are closed with original history preserved.
+Initial26-issue/338-worktree/573-branch/67-dirty-copy inventory and preservation
+manifests remain recorded below; current queue has23open issues.
+
+This PR publishes the shared-worker guide and initial reconciliation, with an
+explicit completion follow-up in QUEUE_REVIEW_20261111.md. Worker policy text is
+unchanged from the reviewed head. Fresh current-main checks are required before
+this approved documentation merge.1030/1032have completed their local checks;
+1027physicalcomparison remains. PublicWishlist1021decisions are agreed and its
+bounded draft1033implementation/qualification is active. Normal localDocker
+port13001 is restored; no production/physical/scheduling action was performed.
+
+This documentation batch owns no runtime operation; the separate publicWishlist
+fixture has its exact owner/root claim in the owning private checkpoint. Do not
+use this snapshot to take another worker's runtime. Next: finish current-head CI,
+merge this approved PR, reconcile live queue and continue approved1030/1032.
+
+### Initial reconciliation handoff - preserved
+
 ## Current queue reconciliation ? November 11, 2026
 
 Owner: this reconciliation task, branch `codex/queue-reconciliation-20261111`,
