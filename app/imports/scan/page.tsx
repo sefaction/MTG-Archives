@@ -49,7 +49,7 @@ export default async function ScanPage({
       <Nav />
       <div>
         <a className="underline text-sm" href="/imports">
-          Back to Imports
+          Back to Add &amp; export
         </a>
         <h1 className="text-3xl font-bold">{photoInput === "camera" ? "Camera import" : photoInput === "photos" ? "Upload card photos" : "Scan cards"}</h1>
       </div>

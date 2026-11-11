@@ -4,50 +4,46 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, type ReactNode } from "react";
 import type { NavigationLayout } from "@/lib/navigation-layout";
+import { cn, filterButtonClass } from "./filterStyles";
 
-const groups = [
-  { label: "Overview", links: [["/dashboard", "Dashboard"]] },
-  {
-    label: "Collection",
-    links: [
-      ["/inventory", "Inventory"],
-      ["/collector", "Collector"],
-      ["/locations", "Locations"],
-      ["/imports", "Import"],
-    ],
-  },
-  {
-    label: "Build & trade",
-    links: [
-      ["/decks", "Decks"],
-      ["/card-hunt", "Card Hunt"],
-      ["/wishlist", "Wishlist"],
-      ["/trades", "Trades"],
-      ["/pricing", "Pricing"],
-    ],
-  },
-  {
-    label: "Explore",
-    links: [
-      ["/public/inventory", "Public"],
-      ["/league", "Commander League"],
-    ],
-  },
-  { label: "Preferences", links: [["/settings", "Settings"]] },
-];
+const destinations = [
+  ["/dashboard", "Dashboard"],
+  ["/inventory", "Inventory"],
+  ["/decks", "Decks"],
+  ["/wishlist", "Wishlist"],
+  ["/trades", "Trades"],
+  ["/public/inventory", "Public"],
+  ["/league", "Commander League"],
+] as const;
+
+const inventoryLinks = [
+  ["/inventory", "Cards"],
+  ["/locations", "Locations"],
+  ["/collector", "Collector"],
+  ["/imports", "Add & export"],
+  ["/pricing", "Pricing"],
+  ["/card-hunt", "Card Hunt"],
+] as const;
+
+function inSection(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export function ArchiveNavigation({
   appName,
-  adminModeActive,
+  deckHunt = false,
   navigationLayout,
   children,
 }: {
   appName: string;
-  adminModeActive: boolean;
+  deckHunt?: boolean;
   navigationLayout: NavigationLayout;
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const inventoryTab = deckHunt ? undefined : inventoryLinks.find(([href]) => inSection(pathname, href))?.[0];
+  const section = deckHunt ? "/decks" : inventoryTab ? "/inventory"
+    : destinations.find(([href]) => inSection(pathname, href === "/public/inventory" ? "/public" : href))?.[0];
   const menu = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     const query = window.matchMedia("(max-width: 1099px)");
@@ -58,71 +54,60 @@ export function ArchiveNavigation({
     query.addEventListener("change", resize);
     return () => query.removeEventListener("change", resize);
   }, []);
+
+  function closeCompactMenu() {
+    if (menu.current?.open && window.matchMedia("(max-width: 1099px)").matches) {
+      menu.current.open = false;
+      menu.current.querySelector("summary")?.focus();
+    }
+  }
+
   return (
-    <header className="archive-shell" data-navigation-layout={navigationLayout}>
-      <a className="archive-skip" href="#archive-content">
-        Skip navigation
-      </a>
-      <details
-        open
-        className="archive-navigation"
-        ref={menu}
-        onKeyDown={(event) => {
-          if (
-            event.key === "Escape" &&
-            menu.current?.open &&
-            window.matchMedia("(max-width: 1099px)").matches
-          ) {
-            menu.current.open = false;
-            menu.current.querySelector("summary")?.focus();
-          }
-        }}
-      >
-        <summary>Menu</summary>
-        <nav aria-label="Archive navigation" className="archive-rail">
-          <Link href="/dashboard" className="app-nav-brand">
-            {appName}
-          </Link>
-          {groups.map((group) => (
-            <div className="archive-nav-group" key={group.label}>
-              <p>{group.label}</p>
-              {group.links.map(([href, label]) => (
-                <Link
-                  key={href}
-                  href={href}
-                  aria-current={
-                    pathname === href ||
-                    pathname.startsWith(`${href}/`) ||
-                    (href === "/public/inventory" &&
-                      pathname.startsWith("/public"))
-                      ? "page"
-                      : undefined
-                  }
-                  onClick={() => {
-                    if (
-                      menu.current &&
-                      window.matchMedia("(max-width: 1099px)").matches
-                    )
-                      menu.current.open = false;
-                  }}
-                >
-                  {label}
-                </Link>
-              ))}
-            </div>
-          ))}
-          {adminModeActive && (
-            <Link
-              href="/admin"
-              aria-current={pathname.startsWith("/admin") ? "page" : undefined}
-            >
-              Admin
+    <>
+      <header className="archive-shell" data-navigation-layout={navigationLayout}>
+        <a className="archive-skip" href="#archive-content">Skip navigation</a>
+        <details
+          open
+          className="archive-navigation"
+          ref={menu}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") closeCompactMenu();
+          }}
+        >
+          <summary>Menu</summary>
+          <nav aria-label="Archive navigation" className="archive-rail">
+            <Link href="/dashboard" className="app-nav-brand" onClick={closeCompactMenu}>
+              {appName}
             </Link>
-          )}
-        </nav>
-      </details>
-      <div className="archive-utilities">{children}</div>
+            {destinations.map(([href, label]) => (
+              <Link
+                key={href}
+                href={href}
+                aria-current={section === href ? pathname === href ? "page" : "location" : undefined}
+                onClick={closeCompactMenu}
+              >
+                {label}
+              </Link>
+            ))}
+          </nav>
+        </details>
+        <div className="archive-utilities">{children}</div>
+      </header>
       <span id="archive-content" tabIndex={-1} />
-    </header>
+      {inventoryTab && (
+        <nav aria-label="Inventory sections" className="mb-4 flex flex-wrap gap-2">
+          {inventoryLinks.map(([href, label]) => (
+            <Link
+              key={href}
+              href={href}
+              aria-current={inventoryTab === href ? pathname === href ? "page" : "location" : undefined}
+              className={cn(filterButtonClass, inventoryTab === href && "border-[var(--app-accent)] bg-[var(--app-accent-soft)] font-semibold")}
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
+      )}
+    </>
   );
 }

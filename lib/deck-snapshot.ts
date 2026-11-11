@@ -54,6 +54,7 @@ export type DeckSnapshotEntry = {
 };
 
 export type DeckSnapshot = {
+  canHunt: boolean;
   id: string;
   name: string;
   description: string | null;
@@ -117,6 +118,7 @@ export async function loadVisibleDeckSnapshot(
       format: true,
       visibility: true,
       ownerUserId: true,
+      commanderLeagueDeck: { select: { id: true } },
       ownerUser: {
         select: {
           displayName: true,
@@ -160,6 +162,7 @@ export async function loadVisibleDeckSnapshot(
 
   return {
     id: deck.id,
+    canHunt: Boolean(user?.playerId && user.id === deck.ownerUserId && !deck.commanderLeagueDeck),
     name: deck.name,
     description: deck.description,
     format: deck.format,
