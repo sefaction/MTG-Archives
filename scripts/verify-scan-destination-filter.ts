@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { scannerCapacityDestinations, readScannerCapacity } from "../lib/scanner-capacity";
 import { getStorageLocations } from "../lib/storage-summary";
@@ -50,7 +50,8 @@ async function verify() {
         locationId: foreign.id, section: "", requestKey: randomUUID(), requestPayload: "fixture",
         placement: {}, policy: {}, scannerReserved: 100 } });
       const agent = await tx.scannerAgent.create({ data: { id: tag, userId: tag,
-        tokenHash: tag, credentialHash: "fixture-only", name: tag, expiresAt: new Date(Date.now() + 60000) } });
+        tokenHash: createHash("sha256").update(tag).digest("hex"), credentialHash: "fixture-only", name: tag,
+        expiresAt: new Date(Date.now() + 60000) } });
 
       async function session(input: { section: string; reserved: number; candidates?: number;
         slots?: number; committed?: number; trashed?: boolean; deleted?: boolean; status?: string }) {
