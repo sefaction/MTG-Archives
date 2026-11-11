@@ -8,9 +8,18 @@ import { filterInputClass, filterSelectClass, filterPrimaryButtonClass } from ".
 type Result = HuntPlan & {title: string; warnings: string[]; generatedAt: string; ignoredBasicLandCopies: number};
 const finishLabel = (value: string) => ({FOIL: "Foil", NONFOIL: "Nonfoil", ETCHED: "Etched"}[value] ?? value);
 
-export function CardHunt({decks, initialDeckId}: {
-  decks: Array<{id: string; name: string}>;
+export type CardHuntContext = {
+  id: string;
+  scope: "card" | "printing";
+  setCode: string;
+  collectorNumber?: string;
+  finish?: Exclude<HuntFinish, "ANY">;
+};
+
+export function CardHunt({decks = [], initialDeckId, card}: {
+  decks?: Array<{id: string; name: string}>;
   initialDeckId?: string;
+  card?: CardHuntContext;
 }) {
   const [source, setSource] = useState<"deck" | "list">(initialDeckId || decks.length ? "deck" : "list");
   const [deckId, setDeckId] = useState(initialDeckId ?? decks[0]?.id ?? "");
@@ -31,8 +40,10 @@ export function CardHunt({decks, initialDeckId}: {
     event.preventDefault();
     setPending(true); setError(""); setResult(null);
     try {
+      const input = card ? { card: { id: card.id, scope: card.scope, finish: card.finish } }
+        : source === "deck" ? { deckId, ignoreBasicLands } : { text };
       const response = await fetch("/api/card-hunt", {method: "POST", headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({...(source === "deck" ? {deckId, ignoreBasicLands} : {text}), mode, finish, includeMaybeboard})});
+        body: JSON.stringify({...input, mode, finish, includeMaybeboard})});
       const value = await response.json();
       if (!response.ok) throw new Error(value.error ?? "The hunt could not be prepared.");
       setResult(value); setBoxPage(0); setLinePage(0); setFilter(""); setShowLines(false);
@@ -47,6 +58,12 @@ export function CardHunt({decks, initialDeckId}: {
   return <div className="space-y-5">
     <form onSubmit={generate} className="app-panel p-4 sm:p-5">
       <fieldset disabled={pending} onChange={() => {setResult(null); setError("");}} className="min-w-0 space-y-4 disabled:opacity-70">
+        {card ? (
+          <p className="text-sm font-medium">
+            {card.scope === "card" ? "All printings and finishes" :
+              `Printing ${card.setCode.toUpperCase()} #${card.collectorNumber ?? "—"} · ${card.finish ? finishLabel(card.finish) : "All finishes"}`}
+          </p>
+        ) : <>
         <div className="flex flex-wrap gap-4">
           <label className="flex items-center gap-2"><input type="radio" name="hunt-source" checked={source === "deck"} onChange={() => setSource("deck")} /> From a deck</label>
           <label className="flex items-center gap-2"><input type="radio" name="hunt-source" checked={source === "list"} onChange={() => setSource("list")} /> Paste a list</label>
@@ -61,26 +78,27 @@ export function CardHunt({decks, initialDeckId}: {
             maxLength={100_000} required placeholder={"1 Sol Ring\n3 Forest (M21) 274\n1 Arcane Signet *F*"} />
           <span className="mt-1 block text-xs text-[var(--app-muted)]">One card per line. Optional set, collector number and *F* foil preference. Up to 500 lines.</span>
         </label>}
+        </>}
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block text-sm">Finish preference
+          {!card && <label className="block text-sm">Finish preference
             <select aria-label="Finish preference" className={`${filterSelectClass} mt-1 w-full`} value={finish} onChange={event => setFinish(event.target.value as HuntFinish)}>
               <option value="ANY">Any finish</option><option value="FOIL">Prefer foil</option><option value="NONFOIL">Prefer nonfoil</option><option value="ETCHED">Prefer etched</option>
             </select>
-          </label>
+          </label>}
           <label className="block text-sm">Pull priority
             <select aria-label="Pull priority" className={`${filterSelectClass} mt-1 w-full`} value={mode} onChange={event => setMode(event.target.value as HuntMode)}>
               <option value="preferences">My preferences first</option><option value="boxes">Optimize boxes</option>
             </select>
           </label>
         </div>
-        <p className="text-sm text-[var(--app-muted)]">{mode === "preferences" ?
+        {!card && <p className="text-sm text-[var(--app-muted)]">{mode === "preferences" ?
           "Prioritize your finish preference, then the deck or list's printing. Group those copies into boxes. Other available copies can fill gaps." :
-          "Favor boxes that cover more of your list. Finish and printing preferences break ties; any substitutions are marked."}</p>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={includeMaybeboard} onChange={event => setIncludeMaybeboard(event.target.checked)} /> Include maybeboard</label>
-        {source === "deck" && <label className="flex items-center gap-2 text-sm">
+          "Favor boxes that cover more of your list. Finish and printing preferences break ties; any substitutions are marked."}</p>}
+        {!card && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={includeMaybeboard} onChange={event => setIncludeMaybeboard(event.target.checked)} /> Include maybeboard</label>}
+        {!card && source === "deck" && <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={ignoreBasicLands} onChange={event => setIgnoreBasicLands(event.target.checked)} /> Ignore basic lands
         </label>}
-        <button type="submit" className={filterPrimaryButtonClass}>{pending ? "Finding your cards…" : "Build hunt"}</button>
+        <button type="submit" className={filterPrimaryButtonClass}>{pending ? "Finding your cards…" : card ? "Find copies" : "Build hunt"}</button>
       </fieldset>
       <p className="mt-3 text-xs text-[var(--app-muted)]">Uses your available storage copies. Cards in decks and active trade reservations are excluded. A hunt is a plan; it does not reserve or move cards.</p>
     </form>
@@ -89,13 +107,14 @@ export function CardHunt({decks, initialDeckId}: {
     {result && <section aria-label="Hunt results" className="space-y-4">
       <div className="app-panel p-4">
         <h2 className="break-words text-xl font-semibold">{result.title}</h2>
-        <p role="status" className="mt-2">{result.boxes.length} {result.boxes.length === 1 ? "box" : "boxes"} · {result.planned} to pull · {result.shortage} short{result.alreadyInDeck ? ` · ${result.alreadyInDeck} already in this deck` : ""}</p>
+        <p role="status" className="mt-2">{card && !result.planned ? "No copies are currently available in storage." :
+          `${result.boxes.length} ${result.boxes.length === 1 ? "box" : "boxes"} · ${result.planned} to pull${card ? "" : ` · ${result.shortage} short`}${result.alreadyInDeck ? ` · ${result.alreadyInDeck} already in this deck` : ""}`}</p>
         {result.ignoredBasicLandCopies > 0 && <p className="mt-2 text-sm">
           {result.ignoredBasicLandCopies} basic land {result.ignoredBasicLandCopies === 1 ? "copy" : "copies"} skipped.
           {!result.lines.length && " No other cards to hunt."}
         </p>}
         <p className="mt-2 text-xs text-[var(--app-muted)]">Availability is a snapshot. Refresh the hunt before pulling if your inventory or trades change. Box optimization is a practical grouping suggestion, not a guaranteed minimum.</p>
-        {source === "deck" && <Link href={`/decks/${encodeURIComponent(deckId)}`} className="mt-2 inline-block text-sm underline">Back to deck</Link>}
+        {!card && source === "deck" && deckId !== initialDeckId && <Link href={`/decks/${encodeURIComponent(deckId)}`} className="mt-2 inline-block text-sm underline">Back to deck</Link>}
         {result.warnings.length > 0 && <details className="mt-3 text-sm"><summary>List notes ({result.warnings.length})</summary><ul className="mt-2 list-inside list-disc">{result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></details>}
       </div>
       {result.shortage > 0 && <div className="app-panel p-4">
