@@ -48,7 +48,7 @@ test("Inventory distinguishes zero matches from an empty collection and preserve
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();
     await expect(results.getByRole("heading", { name: "No cards in this collection yet" })).toBeVisible();
-    await expect(results.getByRole("link", { name: "Go to Imports" })).toHaveAttribute("href", "/imports");
+    await expect(results.getByRole("link", { name: "Add cards", exact: true })).toHaveAttribute("href", "/imports");
     await expect(results.getByRole("link", { name: "Clear filters" })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   } finally {

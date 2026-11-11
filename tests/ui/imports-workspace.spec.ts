@@ -107,12 +107,12 @@ test("Imports separates tasks and preserves upload, review, commit, history and 
     ).toHaveCount(0);
     await expect(page.getByText("Foreign private sentinel.csv")).toHaveCount(0);
     await page.screenshot({ path: "test-results/imports-capture-desktop.png" });
-    await tasks.getByRole("link", { name: "Add card", exact: true }).click();
+    await tasks.getByRole("link", { name: "Add single card", exact: true }).click();
     await expect(
       page.getByLabel("Search by card name or printing"),
     ).toBeVisible();
     await expect(page.getByLabel("CSV file")).toHaveCount(0);
-    await tasks.getByRole("link", { name: "Export", exact: true }).click();
+    await tasks.getByRole("link", { name: "Export inventory", exact: true }).click();
     await expect(
       page.getByRole("button", { name: "Download CSV", exact: true }),
     ).toBeVisible();
@@ -187,7 +187,7 @@ test("Imports separates tasks and preserves upload, review, commit, history and 
       ),
     ).toBe(5);
     await expect(commit).toHaveCount(0);
-    await tasks.getByRole("link", { name: "History", exact: true }).click();
+    await tasks.getByRole("link", { name: "CSV import history", exact: true }).click();
     await expect(
       page.getByRole("link", { name: tag + ".csv", exact: true }),
     ).toBeVisible();

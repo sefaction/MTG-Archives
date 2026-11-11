@@ -2,7 +2,8 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import type { CollectorDetail, CollectorMode, CollectorProgress } from "@/lib/collector";
+import { addCollectorWishes } from "@/app/collector/actions";
+import { collectorFinishLabels, type CollectorDetail, type CollectorMode, type CollectorProgress } from "@/lib/collector";
 import type { CollectorSet } from "@/lib/collector-catalog";
 
 let catalogLoads = 0;
@@ -56,15 +57,18 @@ function SetTile({set, mode}: {set: SetRow; mode: CollectorMode}) {
   </article>;
 }
 
-const finishLabels = {nonfoil: "Nonfoil", foil: "Foil", etched: "Etched"};
+type SetDetail = CollectorDetail & {checkedAt: string; wishlistedIds: string[]};
+const wishlistButtonClass = "rounded border border-[var(--app-border)] px-3 py-2 text-sm disabled:opacity-50";
 
 function CollectorSetDetail({code, name, initialMode}: {code: string; name?: string; initialMode: CollectorMode}) {
   const [mode, setMode] = useState(initialMode);
   const [missingOnly, setMissingOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [retry, setRetry] = useState(0);
-  const [value, setValue] = useState<CollectorDetail & {checkedAt: string}>();
+  const [value, setValue] = useState<SetDetail>();
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [wishFeedback, setWishFeedback] = useState<{message: string; error?: boolean}>();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -82,41 +86,92 @@ function CollectorSetDetail({code, name, initialMode}: {code: string; name?: str
   function changePage(nextPage: number) {
     setValue(undefined);
     setError("");
+    setWishFeedback(undefined);
     setPage(nextPage);
   }
+
+  async function addToWishlist(targetId?: string) {
+    setSaving(true);
+    setWishFeedback(undefined);
+    try {
+      const result = await addCollectorWishes(targetId === undefined
+        ? {set: code, mode, scope: "all"}
+        : {set: code, mode, scope: "one", targetId});
+      if (!result.ok) {
+        setWishFeedback({message: result.error, error: true});
+        return;
+      }
+      const message = [
+        result.added > 0 ? `${result.added.toLocaleString()} added to Set Completion.` : "",
+        result.alreadySaved > 0 ? `${result.alreadySaved.toLocaleString()} already on your wishlist.` : "",
+      ].filter(Boolean).join(" ");
+      setWishFeedback({message: message || "No missing targets to add."});
+      setValue(undefined);
+      setRetry(n => n + 1);
+    } catch {
+      setWishFeedback({message: "Could not add wishes. Try again.", error: true});
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const wishlistedIds = new Set(value?.wishlistedIds);
 
   return <section aria-labelledby="collector-set-heading">
     <Link href="/collector" className="text-sm underline">Back to all sets</Link>
     <h2 id="collector-set-heading" className="mt-3 break-words text-xl font-semibold">{name ?? code.toUpperCase()}</h2>
     <p className="mt-2 text-sm text-[var(--app-muted)]">English paper cards and English owned copies, including copies in decks and reserved trades. Tokens are excluded.</p>
     <div className="my-4 flex flex-wrap items-end gap-4">
-      <label className="text-sm">Completion view<select className="app-input mt-1 block max-w-full rounded border p-2" value={mode}
+      <label className="text-sm">Completion view<select className="app-input mt-1 block max-w-full rounded border p-2" value={mode} disabled={saving}
         onChange={event => {setMode(event.target.value as CollectorMode); changePage(1);}}>
         <option value="grouped">Grouped cards</option><option value="variants">Printing / finish variants</option>
       </select></label>
-      <label className="py-2 text-sm"><input type="checkbox" checked={missingOnly}
+      <label className="py-2 text-sm"><input type="checkbox" checked={missingOnly} disabled={saving}
         onChange={event => {setMissingOnly(event.target.checked); changePage(1);}} /> Missing only</label>
+    </div>
+    <div className="mb-4 space-y-2">
+      <Link href="/wishlist?reason=sets" className="text-sm underline">Open Set Completion wishlist</Link>
+      {wishFeedback && <p role={wishFeedback.error ? "alert" : "status"} className="text-sm">{wishFeedback.message}</p>}
+      {saving && <p role="status" className="text-sm">Adding to Set Completion…</p>}
     </div>
     {error ? <div role="alert"><p>{error}</p>
       <button type="button" className="mt-2 underline" onClick={() => {setError(""); setRetry(n => n + 1);}}>Retry set details</button>
     </div> : !value ? <p role="status">Loading set details…</p> : <>
       <p className="font-medium">{value.progress.owned.toLocaleString()} / {value.progress.total.toLocaleString()} {mode === "grouped" ? "cards" : "variants"} owned</p>
       <p className="mt-1 text-sm text-[var(--app-muted)]">{(value.progress.total - value.progress.owned).toLocaleString()} missing · Complete catalog checked {new Date(value.checkedAt).toLocaleDateString()}</p>
+      {value.progress.total > value.progress.owned && (
+        <div className="mt-4 space-y-2">
+          <button type="button" className={wishlistButtonClass} disabled={saving} onClick={() => void addToWishlist()}>
+            Add all missing to Wishlist
+          </button>
+          <p className="text-sm text-[var(--app-muted)]">
+            Adds one wish per missing target across the whole set in this view. Grouped cards prefer Nonfoil when available.
+            Printing variants request the shown printing and finish. You can allow alternatives in Set Completion.
+          </p>
+        </div>
+      )}
       {value.matches ? <ul className="mt-4 divide-y divide-[var(--app-border)] rounded-lg border border-[var(--app-border)]">
-        {value.rows.map(row => <li key={row.id} className="flex items-start justify-between gap-3 px-3 py-2">
+        {value.rows.map(row => <li key={row.id} className="flex flex-wrap items-start justify-between gap-2 px-3 py-2">
           <div className="min-w-0 break-words">
             <p className="font-medium">{row.name}</p>
             {row.finish && <p className="text-sm text-[var(--app-muted)]">
-              {row.collectorNumber ? `#${row.collectorNumber} · ` : ""}{finishLabels[row.finish]}
+              {row.collectorNumber ? `#${row.collectorNumber} · ` : ""}{collectorFinishLabels[row.finish]}
             </p>}
           </div>
-          <span className="shrink-0 text-sm">{row.quantity ? `${row.quantity.toLocaleString()} owned` : "Missing"}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="shrink-0 text-sm">{row.quantity ? `${row.quantity.toLocaleString()} owned` : "Missing"}</span>
+            {wishlistedIds.has(row.id) ? <span className="text-sm text-[var(--app-muted)]">On Wishlist</span>
+              : row.quantity === 0 && (
+                <button type="button" className={wishlistButtonClass} disabled={saving}
+                  onClick={() => void addToWishlist(row.id)}>Add to Wishlist</button>
+              )}
+          </div>
         </li>)}
       </ul> : <p className="mt-4">{value.progress.total ? "No missing cards in this view." : "No eligible cards in this set."}</p>}
       {value.pages > 1 && <div className="mt-5 flex flex-wrap items-center gap-4">
-        <button type="button" disabled={value.page === 1} onClick={() => changePage(value.page - 1)} className="rounded border px-3 py-2 disabled:opacity-40">Previous</button>
+        <button type="button" disabled={saving || value.page === 1} onClick={() => changePage(value.page - 1)} className="rounded border px-3 py-2 disabled:opacity-40">Previous</button>
         <span className="text-sm">Page {value.page} of {value.pages}</span>
-        <button type="button" disabled={value.page === value.pages} onClick={() => changePage(value.page + 1)} className="rounded border px-3 py-2 disabled:opacity-40">Next</button>
+        <button type="button" disabled={saving || value.page === value.pages} onClick={() => changePage(value.page + 1)} className="rounded border px-3 py-2 disabled:opacity-40">Next</button>
       </div>}
     </>}
   </section>;

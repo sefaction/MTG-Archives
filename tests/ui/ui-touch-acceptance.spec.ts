@@ -57,9 +57,8 @@ test("phone touch can reach Inventory filters and Settings without page overflow
         ).toBe(true);
 
         const menu = page.locator(".archive-navigation > summary");
-        await menu.tap();
         await page
-          .getByRole("navigation", { name: "Archive navigation" })
+          .locator(".archive-utilities")
           .getByRole("link", { name: "Inventory", exact: true })
           .tap();
         await expect(page).toHaveURL(/\/inventory/);
