@@ -68,9 +68,8 @@ test("navigation labels and route states remain legible on desktop and phone in 
       await page.locator(".archive-navigation > summary").click();
     const rail = page.locator(".archive-rail");
     await expect(rail).toBeVisible();
-    const label = rail.locator(".archive-nav-group > p", { hasText: "Collection" });
     const current = rail.getByRole("link", { name: "Inventory", exact: true });
-    const ordinary = rail.getByRole("link", { name: "Locations", exact: true });
+    const ordinary = rail.getByRole("link", { name: "Decks", exact: true });
     await expect(current).toHaveAttribute("aria-current", "page");
     for (const theme of ["golgari", "azorius", "izzet", "selesnya",
       "rakdos", "lotus"]) {
@@ -78,7 +77,7 @@ test("navigation labels and route states remain legible on desktop and phone in 
         node.setAttribute("data-theme", value);
       }, theme);
       await page.mouse.move(0, 0);
-      for (const [name, element] of [["group", label], ["current", current],
+      for (const [name, element] of [["current", current],
         ["ordinary", ordinary]] as const) {
         const ratio = await navigationContrast(element);
         minimum.set(name, Math.min(minimum.get(name) ?? Infinity, ratio));

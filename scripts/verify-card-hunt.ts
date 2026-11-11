@@ -150,6 +150,18 @@ async function main() {
       assert.equal(pastedBasic.planned, 1);
       assert.equal(pastedBasic.ignoredBasicLandCopies, 0);
       assert.deepEqual(await cardHuntSnapshot(tx), baseline, "All public tables remain unchanged by plans and refused requests");
+      const printing = { id: f.cards[0].id, scope: "printing", finish: "NONFOIL" };
+      const exact = await buildCardHunt(tx, f.user, { card: printing });
+      assert.equal(exact.planned, 1, "Modern and legacy reservations and both deck locations stay excluded");
+      assert.equal(exact.boxes[0].picks[0].inventoryItemId, f.shared.id);
+      assert.equal(exact.shortage, 0);
+      assert.equal((await buildCardHunt(tx, f.peerUser, { card: printing })).planned, 0);
+      await assert.rejects(buildCardHunt(tx, f.user, { card: printing, deckId: f.deck.id }), /Choose a deck/);
+      const grouped = await buildCardHunt(tx, f.peerUser, { card: { id: f.cards[0].id, scope: "card" } });
+      assert.equal(grouped.planned, 100);
+      assert.equal(grouped.boxes[0].picks[0].setCode, f.alternate.setCode);
+      assert.equal((await buildCardHunt(tx, f.user, { card: { id: f.cards[3].id, scope: "card" } })).planned, 0);
+      assert.deepEqual(await cardHuntSnapshot(tx), baseline, "Card-context plans are read-only");
       console.log(JSON.stringify({case: "card-hunt-postgres", tables: Object.keys(baseline).length,
         preferredBoxes: preferred.boxes.length, optimizedBoxes: optimized.boxes.length,
         modernAndLegacyReservations: "pass", ownerIsolation: "pass", duplicateDemand: "pass",

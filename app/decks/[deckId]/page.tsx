@@ -699,7 +699,7 @@ export default async function DeckDetailPage({
         </section>
       ) : null}
 
-      <DeckToolsNav deckId={deck.id} active="builder" />
+      <DeckToolsNav deckId={deck.id} active="builder" canHunt={Boolean(user?.playerId && user.id === deck.ownerUserId && !leagueDeck)} />
 
       <DeckListEditor
         deckId={deck.id}
