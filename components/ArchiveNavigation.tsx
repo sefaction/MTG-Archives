@@ -69,8 +69,20 @@ function NavigationDestination({ href, label, current, onNavigate, expanded, set
     const outside = (event: PointerEvent) => {
       if (!group.current?.contains(event.target as Node)) setExpanded(false);
     };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (timeout.current) clearTimeout(timeout.current);
+      setExpanded(false);
+      if (group.current?.contains(document.activeElement)) button.current?.focus();
+    };
     document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape, true);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape, true);
+    };
   }, [expanded, setExpanded]);
   return (
     <div ref={group} className="archive-destination"
@@ -86,15 +98,6 @@ function NavigationDestination({ href, label, current, onNavigate, expanded, set
       }}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) setExpanded(false);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape" && expanded) {
-          event.preventDefault();
-          event.stopPropagation();
-          cancelClose();
-          setExpanded(false);
-          button.current?.focus();
-        }
       }}>
       <div className="archive-destination-heading">
         <Link href={href} aria-current={current} onClick={() => {

@@ -12,11 +12,11 @@ test("section shortcuts support hover, keyboard, touch and persistent header tab
   const password = randomUUID();
   function database(body: string) {
     return JSON.parse(execFileSync("docker", ["exec", "-i", container, "node"], {
-      input: `const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().then(x=>console.log(JSON.stringify(x))).finally(()=>p.$disconnect());`,
+      input: `const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().then(x=>console.log(JSON.stringify(x))).catch(error=>{console.error(error.message);process.exitCode=1}).finally(()=>p.$disconnect());`,
       encoding: "utf8", timeout: 30_000,
     }));
   }
-  const userId: string = database(`return (await p.user.create({data:{username:${JSON.stringify(username)},passwordHash:await require('bcryptjs').hash(${JSON.stringify(password)},10),navigationLayout:'topbar',player:{create:{name:${JSON.stringify(username)}}}}})).id;`);
+  const userId: string = database(`return (await p.user.create({data:{username:${JSON.stringify(username)},displayName:'Navigation reviewer',passwordHash:await require('bcryptjs').hash(${JSON.stringify(password)},10),navigationLayout:'topbar',player:{create:{name:${JSON.stringify(username)},displayName:${JSON.stringify(username)}}}}})).id;`);
   try {
     await page.setViewportSize({ width: 1366, height: 900 });
     await page.goto("/login");
@@ -30,6 +30,11 @@ test("section shortcuts support hover, keyboard, touch and persistent header tab
     const submenu = page.locator("#archive-submenu-inventory");
     await expect(submenu).toBeVisible();
     await expect(page).toHaveURL(/\/dashboard/);
+    await page.screenshot({ path: "test-results/navigation-subtabs-hover.png" });
+    await page.keyboard.press("Escape");
+    await expect(submenu).toBeHidden();
+    await page.mouse.move(1000, 700);
+    await inventory.hover();
     await submenu.getByRole("link", { name: "Locations", exact: true }).click();
     await expect(page).toHaveURL(/\/locations/);
     const tabs = page.getByRole("navigation", { name: "Inventory sections" });
@@ -38,6 +43,18 @@ test("section shortcuts support hover, keyboard, touch and persistent header tab
     const tabBounds = (await tabs.boundingBox())!;
     const headerBounds = (await page.locator(".archive-shell").boundingBox())!;
     expect(tabBounds.y + tabBounds.height).toBeLessThan(headerBounds.y + headerBounds.height);
+    await page.screenshot({ path: "test-results/navigation-subtabs-inventory.png" });
+    for (const width of [1100, 1366]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const name of ["Inventory", "Wishlist", "Trades", "Public"]) {
+        await rail.getByRole("link", { name, exact: true }).hover();
+        const panel = page.locator(".archive-submenu:visible");
+        await expect(panel).toHaveCount(1);
+        const bounds = (await panel.boundingBox())!;
+        expect(bounds.x).toBeGreaterThanOrEqual(0);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+      }
+    }
 
     const toggle = rail.getByRole("button", { name: "Inventory sections", exact: true });
     await page.mouse.move(1000, 700);
@@ -88,6 +105,6 @@ test("section shortcuts support hover, keyboard, touch and persistent header tab
       await phone.screenshot({ path: "test-results/navigation-subtabs-phone.png" });
     } finally { await touch.close(); }
   } finally {
-    database(`const u=await p.user.findUniqueOrThrow({where:{id:${JSON.stringify(userId)}},select:{playerId:true}});await p.user.delete({where:{id:${JSON.stringify(userId)}}});if(u.playerId)await p.player.delete({where:{id:u.playerId}});return true;`);
+    database(`return p.$transaction(async tx=>{const u=await tx.user.findUniqueOrThrow({where:{id:${JSON.stringify(userId)}},select:{playerId:true}});await tx.inventoryAuditLog.deleteMany({where:{changedByUserId:${JSON.stringify(userId)}}});if(u.playerId)await tx.inventoryLocation.deleteMany({where:{ownerPlayerId:u.playerId}});await tx.user.delete({where:{id:${JSON.stringify(userId)}}});if(u.playerId)await tx.player.delete({where:{id:u.playerId}});return true;});`);
   }
 });
