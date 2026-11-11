@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import { login } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { safeLocalReturnPath } from "@/lib/local-return-path";
@@ -31,12 +32,13 @@ export default async function LoginPage({
         <p className="text-sm text-zinc-400">
           Use your local account to manage inventory, imports, and trades.
         </p>
-        <a
+        <Link
           className="inline-block rounded border border-sky-700 px-3 py-2 text-sm"
           href="/public/inventory"
+          prefetch={false}
         >
           Browse public inventory
-        </a>
+        </Link>
       </div>
       {params.error ? (
         <p className="mb-3 rounded border border-red-800 bg-red-950/40 p-3 text-red-100">

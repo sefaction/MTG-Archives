@@ -446,14 +446,15 @@ export async function getWishlistView(
   prisma: PrismaClient,
   ownerUserId: string,
   ownerPlayerId: string | null | undefined,
+  reason: "combined" | "manual" | "decks" = "combined",
 ) {
   const [manualItems, decks, inventoryItems] = await Promise.all([
-    prisma.wishlistItem.findMany({
+    reason === "decks" ? [] : prisma.wishlistItem.findMany({
       where: { ownerUserId },
       include: { card: { select: cardSelect } },
       orderBy: { updatedAt: "desc" },
     }),
-    prisma.deck.findMany({
+    reason === "manual" ? [] : prisma.deck.findMany({
       where: { ownerUserId, commanderLeagueDeck: null },
       select: {
         id: true,

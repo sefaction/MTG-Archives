@@ -3,6 +3,8 @@ export const dynamic = "force-dynamic";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Nav } from "@/components/Nav";
+import { PublicShareLink } from "@/components/PublicShareLink";
+import { publicInventoryLink } from "@/lib/public-inventory-link";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import {
   cn,
@@ -458,6 +460,13 @@ export default async function SettingsPage({
                 locations appears in the public inventory browser.
               </p>
             </div>
+
+            {user.playerId ? (
+              <PublicShareLink
+                href={publicInventoryLink(user.username)}
+                label="Your public inventory"
+              />
+            ) : null}
 
             <label className="block text-sm">
               Public display name

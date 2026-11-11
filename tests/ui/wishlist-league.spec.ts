@@ -34,6 +34,32 @@ for (const viewport of [{ width: 1366, height: 900 }, { width: 390, height: 844 
     await expect(page.getByRole("heading", { name: "Shared Wishlist Card", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Manual Only Card", exact: true })).toBeVisible();
     await page.screenshot({ path: `.local-data/evidence/wishlist-${viewport.width}.png`, fullPage: true });
+
+    const reasons = page.getByRole("navigation", { name: "Wishlist reason" });
+    await expect(reasons.getByRole("link", { name: "Combined" })).toHaveAttribute("aria-current", "page");
+    const memberWishes = page.getByRole("region", { name: "From members" });
+    await expect(memberWishes.getByRole("listitem")).toHaveCount(1);
+    await expect(memberWishes.getByRole("listitem")).toContainText("Shared Wishlist Card");
+    await expect(memberWishes.getByRole("listitem")).toContainText("Fixture trade partner");
+    await expect(memberWishes.getByRole("listitem")).toContainText("Wanted 4");
+    await memberWishes.getByRole("link", { name: "View all member wishes" }).click();
+    await expect(reasons.getByRole("link", { name: "From members" })).toHaveAttribute("aria-current", "page");
+    await expect(memberWishes.getByRole("listitem")).toHaveCount(1);
+    await expect(memberWishes.getByRole("link", { name: "Manage in Trades" })).toHaveAttribute("href", "/trades?view=wishlist");
+    await expect(page.getByText("Private trade partner")).toHaveCount(0);
+
+    await reasons.getByRole("link", { name: "Deck needs" }).click();
+    await page.getByRole("button", { name: "Table View", exact: true }).click();
+    await expect(page.locator("tbody tr")).toHaveCount(1);
+    await expect(page.locator("tbody tr")).toContainText("normal Commander");
+    await expect(page.locator("tbody tr")).not.toContainText("Manual");
+    await expect(memberWishes).toHaveCount(0);
+    await reasons.getByRole("link", { name: "Manual wishes" }).click();
+    await expect(page.locator("tbody tr")).toHaveCount(2);
+    await expect(page.locator("tbody")).not.toContainText("normal Commander");
+    await expect(page.getByText("Add a manual wishlist card", { exact: true })).toBeVisible();
+    await page.goBack();
+    await expect(reasons.getByRole("link", { name: "Deck needs" })).toHaveAttribute("aria-current", "page");
     for (const [query, expected] of [["deck=league", 0], ["deck=frozen", 0], ["q=League+Only", 0],
       ["deck=normal", 1], ["tab=manual", 2], ["tab=decks", 1], ["tab=available", 1], ["tab=missing", 2]]) {
       await page.goto(`/wishlist?${query}&viewMode=table`);
