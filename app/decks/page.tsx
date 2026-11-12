@@ -15,7 +15,7 @@ import {
   deckSectionSummaryParts,
   summarizeEffectiveDeckCoverage,
 } from "@/lib/decks";
-import { bracketSelectOptions, parseDeckBracket } from "@/lib/deck-brackets";
+import { bracketSelectOptions } from "@/lib/deck-brackets";
 import {
   buildDeckFolderOptions,
   calculateDeckColorIdentity,
@@ -30,22 +30,18 @@ function deckCardArtCrop(
 ) {
   if (!card) return "";
   const images = card.imageUris as
-    { art_crop?: string; normal?: string; small?: string } | null | undefined;
+    | { art_crop?: string; normal?: string; small?: string }
+    | null
+    | undefined;
   return (
     images?.art_crop ?? images?.normal ?? images?.small ?? card.imageUri ?? ""
   );
 }
 
-export default async function DecksPage({
-  searchParams,
-}: {
-  searchParams?: Promise<{ folder?: string; bracket?: string; tag?: string }>;
-}) {
+export default async function DecksPage() {
   const user = await requireLogin();
   const scope = await getAccessScope(user);
   const adminModeActive = scope?.mode === "admin";
-  const params = await searchParams;
-  const selectedBracket = parseDeckBracket(params?.bracket ?? null);
 
   const [folders, tags, decks] = await Promise.all([
     prisma.deckFolder.findMany({
@@ -240,9 +236,6 @@ export default async function DecksPage({
           label: visibilityLabel(visibility),
         }))}
         bracketOptions={bracketSelectOptions()}
-        initialFolder={params?.folder ?? "all"}
-        initialTag={params?.tag ?? ""}
-        initialBracket={selectedBracket ? String(selectedBracket) : ""}
         adminModeActive={adminModeActive}
       />
     </main>

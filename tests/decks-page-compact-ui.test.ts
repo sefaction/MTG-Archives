@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readDeckLibraryBrowse } from "../lib/deck-library-browse";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 
@@ -7,7 +8,7 @@ const deckWorkspace = readFileSync("components/DeckWorkspace.tsx", "utf8");
 const actions = readFileSync("app/decks/actions.ts", "utf8");
 
 test("deck workspace defaults to a sortable table with an alternate card view", () => {
-  assert.match(deckWorkspace, /useState<ViewMode>\("table"\)/);
+  assert.equal(readDeckLibraryBrowse(new URLSearchParams()).view, "table");
   assert.match(deckWorkspace, />\s*Table\s*</);
   assert.match(deckWorkspace, />\s*Cards\s*</);
   assert.match(deckWorkspace, /function SortButton/);
@@ -103,7 +104,10 @@ test("folder paths and the compact new deck form are supplied to the workspace",
 
 test("deck library controls keep creation and empty results actionable", () => {
   assert.match(deckWorkspace, /aria-label="Deck library controls"/);
-  assert.match(deckWorkspace, /<h2 className="text-lg font-semibold text-zinc-100">/);
+  assert.match(
+    deckWorkspace,
+    /<h2 className="text-lg font-semibold text-zinc-100">/,
+  );
   assert.match(deckWorkspace, /const \[createDeckOpen, setCreateDeckOpen\]/);
   assert.match(deckWorkspace, /onClick=\{\(\) => setCreateDeckOpen\(true\)\}/);
   assert.match(deckWorkspace, /aria-pressed=\{viewMode === "table"\}/);

@@ -4,6 +4,7 @@ import {
   buildLeagueDeckAnalytics,
   type LeagueAnalyticsSubmissionInput,
 } from "../lib/commander-league-analytics";
+import { filterNamedRows, pageList } from "../lib/list-browse";
 
 function submission(
   id: string,
@@ -141,4 +142,38 @@ test("excludes sideboards, maybeboards, commanders, and basic lands from card ra
     stats.topCards.map((row) => row.name),
     ["Real Card"],
   );
+});
+
+test("searchable complete rankings include entries below the old top lists with unchanged scope and aggregates", () => {
+  const cards = Array.from({ length: 50 }, (_, index) =>
+    card(`Ranked ${String(index).padStart(3, "0")}`),
+  );
+  const inputs = [
+    submission("full-a", "alice", 1, "WIN", cards),
+    submission("full-b", "alice", 1, "LOSS", cards),
+    submission("other", "bob", 2, "WIN", [card("Other member only")]),
+  ];
+  const original = JSON.stringify(inputs);
+  const legacy = buildLeagueDeckAnalytics(inputs, "alice");
+  const complete = buildLeagueDeckAnalytics(inputs, "alice", {
+    completeRankings: true,
+  });
+  assert.equal(legacy.topCards.length, 15);
+  assert.equal(complete.topCards.length, 50);
+  assert.deepEqual(complete.topCards.slice(0, 15), legacy.topCards);
+  assert.deepEqual(complete.cardWinRates.slice(0, 12), legacy.cardWinRates);
+  assert.deepEqual(complete.composition, legacy.composition);
+  assert.deepEqual(complete.months, legacy.months);
+  assert.equal(complete.submissionCount, 2);
+  assert.deepEqual(
+    pageList(filterNamedRows(complete.topCards, "ranked 049"), 1, 25).items.map(
+      (row) => row.name,
+    ),
+    ["Ranked 049"],
+  );
+  assert.equal(
+    complete.topCards.some((row) => row.name === "Other member only"),
+    false,
+  );
+  assert.equal(JSON.stringify(inputs), original);
 });

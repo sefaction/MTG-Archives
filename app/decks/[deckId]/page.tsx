@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import { LocationSearchSelect } from "@/components/LocationSearchSelect";
 import { notFound } from "next/navigation";
 import {
   DeckFormat,
@@ -771,21 +772,13 @@ export default async function DeckDetailPage({
                     {committedSummary.committedEntries} inventory entries.
                   </p>
                   <input type="hidden" name="deckId" value={deck.id} />
-                  <label className={cn(filterFieldClass, "block")}>
-                    Destination normal inventory location
-                    <select
-                      name="destinationLocationId"
-                      required
-                      className={cn(filterSelectClass, "mt-1 w-full")}
-                    >
-                      <option value="">Choose a location…</option>
-                      {normalReturnLocations.map((location) => (
-                        <option key={location.id} value={location.id}>
-                          {location.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <LocationSearchSelect
+                    label="Destination normal inventory location"
+                    name="destinationLocationId"
+                    locations={normalReturnLocations}
+                    emptyLabel="Choose a destination…"
+                    required
+                  />
                   <SubmitButton
                     pendingLabel="Returning…"
                     disabled={

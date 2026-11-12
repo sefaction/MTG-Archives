@@ -6,6 +6,13 @@ import { LeagueNav } from "@/components/league/LeagueNav";
 import { requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createLeagueDeck } from "../../actions";
+import { ServerListPagination } from "@/components/ServerListPagination";
+import {
+  listPage,
+  listPageSize,
+  listPageSizes,
+  pageList,
+} from "@/lib/list-browse";
 
 export default async function LeagueDecksPage({
   params,
@@ -34,10 +41,10 @@ export default async function LeagueDecksPage({
               round: true,
               _count: { select: { submissions: true } },
             },
-            orderBy: { round: { monthNumber: "asc" } },
+            orderBy: [{ round: { monthNumber: "asc" } }, { id: "asc" }],
           },
         },
-        orderBy: { user: { displayName: "asc" } },
+        orderBy: [{ user: { displayName: "asc" } }, { id: "asc" }],
       },
     },
   });
@@ -50,22 +57,43 @@ export default async function LeagueDecksPage({
     (sum, member) => sum + member.decks.length,
     0,
   );
+  const selectedPlayer = league.members.some(
+    (member) => member.id === query.player,
+  )
+    ? query.player
+    : "";
+  const selectedRound = league.rounds.some((round) => round.id === query.round)
+    ? query.round
+    : "";
+  const selectedStatus =
+    query.status === "frozen" || query.status === "editable"
+      ? query.status
+      : "";
+  const searchQuery = (query.q || "").slice(0, 200);
 
   const filteredDecks = league.members
     .flatMap((member) => member.decks.map((deck) => ({ member, deck })))
     .filter(
       ({ member, deck }) =>
-        (!query.round || deck.roundId === query.round) &&
+        (!selectedRound || deck.roundId === selectedRound) &&
+        (!selectedPlayer || member.id === selectedPlayer) &&
+        (selectedStatus !== "frozen" || deck._count.submissions > 0) &&
+        (selectedStatus !== "editable" || deck._count.submissions === 0) &&
         `${deck.archiveDeck.name} ${member.user.displayName}`
           .toLowerCase()
-          .includes((query.q || "").trim().toLowerCase()),
+          .includes(searchQuery.trim().toLowerCase()),
     );
+  const deckPage = pageList(
+    filteredDecks,
+    listPage(query.page),
+    listPageSize(query.pageSize),
+  );
 
   return (
     <main className="mx-auto max-w-7xl min-w-0 space-y-4 p-4 sm:p-8">
       <LeagueNav leagueId={league.id} active="decks" />
       <header>
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+        <p className="break-words text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
           {league.name}
         </p>
         <h1 className="break-words text-3xl font-bold">League Decks</h1>
@@ -154,26 +182,72 @@ export default async function LeagueDecksPage({
               </p>
             </div>
           </div>
-          <form className="mt-3 flex flex-wrap items-end gap-3">
+          <form
+            key={JSON.stringify(query)}
+            className="mt-3 flex flex-wrap items-end gap-3"
+          >
             <label className="min-w-0 flex-1 text-sm">
               Search league decks
               <input
                 name="q"
-                defaultValue={query.q || ""}
+                type="search"
+                maxLength={200}
+                defaultValue={searchQuery}
                 className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2"
               />
             </label>
-            <label className="text-sm">
+            <label className="min-w-0 max-w-full text-sm">
               Filter month
               <select
                 name="round"
-                defaultValue={query.round || ""}
-                className="mt-1 block rounded border border-zinc-700 bg-zinc-950 px-3 py-2"
+                defaultValue={selectedRound}
+                className="mt-1 block max-w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2"
               >
                 <option value="">All months</option>
                 {league.rounds.map((round) => (
                   <option key={round.id} value={round.id}>
                     {round.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="min-w-0 max-w-full text-sm">
+              Filter player
+              <select
+                name="player"
+                defaultValue={selectedPlayer}
+                className="mt-1 block max-w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2"
+              >
+                <option value="">All players</option>
+                {league.members.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.user.displayName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="min-w-0 max-w-full text-sm">
+              Deck status
+              <select
+                name="status"
+                defaultValue={selectedStatus}
+                className="mt-1 block max-w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2"
+              >
+                <option value="">All decks</option>
+                <option value="editable">Editable</option>
+                <option value="frozen">Frozen</option>
+              </select>
+            </label>
+            <label className="min-w-0 max-w-full text-sm">
+              Rows per page
+              <select
+                name="pageSize"
+                defaultValue={deckPage.pageSize}
+                className="mt-1 block max-w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2"
+              >
+                {listPageSizes.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
                   </option>
                 ))}
               </select>
@@ -188,13 +262,19 @@ export default async function LeagueDecksPage({
           <p className="app-muted mt-2 text-sm">
             {filteredDecks.length} matching decks
           </p>
+          <ServerListPagination
+            label="League decks"
+            path={`/league/${league.id}/decks`}
+            query={query}
+            page={deckPage}
+          />
           <div
             className="mt-4 grid max-h-[32rem] gap-3 overflow-auto md:grid-cols-2"
             role="region"
             aria-label="League deck results"
             tabIndex={0}
           >
-            {filteredDecks.map(({ member, deck }) => {
+            {deckPage.items.map(({ member, deck }) => {
               const cardCount = deck.archiveDeck.cards.reduce(
                 (sum, card) => sum + card.quantity,
                 0,

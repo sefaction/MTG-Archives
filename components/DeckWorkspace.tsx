@@ -14,6 +14,9 @@ import { useRouter } from "next/navigation";
 import { ColorIdentitySymbols } from "@/components/mtg/ColorIdentitySymbols";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { DeckWorkspaceDialog } from "@/components/DeckWorkspaceDialog";
+import { useDeckLibraryBrowse } from "@/components/useDeckLibraryBrowse";
+import { pageList } from "@/lib/list-browse";
+import { ListPagination } from "@/components/ListPagination";
 import {
   cn,
   filterFieldClass,
@@ -320,9 +323,6 @@ export function DeckWorkspace({
   formatOptions,
   visibilityOptions,
   bracketOptions,
-  initialFolder = ALL_FOLDERS,
-  initialTag = "",
-  initialBracket = "",
   adminModeActive = false,
   readOnly = false,
   showOwner = adminModeActive,
@@ -333,27 +333,30 @@ export function DeckWorkspace({
   formatOptions: Option[];
   visibilityOptions: Option[];
   bracketOptions: Option[];
-  initialFolder?: string;
-  initialTag?: string;
-  initialBracket?: string;
   adminModeActive?: boolean;
   readOnly?: boolean;
   showOwner?: boolean;
 }) {
   const router = useRouter();
-  const [viewMode, setViewMode] = useState<ViewMode>("table");
-  const [search, setSearch] = useState("");
-  const [folderFilter, setFolderFilter] = useState(initialFolder);
-  const [includedTagIds, setIncludedTagIds] = useState(
-    initialTag ? [initialTag] : [],
-  );
-  const [excludedTagIds, setExcludedTagIds] = useState<string[]>([]);
-  const [includedBrackets, setIncludedBrackets] = useState(
-    initialBracket ? [initialBracket] : [],
-  );
-  const [excludedBrackets, setExcludedBrackets] = useState<string[]>([]);
-  const [sortField, setSortField] = useState<SortField>("updated");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const { browse, setter } = useDeckLibraryBrowse();
+  const viewMode = browse.view,
+    setViewMode = setter("view");
+  const search = browse.search,
+    setSearch = setter("search");
+  const folderFilter = browse.folder,
+    setFolderFilter = setter("folder");
+  const includedTagIds = browse.includedTags,
+    setIncludedTagIds = setter("includedTags");
+  const excludedTagIds = browse.excludedTags,
+    setExcludedTagIds = setter("excludedTags");
+  const includedBrackets = browse.includedBrackets,
+    setIncludedBrackets = setter("includedBrackets");
+  const excludedBrackets = browse.excludedBrackets,
+    setExcludedBrackets = setter("excludedBrackets");
+  const sortField = browse.sort,
+    setSortField = setter("sort");
+  const sortDirection = browse.direction,
+    setSortDirection = setter("direction");
   const [organizationUnlocked, setOrganizationUnlocked] = useState(false);
   const [draggedFolderId, setDraggedFolderId] = useState("");
   const [folderMessage, setFolderMessage] = useState("");
@@ -490,6 +493,8 @@ export function DeckWorkspace({
     sortDirection,
     sortField,
   ]);
+
+  const deckPage = pageList(filteredDecks, browse.page, browse.pageSize);
 
   function chooseSort(field: SortField) {
     if (field === sortField) {
@@ -638,7 +643,7 @@ export function DeckWorkspace({
                 Deck library
               </h2>
               <span className="text-sm text-zinc-500">
-                {filteredDecks.length} visible of {decks.length}
+                {filteredDecks.length} matching of {decks.length}
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -646,6 +651,8 @@ export function DeckWorkspace({
                 <span className="sr-only">Search decks</span>
                 <input
                   value={search}
+                  type="search"
+                  maxLength={200}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Search decks, folders, formats, or tags"
                   className={cn(filterInputClass, "w-full")}
@@ -1039,6 +1046,12 @@ export function DeckWorkspace({
           aria-label="Deck library results"
           tabIndex={0}
         >
+          <ListPagination
+            label="Deck library"
+            page={deckPage}
+            onPage={setter("page")}
+            onSize={setter("pageSize")}
+          />
           {viewMode === "table" ? (
             <div className="overflow-x-auto rounded-xl border border-zinc-800">
               <table className="min-w-full text-sm">
@@ -1110,7 +1123,7 @@ export function DeckWorkspace({
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredDecks.map((deck) => (
+                  {deckPage.items.map((deck) => (
                     <tr
                       key={deck.id}
                       className="border-t border-zinc-800 align-top transition hover:bg-zinc-900/50"
@@ -1241,7 +1254,7 @@ export function DeckWorkspace({
             </div>
           ) : (
             <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-              {filteredDecks.map((deck) => (
+              {deckPage.items.map((deck) => (
                 <article
                   key={deck.id}
                   className="group relative isolate min-h-[27rem] overflow-hidden rounded-xl border border-zinc-700 bg-gradient-to-br from-zinc-950 to-zinc-900/70 p-4 transition hover:-translate-y-0.5 hover:border-zinc-500 hover:shadow-2xl"

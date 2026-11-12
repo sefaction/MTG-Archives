@@ -182,6 +182,7 @@ function summarize(submissions: LeagueAnalyticsSubmissionInput[]) {
 export function buildLeagueDeckAnalytics(
   allSubmissions: LeagueAnalyticsSubmissionInput[],
   memberId?: string,
+  options: { completeRankings?: boolean } = {},
 ) {
   const submissions = memberId
     ? allSubmissions.filter((submission) => submission.memberId === memberId)
@@ -350,12 +351,12 @@ export function buildLeagueDeckAnalytics(
           b.copies - a.copies ||
           a.name.localeCompare(b.name),
       )
-      .slice(0, 15),
+      .slice(0, options.completeRankings ? undefined : 15),
     commanders: commanders
       .sort(
         (a, b) => b.appearances - a.appearances || a.name.localeCompare(b.name),
       )
-      .slice(0, 12),
+      .slice(0, options.completeRankings ? undefined : 12),
     cardWinRates: cards
       .filter((row) => row.appearances >= 2)
       .sort(
@@ -364,7 +365,7 @@ export function buildLeagueDeckAnalytics(
           b.appearances - a.appearances ||
           a.name.localeCompare(b.name),
       )
-      .slice(0, 12),
+      .slice(0, options.completeRankings ? undefined : 12),
     commanderWinRates: commanders
       .sort(
         (a, b) =>
@@ -372,7 +373,7 @@ export function buildLeagueDeckAnalytics(
           b.appearances - a.appearances ||
           a.name.localeCompare(b.name),
       )
-      .slice(0, 12),
+      .slice(0, options.completeRankings ? undefined : 12),
     colorIdentities,
     months,
     setUsage: setUsage.slice(0, 10),
