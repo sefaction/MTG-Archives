@@ -1565,6 +1565,7 @@ model AcquisitionProcessingJob {
   @@index([status, availableAt, leaseExpiresAt, createdAt])
   @@index([runId])
   @@index([stage, status, availableAt, runId])
+  @@index([candidateId, candidateRevision, stage, createdAt, id], map: "AcquisitionProcessingJob_candidate_stage_latest_idx")
 }
 
 // Per-stage scheduling survives worker exit. This is queue bookkeeping, never
