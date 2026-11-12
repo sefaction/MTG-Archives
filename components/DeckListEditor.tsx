@@ -1023,7 +1023,6 @@ export function DeckListEditor({
                           label="Return destination"
                           locations={returnLocations}
                           emptyLabel="Choose a destination…"
-                          emptyLabel="Choose a destination?"
                           value={returnDestinationId}
                           onChange={setReturnDestinationId}
                         />
@@ -2042,7 +2041,6 @@ function RowEditor({
                         label="Destination location for returned copies"
                         locations={returnLocations}
                         emptyLabel="Choose a destination…"
-                        emptyLabel="Choose a destination?"
                       />
                     </div>
                   </div>
@@ -2085,7 +2083,6 @@ function RowEditor({
                         label="Return committed copies to this location before removing"
                         locations={returnLocations}
                         emptyLabel="Choose a destination…"
-                        emptyLabel="Choose a destination?"
                         required
                       />
                     </div>
@@ -2400,7 +2397,6 @@ function ReturnCommittedCopies({
           label="Destination"
           locations={returnLocations}
           emptyLabel="Choose a destination…"
-          emptyLabel="Choose a destination?"
           required
         />
         <label className={filterFieldClass}>
