@@ -696,7 +696,12 @@ function MultiSelectDropdown({
       }
     }
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        setOpen(false);
+        document.getElementById(buttonId)?.focus();
+      }
     }
     function closeDropdown() {
       setOpen(false);
@@ -709,7 +714,7 @@ function MultiSelectDropdown({
       document.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener(CLOSE_FILTER_DROPDOWNS_EVENT, closeDropdown);
     };
-  }, [open]);
+  }, [open, buttonId]);
 
   return (
     <div
@@ -732,6 +737,16 @@ function MultiSelectDropdown({
         id={menuId}
         role="listbox"
         aria-labelledby={buttonId}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          event.stopPropagation();
+          if (
+            event.target instanceof HTMLInputElement &&
+            event.target.type === "checkbox"
+          )
+            event.target.click();
+        }}
         className={cn(
           "absolute z-30 mt-2 max-h-64 min-w-56 overflow-auto rounded-md border border-zinc-700 bg-zinc-950 p-2 shadow-xl shadow-black/30",
           !open && "hidden",
