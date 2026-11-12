@@ -1,3 +1,4 @@
+import { openAccountOptions } from "./account-options";
 import { expect, test } from "@playwright/test";
 import { readdirSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
@@ -43,7 +44,9 @@ test("static app routes remain reachable without page overflow at actual 200% br
     };
     for (const route of regular) await check(route);
     await page.goto(`${baseURL}/settings`);
+    await openAccountOptions(page);
     await page.getByRole("button", { name: /enter admin mode/i }).click();
+    await openAccountOptions(page);
     await expect(page.getByRole("button", { name: /exit admin mode/i })).toBeVisible();
     for (const route of admin) await check(route);
     expect(offenders, "Page-wide overflow at actual 200% browser zoom").toEqual([]);

@@ -1,3 +1,4 @@
+import { openAccountOptions } from "./account-options";
 import { expect, test, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -53,6 +54,7 @@ test("Dashboard, Pricing and Public expose focused tasks without leaking private
     await expect(
       page.getByRole("region", { name: "Your collection and trades" }),
     ).toContainText("10");
+    await openAccountOptions(page);
     await page
       .getByRole("button", { name: "Enter Admin Mode", exact: true })
       .click();
@@ -62,6 +64,7 @@ test("Dashboard, Pricing and Public expose focused tasks without leaking private
     await expect(
       page.getByRole("heading", { name: "Your collection and trades" }),
     ).toBeVisible();
+    await openAccountOptions(page);
     await page
       .getByRole("button", { name: "Exit Admin Mode", exact: true })
       .click();

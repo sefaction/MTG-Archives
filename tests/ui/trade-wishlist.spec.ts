@@ -1,3 +1,4 @@
+import { openAccountOptions } from "./account-options";
 import { expect, test } from "@playwright/test";
 
 const username = process.env.UI_ADMIN_USERNAME || "admin";
@@ -138,7 +139,9 @@ test("trade wishlist stays separate from the normal wishlist", async ({
   ).toBeVisible();
 
   await page.goto("/public/inventory?displayMode=exact&pageSize=10");
-  await expect(page.getByRole("link", { name: "Account" })).toBeVisible();
+  await openAccountOptions(page);
+  await expect(page.getByRole("link", { name: "Settings", exact: true })).toBeVisible();
+  await openAccountOptions(page);
   await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
   await expect(page.getByRole("link", { name: /^Log in$/ })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Public decks" })).toBeVisible();

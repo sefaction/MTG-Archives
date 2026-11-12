@@ -1,3 +1,4 @@
+import { openAccountOptions } from "./account-options";
 import { expect, test, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -310,6 +311,7 @@ test("Imports separates tasks and preserves upload, review, commit, history and 
     ).toBe("IMPORTED");
     await page.setViewportSize({ width: 1366, height: 768 });
     await page.goto("/imports?view=history");
+    await openAccountOptions(page);
     await page
       .getByRole("button", { name: "Enter Admin Mode", exact: true })
       .click();
@@ -342,6 +344,7 @@ test("Imports separates tasks and preserves upload, review, commit, history and 
     await expect(
       page.getByRole("combobox", { name: "Current owner", exact: true }),
     ).toBeVisible();
+    await openAccountOptions(page);
     await page
       .getByRole("button", { name: "Exit Admin Mode", exact: true })
       .click();

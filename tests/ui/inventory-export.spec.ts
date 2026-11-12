@@ -1,3 +1,4 @@
+import { openAccountOptions } from "./account-options";
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 
@@ -85,11 +86,13 @@ test("inventory bulk actions export only selected exact entries", async ({
   page,
 }) => {
   await logIn(page);
+  await openAccountOptions(page);
   const adminModeButton = page.getByRole("button", {
     name: "Enter Admin Mode",
   });
   if (await adminModeButton.isVisible()) {
     await adminModeButton.click();
+    await openAccountOptions(page);
     await expect(
       page.getByRole("button", { name: /exit admin mode/i }),
     ).toBeVisible();

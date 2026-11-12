@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 type NotificationBellProps = {
   appName: string;
   initialUnreadCount: number;
+  compact?: boolean;
 };
 
 function browserTitle(appName: string, unreadCount: number) {
@@ -15,6 +16,7 @@ function browserTitle(appName: string, unreadCount: number) {
 export function NotificationBell({
   appName,
   initialUnreadCount,
+  compact = false,
 }: NotificationBellProps) {
   const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
 
@@ -75,7 +77,7 @@ export function NotificationBell({
         <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
         <path d="M10 21h4" />
       </svg>
-      <span className="hidden sm:inline">Notifications</span>
+      <span className={compact ? "sr-only" : "hidden sm:inline"}>Notifications</span>
       {unreadCount > 0 ? (
         <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-rose-600 px-1.5 py-0.5 text-[0.65rem] font-bold leading-none text-white">
           {displayCount}

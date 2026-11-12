@@ -1,3 +1,4 @@
+import { openAccountOptions } from "./account-options";
 import { expect, test, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -60,9 +61,11 @@ test("Administration retains maintenance capabilities with task navigation, boun
     await expect(memberPage).toHaveURL(/dashboard/);
     await login(page, tag + "-admin", password);
     expect((await page.request.get(endpoint)).status()).toBe(403);
+    await openAccountOptions(page);
     await page
       .getByRole("button", { name: "Enter Admin Mode", exact: true })
       .click();
+    await openAccountOptions(page);
     await expect(
       page.getByRole("button", { name: "Exit Admin Mode", exact: true }),
     ).toBeVisible();
