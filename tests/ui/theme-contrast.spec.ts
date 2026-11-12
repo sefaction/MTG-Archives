@@ -1,3 +1,4 @@
+import { openAccountOptions } from "./account-options";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 function color(value: string) {
@@ -196,6 +197,7 @@ test("admin mode toggle keeps its label legible in both states", async ({
   for (const active of [false, true]) {
     await page.addStyleTag({ content: "* { transition: none !important; }" });
     const name = active ? "Exit Admin Mode" : "Enter Admin Mode";
+    await openAccountOptions(page);
     const action = page.getByRole("button", { name, exact: true });
     for (const theme of [
       "golgari",
@@ -238,6 +240,7 @@ test("admin mode toggle keeps its label legible in both states", async ({
     }
     if (!active) {
       await action.click();
+      await openAccountOptions(page);
       await expect(
         page.getByRole("button", { name: "Exit Admin Mode", exact: true }),
       ).toBeVisible();

@@ -1,3 +1,4 @@
+import { openAccountOptions } from "./account-options";
 import { expect, test, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -264,6 +265,7 @@ test("Locations browses first and preserves storage, management, deck and owner 
     expect(await page.content()).not.toContain("Foreign private sentinel");
 
     // Admin mode retains a deliberate boundary and owner-filtered parent choices.
+    await openAccountOptions(page);
     await page
       .getByRole("button", { name: "Enter Admin Mode", exact: true })
       .click();
@@ -283,9 +285,11 @@ test("Locations browses first and preserves storage, management, deck and owner 
       .getByLabel("Parent location", { exact: true })
       .locator("option");
     expect(await parentOptions.allTextContents()).not.toContain("Aster Vault");
+    await openAccountOptions(page);
     await page
       .getByRole("button", { name: "Exit Admin Mode", exact: true })
       .click();
+    await openAccountOptions(page);
     await expect(
       page.getByRole("button", { name: "Enter Admin Mode", exact: true }),
     ).toBeVisible();

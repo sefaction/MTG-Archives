@@ -1,3 +1,4 @@
+import { openAccountOptions } from "./account-options";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -96,7 +97,9 @@ for (const width of [1366, 390, 320]) test(`owner and explicit Admin Mode protec
         expect((await other.request.get(photoURL)).status()).toBe(403);
         expect(state(tag, batch)).toEqual(saved); continue;
       }
+      await openAccountOptions(other);
       await other.getByRole("button", { name: "Enter Admin Mode", exact: true }).click();
+      await openAccountOptions(other);
       await expect(other.getByRole("button", { name: "Exit Admin Mode", exact: true })).toBeVisible();
       await other.reload();
       const card = other.getByTestId("capture-card-1"); await card.scrollIntoViewIfNeeded();
@@ -119,7 +122,9 @@ for (const width of [1366, 390, 320]) test(`owner and explicit Admin Mode protec
       expect(await other.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await other.screenshot({ path: test.info().outputPath("admin-review.png") });
       writeFileSync(test.info().outputPath("source-after.json"), JSON.stringify(updated));
+      await openAccountOptions(other);
       await other.getByRole("button", { name: "Exit Admin Mode", exact: true }).click();
+      await openAccountOptions(other);
       await expect(other.getByRole("button", { name: "Enter Admin Mode", exact: true })).toBeVisible();
       // Fresh requests/navigation must lose access; previously seen pixels are
       // not claimed erased from browser memory by a permission transition.

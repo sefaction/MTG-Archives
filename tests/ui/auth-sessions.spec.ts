@@ -1,3 +1,4 @@
+import { openAccountOptions } from "./account-options";
 import { test, expect, type Page, type BrowserContext } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID, createHash } from "node:crypto";
@@ -88,9 +89,11 @@ test("admin reset and account edits revoke sessions; temporary passwords require
           memberPage = await member.newPage();
         await login(adminPage, admin);
         await login(memberPage, user);
+        await openAccountOptions(adminPage);
         await adminPage
           .getByRole("button", { name: /enter admin mode/i })
           .click();
+        await openAccountOptions(adminPage);
         await expect(
           adminPage.getByRole("button", { name: /exit admin mode/i }),
         ).toBeVisible();
@@ -237,6 +240,7 @@ test("sessions rotate, expire and revoke across password changes and logout", as
         (c) => c.name === "mtg_inventory_session",
       )!;
       expect(rotated.value !== cookie.value).toBe(true);
+      await openAccountOptions(page);
       await page.getByRole("button", { name: "Log out", exact: true }).click();
       await expect.poll(() => status(a)).toBe(401);
       await replay.clearCookies();
