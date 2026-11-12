@@ -39,8 +39,14 @@ test("deck create and update actions persist manual bracket choice", () => {
   assert.match(actions, /bracketUpdatedAt/);
 });
 
-test("deck index exposes bracket filtering, sorting, and quick editing", () => {
-  assert.match(decksPage, /selectedBracket/);
+test("deck index exposes bracket filtering, sorting, and quick editing", async () => {
+  const { readDeckLibraryBrowse } = await import("../lib/deck-library-browse");
+  assert.deepEqual(
+    readDeckLibraryBrowse(new URLSearchParams("bracket=3")).includedBrackets,
+    ["3"],
+  );
+  assert.match(decksPage, /<DeckWorkspace/);
+  assert.match(deckWorkspace, /useDeckLibraryBrowse\(\)/);
   assert.match(deckWorkspace, /label="Brackets"/);
   assert.match(deckWorkspace, /includedBrackets/);
   assert.match(deckWorkspace, /excludedBrackets/);
