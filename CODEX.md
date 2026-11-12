@@ -1,10 +1,10 @@
 # Codex local workflow
 
-## No-new-issues freeze - 2026-10-24
+## Open-issue ceiling - 2026-11-12
 
-Brian's current instruction applies to every local and remote worker: **do not create new issues until Brian explicitly lifts this freeze.** This overrides all earlier bug, audit, qualification, replacement, nested/child, and other ticket-creation instructions in repository guidance, startup prompts, and historical checkpoints, including those preserved below.
+Brian lifted the blanket issue-creation freeze. Follow the canonical [open-issue policy](AGENTS.md): normal authorized intake below 15 open GitHub issues; at 15 or more, create or reopen none and work down the existing queue. Intake resumes automatically below 15. Count every open issue, excluding pull requests, immediately before each creation/reopening and coordinate across workers.
 
-Finish existing issues within their agreed scope. Preserve tests, failure evidence, and acceptance criteria; do not weaken tests or close issues with unresolved acceptance. Report newly discovered concerns and blockers to Brian instead of creating replacement or nested issues. Existing ownership, coordination, review, and individual merge-approval requirements still apply.
+The ceiling includes child, replacement, audit and qualification tickets. Preserve duplicate checks, agreed scope, tests, failures, acceptance and ownership; report/defer out-of-scope findings when creation is paused. Earlier freeze/creation instructions are superseded; normal implementation, production and individual merge-approval rules still apply.
 
 This project is MTG-Archives, a Next.js + Prisma app running locally with Docker Desktop on Windows. This file is a command reference; [AGENTS.md](AGENTS.md) owns authority, queue, verification and resource policy. See [the autonomous workflow](docs/AUTONOMOUS_WORKFLOW.md) for current execution and handoff guidance.
 

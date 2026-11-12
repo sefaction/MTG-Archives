@@ -1,10 +1,16 @@
 # MTG Archives Project Instructions
 
-## No-new-issues freeze - 2026-10-24
+## Open-issue ceiling - 2026-11-12
 
-Brian's current instruction applies to every local and remote worker: **do not create new issues until Brian explicitly lifts this freeze.** This overrides all earlier bug, audit, qualification, replacement, nested/child, and other ticket-creation instructions in repository guidance, startup prompts, and historical checkpoints, including those preserved below.
+Brian lifted the October 24 blanket issue-creation freeze. Normal issue intake resumes for every local and remote MTG Archives worker, subject to this shared queue limit:
 
-Finish existing issues within their agreed scope. Preserve tests, failure evidence, and acceptance criteria; do not weaken tests or close issues with unresolved acceptance. Report newly discovered concerns and blockers to Brian instead of creating replacement or nested issues. Existing ownership, coordination, review, and individual merge-approval requirements still apply.
+- **Below 15 open issues:** create or reopen issues through the normal authorized intake, duplicate-check and triage workflow. An operation at 14 may bring the queue to 15; this is a ceiling, not a target to fill.
+- **At 15 or more open issues:** do not create or reopen another issue, including child, replacement, audit, qualification or follow-up tickets. Work down the existing issues. Intake resumes automatically once legitimate closures bring the count below 15.
+- Immediately before each creation or reopening, read the live GitHub open-issue count for `sefaction/MTG-Archives`. Count all open issues, including trackers, deferred and blocked items; **exclude pull requests**. Do not rely on a cached count, a filtered work list or a single count for a batch of creations. If the count cannot be verified, defer creation.
+- Coordinate creations across workers so concurrent writers do not consume the same remaining capacity; follow [ISSUE_WORKERS.md](docs/ISSUE_WORKERS.md). A local lock, label or earlier count is not a shared reservation. If safe coordination cannot be established, defer creation and report the finding.
+- At the ceiling, report newly discovered concerns to Brian or retain compact evidence in the owning checkpoint; use an existing issue only when the finding belongs to its scope. Do not bypass the limit with placeholder tickets, unrelated umbrella additions, or premature closures. Preserve tests, failures and acceptance criteria.
+
+This dated rule supersedes older blanket-freeze and unconditional ticket-creation instructions. Existing scope, ownership, review, production-access and individual merge-approval rules remain in force. Lifting the issue freeze grants no new implementation or deployment authority.
 
 This is the canonical operating policy. Use [CODEX.md](CODEX.md) for commands, [the autonomous workflow](docs/AUTONOMOUS_WORKFLOW.md) for execution and handoff details, and [issue intake](docs/ISSUE_INTAKE.md) for triage procedures.
 
