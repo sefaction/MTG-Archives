@@ -1,8 +1,9 @@
 ﻿export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ServerListPagination } from "@/components/ServerListPagination";
-import { listPageInfo, listPageSizes } from "@/lib/list-browse";
+import { listPageInfo, listPageSizes, canonicalBrowseQuery } from "@/lib/list-browse";
 import { tradeVisibilityWhere, tradeViewWhere, tradeHistoryWhere, readTradeHistory, tradeStatusTotal, activeTradeStatuses as activeStatuses, terminalTradeStatuses as terminalStatuses } from "@/lib/trade-browse";
 import type { ReactNode } from "react";
 import { Nav } from "@/components/Nav";
@@ -704,6 +705,8 @@ export default async function TradesPage({
   const accessScope = await getAccessScope(user);
   const isAdmin = accessScope?.mode === "admin";
   const params = await searchParams;
+  const canonical = canonicalBrowseQuery(params);
+  if (canonical !== null) redirect(`/trades${canonical ? `?${canonical}` : ""}`);
   const players = await prisma.player.findMany({
     where: { active: true },
     orderBy: { displayName: "asc" },

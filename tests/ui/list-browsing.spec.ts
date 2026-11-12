@@ -200,13 +200,21 @@ for (const width of [1366, 390, 320]) {
       const libraryURL = page.url();
       await page.reload();
       await expect(paging).toContainText("11–20 of 33");
-      await page
+      const deckLink = page
         .getByRole("region", { name: "Deck library results" })
         .getByRole("link")
         .filter({ hasText: `${tag} Shelf` })
-        .first()
-        .click();
+        .first();
+      const openedDeckName = (await deckLink.textContent())!.trim();
+      await deckLink.click();
       await expect(page).toHaveURL(/\/decks\/[^/?]+$/);
+      await expect(
+        page.getByRole("heading", {
+          level: 1,
+          name: openedDeckName,
+          exact: true,
+        }),
+      ).toBeVisible();
       await page.goBack();
       await expect(page).toHaveURL(libraryURL);
       await expect(paging).toContainText("11–20 of 33");

@@ -1,6 +1,15 @@
 export function normalizedListQuery(value: string) {
   return value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
 }
+
+/** Only for routes with single-valued fields; repeated multi-select filters stay intact elsewhere. */
+export function canonicalBrowseQuery(params: Record<string, unknown>) {
+  if (!Object.values(params).some(Array.isArray)) return null;
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params))
+    if (typeof value === "string") query.append(key, value);
+  return query.toString();
+}
 export function filterNamedRows<T extends { name: string }>(
   rows: readonly T[],
   query: string,

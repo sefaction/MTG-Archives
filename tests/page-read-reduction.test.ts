@@ -9,7 +9,7 @@ import {
 } from "../lib/inventory-sort";
 import { inventorySortMetadataSelect } from "../lib/inventory-sort-metadata";
 import { parseInventoryFilters } from "../lib/inventory-filters";
-import { listPageInfo } from "../lib/list-browse";
+import { listPageInfo, canonicalBrowseQuery } from "../lib/list-browse";
 import {
   activeTradeStatuses,
   terminalTradeStatuses,
@@ -213,4 +213,26 @@ test("repeated or invalid URL values cannot become a query object or break a his
     readTradeHistory({ historyStatus: "CANCELED" }).status,
     TradeStatus.CANCELLED,
   );
+});
+
+test("malformed repeated single-value route inputs redirect once while preserving valid filters", () => {
+  assert.equal(
+    canonicalBrowseQuery({
+      q: ["a", "b"],
+      player: "owner",
+      status: "frozen",
+      page: "2",
+    }),
+    "player=owner&status=frozen&page=2",
+  );
+  assert.equal(
+    canonicalBrowseQuery({
+      view: "history",
+      historyQ: ["a", "b"],
+      historyStatus: "COMPLETED",
+    }),
+    "view=history&historyStatus=COMPLETED",
+  );
+  assert.equal(canonicalBrowseQuery({ q: "Sol Ring", page: "2" }), null);
+  assert.equal(canonicalBrowseQuery({ q: ["a", "b"] }), "");
 });

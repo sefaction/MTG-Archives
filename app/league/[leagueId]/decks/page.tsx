@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { LeagueNav } from "@/components/league/LeagueNav";
 import { requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -12,6 +12,7 @@ import {
   listPageSize,
   listPageSizes,
   pageList,
+  canonicalBrowseQuery,
 } from "@/lib/list-browse";
 
 export default async function LeagueDecksPage({
@@ -24,6 +25,8 @@ export default async function LeagueDecksPage({
   const user = await requireLogin();
   const { leagueId } = await params;
   const query = await searchParams;
+  const canonical = canonicalBrowseQuery(query);
+  if (canonical !== null) redirect(`/league/${encodeURIComponent(leagueId)}/decks${canonical ? `?${canonical}` : ""}`);
   const league = await prisma.commanderLeague.findFirst({
     where: {
       id: leagueId,
