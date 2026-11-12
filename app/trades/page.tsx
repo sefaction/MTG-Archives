@@ -1203,7 +1203,7 @@ export default async function TradesPage({
         <section className="app-panel min-w-0 space-y-3 p-4" aria-label="Trade history controls">
           <form key={JSON.stringify(params)} className="flex min-w-0 flex-wrap items-end gap-3">
             <input type="hidden" name="view" value="history" />
-            <label className="min-w-0 flex-1 text-sm">Search trade history
+            <label className="min-w-full flex-1 text-sm sm:min-w-0">Search trade history
               <input type="search" name="historyQ" defaultValue={historyFilters.query} maxLength={200} placeholder="Partner, message or trade ID" className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2" />
             </label>
             <label className="min-w-0 max-w-full text-sm">History status
