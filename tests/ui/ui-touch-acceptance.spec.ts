@@ -1,3 +1,4 @@
+import { openAccountOptions } from "./account-options";
 import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -86,9 +87,9 @@ test("phone touch can reach Inventory filters and Settings without page overflow
           ),
         ).toBe(true);
 
-        await menu.tap();
+        await openAccountOptions(page);
         await page
-          .getByRole("navigation", { name: "Archive navigation" })
+          .locator(".archive-account")
           .getByRole("link", { name: "Settings", exact: true })
           .tap();
         await expect(page).toHaveURL(/\/settings$/);

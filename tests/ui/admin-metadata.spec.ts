@@ -1,3 +1,4 @@
+import { openAccountOptions } from "./account-options";
 import { expect, test } from "@playwright/test";
 
 const adminUsername = process.env.UI_ADMIN_USERNAME || "admin";
@@ -30,9 +31,11 @@ async function loginAndEnterAdminMode(page: import("@playwright/test").Page) {
     await page.waitForURL(/\/dashboard/);
   }
 
+  await openAccountOptions(page);
   if (
     await page.getByRole("button", { name: /enter admin mode/i }).isVisible()
   ) {
+    await openAccountOptions(page);
     await page.getByRole("button", { name: /enter admin mode/i }).click();
   }
 }
@@ -43,6 +46,7 @@ test("admin metadata page renders refresh-all controls", async ({ page }) => {
 
   if (page.url().includes("auth=admin-mode")) {
     await page.goto("/dashboard");
+    await openAccountOptions(page);
     const enterAdminMode = page.getByRole("button", {
       name: /enter admin mode/i,
     });

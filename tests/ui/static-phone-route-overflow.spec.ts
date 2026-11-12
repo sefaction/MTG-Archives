@@ -1,3 +1,4 @@
+import { openAccountOptions } from "./account-options";
 import { expect, test } from "@playwright/test";
 
 test.use({ trace: "off", screenshot: "off", video: "off" });
@@ -42,7 +43,9 @@ test("static task routes avoid page-wide overflow at phone widths", async ({ pag
     for (const route of [...memberRoutes, ...publicRoutes]) await check(width, route);
   }
   await page.goto("/settings");
+  await openAccountOptions(page);
   await page.getByRole("button", { name: /enter admin mode/i }).click();
+  await openAccountOptions(page);
   await expect(page.getByRole("button", { name: /exit admin mode/i })).toBeVisible();
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });

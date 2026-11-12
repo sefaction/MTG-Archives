@@ -1,3 +1,4 @@
+import { openAccountOptions } from "./account-options";
 import { expect, test, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -58,7 +59,9 @@ test("every admin page requires an admin role and explicit admin mode", async ({
     await login(adminPage, `${tag}-admin`, password);
     await adminPage.goto(routes[0]);
     await expect(adminPage).toHaveURL(/\/dashboard/);
+    await openAccountOptions(adminPage);
     await adminPage.getByRole("button", { name: /enter admin mode/i }).click();
+    await openAccountOptions(adminPage);
     await expect(adminPage.getByRole("button", { name: /exit admin mode/i })).toBeVisible();
     for (const route of routes) {
       const response = await adminPage.goto(route, { waitUntil: "domcontentloaded" });
@@ -66,7 +69,9 @@ test("every admin page requires an admin role and explicit admin mode", async ({
       await expect(adminPage, `active admin access to ${route}`).toHaveURL(new RegExp(`${route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:[?#]|$)`));
       await expect(adminPage.locator("main").first()).toBeVisible();
     }
+    await openAccountOptions(adminPage);
     await adminPage.getByRole("button", { name: /exit admin mode/i }).click();
+    await openAccountOptions(adminPage);
     await expect(adminPage.getByRole("button", { name: /enter admin mode/i })).toBeVisible();
     await adminPage.goto(routes[0]);
     await expect(adminPage).toHaveURL(/\/dashboard/);

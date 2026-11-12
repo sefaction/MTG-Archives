@@ -10,8 +10,8 @@ main:has(.archive-shell) {
   min-width: 0;
 }
 .archive-shell {
-  margin-bottom: 20px;
-  padding-bottom: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 4px;
   border-bottom: 1px solid var(--app-border);
 }
 .archive-navigation > summary {
@@ -56,8 +56,77 @@ main:has(.archive-shell) {
 .archive-utilities {
   display: flex;
   justify-content: flex-end;
-  padding-bottom: 12px;
+  padding-bottom: 0;
 }
+.archive-account { position: relative; }
+.archive-account > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--app-text);
+}
+.archive-account > summary::-webkit-details-marker { display: none; }
+.archive-account > summary:hover,
+.archive-account[open] > summary { background: var(--app-accent-soft); }
+.archive-account > summary:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 2px; }
+.archive-account-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; }
+.archive-account-name { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.archive-account-chevron { color: var(--app-muted); }
+.archive-account-admin { color: var(--app-link); font-size: 11px; font-weight: 600; }
+.archive-account-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 60;
+  width: 200px;
+  max-width: calc(100vw - 32px);
+  padding: 6px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px var(--app-shadow);
+}
+.archive-account-panel > a,
+.archive-account-panel button {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  padding: 8px 10px;
+  text-align: left;
+  color: var(--app-text);
+}
+.archive-account-panel :is(a, button):hover { background: var(--app-accent-soft); color: var(--app-link); }
+.archive-shell > nav {
+  gap: 4px 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.archive-shell > nav a {
+  padding: 6px 0;
+  min-height: 32px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  font-size: 13px;
+  color: var(--app-muted);
+}
+.archive-shell > nav a:hover { color: var(--app-link); }
+.archive-shell > nav a:is([aria-current="page"], [aria-current="location"]) {
+  border-bottom-color: var(--app-accent);
+  color: var(--app-link);
+  font-weight: 600;
+}
+.archive-shell > nav > span { width: auto; font-size: 12px; }
 .archive-destination { position: relative; min-width: 0; }
 .archive-destination-heading { display: flex; align-items: center; }
 .archive-destination-heading > a { flex: 1; }
@@ -97,14 +166,23 @@ main:has(.archive-shell) > .account-form {
   main:has(.archive-shell[data-navigation-layout="topbar"]) {
     margin-left: 0;
   }
+  .archive-shell[data-navigation-layout="topbar"] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 2px 16px;
+  }
+  .archive-shell[data-navigation-layout="topbar"] .archive-navigation { min-width: 0; }
+  .archive-shell[data-navigation-layout="topbar"] .archive-utilities { grid-column: 2; grid-row: 1; }
+  .archive-shell[data-navigation-layout="topbar"] > nav { grid-column: 1 / -1; }
   .archive-shell[data-navigation-layout="topbar"] .archive-rail {
     position: static;
     width: auto;
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px 16px;
-    padding: 8px 0 12px;
+    gap: 2px 8px;
+    padding: 0;
     overflow: visible;
     border: 0;
     background: transparent;
@@ -112,6 +190,7 @@ main:has(.archive-shell) > .account-form {
   .archive-shell[data-navigation-layout="topbar"] .archive-rail .app-nav-brand {
     margin-bottom: 0;
   }
+  .archive-shell[data-navigation-layout="topbar"] .archive-rail a:not(.app-nav-brand) { padding: 6px 8px; }
   .archive-shell[data-navigation-layout="topbar"]
     .archive-rail
     a:is([aria-current="page"], [aria-current="location"]) {
@@ -360,8 +439,8 @@ main:has(.archive-shell) > .account-form {
   .archive-shell {
     display: flex;
     flex-wrap: wrap;
-    align-items: start;
-    gap: 8px;
+    align-items: center;
+    gap: 4px 8px;
   }
   .archive-navigation > summary {
     display: block;
@@ -386,6 +465,8 @@ main:has(.archive-shell) > .account-form {
     min-width: 0;
   }
   .archive-shell > nav { flex-basis: 100%; }
+  .archive-account-name { max-width: 8ch; }
+  .archive-shell > nav a { min-height: 40px; }
   .archive-utilities > div {
     justify-content: flex-end;
     gap: 8px;

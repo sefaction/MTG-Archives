@@ -1,3 +1,4 @@
+import { openAccountOptions } from "./account-options";
 import { expect, test } from "@playwright/test";
 
 const username = process.env.UI_ADMIN_USERNAME || "admin";
@@ -19,13 +20,16 @@ async function loginAndEnterAdminMode(page: import("@playwright/test").Page) {
     await page.waitForURL(/\/dashboard/);
   }
   await page.goto("/dashboard");
+  await openAccountOptions(page);
   if (
     await page.getByRole("button", { name: /enter admin mode/i }).isVisible()
   ) {
+    await openAccountOptions(page);
     const enterAdminMode = page.getByRole("button", {
       name: /enter admin mode/i,
     });
     await enterAdminMode.click();
+    await openAccountOptions(page);
     await expect(
       page.getByRole("button", { name: /exit admin mode/i }),
     ).toBeVisible();
@@ -62,11 +66,13 @@ test("webhook settings expose encrypted destinations and category controls", asy
     .first();
   if (await privateDestination.isDisabled()) {
     await page.goto("/dashboard");
+    await openAccountOptions(page);
     const enterAdminMode = page.getByRole("button", {
       name: /enter admin mode/i,
     });
     if (await enterAdminMode.isVisible()) {
       await enterAdminMode.click();
+      await openAccountOptions(page);
       await expect(
         page.getByRole("button", { name: /exit admin mode/i }),
       ).toBeVisible();

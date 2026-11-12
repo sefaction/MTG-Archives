@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 test("section shortcuts support hover, keyboard, touch and persistent header tabs", async ({ page, browser, baseURL }) => {
   test.skip(process.env.MTG_LOCAL_PILOT_TEST !== "1", "Requires an owned disposable review database");
   const container = process.env.MTG_NAVIGATION_TEST_CONTAINER ?? "";
-  expect(container).toMatch(/^mtg-navigation-hover-review$/);
+  expect(container).toMatch(/^mtg-(navigation-hover|compact-navigation)-review$/);
   expect(baseURL).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
   test.setTimeout(120_000);
   const username = `navigation-${randomUUID()}`;
@@ -43,6 +43,20 @@ test("section shortcuts support hover, keyboard, touch and persistent header tab
     const tabBounds = (await tabs.boundingBox())!;
     const headerBounds = (await page.locator(".archive-shell").boundingBox())!;
     expect(tabBounds.y + tabBounds.height).toBeLessThan(headerBounds.y + headerBounds.height);
+    expect(headerBounds.height).toBeLessThanOrEqual(90);
+    const mainLinkBounds=(await inventory.boundingBox())!;
+    const account=page.locator('.archive-account > summary');
+    const accountBounds=(await account.boundingBox())!;
+    expect(Math.abs(mainLinkBounds.y-accountBounds.y)).toBeLessThanOrEqual(8);
+    await expect(page.getByRole('link',{name:'Settings',exact:true})).toBeHidden();
+    await account.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('link',{name:'Settings',exact:true})).toBeVisible();
+    await expect(page.getByRole('button',{name:'Log out',exact:true})).toBeVisible();
+    await expect(page.getByRole("button", { name: "Enter Admin Mode", exact: true })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(account).toBeFocused();
+    await expect(page.getByRole('link',{name:'Settings',exact:true})).toBeHidden();
     await page.screenshot({ path: "test-results/navigation-subtabs-inventory.png" });
     for (const width of [1100, 1366]) {
       await page.setViewportSize({ width, height: 900 });
@@ -101,10 +115,67 @@ test("section shortcuts support hover, keyboard, touch and persistent header tab
       await expect(phone).toHaveURL(/\/locations/);
       await expect(phone.locator(".archive-navigation")).not.toHaveAttribute("open");
       await expect(phone.locator(".archive-shell").getByRole("navigation", { name: "Inventory sections" })).toBeVisible();
+      await phone.locator('.archive-account > summary').tap();
+      await expect(phone.getByRole('link',{name:'Settings',exact:true})).toBeVisible();
+      await phone.getByRole('heading',{name:'Locations',exact:true}).tap();
+      await expect(phone.getByRole('link',{name:'Settings',exact:true})).toBeHidden();
       expect(await phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await phone.screenshot({ path: "test-results/navigation-subtabs-phone.png" });
     } finally { await touch.close(); }
   } finally {
     database(`return p.$transaction(async tx=>{const u=await tx.user.findUniqueOrThrow({where:{id:${JSON.stringify(userId)}},select:{playerId:true}});await tx.inventoryAuditLog.deleteMany({where:{changedByUserId:${JSON.stringify(userId)}}});if(u.playerId)await tx.inventoryLocation.deleteMany({where:{ownerPlayerId:u.playerId}});await tx.user.delete({where:{id:${JSON.stringify(userId)}}});if(u.playerId)await tx.player.delete({where:{id:u.playerId}});return true;});`);
+  }
+});
+
+
+test("compact account options preserve Settings, explicit Admin Mode and logout", async ({ page, baseURL }) => {
+  test.skip(process.env.MTG_LOCAL_PILOT_TEST !== "1", "Requires an owned disposable review database");
+  const container = process.env.MTG_NAVIGATION_TEST_CONTAINER ?? "";
+  expect(container).toMatch(/^mtg-(navigation-hover|compact-navigation)-review$/);
+  expect(baseURL).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
+  const username = `account-${randomUUID()}`;
+  const password = randomUUID();
+  function database(body: string) {
+    execFileSync("docker", ["exec", "-i", container, "node"], {
+      input: `const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().catch(error=>{console.error(error.message);process.exitCode=1}).finally(()=>p.$disconnect());`,
+      encoding: "utf8", timeout: 30_000,
+    });
+  }
+  database(`await p.user.create({data:{username:${JSON.stringify(username)},displayName:'A very long account display name',passwordHash:await require('bcryptjs').hash(${JSON.stringify(password)},10),role:'ADMIN',navigationLayout:'topbar'}});`);
+  try {
+    await page.setViewportSize({ width: 1920, height: 900 });
+    await page.goto("/login");
+    await page.getByLabel(/username or email/i).fill(username);
+    await page.getByLabel(/^password$/i).fill(password);
+    await page.getByRole("button", { name: /^log in$/i }).click();
+    await page.waitForURL(/\/dashboard/);
+    const account = page.locator(".archive-account > summary");
+    await expect(account).toHaveAccessibleName("A very long account display name account options");
+    const settings = page.locator(".archive-account").getByRole("link", { name: "Settings", exact: true });
+    await account.click();
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: "Enter Admin Mode", exact: true })).toBeFocused();
+    await settings.click();
+    await expect(page).toHaveURL(/\/settings$/);
+    await expect(settings).toBeHidden();
+    await account.click();
+    await page.getByRole("button", { name: "Enter Admin Mode", exact: true }).click();
+    await expect(page.getByText("Admin mode is active.", { exact: false })).toBeVisible();
+    await expect(account).toContainText("Admin");
+    if ((await page.locator(".archive-account").getAttribute("open")) === null) await account.click();
+    await expect(page.locator(".archive-account").getByRole("link", { name: "Admin", exact: true })).toHaveAttribute("href", "/admin");
+    await page.getByRole("button", { name: "Exit Admin Mode", exact: true }).click();
+    await expect(page.getByText("Admin mode is active.", { exact: false })).toBeHidden();
+    await page.setViewportSize({ width: 390, height: 844 });
+    if ((await page.locator(".archive-account").getAttribute("open")) === null) await account.click();
+    const panel = (await page.locator(".archive-account-panel").boundingBox())!;
+    expect(panel.x).toBeGreaterThanOrEqual(0);
+    expect(panel.x + panel.width).toBeLessThanOrEqual(390);
+    await page.screenshot({ path: "test-results/navigation-account-phone.png" });
+    await page.getByRole("button", { name: "Log out", exact: true }).click();
+    await expect(page.locator(".archive-account")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Log in", exact: true })).toBeVisible();
+  } finally {
+    database(`await p.user.deleteMany({where:{username:${JSON.stringify(username)}}});`);
   }
 });

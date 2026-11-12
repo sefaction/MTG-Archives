@@ -1,3 +1,4 @@
+import { openAccountOptions } from "./account-options";
 import { test, expect, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -69,6 +70,7 @@ test("login and admin-mode actions reject tampered external return destinations"
     });
     await submitLogin(page, user);
     await expect(page).toHaveURL(`${baseURL}/dashboard`);
+    await openAccountOptions(page);
     const enter = page.getByRole("button", { name: /enter admin mode/i });
     await enter
       .locator("..")
@@ -77,6 +79,7 @@ test("login and admin-mode actions reject tampered external return destinations"
         node.value = "/\\example.invalid/outside";
       });
     await enter.click();
+    await openAccountOptions(page);
     await expect(
       page.getByRole("button", { name: /exit admin mode/i }),
     ).toBeVisible();
@@ -107,12 +110,16 @@ test("protected-route login and admin-mode toggles preserve the local path and q
     );
     await submitLogin(page, user);
     await expect(page).toHaveURL(`${baseURL}${destination}`);
+    await openAccountOptions(page);
     await page.getByRole("button", { name: /enter admin mode/i }).click();
+    await openAccountOptions(page);
     await expect(
       page.getByRole("button", { name: /exit admin mode/i }),
     ).toBeVisible();
     await expect(page).toHaveURL(`${baseURL}${destination}`);
+    await openAccountOptions(page);
     await page.getByRole("button", { name: /exit admin mode/i }).click();
+    await openAccountOptions(page);
     await expect(
       page.getByRole("button", { name: /enter admin mode/i }),
     ).toBeVisible();

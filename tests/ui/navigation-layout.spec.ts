@@ -1,3 +1,4 @@
+import { openAccountOptions } from "./account-options";
 import { expect, test, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -45,6 +46,7 @@ test("account navigation preference persists across sessions, isolates users and
     await expect(shell).toHaveAttribute("data-navigation-layout", "sidebar");
     const rail = page.locator(".archive-rail");
     await expect(rail.getByRole("link")).toHaveCount(8);
+    await openAccountOptions(shell.locator(".archive-utilities"));
     await expect(
       shell.locator(".archive-utilities").getByRole("link", { name: "Settings", exact: true }),
     ).toHaveAttribute("href", "/settings");
@@ -137,6 +139,7 @@ test("account navigation preference persists across sessions, isolates users and
       }
       await expect(page.getByRole("navigation", { name: "Inventory sections" })
         .getByRole("link", { name: "Locations", exact: true })).toBeVisible();
+      await openAccountOptions(shell.locator(".archive-utilities"));
       await expect(shell.locator(".archive-utilities").getByRole("link", { name: "Settings", exact: true })).toBeVisible();
     }
     await page.setViewportSize({ width: 1366, height: 768 });
@@ -238,6 +241,7 @@ test("account navigation preference persists across sessions, isolates users and
       await section.getByRole("link", { name: "Locations", exact: true }).click();
       await expect(zoomPage).toHaveURL(/\/locations$/);
       await expect(section.getByRole("link", { name: "Locations", exact: true })).toHaveAttribute("aria-current", "page");
+      await openAccountOptions(zoomPage.locator(".archive-utilities"));
       await zoomPage.locator(".archive-utilities").getByRole("link", { name: "Settings", exact: true }).click();
       await expect(zoomPage).toHaveURL(/\/settings$/);
     } finally {
@@ -256,6 +260,7 @@ test("account navigation preference persists across sessions, isolates users and
       await expect(
         other.getByRole("radio", { name: "Topbar", exact: true }),
       ).toBeChecked();
+      await openAccountOptions(other);
       await other.getByRole("button", { name: "Log out", exact: true }).click();
       await login(other, tag + "-other");
       await expect(other.locator(".archive-shell")).toHaveAttribute(
@@ -278,9 +283,11 @@ test("account navigation preference persists across sessions, isolates users and
         .locator("main")
         .evaluate((node) => getComputedStyle(node).marginLeft),
     ).toBe("196px");
+    await openAccountOptions(shell.locator(".archive-utilities"));
     await expect(
       shell.locator(".archive-utilities").getByRole("link", { name: "Settings", exact: true }),
     ).toBeVisible();
+    await openAccountOptions(page);
     await page.getByRole("button", { name: "Log out", exact: true }).click();
     await expect(shell).toHaveCount(0);
   } finally {

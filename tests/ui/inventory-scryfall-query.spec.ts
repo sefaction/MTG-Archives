@@ -1,3 +1,4 @@
+import { openAccountOptions } from "./account-options";
 import { expect, test } from "@playwright/test";
 
 const username = process.env.UI_ADMIN_USERNAME || "admin";
@@ -21,9 +22,11 @@ async function logIn(page: import("@playwright/test").Page) {
 }
 
 async function enterAdminMode(page: import("@playwright/test").Page) {
+  await openAccountOptions(page);
   const enterButton = page.getByRole("button", { name: /enter admin mode/i });
   if (await enterButton.isVisible()) {
     await enterButton.click();
+    await openAccountOptions(page);
     await expect(
       page.getByRole("button", { name: /exit admin mode/i }),
     ).toBeVisible();

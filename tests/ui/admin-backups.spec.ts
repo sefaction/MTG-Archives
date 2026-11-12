@@ -1,3 +1,4 @@
+import { openAccountOptions } from "./account-options";
 import { expect, test } from "@playwright/test";
 
 const adminUsername = process.env.UI_ADMIN_USERNAME || "admin";
@@ -39,9 +40,11 @@ test("admin can reach backups page without restore actions", async ({
   await expect(page).not.toHaveURL(/\/login/);
   await expect(page).not.toHaveURL(/\/change-password/);
 
+  await openAccountOptions(page);
   if (
     await page.getByRole("button", { name: /enter admin mode/i }).isVisible()
   ) {
+    await openAccountOptions(page);
     await page.getByRole("button", { name: /enter admin mode/i }).click();
   }
 
@@ -49,6 +52,7 @@ test("admin can reach backups page without restore actions", async ({
 
   if (page.url().includes("auth=admin-mode")) {
     await page.goto("/dashboard");
+    await openAccountOptions(page);
     const enterAdminMode = page.getByRole("button", {
       name: /enter admin mode/i,
     });

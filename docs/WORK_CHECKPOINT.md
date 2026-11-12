@@ -1,3 +1,11 @@
+## Current compact navigation refinement - November 11, 2026
+
+- Owner: compact-navigation-20261111, chat 01a1cc4e-9627-74c3-8504-6d6710c0a378. Branch `codex/compact-navigation` from main `21e3e50d`. Brian's screenshot follow-up requests a shorter, more natural header after merged #1035; related completed #1019. No new issue or merge authority.
+- Main links and compact notification/account controls share the desktop row. Persistent section links use a quiet underline above the divider. Native account disclosure contains Settings, the existing explicit Admin Mode actions, Admin when active, and logout. Hover shortcuts, saved layouts, authentication and role checks remain.
+- Author types, changed-file lint and 17 focused checks pass. Production build/client manifests and isolated desktop/phone interaction review are running/pending; final-head hosted CI and independent/user review remain pending. An initial broad lint attempt found existing React Hook false positives in two unchanged UI fixtures; original evidence retained without changing their tests/rules.
+- Shared laptop runtime is owned by this run/thread for one serial build, isolated review and local web-only preview. Primary data, workers, scanner helper and its HTTPS connection are outside this UI mutation. Private evidence: primary-root `.local-data/compact-navigation-20261111/`.
+- Next: finish production and browser qualification, publish the coherent PR, load the local preview when qualified, retire owned temporary resources and release the exact runtime claim. This checkpoint does not establish merge, production delivery or user acceptance.
+
 ## Current hover navigation follow-up - November 11, 2026
 
 - Owner: navigation-hover-20261111, chat 01a1cc4e-9627-74c3-8504-6d6710c0a378. Branch `codex/navigation-hover-subtabs` from main `7c658116`; current head is the head of [draft PR #1035](https://github.com/sefaction/MTG-Archives/pull/1035). Brian directly requested hover access to subtabs and persistent active subtabs above the top divider. Follow-up to completed #1019/#1024; no new issue or merge authority.

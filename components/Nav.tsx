@@ -16,6 +16,7 @@ import { normalizePlayerColor } from "@/lib/player-colors";
 import { safeLocalReturnPath } from "@/lib/local-return-path";
 import { ArchiveNavigation } from "@/components/ArchiveNavigation";
 import { normalizeNavigationLayout } from "@/lib/navigation-layout";
+import { AccountMenu } from "@/components/AccountMenu";
 
 function getSafeReturnTo(formData: FormData) {
   return safeLocalReturnPath(formData.get("returnTo"));
@@ -82,50 +83,45 @@ export async function Nav({ deckHunt = false, sectionNavigation }: { deckHunt?: 
             <Link href="/public/inventory" className="app-nav-link">Public</Link>
           </div>
         )}
-        <div className="flex w-full min-w-0 flex-wrap items-center gap-3 text-sm text-stone-300 lg:w-auto">
+        <div className="archive-utility-actions flex min-w-0 items-center gap-2 text-sm text-stone-300">
           {user ? (
             <>
-              <span className="inline-flex items-center gap-2 text-stone-300">
-                <span
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{
-                    backgroundColor: normalizePlayerColor(user.player?.color),
-                  }}
-                />
-                {user.displayName || user.username}
-              </span>
-              {userIsAdmin ? (
-                <AdminModeToggle
-                  active={adminModeActive}
-                  enterAction={enterAdminMode}
-                  exitAction={exitAdminMode}
-                />
-              ) : null}
               <NotificationBell
                 key={`notifications-${unreadNotificationCount}`}
                 appName={appName}
                 initialUnreadCount={unreadNotificationCount}
+                compact
               />
-              <Link
-                className="rounded-md border border-[#364139] px-3 py-1 text-stone-200 hover:border-cyan-700 hover:bg-cyan-950/20 hover:text-cyan-100"
-                href="/settings"
-              >
-                Settings
-              </Link>
-              {adminModeActive && (
-                <Link href="/admin" className="rounded-md border border-amber-700/60 bg-amber-950/30 px-2 py-1 font-medium text-amber-100 hover:border-amber-500 hover:text-amber-50">
-                  Admin
-                </Link>
-              )}
-              <form action={doLogout}>
-                <SubmitButton
-                  pendingLabel="Logging out..."
-                  className="rounded-md border border-[#364139] px-3 py-1 text-stone-200 hover:border-[#4a584d] hover:bg-[#17201b]"
-                  minWidthClassName="min-w-20"
+              <AccountMenu name={user.displayName || user.username}
+                color={normalizePlayerColor(user.player?.color)} adminModeActive={adminModeActive}>
+                {userIsAdmin ? (
+                  <AdminModeToggle
+                    active={adminModeActive}
+                    enterAction={enterAdminMode}
+                    exitAction={exitAdminMode}
+                  />
+                ) : null}
+                <Link
+                  className="rounded-md border border-[#364139] px-3 py-1 text-stone-200 hover:border-cyan-700 hover:bg-cyan-950/20 hover:text-cyan-100"
+                  href="/settings"
                 >
-                  Log out
-                </SubmitButton>
-              </form>
+                  Settings
+                </Link>
+                {adminModeActive && (
+                  <Link href="/admin" className="rounded-md border border-amber-700/60 bg-amber-950/30 px-2 py-1 font-medium text-amber-100 hover:border-amber-500 hover:text-amber-50">
+                    Admin
+                  </Link>
+                )}
+                <form action={doLogout}>
+                  <SubmitButton
+                    pendingLabel="Logging out..."
+                    className="rounded-md border border-[#364139] px-3 py-1 text-stone-200 hover:border-[#4a584d] hover:bg-[#17201b]"
+                    minWidthClassName="min-w-20"
+                  >
+                    Log out
+                  </SubmitButton>
+                </form>
+              </AccountMenu>
             </>
           ) : (
             <Link
