@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { cn, filterButtonClass } from "./filterStyles";
 
 export function ServerListPagination({
@@ -38,9 +37,9 @@ export function ServerListPagination({
         {page.from}–{page.to} of {page.total}
       </span>
       {page.page > 1 ? (
-        <Link prefetch={false} className={button} href={href(page.page - 1)}>
+        <a className={button} href={href(page.page - 1)}>
           Previous
-        </Link>
+        </a>
       ) : (
         <span aria-disabled="true" className={cn(button, "opacity-50")}>
           Previous
@@ -50,9 +49,9 @@ export function ServerListPagination({
         Page {page.page} of {page.totalPages}
       </span>
       {page.page < page.totalPages ? (
-        <Link prefetch={false} className={button} href={href(page.page + 1)}>
+        <a className={button} href={href(page.page + 1)}>
           Next
-        </Link>
+        </a>
       ) : (
         <span aria-disabled="true" className={cn(button, "opacity-50")}>
           Next
