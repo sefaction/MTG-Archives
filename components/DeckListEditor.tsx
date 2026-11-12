@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useMemo, useRef, useState } from "react";
 import { DeckWorkspaceDialog } from "./DeckWorkspaceDialog";
 import { LocationSearchSelect } from "./LocationSearchSelect";
 import { useBrowseQuery, setBrowseParam } from "./useBrowseQuery";
@@ -1797,9 +1797,13 @@ function DeckEntryDrawer({
     row?.returnOptions,
     activeTab,
   ]);
-  const drafts = useFormDiscardGuard(editVersion);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const { canDiscard, afterReset } = useFormDiscardGuard(
+    drawerRef,
+    editVersion,
+  );
   function closeDrawer() {
-    if (drafts.canDiscard()) onClose();
+    if (canDiscard()) onClose();
   }
   if (!row) return null;
   const tabs = [
@@ -1823,7 +1827,7 @@ function DeckEntryDrawer({
       onClose={closeDrawer}
       closeOnBackdrop
     >
-      <div ref={drafts.ref} onResetCapture={drafts.afterReset}>
+      <div ref={drawerRef} onResetCapture={afterReset}>
         <div className="border-b border-zinc-800 pb-3">
           <div>
             <p className="text-xs uppercase tracking-wide text-zinc-500">
@@ -1861,7 +1865,7 @@ function DeckEntryDrawer({
                     : "bg-zinc-950 hover:bg-zinc-900",
                 )}
                 onClick={() => {
-                  if (tab.id !== activeTab && drafts.canDiscard())
+                  if (tab.id !== activeTab && canDiscard())
                     setActiveTab(tab.id);
                 }}
               >

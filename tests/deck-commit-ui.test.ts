@@ -142,7 +142,7 @@ test("deck list rows stay compact and delegate details to a responsive drawer", 
     source,
     /<DeckWorkspaceDialog[\s\S]*title=\{row.cardName\}[\s\S]*onClose=\{closeDrawer\}/,
   );
-  assert.match(source, /useFormDiscardGuard\(editVersion\)/);
+  assert.match(source, /useFormDiscardGuard\(drawerRef, editVersion\)/);
   const dialog = readFileSync("components/DeckWorkspaceDialog.tsx", "utf8");
   assert.match(dialog, /<dialog/);
   assert.match(dialog, /showModal\(\)/);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, type RefObject } from "react";
 
 function formValues(node: HTMLElement | null) {
   return JSON.stringify(
@@ -18,12 +18,14 @@ function formValues(node: HTMLElement | null) {
 }
 
 /** Keep draft comparisons tied to the persisted row and the visible editing task. */
-export function useFormDiscardGuard(contextKey: string) {
-  const ref = useRef<HTMLDivElement>(null);
+export function useFormDiscardGuard(
+  ref: RefObject<HTMLDivElement | null>,
+  contextKey: string,
+) {
   const saved = useRef<string | null>(null);
   useLayoutEffect(() => {
     saved.current = formValues(ref.current);
-  }, [contextKey]);
+  }, [ref, contextKey]);
   function canDiscard() {
     return (
       saved.current === null ||
@@ -36,5 +38,5 @@ export function useFormDiscardGuard(contextKey: string) {
       saved.current = formValues(ref.current);
     });
   }
-  return { ref, canDiscard, afterReset };
+  return { canDiscard, afterReset };
 }
