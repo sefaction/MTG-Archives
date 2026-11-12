@@ -215,7 +215,15 @@ test("account navigation preference persists across sessions, isolates users and
         await zoomPage.keyboard.press("Tab");
       await expect(decksLink).toBeFocused();
       const leagueLink = zoomRail.getByRole("link", { name: "Commander League", exact: true });
-      for (let index = 0; index < 4; index++) await zoomPage.keyboard.press("Tab");
+      for (const [role, name] of [
+        ["link", "Wishlist"], ["button", "Wishlist sections"],
+        ["link", "Trades"], ["button", "Trades sections"],
+        ["link", "Public"], ["button", "Public sections"],
+        ["link", "Commander League"],
+      ] as const) {
+        await zoomPage.keyboard.press("Tab");
+        await expect(zoomRail.getByRole(role, { name, exact: true })).toBeFocused();
+      }
       await expect(leagueLink).toBeFocused();
       await expect(leagueLink).toBeInViewport();
       await zoomPage.keyboard.press("Escape");

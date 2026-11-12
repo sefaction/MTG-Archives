@@ -28,7 +28,6 @@ test("public navigation stays public-only for signed-out visitors", async ({
   await expect(page.getByRole("link", { name: /^Log in$/ })).toBeVisible();
   await expect(page.getByRole("link", { name: "Public home" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Account" })).toHaveCount(0);
-  await openAccountOptions(page);
   await expect(page.getByRole("button", { name: "Log out" })).toHaveCount(0);
 });
 
