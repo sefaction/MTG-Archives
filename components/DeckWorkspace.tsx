@@ -375,7 +375,6 @@ export function DeckWorkspace({
       savedEditFields.current = JSON.stringify(
         Array.from(new FormData(editForm.current).entries()),
       );
-    setEditError("");
   }, [editingDeck?.id]);
 
   function canDiscardEdit() {
@@ -1181,7 +1180,10 @@ export function DeckWorkspace({
                           {!readOnly ? (
                             <button
                               type="button"
-                              onClick={() => setEditingDeck(deck)}
+                              onClick={() => {
+                                setEditError("");
+                                setEditingDeck(deck);
+                              }}
                               className="rounded border border-sky-900 px-2 py-1 text-xs text-sky-100 hover:bg-sky-950/60"
                             >
                               Edit
@@ -1381,7 +1383,10 @@ export function DeckWorkspace({
                         {!readOnly ? (
                           <button
                             type="button"
-                            onClick={() => setEditingDeck(deck)}
+                            onClick={() => {
+                              setEditError("");
+                              setEditingDeck(deck);
+                            }}
                             className="rounded border border-sky-700 bg-sky-950/80 px-3 py-1.5 text-sm font-medium text-sky-50 hover:bg-sky-900"
                           >
                             Edit
@@ -1494,7 +1499,7 @@ export function DeckWorkspace({
                 />
               </div>
             </div>
-            <div className="flex items-center justify-between gap-3 border-t border-zinc-800 pt-4 md:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800 pt-4 md:col-span-2">
               <Link
                 href={`/decks/${editingDeck.id}`}
                 onClick={(event) => {
@@ -1504,18 +1509,21 @@ export function DeckWorkspace({
               >
                 Open full deck settings
               </Link>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={closeEditor}
                   disabled={savingDeck}
-                  className="rounded border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-900"
+                  className="shrink-0 whitespace-nowrap rounded border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-900"
                 >
                   Cancel
                 </button>
                 <SubmitButton
                   pendingLabel="Saving…"
-                  className={filterPrimaryButtonClass}
+                  className={cn(
+                    filterPrimaryButtonClass,
+                    "shrink-0 whitespace-nowrap",
+                  )}
                 >
                   Save changes
                 </SubmitButton>

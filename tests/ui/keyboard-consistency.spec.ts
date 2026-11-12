@@ -63,7 +63,7 @@ for (const width of [1366, 390, 320]) {
         .getByRole("button", { name: "Search local", exact: true })
         .click();
       await expect.poll(() => requests).toBe(2);
-      await expect(search).toBeEnabled();
+      await expect(search).toBeEditable();
       await page.route("**/api/decks/card-search?**", (route) =>
         route.fulfill({ status: 503, json: { error: "Unavailable" } }),
       );
@@ -73,7 +73,7 @@ for (const width of [1366, 390, 320]) {
           .getByRole("status")
           .filter({ hasText: "Search unavailable. Please try again." }),
       ).toBeVisible();
-      await expect(search).toBeEnabled();
+      await expect(search).toBeEditable();
 
       await page.goto("/decks");
       await page
@@ -88,6 +88,16 @@ for (const width of [1366, 390, 320]) {
       await expect(editor).toBeVisible();
       const close = editor.getByRole("button", { name: "Close", exact: true });
       await expect(close).toBeFocused();
+      for (const label of ["Cancel", "Save changes"]) {
+        expect(
+          await editor
+            .getByRole("button", { name: label, exact: true })
+            .evaluate((element) => element.getBoundingClientRect().height),
+        ).toBeLessThan(64);
+      }
+      await editor.screenshot({
+        path: test.info().outputPath("deck-edit.png"),
+      });
       await page.keyboard.press("Shift+Tab");
       await expect(
         editor.getByRole("button", { name: "Save changes", exact: true }),
