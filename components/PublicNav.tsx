@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth";
+import { getRenderUser } from "@/lib/render-context";
 import { Nav } from "@/components/Nav";
 
 export async function PublicNav({
   active,
 }: { active?: "home" | "inventory" | "decks" } = {}) {
-  const user = await getCurrentUser();
+  const user = await getRenderUser();
   const appName = process.env.NEXT_PUBLIC_APP_NAME || "MTG Inventory";
   const publicSections = (
       <nav
