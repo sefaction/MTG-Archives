@@ -199,7 +199,7 @@ test("render snapshots remain isolated by user and expire after revocation", asy
       `await p.authSession.deleteMany({where:{userId:${q(f.users[0].id)}}});return true;`,
     );
     await pages[0].goto("/decks");
-    await expect(pages[0]).toHaveURL(/\/login/);
+    await expect(pages[0]).toHaveURL(/\/dashboard\?auth=required$/);
     await expect(pages[0]).not.toHaveTitle(/^\(1\)/);
     await pages[0].goto("/public/decks");
     await expect(
