@@ -69,7 +69,7 @@ export default async function LeagueDecksPage({
     query.status === "frozen" || query.status === "editable"
       ? query.status
       : "";
-  const searchQuery = (query.q || "").slice(0, 200);
+  const searchQuery = (typeof query.q === "string" ? query.q : "").slice(0, 200);
 
   const filteredDecks = league.members
     .flatMap((member) => member.decks.map((deck) => ({ member, deck })))

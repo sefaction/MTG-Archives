@@ -255,6 +255,8 @@ test("League library and complete rankings can be narrowed without altering snap
       name: "League decks pagination",
     });
     await expect(paging).toContainText("1–25 of 36");
+    await page.goto(`/league/${f.league}/decks?q=first&q=second`);
+    await expect(paging).toContainText("1–25 of 36");
     await paging.getByRole("link", { name: "Next", exact: true }).click();
     await expect(paging).toContainText("26–36 of 36");
     await page

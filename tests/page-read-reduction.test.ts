@@ -198,3 +198,19 @@ test("database paging clamps counts without allocating complete history rows", (
   assert.equal(listPageInfo(120, 999, 25).page, 5);
   assert.equal(listPageInfo(0, 999, 25).from, 0);
 });
+
+test("repeated or invalid URL values cannot become a query object or break a history read", () => {
+  assert.equal(
+    readTradeHistory({ historyQ: ["a", "b"] as unknown as string }).query,
+    "",
+  );
+  const scope = tradeVisibilityWhere(false, "owner");
+  assert.deepEqual(
+    tradeViewWhere(scope, { counterTradeId: ["a", "b"] as unknown as string }),
+    { AND: [scope, { id: { in: [] } }] },
+  );
+  assert.equal(
+    readTradeHistory({ historyStatus: "CANCELED" }).status,
+    TradeStatus.CANCELLED,
+  );
+});

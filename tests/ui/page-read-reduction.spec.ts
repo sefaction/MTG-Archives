@@ -53,15 +53,13 @@ for (const width of [1366, 390, 320])
   }) => {
     test.setTimeout(120000);
     expect(new URL(baseURL!).hostname).toBe("127.0.0.1");
-    await page
-      .context()
-      .addCookies([
-        {
-          name: "mtg_inventory_session",
-          value: f.users[0].token,
-          url: baseURL!,
-        },
-      ]);
+    await page.context().addCookies([
+      {
+        name: "mtg_inventory_session",
+        value: f.users[0].token,
+        url: baseURL!,
+      },
+    ]);
     await page.setViewportSize({ width, height: 844 });
     await page.goto(`/trades?view=history&historyQ=${encodeURIComponent(tag)}`);
     const paging = page.getByRole("navigation", {
@@ -121,6 +119,10 @@ for (const width of [1366, 390, 320])
       path: test.info().outputPath("trade-history.png"),
       fullPage: true,
     });
+    if (width === 1366) {
+      await page.goto("/trades?view=history&historyQ=first&historyQ=second");
+      await expect(paging).toContainText("1–25 of 120");
+    }
     await page.goto(
       `/trades?receiverId=${f.users[1].playerId}&counterTradeId=${f.counter}`,
     );
@@ -189,7 +191,7 @@ test("render snapshots remain isolated by user and expire after revocation", asy
     );
     await expect(
       pages[2].getByRole("navigation", { name: "Trade history pagination" }),
-    ).toContainText("1?25 of 121");
+    ).toContainText("1–25 of 121");
     await expect(
       pages[2].locator(`[data-trade-id="${f.unrelated}"]`),
     ).toHaveCount(1);
@@ -198,6 +200,13 @@ test("render snapshots remain isolated by user and expire after revocation", asy
     );
     await pages[0].goto("/decks");
     await expect(pages[0]).toHaveURL(/\/login/);
+    await expect(pages[0]).not.toHaveTitle(/^\(1\)/);
+    await pages[0].goto("/public/decks");
+    await expect(
+      pages[0].getByLabel(f.users[0].name + " account options", {
+        exact: true,
+      }),
+    ).toHaveCount(0);
     await pages[1].reload();
     await expect(
       pages[1].getByLabel(f.users[1].name + " account options", {

@@ -38,7 +38,7 @@ test("user theme is persisted with a safe default", () => {
 });
 
 test("root layout applies the current user's normalized theme", () => {
-  assert.match(layout, /getCurrentUser/);
+  assert.match(layout, /getRenderUser/);
   assert.match(layout, /normalizeAppTheme\(user\?\.theme\)/);
   assert.match(layout, /<html lang="en" data-theme=\{theme\}>/);
 });

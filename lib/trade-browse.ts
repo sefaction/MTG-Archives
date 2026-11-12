@@ -35,9 +35,12 @@ export function readTradeHistory(params: TradeBrowseParams) {
   const selected = terminalTradeStatuses.find(
     (status) => status === params.historyStatus,
   );
-  const status = selected === TradeStatus.CANCELED ? TradeStatus.CANCELLED : selected;
+  const status =
+    selected === TradeStatus.CANCELED ? TradeStatus.CANCELLED : selected;
   return {
-    query: (params.historyQ || "").trim().slice(0, 200),
+    query: (typeof params.historyQ === "string" ? params.historyQ : "")
+      .trim()
+      .slice(0, 200),
     status,
     page: listPage(params.page),
     pageSize: listPageSize(params.pageSize),
@@ -51,7 +54,12 @@ export function tradeHistoryWhere(
   return {
     AND: [
       visibility,
-      { status: status === TradeStatus.CANCELLED ? { in: [TradeStatus.CANCELLED, TradeStatus.CANCELED] } : status || { in: terminalTradeStatuses } },
+      {
+        status:
+          status === TradeStatus.CANCELLED
+            ? { in: [TradeStatus.CANCELLED, TradeStatus.CANCELED] }
+            : status || { in: terminalTradeStatuses },
+      },
       ...(query
         ? [
             {
@@ -90,7 +98,12 @@ export function tradeViewWhere(
     return { AND: [visibility, { status: { in: activeTradeStatuses } }] };
   // Desk and Wishlist render no trade history. Preserve an explicitly requested
   // authorized counter source; the page still validates receiver/partner/state.
-  return { AND: [visibility, { id: params.counterTradeId || { in: [] } }] };
+  const counterId =
+    typeof params.counterTradeId === "string" &&
+    params.counterTradeId.length <= 200
+      ? params.counterTradeId
+      : "";
+  return { AND: [visibility, { id: counterId || { in: [] } }] };
 }
 export function tradeStatusTotal(
   rows: { status: TradeStatus; _count: { _all: number } }[],

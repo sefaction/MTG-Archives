@@ -71,13 +71,13 @@ test("notification creation deduplicates durable source events", async () => {
 
 test("notification UI exposes a quiet header count and browser-tab count", () => {
   assert.match(nav, /<NotificationBell/);
-  assert.match(nav, /getUnreadNotificationCount/);
+  assert.match(nav, /getRenderUnreadCount/);
   assert.match(bell, /aria-label={`Notifications, \$\{unreadCount\} unread`}/);
   assert.match(bell, /\(\$\{unreadCount\}\) \$\{appName\}/);
   assert.match(bell, /60_000/);
   assert.match(bell, /document\.visibilityState/);
   assert.match(layout, /generateMetadata/);
-  assert.match(layout, /getUnreadNotificationCount/);
+  assert.match(layout, /getRenderUnreadCount/);
   assert.doesNotMatch(bell, /Notification\.requestPermission/);
 });
 
