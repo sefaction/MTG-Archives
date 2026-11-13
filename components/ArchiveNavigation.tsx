@@ -175,6 +175,7 @@ export function ArchiveNavigation({
       if (menu.current) menu.current.open = !query.matches;
       setWide(!query.matches);
       setExpandedDestination(null);
+      setPreview(null);
     };
     resize();
     query.addEventListener("change", resize);

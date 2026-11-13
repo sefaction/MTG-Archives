@@ -68,6 +68,11 @@ test("horizontal sections share one preview row while vertical and phone navigat
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     }
 
+    await rail.getByRole("link", { name: "Wishlist", exact: true }).hover();
+    await page.setViewportSize({ width: 960, height: 900 });
+    await page.mouse.move(900, 600);
+    await page.setViewportSize({ width: 1366, height: 900 });
+    await expect(row.getByRole("navigation", { name: "Inventory sections" })).toBeVisible();
     const wishlist = rail.getByRole("link", { name: "Wishlist", exact: true });
     await wishlist.focus();
     await page.keyboard.press("ArrowDown");
