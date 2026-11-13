@@ -47,13 +47,17 @@ const sectionLinks: Record<string, readonly (readonly [string, string])[]> = {
   ],
 };
 
-function NavigationDestination({ href, label, current, onNavigate, expanded, setExpanded }: {
+function NavigationDestination({ href, label, current, onNavigate, expanded, setExpanded, horizontal, previewed, onPreview, onOpenRow }: {
   href: string;
   label: string;
   current?: "page" | "location";
   onNavigate: () => void;
   expanded: boolean;
   setExpanded: (expanded: boolean) => void;
+  horizontal: boolean;
+  previewed: boolean;
+  onPreview: (trigger: HTMLAnchorElement) => void;
+  onOpenRow: (trigger: HTMLAnchorElement) => void;
 }) {
   const group = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
@@ -84,6 +88,21 @@ function NavigationDestination({ href, label, current, onNavigate, expanded, set
       document.removeEventListener("keydown", escape, true);
     };
   }, [expanded, setExpanded]);
+  if (horizontal) {
+    return (
+      <div className="archive-destination">
+        <Link href={href} aria-current={current} data-section-preview={previewed || undefined}
+          onPointerEnter={(event) => { if (event.pointerType === "mouse") onPreview(event.currentTarget); }}
+          onFocus={(event) => onPreview(event.currentTarget)}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown" && links) {
+              event.preventDefault();
+              onOpenRow(event.currentTarget);
+            }
+          }} onClick={onNavigate}>{label}</Link>
+      </div>
+    );
+  }
   return (
     <div ref={group} className="archive-destination"
       onPointerEnter={(event) => {
@@ -139,6 +158,13 @@ export function ArchiveNavigation({
 }) {
   const pathname = usePathname();
   const [expandedDestination, setExpandedDestination] = useState<string | null>(null);
+  const [wide, setWide] = useState(false);
+  const [preview, setPreview] = useState<{ href: string; pathname: string } | null>(null);
+  const row = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLAnchorElement | null>(null);
+  const restoringFocus = useRef(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const horizontal = navigationLayout === "topbar" && wide;
   const inventoryTab = deckHunt ? undefined : inventoryLinks.find(([href]) => inSection(pathname, href))?.[0];
   const section = deckHunt ? "/decks" : inventoryTab ? "/inventory"
     : destinations.find(([href]) => inSection(pathname, href === "/public/inventory" ? "/public" : href))?.[0];
@@ -147,22 +173,77 @@ export function ArchiveNavigation({
     const query = window.matchMedia("(max-width: 1099px)");
     const resize = () => {
       if (menu.current) menu.current.open = !query.matches;
+      setWide(!query.matches);
+      setExpandedDestination(null);
     };
     resize();
     query.addEventListener("change", resize);
     return () => query.removeEventListener("change", resize);
   }, []);
+  useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
+
+  function cancelRowClose() {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+  }
+
+  function previewSection(href: string, link: HTMLAnchorElement) {
+    cancelRowClose();
+    if (restoringFocus.current) {
+      restoringFocus.current = false;
+      return;
+    }
+    trigger.current = link;
+    setPreview(sectionLinks[href] ? { href, pathname } : null);
+  }
 
   function closeCompactMenu() {
+    cancelRowClose();
+    setPreview(null);
     if (menu.current?.open && window.matchMedia("(max-width: 1099px)").matches) {
       menu.current.open = false;
       menu.current.querySelector("summary")?.focus();
     }
   }
 
+  const previewHref = horizontal && preview?.pathname === pathname ? preview.href : null;
+  const previewLinks = previewHref && previewHref !== section ? sectionLinks[previewHref] : undefined;
+  const currentNavigation = sectionNavigation || (inventoryTab && (
+    <nav aria-label="Inventory sections" className="archive-section-tabs flex flex-wrap gap-2">
+      {inventoryLinks.map(([href, label]) => (
+        <Link key={href} href={href} onClick={closeCompactMenu}
+          aria-current={inventoryTab === href ? pathname === href ? "page" : "location" : undefined}
+          className={cn(filterButtonClass, inventoryTab === href && "border-[var(--app-accent)] bg-[var(--app-accent-soft)] font-semibold")}>
+          {label}
+        </Link>
+      ))}
+    </nav>
+  ));
+
   return (
     <>
-      <header className="archive-shell" data-navigation-layout={navigationLayout}>
+      <header className="archive-shell" data-navigation-layout={navigationLayout}
+        onPointerEnter={cancelRowClose}
+        onPointerLeave={() => {
+          if (!horizontal) return;
+          cancelRowClose();
+          closeTimer.current = setTimeout(() => {
+            if (!row.current?.contains(document.activeElement)) setPreview(null);
+          }, 200);
+        }}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) setPreview(null);
+        }}
+        onKeyDown={(event) => {
+          if (!horizontal || !previewHref || event.key !== "Escape") return;
+          event.preventDefault();
+          event.stopPropagation();
+          cancelRowClose();
+          if (row.current?.contains(document.activeElement)) {
+            restoringFocus.current = true;
+            trigger.current?.focus();
+          }
+          setPreview(null);
+        }}>
         <a className="archive-skip" href="#archive-content">Skip navigation</a>
         <details
           open
@@ -186,25 +267,29 @@ export function ArchiveNavigation({
                 onNavigate={closeCompactMenu}
                 expanded={expandedDestination === href}
                 setExpanded={(expanded) => setExpandedDestination((current) => expanded ? href : current === href ? null : current)}
+                horizontal={horizontal}
+                previewed={previewHref === href && href !== section}
+                onPreview={(link) => previewSection(href, link)}
+                onOpenRow={(link) => {
+                  previewSection(href, link);
+                  requestAnimationFrame(() => row.current?.querySelector<HTMLAnchorElement>(
+                    ".archive-section-preview a, .archive-section-current:not([hidden]) a"
+                  )?.focus());
+                }}
               />
             ))}
           </nav>
         </details>
         <div className="archive-utilities">{children}</div>
-        {sectionNavigation || (inventoryTab && (
-        <nav aria-label="Inventory sections" className="archive-section-tabs flex flex-wrap gap-2">
-          {inventoryLinks.map(([href, label]) => (
-            <Link
-              key={href}
-              href={href}
-              aria-current={inventoryTab === href ? pathname === href ? "page" : "location" : undefined}
-              className={cn(filterButtonClass, inventoryTab === href && "border-[var(--app-accent)] bg-[var(--app-accent-soft)] font-semibold")}
-            >
-              {label}
-            </Link>
-          ))}
-        </nav>
-      ))}
+        <div ref={row} className="archive-section-row" data-empty={!currentNavigation && !previewLinks || undefined}
+          hidden={!horizontal && !currentNavigation}>
+          <div className="archive-section-current" hidden={Boolean(previewLinks)} onClick={() => setPreview(null)}>
+            {currentNavigation}
+          </div>
+          {previewLinks && <nav className="archive-section-preview" aria-label={`${destinations.find(([href]) => href === previewHref)?.[1]} sections`}>
+            {previewLinks.map(([href, label]) => <Link key={href} href={href} onClick={closeCompactMenu}>{label}</Link>)}
+          </nav>}
+        </div>
       </header>
       <span id="archive-content" tabIndex={-1} />
     </>
