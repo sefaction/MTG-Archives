@@ -37,8 +37,9 @@ const publicInventoryListApi = fs.readFileSync(
 
 test("authenticated inventory list uses one server-side page source of truth", () => {
   assert.match(inventoryPage, /queryPageSize = initialPageSize/);
-  assert.ok(
-    inventoryPage.includes("const sortedGroups = [...filteredGroups].sort"),
+  assert.match(
+    inventoryPage,
+    /const \{ filteredGroups, sortedGroups \} = prepareInventoryPageGroups\(/,
   );
   assert.match(
     inventoryPage,
@@ -57,10 +58,9 @@ test("authenticated inventory list uses one server-side page source of truth", (
 });
 
 test("global public inventory query is bounded by real server page size", () => {
-  assert.ok(
-    publicInventoryQueries.includes(
-      "const sortedGroups = [...filteredGroups].sort",
-    ),
+  assert.match(
+    publicInventoryQueries,
+    /const \{ filteredGroups, sortedGroups \} = prepareInventoryPageGroups\(/,
   );
   assert.match(
     publicInventoryQueries,
@@ -106,8 +106,9 @@ test("inventory browser exposes real server pagination and infinite-scroll count
 
 test("infinite-scroll APIs use the same bounded server page model", () => {
   assert.match(inventoryPage, /infiniteApiPath="\/api\/inventory\/list"/);
-  assert.ok(
-    inventoryListApi.includes("const sortedGroups = [...filteredGroups].sort"),
+  assert.match(
+    inventoryListApi,
+    /const \{ filteredGroups, sortedGroups \} = prepareInventoryPageGroups\(/,
   );
   assert.match(
     inventoryListApi,
@@ -147,14 +148,26 @@ test("sorted page order is preserved after row hydration", () => {
 });
 
 test("sorting is server-authoritative and resets page state", () => {
-  const destination = new URL(inventorySortHref("/inventory", "page=4&cardName=Forest", "quantity", "desc"), "https://example.invalid");
+  const destination = new URL(
+    inventorySortHref(
+      "/inventory",
+      "page=4&cardName=Forest",
+      "quantity",
+      "desc",
+    ),
+    "https://example.invalid",
+  );
   assert.equal(destination.searchParams.get("sort"), "quantity");
   assert.equal(destination.searchParams.get("sortDir"), "desc");
   assert.equal(destination.searchParams.get("cardName"), "Forest");
   assert.equal(destination.searchParams.has("page"), false);
   assert.doesNotMatch(inventoryBrowser, /getSortedRowModel/);
   assert.match(inventoryPage, /const sortField = p\.sort \|\| "cardName"/);
-  assert.match(inventoryPage, /compareInventoryGroups/);
+  assert.match(inventoryPage, /prepareInventoryPageGroups/);
+  assert.match(
+    fs.readFileSync("lib/inventory-page-groups.ts", "utf8"),
+    /compareInventoryGroups/,
+  );
   assert.doesNotMatch(inventoryPage, /pricing-analytics|priceSnapshots/);
   assert.match(inventoryListApi, /const sortField = p\.sort \|\| "cardName"/);
   assert.match(
@@ -168,9 +181,21 @@ test("full-dataset client-safe filters run before paging", () => {
     inventoryPage,
     /const filteredPrintingGroups = sortableGroups\.filter/,
   );
-  assert.match(inventoryPage, /groupInventoryPageGroupsByCardName\(/);
-  assert.match(inventoryListApi, /groupInventoryPageGroupsByCardName\(/);
-  assert.match(publicInventoryQueries, /groupInventoryPageGroupsByCardName\(/);
+  for (const source of [
+    inventoryPage,
+    inventoryListApi,
+    publicInventoryQueries,
+  ]) {
+    assert.match(source, /prepareInventoryPageGroups\(/);
+    assert.match(
+      source,
+      /const filteredPrintingGroups = sortableGroups\.filter[\s\S]*prepareInventoryPageGroups\(\s*filteredPrintingGroups/,
+    );
+  }
+  assert.match(
+    fs.readFileSync("lib/inventory-page-groups.ts", "utf8"),
+    /groupInventoryPageGroupsByCardName\(/,
+  );
   assert.match(
     inventoryPage + inventoryListApi + publicInventoryQueries,
     /group\.cardIds \?\? \[group\.cardId\]/,

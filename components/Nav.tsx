@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   logout,
-  getCurrentUser,
   isAdminModeEnabled,
   isAdminUser,
   setAdminMode,
@@ -11,7 +10,7 @@ import { redirect } from "next/navigation";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { AdminModeToggle } from "@/components/AdminModeToggle";
 import { NotificationBell } from "@/components/NotificationBell";
-import { getUnreadNotificationCount } from "@/lib/notifications";
+import { getRenderUser, getRenderUnreadCount } from "@/lib/render-context";
 import { normalizePlayerColor } from "@/lib/player-colors";
 import { safeLocalReturnPath } from "@/lib/local-return-path";
 import { ArchiveNavigation } from "@/components/ArchiveNavigation";
@@ -35,12 +34,12 @@ function AnonymousNavigation({
 }
 
 export async function Nav({ deckHunt = false, sectionNavigation }: { deckHunt?: boolean; sectionNavigation?: ReactNode } = {}) {
-  const user = await getCurrentUser();
+  const user = await getRenderUser();
   const userIsAdmin = isAdminUser(user, user?.player);
   const adminModeActive = await isAdminModeEnabled(user);
   const appName = process.env.NEXT_PUBLIC_APP_NAME || "MTG Inventory";
   const unreadNotificationCount = user
-    ? await getUnreadNotificationCount(user.id)
+    ? await getRenderUnreadCount(user.id)
     : 0;
 
   async function doLogout() {

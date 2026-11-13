@@ -1,3 +1,4 @@
+import { prepareInventoryPageGroups } from "@/lib/inventory-page-groups";
 import { inventorySortMetadataSelect } from "@/lib/inventory-sort-metadata";
 export const dynamic = "force-dynamic";
 import {
@@ -38,7 +39,6 @@ import {
   ensureDefaultLocation,
   getInventoryExactPrintings,
   getInventoryGroupedByCard,
-  groupInventoryPageGroupsByCardName,
   getLocationsForOwner,
   withLocationPaths,
   orderInventoryItemsByPageGroups,
@@ -53,7 +53,6 @@ import {
   selectPreferredCardPrice,
 } from "@/lib/price-history";
 import {
-  compareInventoryGroups,
   enrichInventoryGroupsForLocationSort,
   isInventoryLocationSort,
 } from "@/lib/inventory-sort";
@@ -192,29 +191,7 @@ export default async function InventoryPage({
   const filteredPrintingGroups = sortableGroups.filter(
     groupMatchesClientSafeFilters,
   );
-  const orderedPrintingGroups = [...filteredPrintingGroups].sort(
-    (left, right) =>
-      compareInventoryGroups(
-        left,
-        right,
-        cardSortById,
-        String(sortField),
-        sortDirection,
-      ),
-  );
-  const filteredGroups =
-    displayMode === "grouped"
-      ? groupInventoryPageGroupsByCardName(orderedPrintingGroups, cardSortById)
-      : filteredPrintingGroups;
-  const sortedGroups = [...filteredGroups].sort((left, right) =>
-    compareInventoryGroups(
-      left,
-      right,
-      cardSortById,
-      String(sortField),
-      sortDirection,
-    ),
-  );
+  const { filteredGroups, sortedGroups } = prepareInventoryPageGroups(filteredPrintingGroups, cardSortById, displayMode, String(sortField), sortDirection);
   const pageGroups = sortedGroups.slice(querySkip, querySkip + queryPageSize);
   const totalMatchingCount = filteredGroups.length;
   const totalPages = Math.max(1, Math.ceil(totalMatchingCount / queryPageSize));

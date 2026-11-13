@@ -8,7 +8,7 @@ const publicInventory = readFileSync("app/public/inventory/page.tsx", "utf8");
 const publicDecks = readFileSync("app/public/decks/page.tsx", "utf8");
 
 test("public navigation uses the authenticated app nav for signed-in viewers", () => {
-  assert.match(publicNav, /getCurrentUser\(\)/);
+  assert.match(publicNav, /getRenderUser\(\)/);
   assert.match(publicNav, /return user \? \(/);
   assert.match(publicNav, /<Nav sectionNavigation=\{publicSections\} \/>/);
   assert.match(publicNav, /aria-label="Public browsing"/);

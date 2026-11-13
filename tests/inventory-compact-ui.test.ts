@@ -215,7 +215,8 @@ test("inventory table keeps required columns fixed and optional columns default 
 
 test("inventory release date is sortable and hidden by default", () => {
   assert.equal(
-    inventorySortMetadataSelect("releasedAt", parseInventoryFilters({})).releasedAt,
+    inventorySortMetadataSelect("releasedAt", parseInventoryFilters({}))
+      .releasedAt,
     true,
   );
   assert.match(inventorySort, /"releasedAt"/);
@@ -238,11 +239,10 @@ test("inventory release date is sortable and hidden by default", () => {
     );
   }
   for (const source of [inventoryPage, inventoryListRoute, publicCollection]) {
-    if (source === inventoryListRoute) {
-      assert.match(source, /releasedAt: true/);
-    } else {
-      assert.match(source, /(?:publicInventorySortMetadataSelect|inventorySortMetadataSelect)\(/);
-    }
+    assert.match(
+      source,
+      /(?:publicInventorySortMetadataSelect|inventorySortMetadataSelect)\(/,
+    );
     assert.match(
       source,
       /!.*sortDir[\s\S]*sortField === "releasedAt"[\s\S]*\? "desc"/,
