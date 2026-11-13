@@ -78,9 +78,14 @@ test("deck create and settings updates synchronize tags transactionally", () => 
   );
 });
 
-test("deck pages edit, display, autocomplete, and filter tags", () => {
-  assert.match(decksPage, /searchParams\?: Promise<\{[\s\S]*tag\?: string/);
-  assert.match(decksPage, /initialTag=\{params\?\.tag/);
+test("deck pages edit, display, autocomplete, and filter tags", async () => {
+  const { readDeckLibraryBrowse } = await import("../lib/deck-library-browse");
+  assert.deepEqual(
+    readDeckLibraryBrowse(new URLSearchParams("tag=example")).includedTags,
+    ["example"],
+  );
+  assert.match(decksPage, /<DeckWorkspace/);
+  assert.match(deckWorkspace, /useDeckLibraryBrowse\(\)/);
   assert.match(deckWorkspace, /function TagEditor/);
   assert.match(deckWorkspace, /aria-label="Tag suggestions"/);
   assert.match(deckWorkspace, /Choose an existing tag/);

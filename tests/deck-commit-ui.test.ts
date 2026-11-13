@@ -11,8 +11,14 @@ test("individual and bulk commitment sources carry section and finish to their l
   assert.match(deckPage, /locationSection: item\.locationSection/);
   assert.match(deckPage, /foilStatus: item\.foilStatus/);
   assert.match(source, /source: deckCommitSourceLabel\(option\)/);
-  assert.match(source, /\{deckCommitSourceLabel\(option\)\} — \{option\.cardName\}/);
-  assert.match(source, /Selected source: \{deckCommitSourceLabel\(selectedOption\)\}/);
+  assert.match(
+    source,
+    /\{deckCommitSourceLabel\(option\)\} — \{option\.cardName\}/,
+  );
+  assert.match(
+    source,
+    /Selected source: \{deckCommitSourceLabel\(selectedOption\)\}/,
+  );
   assert.match(source, /break-words[^"]*md:col-span-4/);
 });
 
@@ -118,7 +124,10 @@ test("deck bulk tools include selected committed inventory return workflow", () 
   assert.match(source, /function returnSelectedCommitted/);
   assert.match(source, /\/api\/decks\/\$\{deckId\}\/return-committed/);
   assert.match(source, /actionControls\?: ReactNode/);
-  assert.match(source, /<DeckWorkspaceDialog\s+title="Selection & printing tools"/);
+  assert.match(
+    source,
+    /<DeckWorkspaceDialog\s+title="Selection & printing tools"/,
+  );
   assert.match(source, /Return selected committed cards/);
   assert.match(source, /destinationLocationId: returnDestinationId/);
   assert.match(
@@ -129,11 +138,15 @@ test("deck bulk tools include selected committed inventory return workflow", () 
 
 test("deck list rows stay compact and delegate details to a responsive drawer", () => {
   assert.match(source, /function DeckEntryDrawer/);
-  assert.match(source, /role="dialog" aria-modal="true"/);
   assert.match(
     source,
-    /md:right-0 md:w=\{\"\[min\(92vw,760px\)\]\"\}|md:w-\[min\(92vw,760px\)\]/,
+    /<DeckWorkspaceDialog[\s\S]*title=\{row.cardName\}[\s\S]*onClose=\{closeDrawer\}/,
   );
+  assert.match(source, /useFormDiscardGuard\(\s*drawerRef,\s*editVersion,?\s*\)/);
+  const dialog = readFileSync("components/DeckWorkspaceDialog.tsx", "utf8");
+  assert.match(dialog, /<dialog/);
+  assert.match(dialog, /showModal\(\)/);
+  assert.match(dialog, /w-full max-w-2xl overflow-y-auto/);
   assert.match(source, /Deck entry details/);
   assert.match(source, /<RowEditor[\s\S]*returnLocations=\{returnLocations\}/);
   assert.match(source, /<th className="px-2 py-1\.5">Qty<\/th>/);
@@ -153,7 +166,8 @@ test("deck list rows stay compact and delegate details to a responsive drawer", 
 });
 
 test("deck builder defaults to compact multi-column text view", () => {
-  assert.match(source, /useState<DeckViewMode>\("compact"\)/);
+  assert.match(source, /mode\.value === browseParams\.get\("deckView"\)/);
+  assert.match(source, /\?\.value \|\| "compact"/);
   assert.match(source, /function CompactDeckView/);
   assert.match(source, /md:columns-2/);
   assert.match(source, /xl:columns-3/);

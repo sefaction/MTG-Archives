@@ -1,3 +1,4 @@
+import { prepareInventoryPageGroups } from "./inventory-page-groups";
 import { inventorySortMetadataSelect as publicInventorySortMetadataSelect } from "./inventory-sort-metadata";
 export { publicInventorySortMetadataSelect };
 import {
@@ -6,7 +7,6 @@ import {
   Visibility,
 } from "@prisma/client";
 import {
-  groupInventoryPageGroupsByCardName,
   orderInventoryItemsByPageGroups,
 } from "@/lib/inventory-locations";
 import { prisma } from "@/lib/prisma";
@@ -15,7 +15,6 @@ import {
   parseInventoryFilters,
 } from "@/lib/inventory-filters";
 import {
-  compareInventoryGroups,
   enrichInventoryGroupsForLocationSort,
   isInventoryLocationSort,
 } from "@/lib/inventory-sort";
@@ -463,23 +462,7 @@ export async function getGlobalPublicInventory(
   const filteredPrintingGroups = sortableGroups.filter(
     groupMatchesClientSafeFilters,
   );
-  const orderedPrintingGroups = [...filteredPrintingGroups].sort(
-    (left, right) =>
-      compareInventoryGroups(
-        left,
-        right,
-        cardSortById,
-        sortField,
-        sortDirection,
-      ),
-  );
-  const filteredGroups =
-    displayMode === "grouped"
-      ? groupInventoryPageGroupsByCardName(orderedPrintingGroups, cardSortById)
-      : filteredPrintingGroups;
-  const sortedGroups = [...filteredGroups].sort((left, right) =>
-    compareInventoryGroups(left, right, cardSortById, sortField, sortDirection),
-  );
+  const { filteredGroups, sortedGroups } = prepareInventoryPageGroups(filteredPrintingGroups, cardSortById, displayMode, sortField, sortDirection);
   const pageGroups = sortedGroups.slice((page - 1) * pageSize, page * pageSize);
 
   const pageWhere =

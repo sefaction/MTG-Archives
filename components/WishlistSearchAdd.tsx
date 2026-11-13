@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import type {
   DeckCardSearchResponse,
   DeckCardSearchResult,
@@ -23,26 +23,38 @@ export function WishlistSearchAdd() {
     "Search owned/local printings or use Scryfall syntax such as command tower set:c20.",
   );
   const [pending, startTransition] = useTransition();
+  const searching = useRef(false);
 
   function search(includeScryfall = false) {
+    if (searching.current) return;
     const clean = query.trim();
     if (clean.length < 2) {
       setMessage("Enter at least two characters.");
       return;
     }
+    searching.current = true;
     startTransition(async () => {
       setMessage(
         includeScryfall
           ? "Searching local cache and server Scryfall fallback…"
           : "Searching owned printings and local cache…",
       );
-      const res = await fetch(
-        `/api/decks/card-search?q=${encodeURIComponent(clean)}${includeScryfall ? "&scryfall=1" : ""}`,
-      );
-      const json = (await res.json()) as DeckCardSearchResponse;
-      setResponse(json);
-      setMessage(json.message);
-      setSelected(json.results[0] ?? null);
+      try {
+        const res = await fetch(
+          `/api/decks/card-search?q=${encodeURIComponent(clean)}${includeScryfall ? "&scryfall=1" : ""}`,
+        );
+        if (!res.ok) throw new Error("Search unavailable. Please try again.");
+        const json = (await res.json()) as DeckCardSearchResponse;
+        setResponse(json);
+        setMessage(json.message);
+        setSelected(json.results[0] ?? null);
+      } catch {
+        setResponse(null);
+        setSelected(null);
+        setMessage("Search unavailable. Please try again.");
+      } finally {
+        searching.current = false;
+      }
     });
   }
 
@@ -57,19 +69,25 @@ export function WishlistSearchAdd() {
         </span>
       </summary>
       <div className="space-y-3 border-t border-zinc-800 p-4">
-        <div className="flex flex-wrap items-end gap-3">
+        <form
+          className="flex flex-wrap items-end gap-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            search(false);
+          }}
+        >
           <label className={filterFieldClass}>
             Card search
             <input
               value={query}
+              readOnly={pending}
               onChange={(event) => setQuery(event.target.value)}
               className={cn(filterInputClass, "mt-1 block min-w-72")}
               placeholder="Card name or Scryfall query, e.g. command tower set:c20"
             />
           </label>
           <button
-            type="button"
-            onClick={() => search(false)}
+            type="submit"
             disabled={pending}
             className={filterPrimaryButtonClass}
           >
@@ -83,10 +101,10 @@ export function WishlistSearchAdd() {
           >
             Search Scryfall
           </button>
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-zinc-400" role="status">
             {pending ? "Searching…" : message}
           </p>
-        </div>
+        </form>
         {response?.results.length ? (
           <form
             action={addManualWishlistItem}

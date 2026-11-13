@@ -5,12 +5,18 @@ import {
   type DragEvent,
   type KeyboardEvent,
   useMemo,
+  useEffect,
+  useRef,
   useState,
   useTransition,
 } from "react";
 import { useRouter } from "next/navigation";
 import { ColorIdentitySymbols } from "@/components/mtg/ColorIdentitySymbols";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
+import { DeckWorkspaceDialog } from "@/components/DeckWorkspaceDialog";
+import { useDeckLibraryBrowse } from "@/components/useDeckLibraryBrowse";
+import { pageList } from "@/lib/list-browse";
+import { ListPagination } from "@/components/ListPagination";
 import {
   cn,
   filterFieldClass,
@@ -317,9 +323,6 @@ export function DeckWorkspace({
   formatOptions,
   visibilityOptions,
   bracketOptions,
-  initialFolder = ALL_FOLDERS,
-  initialTag = "",
-  initialBracket = "",
   adminModeActive = false,
   readOnly = false,
   showOwner = adminModeActive,
@@ -330,27 +333,30 @@ export function DeckWorkspace({
   formatOptions: Option[];
   visibilityOptions: Option[];
   bracketOptions: Option[];
-  initialFolder?: string;
-  initialTag?: string;
-  initialBracket?: string;
   adminModeActive?: boolean;
   readOnly?: boolean;
   showOwner?: boolean;
 }) {
   const router = useRouter();
-  const [viewMode, setViewMode] = useState<ViewMode>("table");
-  const [search, setSearch] = useState("");
-  const [folderFilter, setFolderFilter] = useState(initialFolder);
-  const [includedTagIds, setIncludedTagIds] = useState(
-    initialTag ? [initialTag] : [],
-  );
-  const [excludedTagIds, setExcludedTagIds] = useState<string[]>([]);
-  const [includedBrackets, setIncludedBrackets] = useState(
-    initialBracket ? [initialBracket] : [],
-  );
-  const [excludedBrackets, setExcludedBrackets] = useState<string[]>([]);
-  const [sortField, setSortField] = useState<SortField>("updated");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const { browse, setter } = useDeckLibraryBrowse();
+  const viewMode = browse.view,
+    setViewMode = setter("view");
+  const search = browse.search,
+    setSearch = setter("search");
+  const folderFilter = browse.folder,
+    setFolderFilter = setter("folder");
+  const includedTagIds = browse.includedTags,
+    setIncludedTagIds = setter("includedTags");
+  const excludedTagIds = browse.excludedTags,
+    setExcludedTagIds = setter("excludedTags");
+  const includedBrackets = browse.includedBrackets,
+    setIncludedBrackets = setter("includedBrackets");
+  const excludedBrackets = browse.excludedBrackets,
+    setExcludedBrackets = setter("excludedBrackets");
+  const sortField = browse.sort,
+    setSortField = setter("sort");
+  const sortDirection = browse.direction,
+    setSortDirection = setter("direction");
   const [organizationUnlocked, setOrganizationUnlocked] = useState(false);
   const [draggedFolderId, setDraggedFolderId] = useState("");
   const [folderMessage, setFolderMessage] = useState("");
@@ -359,6 +365,32 @@ export function DeckWorkspace({
     null,
   );
   const [createDeckOpen, setCreateDeckOpen] = useState(false);
+  const [savingDeck, setSavingDeck] = useState(false);
+  const [editError, setEditError] = useState("");
+  const editForm = useRef<HTMLFormElement>(null);
+  const savedEditFields = useRef("");
+  const editFields = () =>
+    JSON.stringify(
+      Array.from(new FormData(editForm.current ?? undefined).entries()),
+    );
+  useEffect(() => {
+    if (editForm.current)
+      savedEditFields.current = JSON.stringify(
+        Array.from(new FormData(editForm.current).entries()),
+      );
+  }, [editingDeck?.id]);
+
+  function canDiscardEdit() {
+    if (savingDeck) return false;
+    return (
+      !editForm.current ||
+      editFields() === savedEditFields.current ||
+      window.confirm("Discard unsaved deck changes?")
+    );
+  }
+  function closeEditor() {
+    if (canDiscardEdit()) setEditingDeck(null);
+  }
   const [isPending, startTransition] = useTransition();
 
   const folderById = useMemo(
@@ -461,6 +493,8 @@ export function DeckWorkspace({
     sortDirection,
     sortField,
   ]);
+
+  const deckPage = pageList(filteredDecks, browse.page, browse.pageSize);
 
   function chooseSort(field: SortField) {
     if (field === sortField) {
@@ -579,10 +613,19 @@ export function DeckWorkspace({
   }
 
   async function saveDeckFromIndex(formData: FormData) {
-    setFolderMessage("");
-    await updateDeckFromIndex(formData);
-    setEditingDeck(null);
-    router.refresh();
+    setEditError("");
+    setSavingDeck(true);
+    try {
+      await updateDeckFromIndex(formData);
+      setEditingDeck(null);
+      router.refresh();
+    } catch (error) {
+      setEditError(
+        error instanceof Error ? error.message : "Could not save deck changes.",
+      );
+    } finally {
+      setSavingDeck(false);
+    }
   }
 
   const managedFolder = folderById.get(managedFolderId) ?? null;
@@ -600,7 +643,7 @@ export function DeckWorkspace({
                 Deck library
               </h2>
               <span className="text-sm text-zinc-500">
-                {filteredDecks.length} visible of {decks.length}
+                {filteredDecks.length} matching of {decks.length}
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -608,6 +651,8 @@ export function DeckWorkspace({
                 <span className="sr-only">Search decks</span>
                 <input
                   value={search}
+                  type="search"
+                  maxLength={200}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Search decks, folders, formats, or tags"
                   className={cn(filterInputClass, "w-full")}
@@ -1001,6 +1046,12 @@ export function DeckWorkspace({
           aria-label="Deck library results"
           tabIndex={0}
         >
+          <ListPagination
+            label="Deck library"
+            page={deckPage}
+            onPage={setter("page")}
+            onSize={setter("pageSize")}
+          />
           {viewMode === "table" ? (
             <div className="overflow-x-auto rounded-xl border border-zinc-800">
               <table className="min-w-full text-sm">
@@ -1072,7 +1123,7 @@ export function DeckWorkspace({
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredDecks.map((deck) => (
+                  {deckPage.items.map((deck) => (
                     <tr
                       key={deck.id}
                       className="border-t border-zinc-800 align-top transition hover:bg-zinc-900/50"
@@ -1142,7 +1193,10 @@ export function DeckWorkspace({
                           {!readOnly ? (
                             <button
                               type="button"
-                              onClick={() => setEditingDeck(deck)}
+                              onClick={() => {
+                                setEditError("");
+                                setEditingDeck(deck);
+                              }}
                               className="rounded border border-sky-900 px-2 py-1 text-xs text-sky-100 hover:bg-sky-950/60"
                             >
                               Edit
@@ -1200,7 +1254,7 @@ export function DeckWorkspace({
             </div>
           ) : (
             <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-              {filteredDecks.map((deck) => (
+              {deckPage.items.map((deck) => (
                 <article
                   key={deck.id}
                   className="group relative isolate min-h-[27rem] overflow-hidden rounded-xl border border-zinc-700 bg-gradient-to-br from-zinc-950 to-zinc-900/70 p-4 transition hover:-translate-y-0.5 hover:border-zinc-500 hover:shadow-2xl"
@@ -1342,7 +1396,10 @@ export function DeckWorkspace({
                         {!readOnly ? (
                           <button
                             type="button"
-                            onClick={() => setEditingDeck(deck)}
+                            onClick={() => {
+                              setEditError("");
+                              setEditingDeck(deck);
+                            }}
                             className="rounded border border-sky-700 bg-sky-950/80 px-3 py-1.5 text-sm font-medium text-sky-50 hover:bg-sky-900"
                           >
                             Edit
@@ -1359,139 +1416,134 @@ export function DeckWorkspace({
       </section>
 
       {!readOnly && editingDeck ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Edit ${editingDeck.name}`}
-          onMouseDown={(event) => {
-            if (event.currentTarget === event.target) setEditingDeck(null);
-          }}
+        <DeckWorkspaceDialog
+          title={`Edit ${editingDeck.name}`}
+          onClose={closeEditor}
+          dismissible={!savingDeck}
+          closeOnBackdrop
         >
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-950 p-5 shadow-2xl">
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-semibold">Edit deck</h2>
-                <p className="text-sm text-zinc-500">
-                  Update its organization without leaving the deck list.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditingDeck(null)}
-                className="rounded p-2 text-zinc-400 hover:bg-zinc-900 hover:text-white"
-                aria-label="Close deck editor"
+          <p className="mb-4 text-sm text-zinc-500">
+            Update its organization without leaving the deck list.
+          </p>
+          {editError ? (
+            <p role="alert" className="mb-3 text-sm text-red-300">
+              {editError}
+            </p>
+          ) : null}
+          <form
+            ref={editForm}
+            action={saveDeckFromIndex}
+            className="grid gap-4 md:grid-cols-2"
+          >
+            <input type="hidden" name="deckId" value={editingDeck.id} />
+            <label className={cn(filterFieldClass, "md:col-span-2")}>
+              Name
+              <input
+                name="name"
+                required
+                defaultValue={editingDeck.name}
+                className={cn(filterInputClass, "mt-1 w-full")}
+              />
+            </label>
+            <label className={filterFieldClass}>
+              Format
+              <select
+                name="format"
+                defaultValue={editingDeck.format}
+                className={cn(filterSelectClass, "mt-1 w-full")}
               >
-                ×
-              </button>
-            </div>
-            <form
-              action={saveDeckFromIndex}
-              className="grid gap-4 md:grid-cols-2"
-            >
-              <input type="hidden" name="deckId" value={editingDeck.id} />
-              <label className={cn(filterFieldClass, "md:col-span-2")}>
-                Name
-                <input
-                  name="name"
-                  required
-                  defaultValue={editingDeck.name}
-                  className={cn(filterInputClass, "mt-1 w-full")}
+                {formatOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={filterFieldClass}>
+              Bracket
+              <select
+                name="bracket"
+                defaultValue={editingDeck.bracket ?? ""}
+                className={cn(filterSelectClass, "mt-1 w-full")}
+              >
+                {bracketOptions.map((option) => (
+                  <option key={option.value || "unset"} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={filterFieldClass}>
+              Folder
+              <select
+                name="folderId"
+                defaultValue={editingDeck.folderId ?? ""}
+                className={cn(filterSelectClass, "mt-1 w-full")}
+              >
+                <option value="">Uncategorized</option>
+                {folders.map((folder) => (
+                  <option key={folder.id} value={folder.id}>
+                    {folder.path}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={filterFieldClass}>
+              Visibility
+              <select
+                name="visibility"
+                defaultValue={editingDeck.visibility}
+                className={cn(filterSelectClass, "mt-1 w-full")}
+              >
+                {visibilityOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="md:col-span-2">
+              <span className={filterFieldClass}>Tags</span>
+              <div className="mt-1">
+                <TagEditor
+                  key={editingDeck.id}
+                  availableTags={tags}
+                  initialTags={editingDeck.tags.map((tag) => tag.name)}
                 />
-              </label>
-              <label className={filterFieldClass}>
-                Format
-                <select
-                  name="format"
-                  defaultValue={editingDeck.format}
-                  className={cn(filterSelectClass, "mt-1 w-full")}
-                >
-                  {formatOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={filterFieldClass}>
-                Bracket
-                <select
-                  name="bracket"
-                  defaultValue={editingDeck.bracket ?? ""}
-                  className={cn(filterSelectClass, "mt-1 w-full")}
-                >
-                  {bracketOptions.map((option) => (
-                    <option key={option.value || "unset"} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={filterFieldClass}>
-                Folder
-                <select
-                  name="folderId"
-                  defaultValue={editingDeck.folderId ?? ""}
-                  className={cn(filterSelectClass, "mt-1 w-full")}
-                >
-                  <option value="">Uncategorized</option>
-                  {folders.map((folder) => (
-                    <option key={folder.id} value={folder.id}>
-                      {folder.path}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={filterFieldClass}>
-                Visibility
-                <select
-                  name="visibility"
-                  defaultValue={editingDeck.visibility}
-                  className={cn(filterSelectClass, "mt-1 w-full")}
-                >
-                  {visibilityOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="md:col-span-2">
-                <span className={filterFieldClass}>Tags</span>
-                <div className="mt-1">
-                  <TagEditor
-                    key={editingDeck.id}
-                    availableTags={tags}
-                    initialTags={editingDeck.tags.map((tag) => tag.name)}
-                  />
-                </div>
               </div>
-              <div className="flex items-center justify-between gap-3 border-t border-zinc-800 pt-4 md:col-span-2">
-                <Link
-                  href={`/decks/${editingDeck.id}`}
-                  className="text-sm text-zinc-400 hover:text-sky-200"
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800 pt-4 md:col-span-2">
+              <Link
+                href={`/decks/${editingDeck.id}`}
+                onClick={(event) => {
+                  if (!canDiscardEdit()) event.preventDefault();
+                }}
+                className="text-sm text-zinc-400 hover:text-sky-200"
+              >
+                Open full deck settings
+              </Link>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={closeEditor}
+                  disabled={savingDeck}
+                  className="shrink-0 whitespace-nowrap rounded border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-900"
                 >
-                  Open full deck settings
-                </Link>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditingDeck(null)}
-                    className="rounded border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-900"
-                  >
-                    Cancel
-                  </button>
-                  <SubmitButton
-                    pendingLabel="Saving…"
-                    className={filterPrimaryButtonClass}
-                  >
-                    Save changes
-                  </SubmitButton>
-                </div>
+                  Cancel
+                </button>
+                <SubmitButton
+                  pendingLabel="Saving…"
+                  className={cn(
+                    filterPrimaryButtonClass,
+                    "shrink-0 whitespace-nowrap",
+                  )}
+                >
+                  Save changes
+                </SubmitButton>
               </div>
-            </form>
-          </div>
-        </div>
+            </div>
+          </form>
+        </DeckWorkspaceDialog>
       ) : null}
     </div>
   );

@@ -61,6 +61,12 @@ export function LocationSearchSelect({
         value={query}
         disabled={disabled}
         onChange={(event) => setQuery(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            selectRef.current?.focus();
+          }
+        }}
         className={cn(filterInputClass, "w-full")}
       />
       <select
@@ -75,6 +81,9 @@ export function LocationSearchSelect({
         onChange={(event) => {
           setLocalValue(event.target.value);
           onChange?.(event.target.value);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.preventDefault();
         }}
         className={cn(filterSelectClass, "w-full")}
       >

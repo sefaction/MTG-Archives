@@ -156,7 +156,7 @@ test("Dashboard, Pricing and Public expose focused tasks without leaking private
       publicNav.getByRole("link", { name: "Back to my dashboard" }),
     ).toBeVisible();
     await page
-      .getByRole("textbox", { name: "Search decks", exact: true })
+      .getByRole("searchbox", { name: "Search decks", exact: true })
       .fill(tag);
     const decks = page.getByRole("region", { name: "Deck library results" });
     await expect(decks).toContainText(tag + " PUBLIC");
@@ -198,7 +198,7 @@ test("Dashboard, Pricing and Public expose focused tasks without leaking private
     await anon.setViewportSize({ width: 390, height: 844 });
     await anon.goto("/public/decks");
     await anon
-      .getByRole("textbox", { name: "Search decks", exact: true })
+      .getByRole("searchbox", { name: "Search decks", exact: true })
       .fill(tag);
     await expect(
       anon.getByRole("region", { name: "Deck library results" }),

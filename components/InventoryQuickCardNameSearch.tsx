@@ -181,7 +181,11 @@ export function InventoryQuickCardNameSearch({
       navigateWithCardName(suggestions[highlighted].value);
       return;
     }
-    if (event.key === "Escape") setOpen(false);
+    if (event.key === "Escape" && open) {
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+    }
   }
 
   return (

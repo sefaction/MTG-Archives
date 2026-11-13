@@ -7,13 +7,28 @@ export function DeckWorkspaceDialog({
   title,
   onClose,
   children,
+  dismissible = true,
+  closeOnBackdrop = false,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  dismissible?: boolean;
+  closeOnBackdrop?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  const backdropPointer = useRef(false);
+  function isOutside(event: { clientX: number; clientY: number }) {
+    const bounds = ref.current?.getBoundingClientRect();
+    return Boolean(
+      bounds &&
+        (event.clientX < bounds.left ||
+          event.clientX > bounds.right ||
+          event.clientY < bounds.top ||
+          event.clientY > bounds.bottom),
+    );
+  }
   useEffect(() => {
     const dialog = ref.current;
     const opener = document.activeElement as HTMLElement | null;
@@ -33,7 +48,22 @@ export function DeckWorkspaceDialog({
       aria-labelledby={titleId}
       onCancel={(event) => {
         event.preventDefault();
-        onClose();
+        if (dismissible) onClose();
+      }}
+      onPointerDown={(event) => {
+        backdropPointer.current =
+          event.target === event.currentTarget && isOutside(event);
+      }}
+      onClick={(event) => {
+        if (
+          closeOnBackdrop &&
+          dismissible &&
+          backdropPointer.current &&
+          event.target === event.currentTarget &&
+          isOutside(event)
+        )
+          onClose();
+        backdropPointer.current = false;
       }}
       onKeyDown={(event) => {
         if (event.key !== "Tab") return;
@@ -66,6 +96,7 @@ export function DeckWorkspaceDialog({
         <button
           type="button"
           autoFocus
+          disabled={!dismissible}
           onClick={onClose}
           className="deck-workspace-button shrink-0"
         >

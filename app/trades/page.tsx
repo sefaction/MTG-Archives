@@ -1,6 +1,10 @@
 ﻿export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { ServerListPagination } from "@/components/ServerListPagination";
+import { listPageInfo, listPageSizes, canonicalBrowseQuery } from "@/lib/list-browse";
+import { tradeVisibilityWhere, tradeViewWhere, tradeHistoryWhere, readTradeHistory, tradeStatusTotal, activeTradeStatuses as activeStatuses, terminalTradeStatuses as terminalStatuses } from "@/lib/trade-browse";
 import type { ReactNode } from "react";
 import { Nav } from "@/components/Nav";
 import { prisma } from "@/lib/prisma";
@@ -52,17 +56,6 @@ import { TradePairingCard } from "@/components/TradePairingCard";
 import { TradeDestinationSelect } from "@/components/TradeDestinationSelect";
 import type { TradePairingSide } from "@/lib/trade-pairing";
 
-const activeStatuses: TradeStatus[] = [
-  TradeStatus.PROPOSED,
-  TradeStatus.ACCEPTED_PENDING_EXCHANGE,
-  TradeStatus.PARTIALLY_COMMITTED,
-];
-const terminalStatuses: TradeStatus[] = [
-  TradeStatus.COMPLETED,
-  TradeStatus.DECLINED,
-  TradeStatus.CANCELLED,
-  TradeStatus.CANCELED,
-];
 const physicalStatuses: TradeStatus[] = [
   TradeStatus.ACCEPTED_PENDING_EXCHANGE,
   TradeStatus.PARTIALLY_COMMITTED,
@@ -77,6 +70,10 @@ type SearchParams = {
   offerDeckId?: string;
   view?: string;
   wishlistMode?: string;
+  historyQ?: string;
+  historyStatus?: string;
+  page?: string;
+  pageSize?: string;
 };
 type TradePageView = "desk" | "wishlist" | "active" | "history";
 type TradeWishlistMode = "compact" | "cards";
@@ -708,6 +705,8 @@ export default async function TradesPage({
   const accessScope = await getAccessScope(user);
   const isAdmin = accessScope?.mode === "admin";
   const params = await searchParams;
+  const canonical = canonicalBrowseQuery(params);
+  if (canonical !== null) redirect(`/trades${canonical ? `?${canonical}` : ""}`);
   const players = await prisma.player.findMany({
     where: { active: true },
     orderBy: { displayName: "asc" },
@@ -737,15 +736,16 @@ export default async function TradesPage({
     );
 
   if (user.playerId) await ensureDefaultLocation(prisma, user.playerId);
+  const visibilityWhere = tradeVisibilityWhere(isAdmin, user.playerId);
+  const historyFilters = readTradeHistory(params);
+  const [tradeCounts, historyTotal] = await Promise.all([
+    prisma.trade.groupBy({ by: ["status"], where: visibilityWhere, _count: { _all: true } }),
+    tradeView === "history" ? prisma.trade.count({ where: tradeHistoryWhere(visibilityWhere, params) }) : Promise.resolve(0),
+  ]);
+  const historyPage = listPageInfo(historyTotal, historyFilters.page, historyFilters.pageSize);
   const visibleTrades = await prisma.trade.findMany({
-    where: isAdmin
-      ? {}
-      : {
-          OR: [
-            { proposerPlayerId: user.playerId! },
-            { receiverPlayerId: user.playerId! },
-          ],
-        },
+    where: tradeViewWhere(visibilityWhere, { ...params, view: tradeView }),
+    ...(tradeView === "history" ? { skip: (historyPage.page - 1) * historyPage.pageSize, take: historyPage.pageSize } : {}),
     include: {
       proposerPlayer: true,
       receiverPlayer: true,
@@ -764,7 +764,7 @@ export default async function TradesPage({
         include: { actorPlayer: true, actorUser: true },
       },
     },
-    orderBy: { proposedAt: "desc" },
+    orderBy: [{ proposedAt: "desc" }, { id: "desc" }],
   });
   // Render only the allowlisted review DTO, never the raw stock/provenance or
   // sender organization stored in the immutable transaction snapshot.
@@ -919,14 +919,8 @@ export default async function TradesPage({
       : tradeView === "active"
         ? activeSections
         : [];
-  const activeTradeCount = activeSections.reduce(
-    (sum, [, trades]) => sum + trades.length,
-    0,
-  );
-  const historyTradeCount = historySections.reduce(
-    (sum, [, trades]) => sum + trades.length,
-    0,
-  );
+  const activeTradeCount = tradeStatusTotal(tradeCounts, activeStatuses);
+  const historyTradeCount = tradeStatusTotal(tradeCounts, terminalStatuses);
   const myTradeWishlistRows: TradeWishlistRow[] = myTradeWishlist.map(
     (item) => ({
       id: item.id,
@@ -1202,6 +1196,32 @@ export default async function TradesPage({
               pairingSide="offered"
             />
           </div>
+        </section>
+      ) : null}
+
+      {tradeView === "history" ? (
+        <section className="app-panel min-w-0 space-y-3 p-4" aria-label="Trade history controls">
+          <form key={JSON.stringify(params)} className="flex min-w-0 flex-wrap items-end gap-3">
+            <input type="hidden" name="view" value="history" />
+            <label className="min-w-full flex-1 text-sm sm:min-w-0">Search trade history
+              <input type="search" name="historyQ" defaultValue={historyFilters.query} maxLength={200} placeholder="Partner, message or trade ID" className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2" />
+            </label>
+            <label className="min-w-0 max-w-full text-sm">History status
+              <select name="historyStatus" defaultValue={historyFilters.status || ""} className="mt-1 block max-w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2">
+                <option value="">All finished trades</option>
+                {terminalStatuses.filter(status => status !== TradeStatus.CANCELED).map(status => <option key={status} value={status}>{statusLabel(status)}</option>)}
+              </select>
+            </label>
+            <label className="text-sm">Rows per page
+              <select name="pageSize" defaultValue={historyFilters.pageSize} className="mt-1 block rounded border border-zinc-700 bg-zinc-950 px-3 py-2">
+                {listPageSizes.map(size => <option key={size} value={size}>{size}</option>)}
+              </select>
+            </label>
+            <button className={filterButtonClass}>Filter history</button>
+            <Link href="/trades?view=history" className={filterButtonClass}>Clear filters</Link>
+          </form>
+          <ServerListPagination label="Trade history" page={historyPage} query={{view:"history", historyQ:historyFilters.query, historyStatus:historyFilters.status, pageSize:String(historyPage.pageSize)}} path="/trades" />
+          {!historyTotal ? <p className="app-muted">No matching trade history. Clear the filters to show more.</p> : null}
         </section>
       ) : null}
 

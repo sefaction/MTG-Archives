@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cn } from "./filterStyles";
+import { DeckToolLink } from "./DeckToolLink";
 
 export type DeckToolPage = "builder" | "analysis" | "hands" | "playtest";
 
@@ -36,7 +37,7 @@ export function DeckToolsNav({
     >
       {tools.map((tool) =>
         tool.available ? (
-          <Link
+          <DeckToolLink
             key={tool.id}
             href={deckToolHref(deckId, tool.id)}
             aria-current={active === tool.id ? "page" : undefined}
@@ -46,7 +47,7 @@ export function DeckToolsNav({
             )}
           >
             {tool.label}
-          </Link>
+          </DeckToolLink>
         ) : (
           <span
             key={tool.id}
@@ -62,7 +63,10 @@ export function DeckToolsNav({
         ),
       )}
       {canHunt && (
-        <Link href={`/card-hunt?${new URLSearchParams({ deckId, from: active })}`} className="deck-workspace-button">
+        <Link
+          href={`/card-hunt?${new URLSearchParams({ deckId, from: active })}`}
+          className="deck-workspace-button"
+        >
           Card Hunt
         </Link>
       )}

@@ -5,7 +5,7 @@ import {
   type DeckWorkspaceTag,
 } from "@/components/DeckWorkspace";
 import { isBasicLandCard } from "@/lib/card-types";
-import { bracketSelectOptions, parseDeckBracket } from "@/lib/deck-brackets";
+import { bracketSelectOptions } from "@/lib/deck-brackets";
 import {
   buildDeckFolderOptions,
   calculateDeckColorIdentity,
@@ -27,7 +27,9 @@ function deckCardArtCrop(
 ) {
   if (!card) return "";
   const images = card.imageUris as
-    { art_crop?: string; normal?: string; small?: string } | null | undefined;
+    | { art_crop?: string; normal?: string; small?: string }
+    | null
+    | undefined;
   return (
     images?.art_crop ?? images?.normal ?? images?.small ?? card.imageUri ?? ""
   );
@@ -37,13 +39,7 @@ function publicTagId(name: string) {
   return `public-tag:${name.trim().replace(/\s+/g, " ").toLowerCase()}`;
 }
 
-export default async function PublicDecksPage({
-  searchParams,
-}: {
-  searchParams?: Promise<{ folder?: string; bracket?: string; tag?: string }>;
-}) {
-  const params = await searchParams;
-  const selectedBracket = parseDeckBracket(params?.bracket ?? null);
+export default async function PublicDecksPage() {
   const decks = await prisma.deck.findMany({
     where: publicDeckWhere(),
     include: {
@@ -268,9 +264,6 @@ export default async function PublicDecksPage({
           label: visibilityLabel(visibility),
         }))}
         bracketOptions={bracketSelectOptions()}
-        initialFolder={params?.folder ?? "all"}
-        initialTag={params?.tag ?? ""}
-        initialBracket={selectedBracket ? String(selectedBracket) : ""}
         readOnly
         showOwner
       />

@@ -1,3 +1,5 @@
+import { inventorySortMetadataSelect } from "@/lib/inventory-sort-metadata";
+import { prepareInventoryPageGroups } from "@/lib/inventory-page-groups";
 import { NextResponse } from "next/server";
 import { DefaultCollectionVisibility } from "@prisma/client";
 import { getAccessScope, getCurrentUser } from "@/lib/auth";
@@ -6,7 +8,6 @@ import { resolveInventoryVisibility } from "@/lib/visibility";
 import {
   getInventoryExactPrintings,
   getInventoryGroupedByCard,
-  groupInventoryPageGroupsByCardName,
   orderInventoryItemsByPageGroups,
 } from "@/lib/inventory-locations";
 import { getManaFacesForDto } from "@/lib/mtg/mana-display";
@@ -22,7 +23,6 @@ import {
 } from "@/lib/inventory-filters";
 import { constrainInventoryWhereToScryfallQuery } from "@/lib/inventory-scryfall-query";
 import {
-  compareInventoryGroups,
   enrichInventoryGroupsForLocationSort,
   isInventoryLocationSort,
 } from "@/lib/inventory-sort";
@@ -281,23 +281,7 @@ export async function GET(request: Request) {
         in: Array.from(new Set(sortableGroups.map((group) => group.cardId))),
       },
     },
-    select: {
-      id: true,
-      oracleId: true,
-      name: true,
-      setCode: true,
-      rarity: true,
-      manaValue: true,
-      prices: true,
-      collectorNumber: true,
-      releasedAt: true,
-      typeLine: true,
-      manaCost: true,
-      colorIdentity: true,
-      colors: true,
-      cardFaces: true,
-      keywords: true,
-    },
+    select: inventorySortMetadataSelect(sortField, filters),
   });
   const cardSortById = new Map(cardSortData.map((card) => [card.id, card]));
   const groupMatchesClientSafeFilters = (group: any) =>
@@ -305,23 +289,7 @@ export async function GET(request: Request) {
   const filteredPrintingGroups = sortableGroups.filter(
     groupMatchesClientSafeFilters,
   );
-  const orderedPrintingGroups = [...filteredPrintingGroups].sort(
-    (left, right) =>
-      compareInventoryGroups(
-        left,
-        right,
-        cardSortById,
-        sortField,
-        sortDirection,
-      ),
-  );
-  const filteredGroups =
-    displayMode === "grouped"
-      ? groupInventoryPageGroupsByCardName(orderedPrintingGroups, cardSortById)
-      : filteredPrintingGroups;
-  const sortedGroups = [...filteredGroups].sort((left, right) =>
-    compareInventoryGroups(left, right, cardSortById, sortField, sortDirection),
-  );
+  const { filteredGroups, sortedGroups } = prepareInventoryPageGroups(filteredPrintingGroups, cardSortById, displayMode, sortField, sortDirection);
   const pageGroups = sortedGroups.slice((page - 1) * pageSize, page * pageSize);
   const pageGroupWhere =
     displayMode === "grouped"
