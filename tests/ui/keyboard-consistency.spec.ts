@@ -77,7 +77,7 @@ for (const width of [1366, 390, 320]) {
 
       await page.goto("/decks");
       await page
-        .getByRole("textbox", { name: "Search decks", exact: true })
+        .getByRole("searchbox", { name: "Search decks", exact: true })
         .fill(tag);
       const opener = page.getByRole("button", { name: "Edit", exact: true });
       await opener.click();

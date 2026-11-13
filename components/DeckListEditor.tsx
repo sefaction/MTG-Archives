@@ -1,7 +1,15 @@
 "use client";
 
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useMemo, useRef, useState } from "react";
 import { DeckWorkspaceDialog } from "./DeckWorkspaceDialog";
+import { LocationSearchSelect } from "./LocationSearchSelect";
+import { useBrowseQuery, setBrowseParam } from "./useBrowseQuery";
+import { useFormDiscardGuard } from "./useFormDiscardGuard";
+import {
+  deckCardTypes,
+  filterDeckCards,
+  readDeckCardFilters,
+} from "@/lib/deck-card-browse";
 import { DeckSection, FoilStatus } from "@prisma/client";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { SetSymbol } from "@/components/mtg/CardSymbols";
@@ -146,7 +154,9 @@ function imageUri(row: DeckEditorRow) {
 
 function deckCardImagePair(row: DeckEditorRow) {
   const images = row.card?.imageUris as
-    { normal?: string; small?: string; art_crop?: string } | null | undefined;
+    | { normal?: string; small?: string; art_crop?: string }
+    | null
+    | undefined;
   return getInventoryCardImagePair({
     imageUri: images?.normal ?? row.card?.imageUri,
     imageSmall: images?.small,
@@ -453,9 +463,56 @@ export function DeckListEditor({
   cardSearchEndpoint?: string;
 }) {
   const [selectionOpen, setSelectionOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<DeckViewMode>("compact");
-  const [groupMode, setGroupMode] = useState<DeckGroupMode>(defaultGroupMode);
-  const [sortMode, setSortMode] = useState<DeckSortMode>("name");
+  const { params: browseParams, change: changeBrowse } = useBrowseQuery();
+  const viewMode = (viewModes.find(
+    (mode) => mode.value === browseParams.get("deckView"),
+  )?.value || "compact") as DeckViewMode;
+  const groupMode = (groupModes.find(
+    (mode) => mode.value === browseParams.get("deckGroup"),
+  )?.value || defaultGroupMode) as DeckGroupMode;
+  const sortMode = (sortModes.find(
+    (mode) => mode.value === browseParams.get("deckSort"),
+  )?.value || "name") as DeckSortMode;
+  const setViewMode = (value: DeckViewMode) =>
+    changeBrowse((params) =>
+      setBrowseParam(params, "deckView", value, "compact"),
+    );
+  const setGroupMode = (value: DeckGroupMode) =>
+    changeBrowse((params) =>
+      setBrowseParam(params, "deckGroup", value, defaultGroupMode),
+    );
+  const setSortMode = (value: DeckSortMode) =>
+    changeBrowse((params) => setBrowseParam(params, "deckSort", value, "name"));
+  const canFilterPool = rows.some((row) => row.leaguePoolStatus !== undefined);
+  const filterCapabilities = useMemo(
+    () => ({ ownership: showPrivateInventory, pool: canFilterPool }),
+    [showPrivateInventory, canFilterPool],
+  );
+  const filters = useMemo(
+    () => readDeckCardFilters(browseParams, filterCapabilities, sections),
+    [browseParams, filterCapabilities, sections],
+  );
+  const filteredRows = useMemo(
+    () => filterDeckCards(rows, filters, filterCapabilities),
+    [rows, filters, filterCapabilities],
+  );
+  const filtersActive = Boolean(
+    filters.query ||
+      filters.section ||
+      filters.type ||
+      filters.status !== "all",
+  );
+  function setCardFilter(key: string, value: string) {
+    changeBrowse((params) =>
+      setBrowseParam(params, key, value, key === "cardStatus" ? "all" : ""),
+    );
+  }
+  function clearCardFilters() {
+    changeBrowse((params) => {
+      for (const key of ["cardQ", "cardSection", "cardType", "cardStatus"])
+        params.delete(key);
+    });
+  }
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<string | null>(null);
   const [preview, setPreview] = useState<DeckOptimizationPreview | null>(null);
@@ -475,13 +532,20 @@ export function DeckListEditor({
   );
 
   const groups = useMemo(
-    () => buildDeckGroups(rows, groupMode, sortMode),
-    [rows, groupMode, sortMode],
+    () => buildDeckGroups(filteredRows, groupMode, sortMode),
+    [filteredRows, groupMode, sortMode],
   );
   const currentGroupRows = groups.flatMap((group) => group.rows);
   const selectedRows = useMemo(
     () => rows.filter((row) => selected.has(row.id)),
     [rows, selected],
+  );
+  const visibleIds = new Set(filteredRows.map((row) => row.id));
+  const hiddenSelectedCount = selectedRows.filter(
+    (row) => !visibleIds.has(row.id),
+  ).length;
+  const outsidePoolRows = rows.filter(
+    (row) => row.leaguePoolStatus === "OUTSIDE_POOL",
   );
   const selectedDrawerRow = useMemo(
     () => rows.find((row) => row.id === expanded) ?? null,
@@ -757,15 +821,135 @@ export function DeckListEditor({
   }
   return (
     <section className="space-y-4" id="deck-workspace">
-      {rows.some((row) => row.leaguePoolStatus === "OUTSIDE_POOL") ? (
-        <div className="rounded border border-amber-700 bg-amber-950/20 p-3 text-sm text-amber-200" role="status">
+      <form
+        aria-label="Filter deck cards"
+        className="app-panel flex flex-wrap items-end gap-3 p-3"
+        onSubmit={(event) => event.preventDefault()}
+      >
+        <label className="min-w-0 flex-1 text-sm">
+          Search deck cards
+          <input
+            type="search"
+            value={filters.query}
+            maxLength={200}
+            onChange={(event) => setCardFilter("cardQ", event.target.value)}
+            className={cn(filterInputClass, "mt-1 w-full")}
+            placeholder="Card name…"
+          />
+        </label>
+        <label className="text-sm">
+          Filter section
+          <select
+            value={filters.section}
+            onChange={(event) =>
+              setCardFilter("cardSection", event.target.value)
+            }
+            className={cn(filterSelectClass, "mt-1 block")}
+          >
+            <option value="">All sections</option>
+            {sections.map((section) => (
+              <option key={section} value={section}>
+                {deckSectionLabel(section)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm">
+          Filter card type
+          <select
+            value={filters.type}
+            onChange={(event) => setCardFilter("cardType", event.target.value)}
+            className={cn(filterSelectClass, "mt-1 block")}
+          >
+            <option value="">All types</option>
+            {deckCardTypes.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        </label>
+        {showPrivateInventory || canFilterPool ? (
+          <label className="text-sm">
+            {showPrivateInventory
+              ? "Filter inventory status"
+              : "Filter League pool status"}
+            <select
+              value={filters.status}
+              onChange={(event) =>
+                setCardFilter("cardStatus", event.target.value)
+              }
+              className={cn(filterSelectClass, "mt-1 block")}
+            >
+              <option value="all">All entries</option>
+              {showPrivateInventory ? (
+                <>
+                  <option value="missing">Missing copies</option>
+                  <option value="exact">Enough exact copies</option>
+                  <option value="other">Other printings owned</option>
+                  <option value="committed">Committed copies</option>
+                </>
+              ) : null}
+              {canFilterPool ? (
+                <>
+                  <option value="pool-exact">Exact printing in pool</option>
+                  <option value="pool-other">Other printing in pool</option>
+                  <option value="pool-outside">Outside pool</option>
+                </>
+              ) : null}
+            </select>
+          </label>
+        ) : null}
+        {filtersActive ? (
+          <button
+            type="button"
+            onClick={clearCardFilters}
+            className={filterButtonClass}
+          >
+            Clear card filters
+          </button>
+        ) : null}
+        <p className="app-muted basis-full text-sm" role="status">
+          Showing {filteredRows.length} of {rows.length} deck entries ·{" "}
+          {filteredRows.reduce((total, row) => total + row.quantity, 0)}{" "}
+          matching copies.
+          {hiddenSelectedCount
+            ? ` ${hiddenSelectedCount} selected entries are outside these filters; bulk actions still include them.`
+            : ""}
+        </p>
+      </form>
+      {outsidePoolRows.length ? (
+        <div
+          className="rounded border border-amber-700 bg-amber-950/20 p-3 text-sm text-amber-200"
+          role="status"
+        >
           <p className="font-semibold">Outside League pool</p>
-          <p>These cards are saved in the decklist, but no printing is currently in a linked League inventory location:</p>
+          <p>
+            These cards are saved in the decklist, but no printing is currently
+            in a linked League inventory location:
+          </p>
           <ul className="mt-1 list-inside list-disc">
-            {rows.filter((row) => row.leaguePoolStatus === "OUTSIDE_POOL").map((row) => (
-              <li key={row.id}>{row.quantity} {row.cardName}</li>
+            {outsidePoolRows.slice(0, 3).map((row) => (
+              <li key={row.id}>
+                {row.quantity} {row.cardName}
+              </li>
             ))}
           </ul>
+          {outsidePoolRows.length > 3 ? (
+            <button
+              type="button"
+              className={cn(filterButtonClass, "mt-2")}
+              onClick={() =>
+                changeBrowse((params) => {
+                  for (const key of ["cardQ", "cardSection", "cardType"])
+                    params.delete(key);
+                  params.set("cardStatus", "pool-outside");
+                })
+              }
+            >
+              Show all {outsidePoolRows.length} outside-pool entries
+            </button>
+          ) : null}
         </div>
       ) : null}
       <div className="app-panel p-2">
@@ -793,6 +977,11 @@ export function DeckListEditor({
                   onClose={() => setSelectionOpen(false)}
                 >
                   <div className="grid gap-2 text-sm">
+                    <p className="app-muted">
+                      Selections stay selected when filters change. Current-view
+                      selection uses matching entries; missing/ownership
+                      shortcuts use the entire deck.
+                    </p>
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
@@ -826,25 +1015,18 @@ export function DeckListEditor({
                       </button>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <label
+                      <div
                         className={`${showPrivateInventory ? "flex" : "hidden"} items-center gap-1 text-xs text-stone-300`}
                       >
-                        Return destination
-                        <select
+                        <LocationSearchSelect
+                          name="returnDestinationId"
+                          label="Return destination"
+                          locations={returnLocations}
+                          emptyLabel="Choose a destination…"
                           value={returnDestinationId}
-                          onChange={(event) =>
-                            setReturnDestinationId(event.target.value)
-                          }
-                          className={filterSelectClass}
-                        >
-                          <option value="">Choose...</option>
-                          {returnLocations.map((location) => (
-                            <option key={location.id} value={location.id}>
-                              {location.name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                          onChange={setReturnDestinationId}
+                        />
+                      </div>
                       <button
                         type="button"
                         className={cn(
@@ -1103,6 +1285,18 @@ export function DeckListEditor({
         previewCheapest={(rowId) => loadPreview("cheapest", [rowId])}
       />
 
+      {rows.length > 0 && filteredRows.length === 0 ? (
+        <p className="app-panel p-4">
+          No deck entries match these filters.{" "}
+          <button
+            type="button"
+            onClick={clearCardFilters}
+            className={filterButtonClass}
+          >
+            Clear card filters
+          </button>
+        </p>
+      ) : null}
       {rows.length === 0 ? (
         <p className="rounded border border-zinc-800 p-4 text-zinc-400">
           No cards in this deck yet.
@@ -1592,6 +1786,25 @@ function DeckEntryDrawer({
   const [activeTab, setActiveTab] = useState<
     "overview" | "inventory" | "commit"
   >("overview");
+  const editVersion = JSON.stringify([
+    row?.id,
+    row?.quantity,
+    row?.section,
+    row?.notes,
+    row?.card?.id,
+    row?.committedQuantity,
+    row?.commitOptions,
+    row?.returnOptions,
+    activeTab,
+  ]);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const { canDiscard, afterReset } = useFormDiscardGuard(
+    drawerRef,
+    editVersion,
+  );
+  function closeDrawer() {
+    if (canDiscard()) onClose();
+  }
   if (!row) return null;
   const tabs = [
     { id: "overview", label: "Overview" },
@@ -1609,22 +1822,17 @@ function DeckEntryDrawer({
   ] as const;
 
   return (
-    <div className="fixed inset-0 z-40" role="dialog" aria-modal="true">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/60"
-        aria-label="Close deck entry details"
-        onClick={onClose}
-      />
-      <aside className="absolute inset-x-0 bottom-0 max-h-[92vh] overflow-y-auto rounded-t-2xl border border-zinc-800 bg-zinc-950 shadow-2xl md:inset-y-0 md:left-auto md:right-0 md:w-[min(92vw,760px)] md:rounded-l-2xl md:rounded-tr-none">
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-zinc-800 bg-zinc-950/95 p-4 backdrop-blur">
+    <DeckWorkspaceDialog
+      title={row.cardName}
+      onClose={closeDrawer}
+      closeOnBackdrop
+    >
+      <div ref={drawerRef} onResetCapture={afterReset}>
+        <div className="border-b border-zinc-800 pb-3">
           <div>
             <p className="text-xs uppercase tracking-wide text-zinc-500">
               Deck entry details
             </p>
-            <h2 className="text-xl font-semibold text-sky-100">
-              {row.cardName}
-            </h2>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-zinc-400">
               <span>
                 {row.quantity} in {deckSectionLabel(row.section)}
@@ -1637,15 +1845,8 @@ function DeckEntryDrawer({
               {row.card?.typeLine ?? row.matchType}
             </p>
           </div>
-          <button
-            type="button"
-            className="rounded border border-zinc-700 px-3 py-1 text-sm text-zinc-200"
-            onClick={onClose}
-          >
-            Close
-          </button>
         </div>
-        <div className="border-b border-zinc-800 px-4 pt-3">
+        <div className="border-b border-zinc-800 pt-3">
           <div
             className="flex gap-2"
             role="tablist"
@@ -1663,14 +1864,17 @@ function DeckEntryDrawer({
                     ? "bg-zinc-900 text-sky-100"
                     : "bg-zinc-950 hover:bg-zinc-900",
                 )}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  if (tab.id !== activeTab && canDiscard())
+                    setActiveTab(tab.id);
+                }}
               >
                 {tab.label}
               </button>
             ))}
           </div>
         </div>
-        <div className="space-y-3 p-4">
+        <div className="space-y-3 pt-4">
           <RowEditor
             deckId={deckId}
             row={row}
@@ -1684,8 +1888,8 @@ function DeckEntryDrawer({
             previewCheapest={previewCheapest}
           />
         </div>
-      </aside>
-    </div>
+      </div>
+    </DeckWorkspaceDialog>
   );
 }
 
@@ -1835,20 +2039,14 @@ function RowEditor({
                         </option>
                       </select>
                     </label>
-                    <label className={cn(filterFieldClass, "mt-2 block")}>
-                      Destination location for returned copies
-                      <select
+                    <div className="mt-2">
+                      <LocationSearchSelect
                         name="destinationLocationId"
-                        className={cn(filterSelectClass, "mt-1 w-full")}
-                      >
-                        <option value="">Choose a location…</option>
-                        {returnLocations.map((location) => (
-                          <option key={location.id} value={location.id}>
-                            {location.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                        label="Destination location for returned copies"
+                        locations={returnLocations}
+                        emptyLabel="Choose a destination…"
+                      />
+                    </div>
                   </div>
                 ) : null}
                 <SubmitButton
@@ -1883,21 +2081,15 @@ function RowEditor({
                   <input type="hidden" name="deckId" value={deckId} />
                   <input type="hidden" name="deckCardId" value={row.id} />
                   {row.committedQuantity > 0 ? (
-                    <label className={cn(filterFieldClass, "mb-2 block")}>
-                      Return committed copies to this location before removing
-                      <select
+                    <div className="mb-2">
+                      <LocationSearchSelect
                         name="destinationLocationId"
+                        label="Return committed copies to this location before removing"
+                        locations={returnLocations}
+                        emptyLabel="Choose a destination…"
                         required
-                        className={cn(filterSelectClass, "mt-1 w-full")}
-                      >
-                        <option value="">Choose a location…</option>
-                        {returnLocations.map((location) => (
-                          <option key={location.id} value={location.id}>
-                            {location.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                      />
+                    </div>
                   ) : null}
                   <SubmitButton
                     pendingLabel="Removing…"
@@ -2030,9 +2222,9 @@ function CommitInventoryToDeck({
               aria-live="polite"
             >
               Selected source: {deckCommitSourceLabel(selectedOption)} —{" "}
-              {selectedOption.cardName} — {selectedOption.setCode.toUpperCase()} #
-              {selectedOption.collectorNumber} —{" "}
-              {selectedOption.quantity} available
+              {selectedOption.cardName} — {selectedOption.setCode.toUpperCase()}{" "}
+              #{selectedOption.collectorNumber} — {selectedOption.quantity}{" "}
+              available
               {selectedOption.matchType === "other" ? " — other printing" : ""}
             </p>
           ) : null}
@@ -2204,21 +2396,13 @@ function ReturnCommittedCopies({
             ))}
           </select>
         </label>
-        <label className={filterFieldClass}>
-          Destination
-          <select
-            name="destinationLocationId"
-            required
-            className={cn(filterSelectClass, "mt-1 w-full")}
-          >
-            <option value="">Choose…</option>
-            {returnLocations.map((location) => (
-              <option key={location.id} value={location.id}>
-                {location.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <LocationSearchSelect
+          name="destinationLocationId"
+          label="Destination"
+          locations={returnLocations}
+          emptyLabel="Choose a destination…"
+          required
+        />
         <label className={filterFieldClass}>
           Quantity
           <input

@@ -9,6 +9,7 @@ import {
   type LeagueAnalyticsSubmissionInput,
 } from "@/lib/commander-league-analytics";
 import { prisma } from "@/lib/prisma";
+import { UsageList, WinRateTable } from "@/components/league/LeagueStatsLists";
 
 function percent(value: number) {
   return `${Math.round(value * 100)}%`;
@@ -26,97 +27,6 @@ function Meter({ value, max }: { value: number; max: number }) {
         style={{ width: `${max ? Math.max(3, (value / max) * 100) : 0}%` }}
       />
     </div>
-  );
-}
-
-function UsageList({
-  rows,
-  empty,
-}: {
-  rows: Array<{
-    key: string;
-    name: string;
-    appearances: number;
-    copies: number;
-  }>;
-  empty: string;
-}) {
-  const max = Math.max(0, ...rows.map((row) => row.appearances));
-  return (
-    <div className="mt-4 max-h-96 space-y-3 overflow-auto">
-      {rows.map((row) => (
-        <div key={row.key}>
-          <div className="mb-1 flex flex-wrap items-end justify-between gap-3 text-sm">
-            <span className="font-medium">{row.name}</span>
-            <span className="app-muted whitespace-nowrap">
-              {row.appearances} {row.appearances === 1 ? "deck" : "decks"} ·{" "}
-              {row.copies} {row.copies === 1 ? "copy" : "copies"}
-            </span>
-          </div>
-          <Meter value={row.appearances} max={max} />
-        </div>
-      ))}
-      {!rows.length ? <p className="app-muted text-sm">{empty}</p> : null}
-    </div>
-  );
-}
-
-function WinRateTable({
-  title,
-  description,
-  rows,
-}: {
-  title: string;
-  description: string;
-  rows: Array<{
-    key?: string;
-    name: string;
-    appearances: number;
-    wins: number;
-    winRate: number;
-  }>;
-}) {
-  return (
-    <section className="app-panel min-w-0 overflow-hidden">
-      <div className="border-b border-zinc-800 p-5">
-        <h2 className="text-xl font-semibold">{title}</h2>
-        <p className="app-muted text-sm">{description}</p>
-      </div>
-      <div className="max-h-[32rem] overflow-auto" tabIndex={0}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr>
-              <th className="p-3 text-left">Name</th>
-              <th className="p-3 text-right">Used</th>
-              <th className="p-3 text-right">Wins</th>
-              <th className="p-3 text-right">Win rate</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr
-                key={row.key ?? row.name}
-                className="border-t border-zinc-800"
-              >
-                <td className="p-3 font-medium">{row.name}</td>
-                <td className="p-3 text-right">{row.appearances}</td>
-                <td className="p-3 text-right">{row.wins}</td>
-                <td className="p-3 text-right font-semibold">
-                  {percent(row.winRate)}
-                </td>
-              </tr>
-            ))}
-            {!rows.length ? (
-              <tr>
-                <td colSpan={4} className="app-muted p-5 text-center">
-                  No match deck data is available yet.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
-    </section>
   );
 }
 
@@ -234,7 +144,9 @@ export default async function CommanderLeagueStatsPage({
         ];
       }),
   );
-  const stats = buildLeagueDeckAnalytics(submissions, selectedMember?.id);
+  const stats = buildLeagueDeckAnalytics(submissions, selectedMember?.id, {
+    completeRankings: true,
+  });
   const maxCurve = Math.max(
     0,
     ...stats.manaCurve.map((bucket) => bucket.cards),
@@ -251,7 +163,7 @@ export default async function CommanderLeagueStatsPage({
       <LeagueNav leagueId={league.id} active="stats" />
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+          <p className="break-words text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
             {league.name} · {league.year}
           </p>
           <h1 className="break-words text-3xl font-bold">League statistics</h1>
@@ -261,14 +173,14 @@ export default async function CommanderLeagueStatsPage({
             deck structure, but not card rankings or set usage.
           </p>
         </div>
-        <form className="app-card flex min-w-0 flex-wrap items-end gap-2 p-3">
+        <form className="app-card flex w-full min-w-0 flex-wrap items-end gap-2 p-3">
           <input type="hidden" name="view" value={view} />
-          <label className="text-sm">
+          <label className="min-w-0 max-w-full text-sm">
             <span className="app-muted mb-1 block">Breakdown</span>
             <select
               name="player"
               defaultValue={selectedMember?.id ?? ""}
-              className="rounded border border-zinc-700 bg-zinc-950 px-3 py-2"
+              className="max-w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2"
             >
               <option value="">Overall league</option>
               {league.members.map((member) => (
@@ -278,12 +190,12 @@ export default async function CommanderLeagueStatsPage({
               ))}
             </select>
           </label>
-          <label className="text-sm">
+          <label className="min-w-0 max-w-full text-sm">
             <span className="app-muted mb-1 block">Month</span>
             <select
               name="month"
               defaultValue={selectedMonth || ""}
-              className="rounded border border-zinc-700 bg-zinc-950 px-3 py-2"
+              className="max-w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2"
             >
               <option value="">Whole season</option>
               {Array.from({ length: 12 }, (_, i) => (
@@ -352,6 +264,7 @@ export default async function CommanderLeagueStatsPage({
             </p>
             <UsageList
               rows={stats.topCards}
+              label="Card usage"
               empty="Cards appear after the first recorded match."
             />
           </div>
@@ -362,6 +275,7 @@ export default async function CommanderLeagueStatsPage({
             </p>
             <UsageList
               rows={stats.commanders}
+              label="Commander usage"
               empty="Commanders appear after the first recorded match."
             />
           </div>
