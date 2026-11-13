@@ -7,6 +7,16 @@ It does not grant automatic merges, production changes or scanner operation.
 GitHub owns live issue/PR state; local scheduler state and observed executions
 establish whether a worker is actually configured and running.
 
+## Shared issue-intake ceiling
+
+All local and remote workers follow [AGENTS.md](../AGENTS.md)'s 15-open-issue ceiling. Check the live shared repository before **each** creation or reopening; all open issue types/statuses count, while pull requests do not. At 15 or more, stop issue creation and select eligible existing work through the loop below. Legitimate closures below 15 resume normal intake automatically.
+
+A bounded read can use `gh issue list --repo sefaction/MTG-Archives --state open --limit 15 --json number`: 0-14 returned issues permit normal intake, while 15 returned issues means the ceiling has been reached or exceeded. Do not use the repository's combined issue/PR badge or an eligibility filter as the count. Recheck after another worker creates an issue; do not batch from one snapshot.
+
+Coordinate intake between active workers and use one creation owner at a time when operations could compete for capacity. Record the owner/handoff with the current batch; an advisory comment, label, scheduling offset or host-local lock does not atomically reserve a slot across nodes. If the live count or coordination is uncertain, defer creation and report the finding instead of assuming a free slot. This is a worker operating rule, not a claim that GitHub itself enforces the ceiling.
+
+At the ceiling, preserve new concern/evidence in its owning checkpoint or report it to Brian. Add it to an existing issue only when it belongs to that scope. Do not close incomplete work or expand unrelated umbrella tickets merely to make room. Intake limits do not waive required checks, existing ownership, individual merge approval or the rule against production changes without authority.
+
 ## Shared queue and ownership
 
 Both nodes may take an agreed, unclaimed issue that fits their actual tools,

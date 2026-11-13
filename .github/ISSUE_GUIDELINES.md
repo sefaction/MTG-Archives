@@ -1,10 +1,10 @@
 # Issue workflow safeguards
 
-## No-new-issues freeze - 2026-10-24
+## Open-issue ceiling - 2026-11-12
 
-Brian's current instruction applies to every local and remote worker: **do not create new issues until Brian explicitly lifts this freeze.** This overrides all earlier bug, audit, qualification, replacement, nested/child, and other ticket-creation instructions in repository guidance, startup prompts, and historical checkpoints, including those preserved below.
+Brian lifted the blanket issue-creation freeze. Follow the canonical [open-issue policy](../AGENTS.md): normal authorized intake below 15 open GitHub issues; at 15 or more, create or reopen none and work down the existing queue. Intake resumes automatically below 15. Count every open issue, excluding pull requests, immediately before each creation/reopening and coordinate across workers.
 
-Finish existing issues within their agreed scope. Preserve tests, failure evidence, and acceptance criteria; do not weaken tests or close issues with unresolved acceptance. Report newly discovered concerns and blockers to Brian instead of creating replacement or nested issues. Existing ownership, coordination, review, and individual merge-approval requirements still apply.
+The ceiling includes child, replacement, audit and qualification tickets. Preserve duplicate checks, agreed scope, tests, failures, acceptance and ownership; report/defer out-of-scope findings when creation is paused. Earlier freeze/creation instructions are superseded; normal implementation, production and individual merge-approval rules still apply.
 
 [AGENTS.md](../AGENTS.md#github-issue-organization-and-upkeep) is the canonical policy. Public reporters choose **Report a problem**, **Suggest an idea** or **Something else**. GitHub supplies its normal title field; each form adds one required plain-language description and one optional details box. Reproduction, expected behavior, screenshots and environment can go in that optional box. No form assigns labels or asks for internal planning. The general form is the fallback; the maintenance/validation/improvement choices and internal policy link are removed from the public chooser.
 
