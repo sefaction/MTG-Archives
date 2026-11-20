@@ -43,6 +43,15 @@ test('inherited preparation cannot outlive its source geometry or selected direc
   assert.equal(preparedCardFromOutput({...output,proposals:{...proposals,orientation:{status:'SELECTED',rotationDegrees:0}}},digest),undefined);
   assert.equal(preparedCardFromOutput({...output,native:{...native,geometry:{...native.geometry,framing:'CLIPPED'}}},digest),undefined);
 });
+test('a located full title can establish direction while old-card printing identification remains unresolved',()=>{
+  const unresolved={...proposals,proposals:[{card:{id:'card',name:'Boiling Seas'},reasons:['UNLOCALIZED_NAME_HINT','PRINTING_UNCONFIRMED']}]};
+  const located={...native,orientations:[{rotationDegrees:180,text:{title:['Boiling Seas']}},{rotationDegrees:0,text:{title:[]}}]};
+  const preparation=prepareRecognitionCard(located,unresolved)!;assert(preparation);
+  assert.deepEqual(preparedCardFromOutput({photoId:'photo',native:located,proposals:unresolved,preparation},digest),preparation);
+  assert.equal(exactRecognitionCandidate({preparation,proposals:unresolved}),undefined);
+  assert.equal(prepareRecognitionCard({...located,orientations:[{rotationDegrees:0,text:{title:['Boiling Seas']}}]},unresolved),undefined);
+  assert.equal(prepareRecognitionCard({...located,orientations:[{rotationDegrees:180,text:{title:['Boiling']}}]},unresolved),undefined);
+});
 test('maximum original plus prepared geometry and candidate hints fits the visual transport envelope',()=>{
   const preparation=prepareRecognitionCard(native,proposals)!;
   const bytes=Buffer.alloc(10*1024*1024,255);

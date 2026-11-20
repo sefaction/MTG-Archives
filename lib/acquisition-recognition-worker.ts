@@ -157,7 +157,7 @@ export function acquisitionRecognitionVersion(_catalog: string, model: string) {
       JSON.stringify({
         pipeline: RECOGNITION_STAGE,
         model,
-        resolver: "shared-card-frame-catalog-v6",
+        resolver: "shared-card-frame-catalog-v7",
         photoTextPolicy: ACQUISITION_PHOTO_TEXT_POLICY_VERSION,
       }),
     )

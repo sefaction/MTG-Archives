@@ -41,7 +41,7 @@ import {
   combineAcquisitionCandidates,
   acquisitionVisualCandidates,
 } from "./acquisition-visual";
-import {preparedCardFromOutput,applyPreparedInputPolicy} from './acquisition-prepared-card';
+import {preparedCardFromOutput,prepareRecognitionCard,samePreparedCard,applyPreparedInputPolicy} from './acquisition-prepared-card';
 import {applyEarlySetSymbol} from './acquisition-field-readings';
 
 const sourceSchema = z.object({
@@ -411,9 +411,8 @@ export function createCatalogReconciliationHandler(
     };
     const proposals=resolve();
     const preparedSource=preparedCardFromOutput(source.output,photo.digest);
-    const preparation=proposals.orientation?.status==='SELECTED' &&
-      proposals.orientation.rotationDegrees===preparedSource?.rotationDegrees &&
-      !proposals.proposals[0]?.reasons.includes('UNLOCALIZED_NAME_HINT') ? preparedSource : undefined;
+    const preparation=preparedSource&&samePreparedCard(preparedSource,prepareRecognitionCard(observed.native,proposals))
+      ? preparedSource : undefined;
     // Separate conditional interpretations never replace saved machine text or
     // its proposals. Only a later, locked explicit default can authorize one.
     const languageOptions=acquisitionBatchLanguageCandidates(snapshot!.index,observed.native.orientations)

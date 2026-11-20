@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { acquisitionManualRegionSchema } from "./acquisition-manual-region";
+import {acquisitionNameKey,acquisitionExactNameKeyEligible} from './acquisition-name';
 
 export const PREPARED_CARD_POLICY = "shared-card-frame-v1";
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
@@ -23,12 +24,19 @@ export function samePreparedCard(left: unknown, right: unknown) {
 // an OCR score or a preferred catalogue label. Unsupported geometry stays absent.
 export function prepareRecognitionCard(native: {
   photoDigest: string; geometry: Record<string, unknown>;
-  scannerLayout?: {readingStatus?: string; inference: {status: string; region?: unknown; policy?: string}};
-}, proposals: {orientation?: {status: string; rotationDegrees: number | null}; proposals?:{reasons:string[]}[]}): PreparedCard | undefined {
+  orientations?:{rotationDegrees:number;text:{title:string[]}}[];
+  scannerLayout?: {readingStatus?: string; orientations?:{rotationDegrees:number;text:{title:string[]}}[];
+    inference: {status: string; region?: unknown; policy?: string}};
+}, proposals: {orientation?: {status: string; rotationDegrees: number | null}; proposals?:{reasons:string[];card?:{name?:string}}[]}): PreparedCard | undefined {
   const geometry = native.geometry;
+  const selected=proposals.orientation?.rotationDegrees;
+  const observations=native.scannerLayout?.readingStatus==='COMPLETE'?native.scannerLayout.orientations:native.orientations;
+  const nameKey=acquisitionNameKey(proposals.proposals?.[0]?.card?.name??'');
+  const locatedTitle=acquisitionExactNameKeyEligible(nameKey)&&observations?.some(o=>o.rotationDegrees===selected&&
+    o.text.title.some(title=>acquisitionNameKey(title)===nameKey));
   if (geometry.status !== "PROPOSED" || geometry.framing === "CLIPPED" ||
       proposals.orientation?.status !== "SELECTED" ||
-      proposals.proposals?.[0]?.reasons.includes('UNLOCALIZED_NAME_HINT')) return;
+      proposals.proposals?.[0]?.reasons.includes('UNLOCALIZED_NAME_HINT')&&!locatedTitle) return;
   const frame = geometry.sourceFrame as {width?: number; height?: number} | undefined;
   if (!frame?.width || !frame.height) return;
   const layout = native.scannerLayout?.readingStatus === "COMPLETE" &&
@@ -46,10 +54,12 @@ export function prepareRecognitionCard(native: {
 
 export function preparedCardFromOutput(output: unknown, photoDigest: string) {
   const record = z.object({photoId: z.string(), preparation: preparedCardSchema.optional(),
-    native:z.object({photoDigest:digest,geometry:z.record(z.unknown()),scannerLayout:z.object({
+    native:z.object({photoDigest:digest,geometry:z.record(z.unknown()),
+      orientations:z.array(z.object({rotationDegrees:z.number(),text:z.object({title:z.array(z.string())})})).optional(),
+      scannerLayout:z.object({orientations:z.array(z.object({rotationDegrees:z.number(),text:z.object({title:z.array(z.string())})})).optional(),
       readingStatus:z.string().optional(),inference:z.object({status:z.string(),region:z.unknown().optional(),policy:z.string().optional()})}).optional()}).optional(),
     proposals:z.object({orientation:z.object({status:z.string(),rotationDegrees:z.number().nullable()}).optional(),
-      proposals:z.array(z.object({reasons:z.array(z.string())})).optional()}).optional(),
+      proposals:z.array(z.object({reasons:z.array(z.string()),card:z.object({name:z.string().optional()}).optional()})).optional()}).optional(),
   }).safeParse(output);
   if (!record.success || record.data.preparation?.photoDigest !== photoDigest) return undefined;
   if(!record.data.native||!record.data.proposals)return undefined;
