@@ -81,7 +81,7 @@ export function exactRecognitionCandidate(output: unknown): string | undefined {
 // can route a provisional candidate, but cannot expand automatic acceptance in
 // a legacy text-only installation that has no printing worker enabled.
 export function applyPreparedInputPolicy<T extends {status:string;automaticAcceptance:boolean;
-  proposals:{reasons:string[]}[]}>(proposals:T,native:{geometry:{method?:unknown};
+  proposals:{reasons:string[]}[]}>(proposals:T,native:{geometry:Record<string,unknown>;
     orientations:{readingZones?:{footer:{top:number}}}[]}):T {
   if(native.geometry.method!=='internal-layout-v1' &&
     !native.orientations.some(o=>o.readingZones && o.readingZones.footer.top<1270))return proposals;

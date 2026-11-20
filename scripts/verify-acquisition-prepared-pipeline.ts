@@ -27,7 +27,8 @@ export async function verifyAcquisitionPreparedPipeline(db:PrismaClient,raw:Clai
     native:{...((source.output as Prisma.JsonObject).native as Prisma.JsonObject),photoDigest:photo.digest,
       geometry:{status:'PROPOSED',method:'full-frame',quad:[[0,0],[photo.width-1,0],[photo.width-1,photo.height-1],[0,photo.height-1]],
         sourceFrame:{width:photo.width,height:photo.height}}},
-    proposals:{status:'STRONG_MATCH',automaticAcceptance:false,totalProposals:1,orientation:{status:'SELECTED',rotationDegrees:0},
+    proposals:{version:4,status:'STRONG_MATCH',automaticAcceptance:false,totalProposals:1,
+      finish:'UNKNOWN',condition:'UNKNOWN',catalogCoverage:'AVAILABLE',truncated:false,orientation:{status:'SELECTED',rotationDegrees:0},
       evidence:{setCodes:[card.setCode],collectors:[card.collectorNumber],languages:[card.lang??'en']},
       proposals:[{card,reasons:['TITLE_EXACT','SET_AND_COLLECTOR_TEXT','STRONG_EXACT_PRINTING'],nameDistance:0}]}};
   const owned=new Set<string>();
