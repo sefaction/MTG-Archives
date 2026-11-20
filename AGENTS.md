@@ -1,5 +1,15 @@
 # MTG Archives Project Instructions
 
+## Normal Unraid update workflow - 2026-11-20
+
+Brian explicitly required: "I don't ever want to be in a situation where pulling the server down and then updating it doesn't work. make sure that doesn't happen again."
+
+- Preserve the ordinary stop -> pull/update -> start workflow. Normal installed web/OCR/visual/printing image references follow the supported `main` channel with `pull_policy: always`; do not leave release digests or `sha-*` tags as permanent active settings after qualification.
+- Keep exact digests/image IDs separately for recovery. An explicitly selected temporary rollback may pin them, but return the installation to its normal channel before ordinary-update handoff unless Brian requests otherwise.
+- Installed Compose Manager files and private `.env` values matter independently of repository templates. Verify both when repairing an update, preserve credentials/storage/model paths/roles/configured replicas, and validate the resolved configuration and actual running revisions.
+- Future deployment requirements need a normal upgrade path and any exceptional prerequisites disclosed before asking Brian to update. Source publication never proves deployment. See [normal Unraid updates](docs/UNRAID_UPDATES.md).
+- This requirement grants no automatic PR merge, production deployment or physical scanner authority. Existing task-specific permissions and individual merge approval still apply.
+
 ## Open-issue ceiling - 2026-11-12
 
 Brian lifted the October 24 blanket issue-creation freeze. Normal issue intake resumes for every local and remote MTG Archives worker, subject to this shared queue limit:

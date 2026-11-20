@@ -22,7 +22,8 @@ test('production inference uses only existing read-only assets and the isolated 
   assert.equal(flat.networks['acquisition-internal'].internal, true);
   for (const name of ['acquisition-visual-worker', 'acquisition-printing-worker']) {
     const worker = hybrid.services[name];
-    assert.match(worker.image, /\$\{ACQUISITION_VISUAL_IMAGE:\?/);
+    assert.equal(worker.image, '${ACQUISITION_VISUAL_IMAGE:-ghcr.io/sefaction/mtg-archives-visual:${IMAGE_TAG:-main}}');
+    assert.equal(worker.pull_policy, 'always');
     assert.deepEqual(worker.networks, ['acquisition-internal']);
     assert.equal(worker.ports, undefined);
     assert.equal(worker.build, undefined);

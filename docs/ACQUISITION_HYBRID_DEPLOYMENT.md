@@ -76,10 +76,13 @@ change with Brian only after these prerequisites are available:
 1. Record the actual installed Compose chain, current service/image identities,
    resource owner and active work. Prepare and verify an exact configuration and
    database/originals recovery point. Preserve saved human reviews and Inventory.
-2. Publish/build the reviewed revision and pin `ACQUISITION_VISUAL_IMAGE` to its
-   verified immutable digest. Keep web/catalog/native source revisions aligned.
-   Never substitute the OCR image or assume a mutable `main` tag identifies the
-   qualified image.
+2. Publish/build and verify the reviewed revision across web/OCR/visual images.
+   Brian's November20 update policy requires installed normal-operation image
+   references to follow `main`, so stop/pull/start advances without release-pin
+   edits. Verify the resolved image revisions after pulling; record exact old
+   image IDs/digests separately for rollback. Temporary rollback pins must return
+   to the normal channel before handoff. Never substitute the OCR image for the
+   visual/printing image. See [normal Unraid updates](UNRAID_UPDATES.md).
 3. Provision a **complete, hash-validated, portable** index generation, matching
    encoder weights/source and public reference store on the server. Copy the
    immutable manifest and every referenced generation file, not only index.json.
@@ -93,7 +96,7 @@ change with Brian only after these prerequisites are available:
    a PR. Resolve the real flat+hybrid chain with `docker compose config --quiet`.
 5. Check measured host memory/disk and current workers, allowing the additional
    4GiB of worker limits plus actual operating headroom. Serialize native checks.
-   Using the pinned image, validate both `visual.py --describe` and
+   Using the verified pulled image, validate both `visual.py --describe` and
    `printing_worker.py --describe` with the exact read-only asset mounts, no
    application credentials, `--network none` and `--user 65534:65534`. Replay the
    private Portal originals offline against those assets before any live worker

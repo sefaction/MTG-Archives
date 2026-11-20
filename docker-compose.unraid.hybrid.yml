@@ -14,7 +14,7 @@ services:
     environment:
       ACQUISITION_PRINTING_ENABLED: "1"
   acquisition-visual-worker:
-    image: ${ACQUISITION_VISUAL_IMAGE:?Set a verified visual image digest}
+    image: ${ACQUISITION_VISUAL_IMAGE:-ghcr.io/sefaction/mtg-archives-visual:${IMAGE_TAG:-main}}
     pull_policy: always
     restart: unless-stopped
     environment:
@@ -54,7 +54,7 @@ services:
     pids_limit: 128
     stop_grace_period: 130s
   acquisition-printing-worker:
-    image: ${ACQUISITION_VISUAL_IMAGE:?Set a verified visual image digest}
+    image: ${ACQUISITION_VISUAL_IMAGE:-ghcr.io/sefaction/mtg-archives-visual:${IMAGE_TAG:-main}}
     pull_policy: always
     entrypoint: [node, node_modules/tsx/dist/cli.mjs, scripts/acquisition-printing-worker.ts]
     restart: unless-stopped
