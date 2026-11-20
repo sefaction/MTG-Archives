@@ -5,6 +5,7 @@ import {preparedCardSchema, type PreparedCard} from './acquisition-prepared-card
 
 export const acquisitionImageInputKindSchema = z.enum(["PHOTO", "CARD_SCAN"]);
 export type AcquisitionImageInputKind = z.infer<typeof acquisitionImageInputKindSchema>;
+export const ACQUISITION_PREPARED_INPUT_MAX_BYTES = 10 * 1024 * 1024 + 2052;
 
 export function acquisitionNativePreparedInput(bytes: Buffer, inputKind: AcquisitionImageInputKind,
   preparation?: PreparedCard, manualRegion?: AcquisitionManualRegion, candidateScryfallIds?: string[]) {

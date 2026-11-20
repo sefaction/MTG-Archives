@@ -19,7 +19,7 @@ import numpy as np
 from PIL import Image, ImageOps
 from baseline import geometry
 from manual_card_region import manual_card_region, manual_card_source
-from photo_input import decode_photo_input
+from photo_input import decode_photo_input, MAX_PREPARED_ENVELOPE
 from catalog_index import load_published_index
 from catalog_references import MAX_IMAGE_BYTES, sha256
 
@@ -208,7 +208,7 @@ def main():
         print(json.dumps(desc))
         return
     if '--stream' not in sys.argv:
-        print(json.dumps(recognize(sys.stdin.buffer.read(MAX_BYTES + 1025), desc)))
+        print(json.dumps(recognize(sys.stdin.buffer.read(MAX_PREPARED_ENVELOPE + 1), desc)))
         return
     while True:
         header = sys.stdin.buffer.read(4)
@@ -217,7 +217,7 @@ def main():
         if len(header) != 4:
             raise ValueError('Incomplete photo frame')
         length = int.from_bytes(header, 'big')
-        if not 0 < length <= MAX_BYTES + 1024:
+        if not 0 < length <= MAX_PREPARED_ENVELOPE:
             raise ValueError('Photo frame exceeds bounds')
         data = sys.stdin.buffer.read(length)
         if len(data) != length:

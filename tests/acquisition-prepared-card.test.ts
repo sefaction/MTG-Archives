@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {exactRecognitionCandidate,prepareRecognitionCard,preparedCardSchema,samePreparedCard,applyPreparedInputPolicy} from '../lib/acquisition-prepared-card';
-import {acquisitionNativePreparedInput} from '../lib/acquisition-image-input';
+import {exactRecognitionCandidate,prepareRecognitionCard,preparedCardFromOutput,preparedCardSchema,samePreparedCard,applyPreparedInputPolicy} from '../lib/acquisition-prepared-card';
+import {acquisitionNativePreparedInput,ACQUISITION_PREPARED_INPUT_MAX_BYTES} from '../lib/acquisition-image-input';
+import {randomUUID} from 'node:crypto';
 import {visualReuseIdentity,checkedVisualNative} from '../lib/acquisition-visual-reuse';
 import {acquisitionReviewEvidence} from '../lib/acquisition-review-evidence';
 import {sourceFooterSchema} from '../lib/acquisition-source-footer';
@@ -24,6 +25,22 @@ test('unresolved direction, clipped frames, unlocated names and invalid/crossed 
     {...native.geometry,quad:[[-10,0],[650,0],[650,920],[0,920]]}])
     assert.equal(prepareRecognitionCard({...native,geometry},proposals),undefined);
   assert.equal(prepareRecognitionCard(native,{...proposals,proposals:[{reasons:['UNLOCALIZED_NAME_HINT']}]}),undefined);
+});
+test('inherited preparation cannot outlive its source geometry or selected direction',()=>{
+  const preparation=prepareRecognitionCard(native,proposals)!;
+  const output={photoId:'photo',native,proposals,preparation};
+  assert.deepEqual(preparedCardFromOutput(output,digest),preparation);
+  assert.equal(preparedCardFromOutput({...output,proposals:{...proposals,orientation:{status:'SELECTED',rotationDegrees:0}}},digest),undefined);
+  assert.equal(preparedCardFromOutput({...output,native:{...native,geometry:{...native.geometry,framing:'CLIPPED'}}},digest),undefined);
+});
+test('maximum original plus prepared geometry and candidate hints fits the visual transport envelope',()=>{
+  const preparation=prepareRecognitionCard(native,proposals)!;
+  const bytes=Buffer.alloc(10*1024*1024,255);
+  const envelope=acquisitionNativePreparedInput(bytes,'CARD_SCAN',preparation,preparation.region,Array.from({length:12},()=>randomUUID()));
+  assert.ok(envelope.length>bytes.length+1024,'fixture crosses the old transport limit');
+  assert.ok(envelope.length<=ACQUISITION_PREPARED_INPUT_MAX_BYTES);
+  const n=envelope.readUInt32BE(0);assert.equal(n,envelope.length-bytes.length-4);
+  assert.deepEqual(envelope.subarray(4+n),bytes);
 });
 test('internal-layout inference and explicit operator boundaries retain separate provenance',()=>{
   assert.equal(prepareRecognitionCard({...native,geometry:{...native.geometry,method:'internal-layout-v1'}},proposals)?.boundary,'INFERRED');

@@ -4,6 +4,7 @@ import math
 import struct
 
 MAX_PHOTO = 10 * 1024 * 1024
+MAX_PREPARED_ENVELOPE = MAX_PHOTO + 2052
 
 
 def validate_manual_region(region):
