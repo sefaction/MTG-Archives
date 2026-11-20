@@ -107,3 +107,17 @@ def printing_detail_evidence(warped, alignment, reference, visibility):
             continue
         rows.append({**row, 'status': 'MEASURED', 'reason': 'VISIBLE_REFERENCE_COMPARISON'})
     return {'version': VERSION, 'regions': rows}
+
+
+def final_candidate_comparison(alignment, details):
+    """Conservative review flags, not calibrated exact-printing probabilities."""
+    base={'version':'final-card-comparison-v1','automaticAcceptance':False}
+    if alignment.get('status') != 'ALIGNED' or alignment.get('sourceCardWidth',0) < 500:
+        return {**base,'status':'UNREADABLE','measuredRegions':0,'differentRegions':[]}
+    measured=[r for r in details['regions'] if r['status']=='MEASURED']
+    # Two disagreeing distributed details flag inspection. Artwork-only geometric
+    # alignment is deliberately insufficient for a consistent-printing flag.
+    different=[r['region'] for r in measured if r.get('correlation',1)<.35]
+    consistent=[r for r in measured if r.get('correlation',-1)>=.75 and r.get('colorResidual',0)<=25]
+    status='DIFFERENT' if len(different)>=2 else 'CONSISTENT' if len(consistent)>=3 else 'UNREADABLE'
+    return {**base,'status':status,'measuredRegions':len(measured),'differentRegions':different}

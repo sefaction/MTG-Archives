@@ -22,6 +22,9 @@ for(const {name,enqueue} of handoffs){
       $queryRaw:async()=>[{id:removed},{id:live}],
       acquisitionProcessingJob:{findUnique:read,findUniqueOrThrow:async(args:any)=>{
         const result=await read(args);if(!result)throw Error("Selected source disappeared");return result;},
+        findFirst:async({where}:any)=>{
+          assert.equal(where.candidateId,source.candidateId);assert.equal(where.candidateRevision,3);
+          return {...source,id:randomUUID(),status:'COMPLETE',output:{photoId}};},
         createMany:async({data}:any)=>{admitted.push(...data);return{count:data.length};}},
       acquisitionPhoto:{findUnique:async()=>({ready:true,purgedAt:null,digest:source.input.digest,
         runId:source.runId,generation:1,slot:{generation:1}})},

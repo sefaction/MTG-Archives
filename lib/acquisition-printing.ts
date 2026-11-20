@@ -7,6 +7,10 @@ import { printingDetailSchema, printingDetailSummarySchema, printingDetailSummar
   validPrintingReferenceImage } from "./acquisition-printing-details";
 
 export const PRINTING_STAGE = "photo-printing-evidence-v1";
+export const finalComparisonSchema = z.object({version:z.literal('final-card-comparison-v1'),
+  automaticAcceptance:z.literal(false),status:z.enum(['CONSISTENT','DIFFERENT','UNREADABLE']),
+  measuredRegions:z.number().int().min(0).max(5),
+  differentRegions:z.array(z.enum(['TYPE_LINE','SET_SYMBOL_AREA','FOOTER','LEFT_FRAME','RIGHT_FRAME'])).max(5)}).strict();
 // The native detector and the catalog interpretation have independent versions.
 export const PRINTING_POLICY_VERSION = "catalog-stamp-expectations-v1";
 
@@ -58,6 +62,7 @@ export const printingNativeSchema = z.object({
     localRelation: relation.optional(),
     details: printingDetailSchema.optional(),
     setSymbol:setSymbolSchema.optional(),
+    finalComparison:finalComparisonSchema.optional(),
     referenceImage: printingReferenceImageSchema.optional(),
     sharedObservationSources: z.array(z.string().min(38).max(100)).max(24).optional(),
   })).max(24),
@@ -80,6 +85,11 @@ export const printingNativeSchema = z.object({
     if(candidate.setSymbol && [candidate.setSymbol.query,candidate.setSymbol.reference].some(s=>s.status!=='UNREADABLE')&&
       (candidate.alignment.status!=='ALIGNED'||(candidate.alignment.sourceCardWidth??0)<500))
       ctx.addIssue({code:z.ZodIssueCode.custom,message:'Symbol observation requires supported alignment'});
+    if(candidate.finalComparison && candidate.finalComparison.status !== 'UNREADABLE' &&
+      (candidate.alignment.status !== 'ALIGNED' || (candidate.alignment.sourceCardWidth ?? 0)<500 ||
+       (candidate.finalComparison.status==='CONSISTENT' && candidate.finalComparison.measuredRegions<3) ||
+       (candidate.finalComparison.status==='DIFFERENT' && new Set(candidate.finalComparison.differentRegions).size<2)))
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:'Final comparison requires distributed observed details'});
     if (value.conflictingObservations && candidate.relation !== "UNRESOLVED")
       ctx.addIssue({code: z.ZodIssueCode.custom, message: "Conflicting observations cannot resolve a printing"});
     if (candidate.referenceStampState === "UNKNOWN" && candidate.relation !== "UNRESOLVED")
@@ -174,6 +184,10 @@ export function applyAcquisitionPrintingEvidence(
   const updated = proposals.proposals.map((proposal) => {
     const evidence = byCard.get(proposal.card.id) ?? [];
     const reasons = proposal.reasons.filter(r => r !== "STRONG_EXACT_PRINTING");
+    const comparisons=evidence.map(e=>e.candidate.finalComparison?.status);
+    if(comparisons.some(status=>status==='CONSISTENT'))reasons.push('FINAL_IMAGE_CONSISTENT');
+    else if(comparisons.some(status=>status==='DIFFERENT'))reasons.push('FINAL_IMAGE_DIFFERENT');
+    else if(comparisons.some(status=>status==='UNREADABLE'))reasons.push('FINAL_IMAGE_UNCLEAR');
     const states = new Set(evidence.map(e => e.relation));
     if (printing.conflictingObservations ||
         (states.has("AGREES_WITH_STAMP_STATE") && states.has("CONTRADICTS_STAMP_STATE")))
@@ -224,6 +238,7 @@ export const printingSummarySchema = z.object({
     reason: z.string().max(80),
     referenceBoundary: acquisitionManualRegionSchema.optional(),
     setSymbol:setSymbolSchema.optional(),
+    finalComparison:finalComparisonSchema.optional(),
     details: printingDetailSummarySchema.optional(),
     referenceFace: z.union([z.literal(0),z.literal(1)]).optional(),
     referenceImage: printingReferenceImageSchema.optional(),
@@ -275,10 +290,19 @@ export function acquisitionPrintingSummary(
       referenceRelation: c.relation,
       reason: c.stamp.reason,
       ...(c.setSymbol?{setSymbol:c.setSymbol}:{}),
+      ...(c.finalComparison?{finalComparison:c.finalComparison}:{}),
       ...(referenceBoundary(c, printing) ? {referenceBoundary: referenceBoundary(c, printing)} : {}),
       ...(c.details ? {details:printingDetailSummary(c.details),
         ...(c.referenceImage ? {referenceImage:c.referenceImage} : {}),
         ...(/:[01]$/.test(c.referenceId) ? {referenceFace:Number(c.referenceId.slice(-1)) as 0|1} : {})} : {}),
     })),
   };
+}
+
+export function finalImageComparisonMessage(printing: z.infer<typeof printingSummarySchema> | null | undefined, cardId?:string) {
+  const checks=printing?.candidates.filter(c=>c.cardId===cardId).flatMap(c=>c.finalComparison?[c.finalComparison.status]:[]) ?? [];
+  if(checks.includes('CONSISTENT'))return 'Compared image details agree; verify the printing';
+  if(checks.includes('DIFFERENT'))return 'Image details differ; inspect the proposed printing';
+  if(checks.length)return 'Final image comparison is unclear';
+  return 'Final image comparison pending';
 }

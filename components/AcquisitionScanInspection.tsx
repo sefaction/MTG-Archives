@@ -9,6 +9,7 @@ import {
 import type { AcquisitionPrinting } from "@/lib/acquisition-review";
 import { filterButtonClass as button } from "./filterStyles";
 import {consistentSetSymbol,setSymbolMessage} from '@/lib/acquisition-set-symbol';
+import {finalImageComparisonMessage} from '@/lib/acquisition-printing';
 
 export function AcquisitionScanImage({
   src,
@@ -35,7 +36,7 @@ export function AcquisitionScanImage({
   const [view, setView] = useState<"original" | "crop" | "zones" | null>(null);
   // A whole-photo hint may come from outside a bad detected crop. Default to
   // the actual source while keeping explicit crop/zone inspection available.
-  const defaultView = evidence?.photoText ? "original" : "crop";
+  const defaultView = evidence?.preparation ? "crop" : evidence?.photoText ? "original" : "crop";
   const displayView = compact ? defaultView : view ?? defaultView;
   const [reverse, setReverse] = useState(false);
   const [error, setError] = useState("");
@@ -44,7 +45,7 @@ export function AcquisitionScanImage({
       ? evidence.geometry.quad
       : undefined;
   const rotation = evidence?.rotation ?? (reverse ? 180 : 0);
-  const inferredScan=evidence?.geometry.method==="reference-anchor-region-v1";
+  const inferredScan=evidence?.preparation?.boundary==='INFERRED' || evidence?.geometry.method==="reference-anchor-region-v1" || evidence?.geometry.method==='internal-layout-v1';
   const declaredScan = evidence?.geometry.method === "declared-card-scan";
   const trimmedScan = evidence?.geometry.method === "scanner-background-trim";
   const alignedScan = evidence?.geometry.method === "scanner-card-edges" ||
@@ -54,7 +55,7 @@ export function AcquisitionScanImage({
   const observation = evidence?.observations.find(
     (o) => o.rotationDegrees === rotation,
   );
-  const readingZones = evidence?.readingZones;
+  const readingZones = observation?.readingZones ?? evidence?.readingZones;
   // Review refreshes return new objects even when the drawing is unchanged.
   // Compare the bounded render inputs by value so they do not reload the original.
   const renderEvidence = JSON.stringify({
@@ -374,7 +375,7 @@ export function AcquisitionEvidenceFields({
   const consistentSymbol=consistentSetSymbol(selectedSymbols);
   const symbol=!consistentSymbol&&selectedSymbols.some(s=>s?.query.status==='SIMILAR')
     ?{observed:'Conflicting observations',comparison:'Reference alignments disagree; inspect the original scan'}
-    :setSymbolMessage(consistentSymbol);
+    :setSymbolMessage(consistentSymbol ?? observation?.fields?.setSymbol);
   const expectationLabel = selectedStamp?.expectationSource === "CATALOG_LIST_REPRINT"
     ? "List reprint catalog identity"
     : selectedStamp?.expectationSource === "CATALOG_SOURCE_PRINTING"
@@ -454,6 +455,11 @@ export function AcquisitionEvidenceFields({
     ["Reference image stamp", "Annotation of the public comparison image; separate from the printing expectation",
       selectedStamp?.referenceStampState ?? "Not checked"],
     ["Set symbol",symbol.observed,symbol.comparison],
+    ['Type line',observation?.fields?.typeLine.map(r=>r.text).join(' · ') || 'Not read','Supporting text'],
+    ['Artist',observation?.fields?.artistText?.map(r=>r.text).join(' · ') || 'Not read','Supporting text'],
+    ['Mana cost',observation?.fields?.mana.symbols.map(s=>s.symbol ?? '?').join(' ') ||
+      observation?.fields?.manaText.map(r=>r.text).join(' · ') || 'Not read','Supporting observation; unclear symbols remain unknown'],
+    ['Final image comparison',finalImageComparisonMessage(printing,selected?.id),'Human confirmation required'],
     [
       "Card image",
       evidence?.imageMatches

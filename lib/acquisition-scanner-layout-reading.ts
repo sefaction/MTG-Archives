@@ -69,7 +69,8 @@ export function assertScannerLayoutFooterSource(source:z.infer<typeof sourceFoot
   if(JSON.stringify(points)!==JSON.stringify([[0,0],[width-1,0],[width-1,height-1],[0,height-1]])||
     source.sourceFrame.width!==width||source.sourceFrame.height!==height)throw Error('Inferred footer source frame differs');
   const quad=region.quad.map(([x,y])=>[x*(width-1),y*(height-1)]);
-  const corners=[[24,1270],[630,1270],[630,1396],[24,1396]];
+  const [x0,y0,x1,y1]=source.bounds;
+  const corners=[[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
   const tolerance=Math.max(.01,Math.hypot(width,height)*1e-6);
   const distance=(a:number[],b:number[])=>Math.hypot(a[0]-b[0],a[1]-b[1]);
   const physicalWidth=Math.min(distance(source.sourceQuad[0],source.sourceQuad[1]),distance(source.sourceQuad[2],source.sourceQuad[3]));

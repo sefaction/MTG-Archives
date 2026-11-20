@@ -66,6 +66,7 @@ def descriptor():
                'runtimeSha256': sha256(Path(__file__)),
                'registrationSha256': sha256(Path(__file__).with_name('printing.py')),
                'inputSha256': sha256(Path(__file__).with_name('photo_input.py')),
+               'preparedSha256': sha256(Path(__file__).with_name('prepared_card.py')),
                'manualRegionSha256': sha256(Path('/eval/manual_card_region.py')),
                'geometrySha256': sha256(Path('/eval/baseline.py')),
                'policySha256': sha256(Path('/eval/printing_evidence.py')),
@@ -90,9 +91,11 @@ def request(envelope, desc):
     if not 0 < length <= 60000 or len(envelope) <= 4 + length:
         raise ValueError('Printing metadata size invalid')
     metadata = json.loads(envelope[4:4 + length])
-    if not isinstance(metadata, dict) or set(metadata) not in ({'scryfallIds'}, {'scryfallIds', 'manualRegion'}):
+    if (not isinstance(metadata, dict) or 'scryfallIds' not in metadata or
+            not set(metadata).issubset({'scryfallIds','manualRegion','preparedFrame'})):
         raise ValueError('Printing metadata invalid')
     manual_region = validate_manual_region(metadata['manualRegion']) if 'manualRegion' in metadata else None
+    prepared = metadata.get('preparedFrame')
     ids = metadata.get('scryfallIds')
     if (not isinstance(ids, list) or not 0 <= len(ids) <= 12 or
             len(set(ids)) != len(ids) or
@@ -134,14 +137,21 @@ def request(envelope, desc):
         if source.width * source.height > 25_000_000:
             raise ValueError('Printing decoded photo exceeds bound')
         photo = cv2.cvtColor(np.asarray(ImageOps.exif_transpose(source).convert('RGB')), cv2.COLOR_RGB2BGR)
-    if manual_region is not None:
-        query, (x0, y0) = manual_card_source(photo, manual_region)
+    if manual_region is not None or prepared is not None:
+        if prepared is not None:
+            from prepared_card import prepared_source
+            query, (x0, y0) = prepared_source(photo, prepared, data)
+        else:
+            query, (x0, y0) = manual_card_source(photo, manual_region)
         result = _runtime.observe(query, candidates)
         for candidate in result['candidates']:
             alignment = candidate['alignment']
             if 'quad' in alignment:
                 alignment['quad'] = [[x + x0, y + y0] for x, y in alignment['quad']]
-        result['manualRegion'] = manual_region
+        if manual_region is not None:
+            result['manualRegion'] = manual_region
+        if prepared is not None:
+            result['preparedFrame'] = prepared
     else:
         result = _runtime.observe(photo, candidates)
     return {**result, 'sourceSize': [int(photo.shape[1]), int(photo.shape[0])],

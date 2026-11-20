@@ -1,10 +1,18 @@
 # Recognition pipeline design
 
-Status: proposed workflow agreed with Brian on November 20, 2026; awaiting additional foundational framework provisions before implementation. Related to [recognition tracker #307](https://github.com/sefaction/MTG-Archives/issues/307).
+Status: ordinary-card implementation authorized by Brian on November 20, 2026 and in progress in PR #1055; verification and individual merge approval remain pending. Related to [recognition tracker #307](https://github.com/sefaction/MTG-Archives/issues/307).
+
+## November 20 implementation and profile decisions
+
+Brian subsequently requested: "set up the new card recognition, and then open up an issue for setting up the token and art card scan." This authorizes the ordinary-card pipeline implementation and supersedes the earlier planning-only hold for that scope. [Issue #1056](https://github.com/sefaction/MTG-Archives/issues/1056) owns separate two-sided Token and Art card scan profiles; those are not part of this implementation. Merge, production rollout and physical scanner actions retain their separate approval requirements.
+
+Token profiles must preserve two linked identified faces of one physical copy. Normalize A/B and B/A using stable face identities, display names alphabetically, distinguish different printings/artwork and face combinations, and allow search by either face without double counting. Art profiles use both sides to identify one art-card printing and stamp variant; the artwork is the primary view and reverse original-image retention follows ordinary recovery/retention rules rather than requiring a permanent reverse attachment. Pairing uncertainty, dropped/retried sides and reverse-image retention are tracked in #1056.
+
+The original agreed workflow and tool choices below remain the design baseline. Implementation adds a bounded full-index fallback when provisional identifier verification fails; this is not automatic confirmation. Adaptive reading/inferred geometry also withhold new automatic-acceptance authority in legacy text-only configurations. Actual accuracy, performance and source/runtime qualification must be recorded before readiness claims.
 
 Recognition should establish one upright, complete card crop, use readable identifiers for an efficient first determination, and invoke full image search when identification remains unresolved. Every route must reach printing verification and a final candidate comparison before human confirmation. The scan shown during review must use the same framing as recognition.
 
-Brian approved recording this plan after reviewing the ordered process and tools. He also requested provisions for additional foundational frameworks, which he has not yet described. This document preserves the agreed direction without treating those provisions, implementation details or recognition thresholds as settled. This task authorizes documentation, not implementation or a new production change.
+Brian approved recording this plan after reviewing the ordered process and tools. He also requested provisions for additional foundational frameworks, which he has not yet described. This document preserves the agreed direction without treating those provisions, implementation details or recognition thresholds as settled. The initial request authorized documentation only; the dated amendment above records the later ordinary-card implementation authority.
 
 ## Current baseline and proposed changes
 
@@ -113,11 +121,11 @@ The exact boundary detector, region expansion rules and confidence thresholds re
 
 ## Additional foundational frameworks awaiting discussion
 
-Brian wants additional foundational frameworks considered before implementation. Their identities and requirements are pending; none is assumed or selected by this plan.
+The initial plan left foundational framework provisions pending. Brian subsequently selected separate Token and Art card profiles, now scoped to #1056 above, and authorized ordinary-card implementation. Further frameworks are not assumed or invented.
 
 For each framework, record its purpose, entry point in this sequence, evidence it consumes/produces, and any special provisions for routing, shared geometry, retries/versioning, resources, storage/privacy, review and acceptance. Revise the order and stage boundaries where those provisions require it. This is a discussion checklist, not a commitment to introduce a plugin framework, new service or training system.
 
-Next action: discuss those frameworks with Brian and amend this document before beginning implementation. Keep the original decisions and any superseding amendments visible.
+The token/art profile decisions above resolve the current split: implement ordinary-card recognition now and retain the specialized capture/identity/retention work in #1056. Additional frameworks can be discussed as separate amendments; do not invent them. Keep original decisions and superseding amendments visible.
 
 ## Implementation sequence and acceptance
 

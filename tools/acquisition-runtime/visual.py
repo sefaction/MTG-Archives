@@ -56,6 +56,7 @@ def descriptor():
         'geometrySha256': sha256(Path('/eval/baseline.py')),
         'manualRegionSha256': sha256(Path('/eval/manual_card_region.py')),
         'inputSha256': sha256(Path(__file__).with_name('photo_input.py')),
+        'preparedSha256': sha256(Path(__file__).with_name('prepared_card.py')),
         'loaderSha256': sha256(Path('/eval/catalog_index.py')),
         'geometricSha256': sha256(Path('/eval/visual_compare.py')),
         'geometricFaces': 40,
@@ -90,7 +91,7 @@ def runtime(desc):
 
 
 def recognize(data, desc):
-    data, input_kind, manual_region = decode_photo_input(data, return_region=True)
+    data, input_kind, manual_region, prepared, requested = decode_photo_input(data, return_region=True, return_prepared=True)
     if not 0 < len(data) <= MAX_BYTES:
         raise ValueError('Invalid photo size')
     started = time.monotonic()
@@ -100,15 +101,29 @@ def recognize(data, desc):
         if getattr(source, 'n_frames', 1) != 1:
             raise ValueError('Single image required')
         original = cv2.cvtColor(np.asarray(ImageOps.exif_transpose(source).convert('RGB')), cv2.COLOR_RGB2BGR)
-    crop, evidence = (manual_card_region(original, manual_region) if manual_region is not None
-                      else geometry(original, input_kind))
+    if prepared is not None:
+        from prepared_card import prepared_crop
+        crop, evidence = prepared_crop(original, prepared, data, manual_region)
+    else:
+        crop, evidence = (manual_card_region(original, manual_region) if manual_region is not None
+                          else geometry(original, input_kind))
     base = crop if crop is not None else original
     encoder, records, matrix = runtime(desc)
     images = [Image.fromarray(cv2.cvtColor(np.ascontiguousarray(
-        np.rot90(base, k)), cv2.COLOR_BGR2RGB)) for k in range(4)]
-    similarities = matrix @ encoder.embed(images).T
-    rotations = np.argmax(similarities, axis=1)
-    distances = 1 - np.max(similarities, axis=1)
+        np.rot90(base, k)), cv2.COLOR_BGR2RGB)) for k in ([0] if prepared else range(4))]
+    embedded = encoder.embed(images)
+    distances = np.full(len(records), np.inf)
+    rotations = np.zeros(len(records), dtype=int)
+    def rank(indices):
+        values = matrix if len(indices) == len(records) else matrix[indices]
+        similarities = values @ embedded.T
+        rotations[indices] = np.argmax(similarities, axis=1)
+        distances[indices] = 1 - np.max(similarities, axis=1)
+        return np.asarray(indices)[np.argsort(distances[indices], kind='stable')]
+    selected = [i for i,row in enumerate(records) if requested and row['cardId'] in requested]
+    narrow = bool(requested) and set(requested) == {records[i]['cardId'] for i in selected}
+    strategy = 'EXACT_CANDIDATES' if narrow else 'FULL_INDEX'
+    ordered = rank(selected if narrow else np.arange(len(records)))
     def candidate(i):
         row = records[i]
         return {
@@ -117,43 +132,54 @@ def recognize(data, desc):
             'collectorNumber': row['collectorNumber'],
             'distance': float(distances[i]), 'rotationDegrees': int(rotations[i]) * 90,
         }
+    if prepared:
+        from prepared_card import prepared_source
+        query_source = prepared_source(original, prepared, data)[0]
+    else:
+        query_source = manual_card_source(original, manual_region)[0] if manual_region is not None else original
+    from visual_compare import features, match
+    query = features(query_source, 2000)
+    def geometric(order):
+        scored = []
+        for value in order[:40]:
+            i = int(value)
+            row = records[i]
+            if i not in _reference_features:
+                path = (REFERENCES / row['file']).resolve()
+                if not path.is_relative_to(REFERENCES.resolve()):
+                    raise ValueError('Public reference path/digest mismatch')
+                with path.open('rb') as stream:
+                    reference_bytes = stream.read(MAX_IMAGE_BYTES + 1)
+                if len(reference_bytes) > MAX_IMAGE_BYTES or hashlib.sha256(reference_bytes).hexdigest() != row['sha256']:
+                    raise ValueError('Public reference path/digest mismatch')
+                # Decode exactly the verified bounded snapshot, including on
+                # candidate-only checks and their full-search fallback.
+                with io.BytesIO(reference_bytes) as encoded:
+                    del reference_bytes
+                    with Image.open(encoded) as source:
+                        reference = cv2.cvtColor(np.asarray(ImageOps.exif_transpose(source).convert('RGB')), cv2.COLOR_RGB2BGR)
+                _reference_features[i] = features(reference, 1000)
+                if len(_reference_features) > 128:
+                    _reference_features.popitem(last=False)
+            _reference_features.move_to_end(i)
+            scored.append((match(query, _reference_features[i]), i))
+        return scored
+    scored = geometric(ordered)
+    # Routing support is not printing confirmation. Weak candidate geometry
+    # falls back to the full index; final distributed registration still follows.
+    if narrow and max((score for score,_ in scored), default=0) < 16:
+        ordered = rank(np.arange(len(records)))
+        scored = geometric(ordered)
+        strategy = 'FALLBACK_FULL_INDEX'
     seen, candidates = set(), []
-    ordered = np.argsort(distances, kind='stable')
     for value in ordered:
         i = int(value)
-        row = records[i]
-        if row['cardId'] in seen:
+        if records[i]['cardId'] in seen:
             continue
-        seen.add(row['cardId'])
+        seen.add(records[i]['cardId'])
         candidates.append(candidate(i))
         if len(candidates) == 12:
             break
-    query_source = manual_card_source(original, manual_region)[0] if manual_region is not None else original
-    from visual_compare import features, match
-    query = features(query_source, 2000)
-    scored = []
-    for value in ordered[:40]:
-        i = int(value)
-        row = records[i]
-        if i not in _reference_features:
-            path = (REFERENCES / row['file']).resolve()
-            if not path.is_relative_to(REFERENCES.resolve()):
-                raise ValueError('Public reference path/digest mismatch')
-            with path.open('rb') as stream:
-                reference_bytes = stream.read(MAX_IMAGE_BYTES + 1)
-            if len(reference_bytes) > MAX_IMAGE_BYTES or hashlib.sha256(reference_bytes).hexdigest() != row['sha256']:
-                raise ValueError('Public reference path/digest mismatch')
-            # Decode the verified snapshot even if the public path changes now.
-            # Release encoded storage before feature extraction/cache retention.
-            with io.BytesIO(reference_bytes) as encoded:
-                del reference_bytes
-                with Image.open(encoded) as source:
-                    reference = cv2.cvtColor(np.asarray(ImageOps.exif_transpose(source).convert('RGB')), cv2.COLOR_RGB2BGR)
-            _reference_features[i] = features(reference, 1000)
-            if len(_reference_features) > 128:
-                _reference_features.popitem(last=False)
-        _reference_features.move_to_end(i)
-        scored.append((match(query, _reference_features[i]), i))
     seen, geometric = set(), []
     for inliers, i in sorted(scored, key=lambda pair: (-pair[0], distances[pair[1]], records[pair[1]]['referenceId'])):
         if records[i]['cardId'] in seen:
@@ -168,6 +194,7 @@ def recognize(data, desc):
         'referenceCount': desc['referenceCount'],
         'unavailableCount': desc['unavailableCount'],
         'geometry': evidence, 'inputRegion': 'CARD' if crop is not None else 'WHOLE_PHOTO',
+        'retrieval': {'strategy': strategy, 'requestedScryfallIds': requested or []},
         'candidates': candidates,
         'geometricCandidates': geometric,
         'milliseconds': round((time.monotonic() - started) * 1000),

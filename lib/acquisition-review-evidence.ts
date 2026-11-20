@@ -5,6 +5,8 @@ import {acquisitionObservedLanguageEvidence} from "./acquisition-batch-language"
 import { printingSummarySchema } from "./acquisition-printing";
 import { acquisitionPhotoTextSchema } from "./acquisition-photo-text";
 import {sourceFooterSchema} from './acquisition-source-footer';
+import {preparedCardSchema} from './acquisition-prepared-card';
+import {fieldReadingsSchema} from './acquisition-field-readings';
 import {
   acquisitionReadingZonesSchema,
   legacyAcquisitionReadingZones,
@@ -18,6 +20,8 @@ const point = z.tuple([z.number().finite(), z.number().finite()]);
 const words = z.array(z.string().max(2000)).max(100);
 const observation = z.object({
   rotationDegrees: z.union([z.literal(0), z.literal(180)]),
+  readingZones:acquisitionReadingZonesSchema.optional(),
+  fields:fieldReadingsSchema.optional(),
   text: z.object({ title: words, footer: words, footerSupplemental: words.optional(),footerSourceIdentifiers:words.optional() }),
   lines: z
     .array(
@@ -35,6 +39,7 @@ const observation = z.object({
 });
 const primaryReading=observation.pick({rotationDegrees:true,text:true});
 const schema = z.object({
+  preparation:preparedCardSchema.optional(),
   primaryScannerLayout:z.object({inference:scannerLayoutInferenceSchema,orientations:z.array(observation).max(2),
     readingStatus:z.enum(['COMPLETE','TIME_BUDGET','WORKER_ERROR']).optional(),
     anchorSearch:z.object({status:z.literal('COMPLETE'),boundaryVerified:z.literal(false),region:acquisitionManualRegionSchema,
@@ -52,7 +57,7 @@ const schema = z.object({
     geometry: z.object({
       status: z.string().max(60),
       quad: z.array(point).length(4).optional(),
-      method: z.enum(["contours", "full-frame", "declared-card-scan", "scanner-background-trim", "scanner-card-edges", "scanner-white-card-edges", "manual-card-region-v1", "reference-anchor-region-v1"]).optional(),
+      method: z.enum(["contours", "full-frame", "declared-card-scan", "scanner-background-trim", "scanner-card-edges", "scanner-white-card-edges", "manual-card-region-v1", "reference-anchor-region-v1", "internal-layout-v1"]).optional(),
       framing: z.enum(["ALIGNED", "CLIPPED"]).optional(),
       boundaryVerified:z.literal(false).optional(),
     }),
@@ -77,7 +82,7 @@ const schema = z.object({
         ctx.addIssue({code:z.ZodIssueCode.custom,message:'Inferred identifiers lack their source observation'});
       if(o.identifierSource&&o.identifierSource.rotationDegrees!==o.rotationDegrees)
         ctx.addIssue({code:z.ZodIssueCode.custom,message:'Inferred identifier direction differs'});
-      if(o.identifierLines?.some(line=>line.polygon.some(([x,y])=>x<24||x>630||y<1270||y>1396)))
+      if(o.identifierLines?.some(line=>line.polygon.some(([x,y])=>x<24||x>630||y<(o.identifierSource?.bounds[1]??1270)||y>1396)))
         ctx.addIssue({code:z.ZodIssueCode.custom,message:'Inferred identifier lines exceed their source window'});
     }
   }
@@ -98,18 +103,22 @@ export function acquisitionReviewEvidence(output: unknown) {
   const parsed = schema.safeParse(output);
   if (!parsed.success) return null;
   const { native, proposals, visual, printing } = parsed.data;
+  const preparation=parsed.data.preparation;
   const layout=native.scannerLayout??parsed.data.primaryScannerLayout;
   return {
     scannerLayout: layout?.inference.status==='PROPOSED'
       ? {region:layout.inference.region,boundaryVerified:false as const,
         observations:layout.orientations,readingStatus:layout.readingStatus??null} : null,
     anchorSearch:layout?.anchorSearch ? {region:layout.anchorSearch.region,observations:layout.anchorSearch.orientations,boundaryVerified:false as const} : null,
-    geometry: native.geometry,
+    preparation:preparation ? {region:preparation.region,sourceWidth:preparation.sourceWidth,
+      sourceHeight:preparation.sourceHeight,rotationDegrees:preparation.rotationDegrees,boundary:preparation.boundary} : null,
+    geometry: preparation ? {...native.geometry, quad:preparation.region.quad.map(([x,y])=>
+      [x*(preparation.sourceWidth-1),y*(preparation.sourceHeight-1)])} : native.geometry,
     primaryObservations:parsed.data.primaryReadings??null,
     observations: native.orientations,
     photoText: native.photoText ?? null,
     readingZones: native.readingZones ?? legacyAcquisitionReadingZones,
-    rotation: proposals.orientation?.rotationDegrees ?? null,
+    rotation: preparation?.rotationDegrees ?? proposals.orientation?.rotationDegrees ?? null,
     identifiers: {...proposals.evidence,
       languages:acquisitionObservedLanguageEvidence({native})??proposals.evidence.languages},
     // A reference's public crop can lie inside an already clipped physical

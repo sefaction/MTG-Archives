@@ -16,9 +16,11 @@ def unavailable_source(degrees, reason):
             'status':'UNAVAILABLE','reason':reason}
 
 
-def source_footer_view(image, geometry, degrees):
+def source_footer_view(image, geometry, degrees, footer_top=1270):
     if degrees not in (0,180):raise ValueError('Unsupported identifier direction')
-    base={'version':VERSION,'bounds':list(BOUNDS),'rotationDegrees':degrees}
+    if type(footer_top) is not int or not 1160<=footer_top<=1270:raise ValueError('Invalid observed footer boundary')
+    bounds=(24,footer_top,630,1396)
+    base={'version':VERSION if footer_top==1270 else 'source-footer-adaptive-v2','bounds':list(bounds),'rotationDegrees':degrees}
     def unavailable(reason):return None,{**base,'status':'UNAVAILABLE','reason':reason}
     if geometry.get('framing')=='CLIPPED':return unavailable('PHYSICAL_CLIPPING')
     if geometry.get('status')!='PROPOSED':return unavailable('GEOMETRY_UNAVAILABLE')
@@ -31,7 +33,7 @@ def source_footer_view(image, geometry, degrees):
     if min(widths)<500:return unavailable('SOURCE_TOO_SMALL')
     canonical=np.float32([[0,0],[999,0],[999,1396],[0,1396]])
     mapping=cv2.getPerspectiveTransform(canonical,quad)
-    x0,y0,x1,y1=BOUNDS
+    x0,y0,x1,y1=bounds
     corners=np.float32([[x0,y0],[x1,y0],[x1,y1],[x0,y1]])
     if degrees==180:corners=np.float32([999,1396])-corners
     source=cv2.perspectiveTransform(corners[None],mapping)[0]
@@ -62,12 +64,16 @@ def restore_identifier_polygon(polygon, metadata):
     if metadata.get('status')!='EXTRACTED' or points.shape!=(4,2) or not np.isfinite(points).all():return None
     w,h=metadata['width'],metadata['height']
     if np.any(points<0) or np.any(points[:,0]>w-1) or np.any(points[:,1]>h-1):return None
-    x0,y0,x1,y1=BOUNDS
+    x0,y0,x1,y1=metadata['bounds']
     result=points*np.array([(x1-x0)/(w-1),(y1-y0)/(h-1)])+[x0,y0]
     return result.tolist()
 
 
 def bounded_source_footer_output(payload):
+    output=json.dumps(payload)
+    if len(output.encode())<=65535:return output
+    for observation in payload.get('orientations',[]):
+        observation.pop('fields',None)
     output=json.dumps(payload)
     if len(output.encode())<=65535:return output
     payload.pop('scannerLayout',None)
@@ -82,13 +88,13 @@ def bounded_source_footer_output(payload):
     return json.dumps(payload)
 
 
-def read_source_footer(image, geometry, degrees, ocr, remaining, elapsed):
+def read_source_footer(image, geometry, degrees, ocr, remaining, elapsed, footer_top=1270):
     """Optional extra evidence cannot invalidate successful legacy readings."""
     from reading_direction import grouped_text
     if elapsed>=28:return [],[],unavailable_source(degrees,'TIME_BUDGET')
     if remaining<=0:return [],[],unavailable_source(degrees,'EVIDENCE_BUDGET')
     try:
-        view,source=source_footer_view(image,geometry,degrees)
+        view,source=source_footer_view(image,geometry,degrees,footer_top)
         if view is None:return [],[],source
         lines=[]
         for prediction in ocr.predict(view):

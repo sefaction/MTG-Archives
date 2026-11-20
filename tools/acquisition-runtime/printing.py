@@ -121,6 +121,8 @@ class PrintingRuntime:
             warped, alignment, visibility = register(photo, image, query_features, ref_features, return_visibility=True)
             stamp = stamp_evidence(warped, alignment, self.templates, image, state, visibility=visibility)
             details = printing_detail_evidence(warped, alignment, image, visibility)
+            from printing_details import final_candidate_comparison
+            final_comparison = final_candidate_comparison(alignment, details)
             symbol = expansion_symbol_evidence(warped, alignment, image, visibility, self.symbol_bank)
             extra = {}
             if any(r['status'] == 'MEASURED' for r in details['regions']):
@@ -130,7 +132,7 @@ class PrintingRuntime:
                     extra['referenceImage'] = {'uri':uri,'sha256':self.records[identity]['sha256']}
             rows.append({'scryfallId': candidate['scryfallId'], 'referenceId': identity,
                          'referenceStampState': state, 'alignment': alignment, 'stamp': stamp,
-                         **extra, 'setSymbol': symbol,
+                         **extra, 'setSymbol': symbol, 'finalComparison': final_comparison,
                          'relation': candidate_relation(stamp['status'], state)})
         observed, conflicting = shared_stamp_evidence(rows)
         return {'version': VERSION, 'observedStamp': observed,

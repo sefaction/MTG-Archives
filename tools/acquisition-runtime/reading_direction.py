@@ -8,20 +8,20 @@ CARD_HEIGHT = 1397
 STRIP_GAP = 80
 
 
-def reading_zones():
+def reading_zones(footer_top=FOOTER_TOP):
     return {'title': {'top': 0, 'bottom': TITLE_BOTTOM},
-            'footer': {'top': FOOTER_TOP, 'bottom': CARD_HEIGHT}}
+            'footer': {'top': footer_top, 'bottom': CARD_HEIGHT}}
 
 
-def restore_reading_polygon(polygon):
+def restore_reading_polygon(polygon, footer_top=FOOTER_TOP):
     """Undo the title/gap/footer stitch; discard boxes crossing its seam."""
     top = min(p[1] for p in polygon)
     bottom = max(p[1] for p in polygon)
     if 0 <= top <= bottom <= TITLE_BOTTOM:
         return [[p[0], p[1]] for p in polygon]
     stitched_footer = TITLE_BOTTOM + STRIP_GAP
-    if stitched_footer <= top <= bottom <= stitched_footer + CARD_HEIGHT - FOOTER_TOP:
-        return [[p[0], p[1] + FOOTER_TOP - stitched_footer] for p in polygon]
+    if stitched_footer <= top <= bottom <= stitched_footer + CARD_HEIGHT - footer_top:
+        return [[p[0], p[1] + footer_top - stitched_footer] for p in polygon]
     return None
 
 
@@ -55,17 +55,17 @@ def grouped_text(lines):
     return result
 
 
-def reading_text(lines):
+def reading_text(lines, footer_top=FOOTER_TOP):
     return {
         'title': grouped_text([line for line in lines if max(p[1] for p in line['polygon']) <= TITLE_BOTTOM]),
-        'footer': grouped_text([line for line in lines if min(p[1] for p in line['polygon']) >= FOOTER_TOP]),
+        'footer': grouped_text([line for line in lines if min(p[1] for p in line['polygon']) >= footer_top]),
     }
 
 
-def restore_footer_polygon(polygon):
+def restore_footer_polygon(polygon, footer_top=FOOTER_TOP):
     """Map a separate full-width footer reading without invented coordinates."""
     top = min(p[1] for p in polygon)
     bottom = max(p[1] for p in polygon)
-    if 0 <= top <= bottom <= CARD_HEIGHT - FOOTER_TOP:
-        return [[p[0], p[1] + FOOTER_TOP] for p in polygon]
+    if 0 <= top <= bottom <= CARD_HEIGHT - footer_top:
+        return [[p[0], p[1] + footer_top] for p in polygon]
     return None

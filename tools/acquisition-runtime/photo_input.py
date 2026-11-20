@@ -28,18 +28,32 @@ def validate_manual_region(region):
     return region
 
 
-def decode_photo_input(frame, *, return_task=False, return_region=False, return_reference=False, return_layout=False):
+def decode_photo_input(frame, *, return_task=False, return_region=False, return_reference=False, return_layout=False, return_prepared=False):
     kind, data, task, region, reference, layout = 'PHOTO', frame, None, None, None, None
+    prepared, candidates = None, None
     if len(frame) >= 4:
         length = struct.unpack('>I', frame[:4])[0]
-        if 0 < length <= 1020:
+        if 0 < length <= 2048:
             if len(frame) <= 4 + length:
                 raise ValueError('Incomplete image hint')
             metadata = json.loads(frame[4:4 + length])
-            if not isinstance(metadata, dict) or set(metadata) not in (
+            extended = (isinstance(metadata, dict) and return_prepared and
+                        set(metadata).issubset({'inputKind','manualRegion','preparedFrame','candidateScryfallIds'}) and
+                        'inputKind' in metadata and ('preparedFrame' in metadata or 'candidateScryfallIds' in metadata))
+            if not isinstance(metadata, dict) or not extended and set(metadata) not in (
                     {'inputKind'}, {'inputKind', 'recognitionTask'}, {'inputKind', 'manualRegion'},
                     {'inputKind', 'referenceRegion'}, {'inputKind', 'scannerLayoutProfile'}):
                 raise ValueError('Invalid image hint')
+            if extended:
+                prepared, candidates = metadata.get('preparedFrame'), metadata.get('candidateScryfallIds')
+                if 'preparedFrame' in metadata and not isinstance(prepared, dict):
+                    raise ValueError('Invalid prepared frame hint')
+                if candidates is not None:
+                    import uuid
+                    if (not isinstance(candidates, list) or not 1 <= len(candidates) <= 12 or
+                            len(set(candidates)) != len(candidates) or
+                            any(not isinstance(v,str) or str(uuid.UUID(v)) != v for v in candidates)):
+                        raise ValueError('Invalid candidate identity hint')
             task = metadata.get('recognitionTask')
             if ('recognitionTask' in metadata and
                     (task != 'WHOLE_PHOTO_TEXT' or not return_task)):
@@ -71,4 +85,6 @@ def decode_photo_input(frame, *, return_task=False, return_region=False, return_
         result += (reference,)
     if return_layout:
         result += (layout,)
+    if return_prepared:
+        result += (prepared, candidates)
     return result

@@ -4,7 +4,9 @@ import {admitAcquisitionHandoff} from "./acquisition-handoff-admission";
 import { createHash } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
-import { acquisitionNativePhotoInput } from "./acquisition-image-input";
+import { acquisitionNativePreparedInput } from "./acquisition-image-input";
+import {PREPARED_CARD_POLICY, preparedCardFromOutput, exactRecognitionCandidate} from './acquisition-prepared-card';
+import {correctionHash} from './acquisition-correction-policy';
 import { readAcquisitionPhotoBytes } from "./acquisition-files";
 import type { AcquisitionNativeStream } from "./acquisition-native-stream";
 import { AcquisitionJobSupersededError, type ClaimedAcquisitionJob } from "./acquisition-jobs";
@@ -17,12 +19,13 @@ const inputSchema = z.object({
   digest: z.string().regex(/^[a-f0-9]{64}$/),
   model: z.string().regex(/^[a-f0-9]{64}$/),
   manualAnalysis: acquisitionManualAnalysisSchema.nullable().optional(),
+  recognitionJobId: z.string().uuid().optional(),
+  recognitionOutputHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  forceFullSearch: z.literal(true).optional(),
+  fallbackPrintingJobId: z.string().uuid().optional(),
 });
 
 export async function enqueueReadyVisual(db: PrismaClient, model: string) {
-  const versionKey = createHash("sha256")
-    .update(`${VISUAL_STAGE}:${model}`)
-    .digest("hex");
   const rows = await db.$queryRaw<{ id: string }[]>(acquisitionHandoffQuery(VISUAL_STAGE, Prisma.sql`
     SELECT j.id, j."runId", j."createdAt" FROM "AcquisitionProcessingJob" j
     JOIN "AcquisitionCandidate" c ON c.id=j."candidateId"
@@ -31,12 +34,18 @@ export async function enqueueReadyVisual(db: PrismaClient, model: string) {
     JOIN "Player" p ON p.id=s."ownerPlayerId"
     JOIN "User" u ON u.id=s."createdByUserId"
     WHERE j.stage='photo-canonical-v1' AND j.status='COMPLETE'
+      AND (SELECT o.status FROM "AcquisitionProcessingJob" o WHERE o.stage='photo-recognition-v1'
+        AND o."candidateId"=c.id AND o."artifactId"=j."artifactId" AND o."candidateRevision"=c.revision
+        ORDER BY o."createdAt" DESC,o.id DESC LIMIT 1)='COMPLETE'
       AND ${acquisitionAnalysisReadySql()}
       AND s.phase NOT IN ('DRAFT','CANCELLED') AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=c.id)
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" v
         WHERE v.stage=${VISUAL_STAGE} AND v."artifactId"=j."artifactId"
-          AND v."candidateId"=c.id AND v."candidateRevision"=c.revision AND v."versionKey"=${versionKey})
+          AND v."candidateId"=c.id AND v."candidateRevision"=c.revision AND v.input->>'model'=${model}
+          AND v.input->>'recognitionJobId'=(SELECT o.id FROM "AcquisitionProcessingJob" o
+            WHERE o.stage='photo-recognition-v1' AND o."candidateId"=c.id AND o."artifactId"=j."artifactId"
+              AND o."candidateRevision"=c.revision ORDER BY o."createdAt" DESC,o.id DESC LIMIT 1))
   `));
   let added = 0;
   for (const row of rows) {
@@ -63,6 +72,12 @@ export async function enqueueReadyVisual(db: PrismaClient, model: string) {
       continue;
     const manualAnalysis = acquisitionAnalysisForPhoto(source.candidate, photo);
     if (source.candidate.review !== null && manualAnalysis?.candidateRevision !== source.candidate.revision) continue;
+    const recognition = await db.acquisitionProcessingJob.findFirst({where: {stage:'photo-recognition-v1',
+      candidateId:source.candidateId,artifactId:source.artifactId,candidateRevision:source.candidate.revision},
+      orderBy:[{createdAt:'desc'},{id:'desc'}]});
+    if (recognition?.status !== 'COMPLETE') continue;
+    const recognitionOutputHash = correctionHash(recognition.output);
+    const versionKey = createHash('sha256').update(`${VISUAL_STAGE}:${model}:${PREPARED_CARD_POLICY}:${recognition.id}:${recognitionOutputHash}`).digest('hex');
     const result = await admitAcquisitionHandoff(db,source,()=>db.acquisitionProcessingJob.createMany({
       skipDuplicates: true,
       data: [
@@ -73,11 +88,53 @@ export async function enqueueReadyVisual(db: PrismaClient, model: string) {
           candidateRevision: source.candidate.revision,
           stage: VISUAL_STAGE,
           versionKey,
-          input: { ...input, model, manualAnalysis },
+          input: { ...input, model, manualAnalysis, recognitionJobId:recognition.id, recognitionOutputHash },
         },
       ],
     }));
     added += result.count;
+  }
+  return added + await enqueueIdentifierFallback(db, model);
+}
+
+async function enqueueIdentifierFallback(db:PrismaClient,model:string) {
+  const rows=await db.$queryRaw<{id:string}[]>(acquisitionHandoffQuery(VISUAL_STAGE,Prisma.sql`
+    SELECT j.id,j."runId",j."createdAt" FROM "AcquisitionProcessingJob" j
+    JOIN "AcquisitionProcessingJob" v ON v.id=j.output->>'sourceVisualJobId'
+    JOIN "AcquisitionCandidate" c ON c.id=j."candidateId"
+    JOIN "AcquisitionRun" r ON r.id=j."runId"
+    JOIN "AcquisitionSession" s ON s.id=r."sessionId"
+    JOIN "Player" p ON p.id=s."ownerPlayerId" JOIN "User" u ON u.id=s."createdByUserId"
+    WHERE j.stage='photo-printing-evidence-v1' AND j.status='COMPLETE'
+      AND v.stage=${VISUAL_STAGE} AND v.status='COMPLETE'
+      AND v.output->'visual'->'retrieval'->>'strategy'='EXACT_CANDIDATES'
+      AND c.revision=j."candidateRevision" AND ${acquisitionAnalysisJobSql()}
+      AND s.phase NOT IN ('DRAFT','CANCELLED') AND s."cancelledAt" IS NULL AND s."trashedAt" IS NULL AND s."deletedAt" IS NULL
+      AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
+      AND ((j.output->'proposals'->'proposals'->0->'reasons') ? 'FINAL_IMAGE_DIFFERENT'
+        OR NOT EXISTS (SELECT 1 FROM jsonb_array_elements(j.output->'printingNative'->'candidates') face
+          WHERE face->'alignment'->>'status'='ALIGNED'))
+      AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=c.id)
+      AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" later WHERE later.stage=${VISUAL_STAGE}
+        AND later."candidateId"=c.id AND later."candidateRevision"=c.revision AND
+          (later."createdAt",later.id)>(v."createdAt",v.id))
+      AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" f WHERE f.stage=${VISUAL_STAGE}
+        AND f.input->>'fallbackPrintingJobId'=j.id AND f.input->>'model'=${model})`));
+  let added=0;
+  for(const {id} of rows){
+    const printing=await db.acquisitionProcessingJob.findUnique({where:{id}});
+    if(!printing)continue;
+    const visualId=(printing.output as {sourceVisualJobId?:string}|null)?.sourceVisualJobId;
+    const source=visualId?await db.acquisitionProcessingJob.findUnique({where:{id:visualId}}):null;
+    if(!source||source.runId!==printing.runId||source.candidateId!==printing.candidateId||
+      source.artifactId!==printing.artifactId||source.candidateRevision!==printing.candidateRevision)continue;
+    const input=inputSchema.parse(source.input);
+    const versionKey=createHash('sha256').update(`${source.versionKey}:full-fallback:${id}:${model}`).digest('hex');
+    const result=await admitAcquisitionHandoff(db,printing,()=>db.acquisitionProcessingJob.createMany({skipDuplicates:true,data:[{
+      runId:source.runId,artifactId:source.artifactId,candidateId:source.candidateId,candidateRevision:source.candidateRevision,
+      stage:VISUAL_STAGE,versionKey,input:{...input,model,forceFullSearch:true,fallbackPrintingJobId:id},
+    }]}));
+    added+=result.count;
   }
   return added;
 }
@@ -92,6 +149,15 @@ export async function retrieveAcquisitionVisual(
   const input = inputSchema.parse(job.input);
   if (input.model !== model)
     throw new AcquisitionJobSupersededError("Visual index version superseded");
+  const recognition = input.recognitionJobId ? await db.acquisitionProcessingJob.findUniqueOrThrow({where:{id:input.recognitionJobId}}) : undefined;
+  if (recognition && (recognition.stage !== 'photo-recognition-v1' || recognition.status !== 'COMPLETE' ||
+      recognition.runId !== job.runId || recognition.artifactId !== job.artifactId || recognition.candidateId !== job.candidateId ||
+      recognition.candidateRevision !== job.candidateRevision || correctionHash(recognition.output) !== input.recognitionOutputHash))
+    throw new AcquisitionJobSupersededError('Prepared recognition source changed');
+  const preparation = recognition ? preparedCardFromOutput(recognition.output, input.digest) : undefined;
+  const exactId = recognition && !input.forceFullSearch ? exactRecognitionCandidate(recognition.output) : undefined;
+  const exactCard = exactId ? await db.card.findUnique({where:{id:exactId},select:{scryfallId:true}}) : undefined;
+  const candidateScryfallIds = exactCard?.scryfallId ? [exactCard.scryfallId] : undefined;
   const run = await db.acquisitionRun.findUniqueOrThrow({where: {id: job.runId},
     select: {session: {select: {ownerPlayerId: true}}}});
   const photo = await db.acquisitionPhoto.findUniqueOrThrow({
@@ -144,7 +210,7 @@ export async function retrieveAcquisitionVisual(
   signal.throwIfAborted();
   const reuse = visualReuseIdentity({version: 1, ownerPlayerId: run.session.ownerPlayerId,
     photoDigest: input.digest, descriptor: model, inputKind: photo.inputKind,
-    manualRegion: input.manualAnalysis?.region ?? undefined});
+    manualRegion: input.manualAnalysis?.region ?? undefined, preparation, candidateScryfallIds});
   // Retained completed jobs are the durable observation store. One indexed
   // exact-key lookup reads bounded evidence; no duplicate private pixel cache.
   const [previous] = await db.$queryRaw<{id: string; output: Prisma.JsonValue}[]>`
@@ -158,13 +224,14 @@ export async function retrieveAcquisitionVisual(
   let visual = previous ? reusableVisualNative(previous.output, reuse) : null;
   const reused = visual !== null;
   if (!visual) visual = checkedVisualNative(await nativeWorker.request(
-    acquisitionNativePhotoInput(bytes, photo.inputKind, undefined, input.manualAnalysis?.region ?? undefined), signal), reuse);
+    acquisitionNativePreparedInput(bytes, photo.inputKind, preparation, input.manualAnalysis?.region ?? undefined, candidateScryfallIds), signal), reuse);
   signal.throwIfAborted();
   await requireCurrentInput();
   return {
     version: 1,
     photoId: photo.id,
     visual,
+    ...(recognition ? {sourceRecognitionJobId: recognition.id, preparation} : {}),
     manualAnalysis: input.manualAnalysis ?? null,
     visualReuse: reuse,
     visualExecution: {reused, milliseconds: Math.round(performance.now() - started),

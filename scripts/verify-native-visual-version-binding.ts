@@ -14,6 +14,7 @@ import {claimAcquisitionJobs, completeAcquisitionJob, runAcquisitionJobsOnce, ty
 import {enqueueReadyVisual, retrieveAcquisitionVisual} from "../lib/acquisition-visual-worker";
 import {VISUAL_STAGE, type VisualObservation} from "../lib/acquisition-visual";
 import {ensureCorrectionAccount} from "../lib/acquisition-correction-library";
+import {correctionHash} from '../lib/acquisition-correction-policy';
 
 type Descriptor={digest:string;manifest:string;execution:string;indexSha256:string;catalogSha256:string;
   referenceCount:number;unavailableCount:number;codeSha256:string;encoder:Record<string,string>};
@@ -96,10 +97,17 @@ async function run(){
     const photo=await beginAcquisitionPhoto(db,actor,sessionId!,{slotId:slot.id,uploadKey:randomUUID(),generation:0,metadata:await inspectAcquisitionPhoto(bytes,"image/jpeg"),inputKind:"PHOTO"});
     runId=photo.runId;originals.set(photo.id,bytes);await writeAcquisitionPhotoBytes(photo.id,bytes,"raw",photo.digest);await finalizeAcquisitionPhoto(db,actor,sessionId!,photo.id);
     assert.equal((await runAcquisitionJobsOnce(db,{"photo-canonical-v1":(job,signal)=>canonicalizeAcquisitionPhoto((job.input as {photoId:string}).photoId,(job.input as {digest:string}).digest,signal)},tag+"-canonical")).complete,1);
+    const canonical=await db.acquisitionProcessingJob.findFirstOrThrow({where:{runId,stage:'photo-canonical-v1',artifact:{sourceId:photo.id}}});
+    // This fixture qualifies the actual visual engine, not OCR. Supply an
+    // explicit completed synthetic upstream observation for ordered admission.
+    const recognition=await db.acquisitionProcessingJob.create({data:{runId,artifactId:canonical.artifactId,
+      candidateId:canonical.candidateId,candidateRevision:canonical.candidateRevision,stage:'photo-recognition-v1',
+      versionKey:randomUUID(),status:'COMPLETE',input:{photoId:photo.id,digest:photo.digest},output:{photoId:photo.id}}});
     assert.equal(await enqueueReadyVisual(db,model),1);
     const job=await db.acquisitionProcessingJob.findFirstOrThrow({where:{runId,stage:VISUAL_STAGE,input:{path:["photoId"],equals:photo.id}}});
-    assert.equal(job.versionKey,hash(Buffer.from(`${VISUAL_STAGE}:${model}`)));
-    assert.deepEqual(job.input,{photoId:photo.id,digest:photo.digest,model,manualAnalysis:null});initialInputs.set(job.id,job.input);
+    assert.notEqual(job.versionKey,hash(Buffer.from(`${VISUAL_STAGE}:${model}`)), 'shared preparation lineage changes visual admission identity');
+    assert.deepEqual(job.input,{photoId:photo.id,digest:photo.digest,model,manualAnalysis:null,
+      recognitionJobId:recognition.id,recognitionOutputHash:correctionHash(recognition.output)});initialInputs.set(job.id,job.input);
     return {photo,job};
   }
   function check(output:VisualOutput,photoId:string,descriptor:Descriptor){

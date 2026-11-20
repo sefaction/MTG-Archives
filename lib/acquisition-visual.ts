@@ -30,6 +30,8 @@ export const visualNativeSchema = z.object({
   unavailableCount: z.number().int().nonnegative(),
   geometry: z.object({ status: z.string() }).passthrough(),
   inputRegion: z.enum(["CARD", "WHOLE_PHOTO"]),
+  retrieval: z.object({strategy: z.enum(['EXACT_CANDIDATES','FULL_INDEX','FALLBACK_FULL_INDEX']),
+    requestedScryfallIds: z.array(z.string().uuid()).max(12)}).optional(),
   candidates: z.array(visualCandidateSchema).max(12),
   geometricCandidates: z
     .array(

@@ -3,12 +3,15 @@ import { z } from "zod";
 import { acquisitionImageInputKindSchema } from "./acquisition-image-input";
 import { visualNativeSchema } from "./acquisition-visual";
 import { acquisitionManualRegionSchema, sameAcquisitionManualRegion } from "./acquisition-manual-region";
+import {preparedCardSchema, samePreparedCard} from './acquisition-prepared-card';
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const requestSchema = z.object({
   version: z.literal(1), ownerPlayerId: z.string().min(1).max(100),
   photoDigest: digest, descriptor: digest, inputKind: acquisitionImageInputKindSchema,
   manualRegion: acquisitionManualRegionSchema.optional(),
+  preparation: preparedCardSchema.optional(),
+  candidateScryfallIds: z.array(z.string().uuid()).min(1).max(12).optional(),
 }).strict();
 
 export function visualReuseIdentity(value: z.input<typeof requestSchema>) {
@@ -20,7 +23,9 @@ export type VisualReuseIdentity = ReturnType<typeof visualReuseIdentity>;
 export function checkedVisualNative(raw: unknown, identity: VisualReuseIdentity) {
   const visual = visualNativeSchema.parse(raw);
   if (visual.photoDigest !== identity.photoDigest || visual.descriptor !== identity.descriptor ||
-      !sameAcquisitionManualRegion(visual.geometry.manualRegion, identity.manualRegion))
+      !sameAcquisitionManualRegion(visual.geometry.manualRegion, identity.manualRegion) ||
+      !samePreparedCard(visual.geometry.preparedFrame, identity.preparation) ||
+      JSON.stringify(visual.retrieval?.requestedScryfallIds ?? []) !== JSON.stringify(identity.candidateScryfallIds ?? []))
     throw new Error("Visual processing identity changed");
   return visual;
 }

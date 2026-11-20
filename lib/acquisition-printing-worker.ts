@@ -16,6 +16,7 @@ import {
   acquisitionPrintingSummary,
 } from "./acquisition-printing";
 import type { TextProposals } from "./acquisition-visual";
+import {preparedCardFromOutput} from './acquisition-prepared-card';
 import { checkedPrintingNative, printingReuseIdentity, reusablePrintingNative } from "./acquisition-printing-reuse";
 import { boundedPrintingDetailOutput } from "./acquisition-printing-detail-budget";
 
@@ -146,12 +147,13 @@ export async function observeAcquisitionPrinting(
     select: {id: true, scryfallId: true, name: true, setCode: true, collectorNumber: true, lang: true, digital: true}});
   const byScryfall = new Map(cards.flatMap(c=>c.scryfallId ? [[c.scryfallId, c] as const] : []));
   const ids = [...byScryfall.keys()];
+  const preparation = preparedCardFromOutput(source.output, input.digest);
   const bytes = await readAcquisitionPhotoBytes(photo.id, "raw", input.digest);
   if (bytes.length > 10 * 1024 * 1024) throw new Error("Printing photo exceeds bound");
   signal.throwIfAborted();
   const reuse = printingReuseIdentity({version: 1, ownerPlayerId: run.session.ownerPlayerId,
     photoDigest: input.digest, descriptor: model, policy: PRINTING_POLICY_VERSION, scryfallIds: ids,
-    manualRegion: input.manualAnalysis?.region ?? undefined});
+    manualRegion: input.manualAnalysis?.region ?? undefined, preparation});
   // Completed jobs are the durable observation store. The exact-key partial
   // index bounds lookup; no original bytes or duplicate evidence cache is saved.
   const [previous] = await db.$queryRaw<{id: string; output: Prisma.JsonValue}[]>`
@@ -164,7 +166,9 @@ export async function observeAcquisitionPrinting(
     ORDER BY j."createdAt" DESC, j.id DESC LIMIT 1`;
   let native = previous ? reusablePrintingNative(previous.output, reuse) : null;
   const reused = native !== null;
-  const metadata = Buffer.from(JSON.stringify({scryfallIds: ids, ...(input.manualAnalysis?.region ? {manualRegion: input.manualAnalysis.region} : {})}));
+  const metadata = Buffer.from(JSON.stringify({scryfallIds: ids,
+    ...(preparation ? {preparedFrame: preparation} : {}),
+    ...(input.manualAnalysis?.region ? {manualRegion: input.manualAnalysis.region} : {})}));
   const length = Buffer.alloc(4);
   length.writeUInt32BE(metadata.length);
   if (!native) native = checkedPrintingNative(

@@ -1,9 +1,24 @@
 import {scannerLayoutTemplateSchema} from "./acquisition-scanner-layout";
 import { z } from "zod";
 import { acquisitionManualRegionSchema, type AcquisitionManualRegion } from "./acquisition-manual-region";
+import {preparedCardSchema, type PreparedCard} from './acquisition-prepared-card';
 
 export const acquisitionImageInputKindSchema = z.enum(["PHOTO", "CARD_SCAN"]);
 export type AcquisitionImageInputKind = z.infer<typeof acquisitionImageInputKindSchema>;
+
+export function acquisitionNativePreparedInput(bytes: Buffer, inputKind: AcquisitionImageInputKind,
+  preparation?: PreparedCard, manualRegion?: AcquisitionManualRegion, candidateScryfallIds?: string[]) {
+  if (!preparation && !candidateScryfallIds) return acquisitionNativePhotoInput(bytes, inputKind, undefined, manualRegion);
+  acquisitionImageInputKindSchema.parse(inputKind);
+  if (!bytes.length || bytes.length > 10 * 1024 * 1024) throw new Error('Photo exceeds bounds');
+  const metadata = Buffer.from(JSON.stringify({inputKind,
+    ...(preparation ? {preparedFrame: preparedCardSchema.parse(preparation)} : {}),
+    ...(manualRegion ? {manualRegion: acquisitionManualRegionSchema.parse(manualRegion)} : {}),
+    ...(candidateScryfallIds ? {candidateScryfallIds: z.array(z.string().uuid()).min(1).max(12).parse(candidateScryfallIds)} : {})}));
+  if (metadata.length > 2048) throw new Error('Prepared image hint exceeds bounds');
+  const length = Buffer.alloc(4); length.writeUInt32BE(metadata.length);
+  return Buffer.concat([length, metadata, bytes]);
+}
 
 // Keep existing raw-photo callers compatible. Only a declared scan needs the
 // bounded hint envelope; original bytes and their digest remain unchanged.

@@ -39,6 +39,11 @@ def descriptor():
         if not (directory / 'inference.pdiparams').is_file():
             raise ValueError('Required offline weights unavailable')
     payload = {'models': files,
+               'fieldCode': hashlib.sha256(Path(__file__).with_name('field_readings.py').read_bytes()).hexdigest(),
+               'symbolCode': hashlib.sha256(Path('/eval/expansion_symbols.py').read_bytes()).hexdigest(),
+               'fieldAssets': __import__('field_readings').assets(),
+               'layoutCode': hashlib.sha256(Path(__file__).with_name('card_layout.py').read_bytes()).hexdigest(),
+               'preparedCode': hashlib.sha256(Path(__file__).with_name('prepared_card.py').read_bytes()).hexdigest(),
                'runtime': {name: importlib.metadata.version(name) for name in
                            ('paddlepaddle', 'paddleocr', 'paddlex', 'numpy', 'pillow', 'opencv-contrib-python')},
                'code': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
@@ -91,26 +96,29 @@ def localized_readings(crop, ocr):
     import cv2
     import numpy as np
     orientations = []
+    from card_layout import footer_top
+    from field_readings import supporting_fields
     for degrees, oriented in ((0, crop), (180, cv2.rotate(crop, cv2.ROTATE_180))):
+        bottom_start = footer_top(oriented)
         regions = np.concatenate([oriented[:TITLE_BOTTOM],
                                   np.full((STRIP_GAP, 1000, 3), 255, np.uint8),
-                                  oriented[FOOTER_TOP:]], axis=0)
+                                  oriented[bottom_start:]], axis=0)
         lines = []
         for prediction in ocr.predict(regions):
             for text, score, polygon in zip(prediction['rec_texts'], prediction['rec_scores'], prediction['rec_polys']):
-                polygon = restore_reading_polygon(np.asarray(polygon).tolist())
+                polygon = restore_reading_polygon(np.asarray(polygon).tolist(), bottom_start)
                 if polygon is None:
                     continue
                 if len(str(text)) > 2000 or len(lines) >= 100:
                     raise ValueError('OCR evidence exceeds bounds')
                 lines.append({'text': str(text), 'score': float(score), 'polygon': polygon})
-        text = reading_text(lines)
+        text = reading_text(lines, bottom_start)
         # Keep the stitched reading intact. A separate full-width footer attempt
         # can separate a marker from the artist that the stitched canvas joins.
         footer_lines = []
-        for prediction in ocr.predict(oriented[FOOTER_TOP:]):
+        for prediction in ocr.predict(oriented[bottom_start:]):
             for value, score, polygon in zip(prediction['rec_texts'], prediction['rec_scores'], prediction['rec_polys']):
-                polygon = restore_footer_polygon(np.asarray(polygon).tolist())
+                polygon = restore_footer_polygon(np.asarray(polygon).tolist(), bottom_start)
                 if polygon is None:
                     continue
                 if len(str(value)) > 2000 or len(lines) + len(footer_lines) >= 100:
@@ -118,11 +126,16 @@ def localized_readings(crop, ocr):
                 footer_lines.append({'text': str(value), 'score': float(score), 'polygon': polygon})
         # Same orientation and actual footer pixels; resolver recovery remains
         # review-only whenever this contributes new identifiers or collectors.
-        text['footerSupplemental'] = reading_text(footer_lines)['footer']
+        text['footerSupplemental'] = reading_text(footer_lines, bottom_start)['footer']
         if len(text['footer']) + len(text['footerSupplemental']) > 100:
             raise ValueError('OCR footer evidence exceeds bounds')
+        fields = supporting_fields(oriented, ocr)
+        fields['artistText'] = [{'text':line['text'],'score':line['score']} for line in footer_lines
+                                if len(line['text'])<=200 and __import__('re').search(r'(?i)\b(?:illus\.?|illustrat(?:or|ed)|artist)\b',line['text'])][:16]
         orientations.append({'rotationDegrees': degrees, 'text': text,
-                             'lines': lines, 'footerLines': footer_lines})
+                             'lines': lines, 'footerLines': footer_lines,
+                             'readingZones': reading_zones(bottom_start),
+                             'fields': fields})
     return orientations
 
 
@@ -130,7 +143,8 @@ def append_source_identifiers(image, source_geometry, orientations, ocr, started
     for observation in orientations:
         degrees=observation['rotationDegrees']
         remaining=100-len(observation['lines'])-len(observation.get('footerLines',[]))
-        words,identifier_lines,source=read_source_footer(image,source_geometry,degrees,ocr,remaining,time.monotonic()-started)
+        bottom_start=observation.get('readingZones',{}).get('footer',{}).get('top',1270)
+        words,identifier_lines,source=read_source_footer(image,source_geometry,degrees,ocr,remaining,time.monotonic()-started,bottom_start)
         observation['text']['footerSourceIdentifiers']=words
         if sum(len(observation['text'].get(k,[])) for k in ('footer','footerSupplemental','footerSourceIdentifiers'))>100:
             observation['text']['footerSourceIdentifiers']=[]
@@ -153,7 +167,7 @@ def recognize(data, desc):
     import numpy as np
     from PIL import Image, ImageOps
     sys.path.insert(0, '/eval')
-    from baseline import geometry
+    from card_layout import card_geometry as geometry
     with Image.open(io.BytesIO(data)) as source:
         if source.format not in ('JPEG', 'PNG', 'WEBP') or source.width * source.height > 36000000:
             raise ValueError('Unsupported photo')
@@ -183,6 +197,7 @@ def recognize(data, desc):
         crop, geometry_evidence = manual_card_region(image, manual_region)
     else:
         crop, geometry_evidence = geometry(image, input_kind)
+    geometry_evidence['sourceFrame'] = {'width': int(image.shape[1]), 'height': int(image.shape[0])}
     if manual_region is None and crop is None and input_kind != 'CARD_SCAN':
         # Contour proposals can change when a near-edge card is sampled after
         # resize. Try bounded quarter turns before asking for a new crop, while
@@ -203,6 +218,7 @@ def recognize(data, desc):
             geometry_evidence = {**evidence, 'quad': [original_point(p) for p in evidence['quad']],
                                  'inputQuarterTurns': turns}
             break
+    geometry_evidence['sourceFrame'] = {'width': int(image.shape[1]), 'height': int(image.shape[0])}
     proposed = geometry_evidence['status'] == 'PROPOSED'
     if not proposed:
         # No supported crop means no fabricated title/footer coordinates.
@@ -223,7 +239,7 @@ def recognize(data, desc):
     payload={'version': 1, 'descriptor': desc['digest'], 'descriptorDetails': desc,
           'photoDigest': hashlib.sha256(data).hexdigest(), 'geometry': geometry_evidence,
           'text': orientations[0]['text'], 'lines': orientations[0]['lines'],
-          'readingZones': reading_zones(),
+          'readingZones': orientations[0].get('readingZones',reading_zones()),
           'orientations': orientations,
           'milliseconds': round((time.monotonic()-started)*1000),
           'automaticAcceptance': False}
