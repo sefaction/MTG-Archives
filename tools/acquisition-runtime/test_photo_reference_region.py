@@ -100,7 +100,9 @@ class ReferenceRegionTests(unittest.TestCase):
         self.assertNotIn('manualRegion', value['geometry'])
         self.assertFalse(value['automaticAcceptance'])
         self.assertEqual([x.shape[:2] for x in seen[:4]], [(457, 1000), (127, 1000)] * 2)
-        self.assertEqual([x.shape[:2] for x in seen[4:]], [(126, 606)] * 2)
+        self.assertEqual([x.shape[:2] for x in seen[4:6]], [(126, 606)] * 2)
+        self.assertEqual([x.shape[:2] for x in seen[6:]], [(160,880),(125,370)] * 2,
+                         'supporting fields stay in their bounded regions after primary source reads')
         self.assertTrue(all(o['identifierSource']['status']=='EXTRACTED' for o in value['orientations']))
         self.assertTrue(all(o['text']['footerSourceIdentifiers']==[] for o in value['orientations']))
 

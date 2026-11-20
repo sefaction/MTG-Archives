@@ -89,7 +89,8 @@ export async function claimAcquisitionJobs(
   // Derive owner turns from existing durable run turns; no new queue identity.
   // First results precede refreshes within each owner, then rotate equal-priority
   // runs. Keep FIFO within that class and the second head for lease CAS races.
-  const ordinaryPriority=acquisitionRefreshPriority(Prisma.sql`j."artifactId"`,Prisma.sql`j."candidateId"`,Prisma.sql`j.stage`);
+  const ordinaryPriority=acquisitionRefreshPriority(Prisma.sql`j."artifactId"`,Prisma.sql`j."candidateId"`,Prisma.sql`j.stage`,
+    Prisma.sql`j.input->>'forceFullSearch'='true'`);
   const priority=Prisma.sql`CASE WHEN j.stage=${REFERENCE_REFINEMENT_STAGE} THEN 1 ELSE ${ordinaryPriority} END`;
   const candidates = await db.$queryRaw<{id: string; runId: string; stage: string; candidateRevision: number; input: Prisma.JsonValue}[]>`
     WITH eligible_jobs AS (

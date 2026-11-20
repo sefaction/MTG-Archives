@@ -54,12 +54,15 @@ class ManualNativeTest(unittest.TestCase):
         self.assertEqual(result['geometry']['manualRegion'], REGION)
         self.assertEqual(result['geometry']['sourceFrame'], {'width': 800, 'height': 1000})
         self.assertFalse(result['geometry']['boundaryVerified'])
-        self.assertEqual(len(seen), 4)
-        self.assertEqual([image.shape[:2] for image in seen], [(457, 1000), (127, 1000)] * 2)
-        for stitched, footer in zip(seen[::2], seen[1::2]):
+        self.assertEqual(len(seen), 8)
+        self.assertEqual([image.shape[:2] for image in seen[:4]], [(457, 1000), (127, 1000)] * 2)
+        self.assertEqual([image.shape[:2] for image in seen[4:]], [(160,880),(125,370)] * 2)
+        for stitched, footer in zip(seen[:4:2], seen[1:4:2]):
             np.testing.assert_array_equal(footer, stitched[330:])
-        self.assertTrue(all(image.shape[1] == 1000 for image in seen))
-        self.assertTrue(all(image[50, 500, 1] > image[50, 500, 2] for image in seen))
+        self.assertTrue(all(image.shape[1] == 1000 for image in seen[:4]))
+        self.assertTrue(all(image[50, 500, 1] > image[50, 500, 2] for image in seen[:4]))
+        self.assertTrue(all(image[image.shape[0]//2,image.shape[1]//2,1] >
+          image[image.shape[0]//2,image.shape[1]//2,2] for image in seen[4:]))
         self.assertFalse(result['automaticAcceptance'])
         self.assertNotIn('photoText', result)
 

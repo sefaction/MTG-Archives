@@ -57,7 +57,9 @@ def card_geometry(image, input_kind='PHOTO'):
             crop = cv2.warpPerspective(image, transform, (1000,1397))
             evidence = {'status':'PROPOSED','method':'internal-layout-v1','quad':quad.tolist(),
                         'boundaryVerified':False,'inferredFrom':['ART_BOX','TEXT_BOX']}
-    return crop, {**evidence,'sourceFrame':{'width':image.shape[1],'height':image.shape[0]}}
+    if evidence.get('status')=='PROPOSED':
+        evidence={**evidence,'sourceFrame':{'width':image.shape[1],'height':image.shape[0]}}
+    return crop, evidence
 
 
 def footer_top(card):

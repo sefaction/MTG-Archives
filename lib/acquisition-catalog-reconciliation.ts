@@ -365,7 +365,8 @@ export function createCatalogReconciliationHandler(
         .filter((id): id is string => Boolean(id)) : []);
     if(observed.native.scannerLayout?.readingStatus==="COMPLETE")proposals=combineScannerLayoutReadings(snapshot!.index,observed.native);
     if(reference)proposals=combineAcquisitionReferenceReadings(snapshot!.index,reference.native,observed.native);
-    proposals = applyEarlySetSymbol(proposals, observed.native.orientations);
+    proposals = applyEarlySetSymbol(proposals, observed.native.scannerLayout?.readingStatus==='COMPLETE'
+      ? observed.native.scannerLayout.orientations : observed.native.orientations);
     if (visual)
       proposals = combineAcquisitionCandidates(
         proposals,
@@ -409,6 +410,10 @@ export function createCatalogReconciliationHandler(
     return applyPreparedInputPolicy(proposals, observed.native);
     };
     const proposals=resolve();
+    const preparedSource=preparedCardFromOutput(source.output,photo.digest);
+    const preparation=proposals.orientation?.status==='SELECTED' &&
+      proposals.orientation.rotationDegrees===preparedSource?.rotationDegrees &&
+      !proposals.proposals[0]?.reasons.includes('UNLOCALIZED_NAME_HINT') ? preparedSource : undefined;
     // Separate conditional interpretations never replace saved machine text or
     // its proposals. Only a later, locked explicit default can authorize one.
     const languageOptions=acquisitionBatchLanguageCandidates(snapshot!.index,observed.native.orientations)
@@ -429,7 +434,7 @@ export function createCatalogReconciliationHandler(
         ? { sourceVisualJobId: visualJob.id, visual: visual.visual }
         : {}),
       native: observed.native,
-      ...(preparedCardFromOutput(source.output, photo.digest) ? {preparation: preparedCardFromOutput(source.output, photo.digest)} : {}),
+      ...(preparation ? {preparation} : {}),
       versions: {
         ...observed.versions,
         catalog: snapshot!.digest,

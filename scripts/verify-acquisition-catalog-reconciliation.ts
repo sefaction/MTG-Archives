@@ -35,6 +35,7 @@ import {
 import { confirmStrongAcquisitionMatches } from "../lib/acquisition-auto-confirm";
 import type { ScryfallCard } from "../lib/scryfall";
 import { enqueueReadyVisual } from "../lib/acquisition-visual-worker";
+import {verifyAcquisitionPreparedPipeline} from './verify-acquisition-prepared-pipeline';
 import { VISUAL_STAGE } from "../lib/acquisition-visual";
 import { verifyAcquisitionVisualReuse } from "./verify-acquisition-visual-reuse";
 import { verifyAcquisitionPrinting } from "./verify-acquisition-printing";
@@ -345,6 +346,7 @@ export async function verifyAcquisitionCatalogReconciliation(
     // Independent image evidence can find a printing that is absent locally,
     // even when the saved text did not identify it. It uses the same shared
     // Scryfall cache, stable local Card identity and immutable result fence.
+    await verifyAcquisitionPreparedPipeline(db,rawJob as ClaimedAcquisitionJob,photoId,cards[0].id);
     assert.equal(
       await enqueueCatalogReconciliation(db, new Date(), true),
       0,

@@ -48,6 +48,7 @@ const schema = z.object({
   printing: printingSummarySchema.optional(),
   visual: visualNativeSchema.optional(),
   native: z.object({
+    photoDigest:z.string().regex(/^[a-f0-9]{64}$/).optional(),
     scannerLayout:z.object({inference:scannerLayoutInferenceSchema,orientations:z.array(observation).max(2),
       readingStatus:z.enum(['COMPLETE','TIME_BUDGET','WORKER_ERROR']).optional(),
     anchorSearch:z.object({status:z.literal('COMPLETE'),boundaryVerified:z.literal(false),region:acquisitionManualRegionSchema,
@@ -60,6 +61,7 @@ const schema = z.object({
       method: z.enum(["contours", "full-frame", "declared-card-scan", "scanner-background-trim", "scanner-card-edges", "scanner-white-card-edges", "manual-card-region-v1", "reference-anchor-region-v1", "internal-layout-v1"]).optional(),
       framing: z.enum(["ALIGNED", "CLIPPED"]).optional(),
       boundaryVerified:z.literal(false).optional(),
+      sourceFrame:z.object({width:z.number().int().min(2),height:z.number().int().min(2)}).optional(),
     }),
     orientations: z.array(observation).max(2),
   }),
@@ -74,6 +76,17 @@ const schema = z.object({
     }),
   }),
 }).superRefine((value,ctx)=>{
+  const preparation=value.preparation;
+  if(preparation){
+    const geometry=value.native.geometry,layout=value.native.scannerLayout;
+    const inferred=layout?.readingStatus==='COMPLETE'&&layout.inference.status==='PROPOSED'?layout.inference:undefined;
+    const expected=inferred?.region.quad ?? geometry.quad?.map(([x,y])=>
+      [x/(preparation.sourceWidth-1),y/(preparation.sourceHeight-1)]);
+    if(geometry.status!=='PROPOSED'||geometry.framing==='CLIPPED'||value.native.photoDigest!==preparation.photoDigest||
+      !expected||expected.some(([x,y],i)=>Math.hypot(x-preparation.region.quad[i][0],y-preparation.region.quad[i][1])>1e-6)||
+      (geometry.sourceFrame&&(geometry.sourceFrame.width!==preparation.sourceWidth||geometry.sourceFrame.height!==preparation.sourceHeight)))
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:'Prepared review frame differs from its source observation'});
+  }
   for(const layout of [value.native.scannerLayout,value.primaryScannerLayout]){
     for(const [o,hasRegion] of [...(layout?.orientations.map(o=>[o,layout.inference.status==='PROPOSED'] as const)??[]),
       ...(layout?.anchorSearch?.orientations.map(o=>[o,true] as const)??[])]){
@@ -105,6 +118,7 @@ export function acquisitionReviewEvidence(output: unknown) {
   const { native, proposals, visual, printing } = parsed.data;
   const preparation=parsed.data.preparation;
   const layout=native.scannerLayout??parsed.data.primaryScannerLayout;
+  const observations=preparation && layout?.readingStatus==='COMPLETE' ? layout.orientations : native.orientations;
   return {
     scannerLayout: layout?.inference.status==='PROPOSED'
       ? {region:layout.inference.region,boundaryVerified:false as const,
@@ -115,7 +129,7 @@ export function acquisitionReviewEvidence(output: unknown) {
     geometry: preparation ? {...native.geometry, quad:preparation.region.quad.map(([x,y])=>
       [x*(preparation.sourceWidth-1),y*(preparation.sourceHeight-1)])} : native.geometry,
     primaryObservations:parsed.data.primaryReadings??null,
-    observations: native.orientations,
+    observations,
     photoText: native.photoText ?? null,
     readingZones: native.readingZones ?? legacyAcquisitionReadingZones,
     rotation: preparation?.rotationDegrees ?? proposals.orientation?.rotationDegrees ?? null,

@@ -15,6 +15,8 @@ export function acquisitionReviewProgress(record: AcquisitionCardReview, hasPrin
   if (record.printingStatus === "RUNNING") return result("Checking printing…");
   if (record.printingStatus === "PENDING") return result("Printing check queued");
   if (record.catalog?.status === "CHECKING") return result("Checking catalog…");
+  if (!record.suggestions.length && record.recognitionStatus === "RUNNING") return result("Identifying card…");
+  if (!record.suggestions.length && active(record.recognitionStatus)) return result("Queued for identification");
   if (record.visualStatus === "RUNNING") return result("Comparing card image…");
   if (active(record.visualStatus)) return result("Image comparison queued");
   if (record.recognitionStatus === "RUNNING") return result("Identifying card…");

@@ -3,6 +3,10 @@ import test from "node:test";
 import { acquisitionReviewProgress } from "../lib/acquisition-processing-status";
 import type { AcquisitionCardReview } from "../lib/acquisition-review";
 const record = (values: Partial<AcquisitionCardReview>) => ({ review: null, recognitionStatus: "COMPLETE", suggestions: [], ...values } as AcquisitionCardReview);
+test('ordered preparation/OCR remains visible before image admission when no prior suggestion exists',()=>{
+  assert.equal(acquisitionReviewProgress(record({recognitionStatus:'RUNNING',visualStatus:'WAITING'}),false).label,'Identifying card…');
+  assert.equal(acquisitionReviewProgress(record({recognitionStatus:'PENDING',visualStatus:'WAITING'}),false).label,'Queued for identification');
+});
 test("terminal scan failures and no-match never imply waiting for identification", () => {
   for (const [values, label] of [
     [{recognitionStatus:"FAILED",catalog:{status:"PROVIDER_ERROR",printingCoverage:"UNRESOLVED"}},"Catalog unavailable"],

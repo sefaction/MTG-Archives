@@ -7,6 +7,7 @@ import { AcquisitionNativeStream } from "../lib/acquisition-native-stream";
 import { runAcquisitionJobsOnce } from "../lib/acquisition-jobs";
 import {
   enqueueReadyVisual,
+  enqueueFailedIdentifierFallback,
   retrieveAcquisitionVisual,
 } from "../lib/acquisition-visual-worker";
 import { VISUAL_STAGE } from "../lib/acquisition-visual";
@@ -48,6 +49,7 @@ async function main() {
       await setTimeout(1000); continue;
     }
     const { descriptor, native } = generation.current;
+    await enqueueFailedIdentifierFallback(db, descriptor.digest);
     await enqueueReadyVisual(db, descriptor.digest);
     let inferenceRequests = 0, reuseHits = 0;
     const result = await runAcquisitionJobsOnce(

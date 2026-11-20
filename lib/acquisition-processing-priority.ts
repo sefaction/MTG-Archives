@@ -5,10 +5,13 @@ import { Prisma } from "@prisma/client";
 // Derive this from durable evidence, independently for each processing stage.
 export function acquisitionRefreshPriority(
   artifactId: Prisma.Sql, candidateId: Prisma.Sql, stage: Prisma.Sql,
+  firstFullFallback: Prisma.Sql = Prisma.sql`FALSE`,
 ) {
   return Prisma.sql`CASE WHEN EXISTS (
     SELECT 1 FROM "AcquisitionProcessingJob" previous
     WHERE previous."artifactId"=${artifactId} AND previous."candidateId"=${candidateId}
       AND previous.stage=${stage} AND previous.status='COMPLETE'
+      AND NOT (${stage}='photo-visual-retrieval-v1' AND COALESCE(${firstFullFallback},FALSE)
+        AND COALESCE(previous.output->'visual'->'retrieval'->>'strategy'='EXACT_CANDIDATES',FALSE))
   ) THEN 1 ELSE 0 END`;
 }

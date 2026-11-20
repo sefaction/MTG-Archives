@@ -4,9 +4,9 @@ import { acquisitionRefreshPriority } from "./acquisition-processing-priority";
 // Eligibility stays with each stage. Apply the same first-result policy before
 // the bounded admission window, so old refreshes cannot hide new source rows.
 // Share admission across owners, then prioritize and rotate their own runs.
-export function acquisitionHandoffQuery(stage: string, eligible: Prisma.Sql) {
+export function acquisitionHandoffQuery(stage: string, eligible: Prisma.Sql,firstFullFallback=false) {
   const priority = acquisitionRefreshPriority(Prisma.sql`source."artifactId"`,
-    Prisma.sql`source."candidateId"`, Prisma.sql`${stage}`);
+    Prisma.sql`source."candidateId"`, Prisma.sql`${stage}`,Prisma.sql`${firstFullFallback}`);
   return Prisma.sql`
     WITH ready AS (${eligible}), classified AS (
       SELECT ready.*, ${priority} AS "refreshPriority",

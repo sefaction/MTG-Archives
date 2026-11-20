@@ -94,10 +94,10 @@ export async function enqueueReadyVisual(db: PrismaClient, model: string) {
     }));
     added += result.count;
   }
-  return added + await enqueueIdentifierFallback(db, model);
+  return added;
 }
 
-async function enqueueIdentifierFallback(db:PrismaClient,model:string) {
+export async function enqueueFailedIdentifierFallback(db:PrismaClient,model:string) {
   const rows=await db.$queryRaw<{id:string}[]>(acquisitionHandoffQuery(VISUAL_STAGE,Prisma.sql`
     SELECT j.id,j."runId",j."createdAt" FROM "AcquisitionProcessingJob" j
     JOIN "AcquisitionProcessingJob" v ON v.id=j.output->>'sourceVisualJobId'
@@ -119,7 +119,7 @@ async function enqueueIdentifierFallback(db:PrismaClient,model:string) {
         AND later."candidateId"=c.id AND later."candidateRevision"=c.revision AND
           (later."createdAt",later.id)>(v."createdAt",v.id))
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" f WHERE f.stage=${VISUAL_STAGE}
-        AND f.input->>'fallbackPrintingJobId'=j.id AND f.input->>'model'=${model})`));
+        AND f.input->>'fallbackPrintingJobId'=j.id AND f.input->>'model'=${model})`,true));
   let added=0;
   for(const {id} of rows){
     const printing=await db.acquisitionProcessingJob.findUnique({where:{id}});

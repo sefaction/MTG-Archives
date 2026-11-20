@@ -97,7 +97,6 @@ def localized_readings(crop, ocr):
     import numpy as np
     orientations = []
     from card_layout import footer_top
-    from field_readings import supporting_fields
     for degrees, oriented in ((0, crop), (180, cv2.rotate(crop, cv2.ROTATE_180))):
         bottom_start = footer_top(oriented)
         regions = np.concatenate([oriented[:TITLE_BOTTOM],
@@ -129,14 +128,31 @@ def localized_readings(crop, ocr):
         text['footerSupplemental'] = reading_text(footer_lines, bottom_start)['footer']
         if len(text['footer']) + len(text['footerSupplemental']) > 100:
             raise ValueError('OCR footer evidence exceeds bounds')
-        fields = supporting_fields(oriented, ocr)
-        fields['artistText'] = [{'text':line['text'],'score':line['score']} for line in footer_lines
-                                if len(line['text'])<=200 and __import__('re').search(r'(?i)\b(?:illus\.?|illustrat(?:or|ed)|artist)\b',line['text'])][:16]
         orientations.append({'rotationDegrees': degrees, 'text': text,
                              'lines': lines, 'footerLines': footer_lines,
-                             'readingZones': reading_zones(bottom_start),
-                             'fields': fields})
+                             'readingZones': reading_zones(bottom_start)})
     return orientations
+
+
+def append_supporting_fields(crop, orientations, ocr, started):
+    from field_readings import supporting_fields
+    import cv2
+    for observation in orientations:
+        # Optional fields cannot extend the established primary-reading budget.
+        if time.monotonic()-started >= 24:
+            break
+        oriented = crop if observation['rotationDegrees']==0 else cv2.rotate(crop,cv2.ROTATE_180)
+        try:
+            fields = supporting_fields(oriented, ocr)
+        except MemoryError:
+            raise
+        except Exception:
+            # Optional fields cannot discard successful primary/source OCR.
+            observation['fieldsStatus']='WORKER_ERROR'
+            break
+        fields['artistText'] = [{'text':line['text'],'score':line['score']} for line in observation['footerLines']
+                                if len(line['text'])<=200 and __import__('re').search(r'(?i)\b(?:illus\.?|illustrat(?:or|ed)|artist)\b',line['text'])][:16]
+        observation['fields']=fields
 
 
 def append_source_identifiers(image, source_geometry, orientations, ocr, started):
@@ -197,7 +213,8 @@ def recognize(data, desc):
         crop, geometry_evidence = manual_card_region(image, manual_region)
     else:
         crop, geometry_evidence = geometry(image, input_kind)
-    geometry_evidence['sourceFrame'] = {'width': int(image.shape[1]), 'height': int(image.shape[0])}
+    if geometry_evidence.get('status')=='PROPOSED':
+        geometry_evidence['sourceFrame'] = {'width': int(image.shape[1]), 'height': int(image.shape[0])}
     if manual_region is None and crop is None and input_kind != 'CARD_SCAN':
         # Contour proposals can change when a near-edge card is sampled after
         # resize. Try bounded quarter turns before asking for a new crop, while
@@ -218,7 +235,8 @@ def recognize(data, desc):
             geometry_evidence = {**evidence, 'quad': [original_point(p) for p in evidence['quad']],
                                  'inputQuarterTurns': turns}
             break
-    geometry_evidence['sourceFrame'] = {'width': int(image.shape[1]), 'height': int(image.shape[0])}
+    if geometry_evidence.get('status')=='PROPOSED':
+        geometry_evidence['sourceFrame'] = {'width': int(image.shape[1]), 'height': int(image.shape[0])}
     proposed = geometry_evidence['status'] == 'PROPOSED'
     if not proposed:
         # No supported crop means no fabricated title/footer coordinates.
@@ -292,6 +310,10 @@ def recognize(data, desc):
                     raise
                 except Exception:
                     payload['scannerLayout']['readingStatus'] = 'WORKER_ERROR'
+    if payload.get('scannerLayout',{}).get('readingStatus')=='COMPLETE':
+        append_supporting_fields(inferred_crop,payload['scannerLayout']['orientations'],ocr,started)
+    elif not layout_profile or geometry_evidence.get('method')!='declared-card-scan':
+        append_supporting_fields(crop,orientations,ocr,started)
     payload['milliseconds'] = round((time.monotonic()-started)*1000)
     print(bounded_source_footer_output(payload),file=protocol,flush=True)
 

@@ -299,10 +299,10 @@ export function acquisitionPrintingSummary(
   };
 }
 
-export function finalImageComparisonMessage(printing: z.infer<typeof printingSummarySchema> | null | undefined, cardId?:string) {
+export function finalImageComparisonMessage(printing: z.infer<typeof printingSummarySchema> | null | undefined, cardId?:string,pending=false) {
   const checks=printing?.candidates.filter(c=>c.cardId===cardId).flatMap(c=>c.finalComparison?[c.finalComparison.status]:[]) ?? [];
   if(checks.includes('CONSISTENT'))return 'Compared image details agree; verify the printing';
   if(checks.includes('DIFFERENT'))return 'Image details differ; inspect the proposed printing';
   if(checks.length)return 'Final image comparison is unclear';
-  return 'Final image comparison pending';
+  return pending ? 'Final image comparison pending' : 'Final image comparison not recorded';
 }

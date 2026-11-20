@@ -65,6 +65,8 @@ test('review uses shared original-space geometry and direction but withholds pre
   assert.deepEqual(evidence.geometry.quad,native.geometry.quad);
   assert.equal(evidence.preparation?.boundary,'OBSERVED');
   assert.ok(!JSON.stringify(evidence).includes(digest));
+  assert.equal(acquisitionReviewEvidence({preparation:{...preparation,photoDigest:'c'.repeat(64)},
+    native:{...native,orientations:[]},proposals:{evidence:{setCodes:[],collectors:[],languages:[]}}}),null);
 });
 test('legacy source bounds stay exact while adaptive source windows are explicitly versioned',()=>{
   const unavailable={version:'source-footer-identifiers-v1',bounds:[24,1270,630,1396],rotationDegrees:0,

@@ -45,9 +45,16 @@ export function prepareRecognitionCard(native: {
 }
 
 export function preparedCardFromOutput(output: unknown, photoDigest: string) {
-  const record = z.object({photoId: z.string(), preparation: preparedCardSchema.optional()}).safeParse(output);
+  const record = z.object({photoId: z.string(), preparation: preparedCardSchema.optional(),
+    native:z.object({photoDigest:digest,geometry:z.record(z.unknown()),scannerLayout:z.object({
+      readingStatus:z.string().optional(),inference:z.object({status:z.string(),region:z.unknown().optional(),policy:z.string().optional()})}).optional()}).optional(),
+    proposals:z.object({orientation:z.object({status:z.string(),rotationDegrees:z.number().nullable()}).optional(),
+      proposals:z.array(z.object({reasons:z.array(z.string())})).optional()}).optional(),
+  }).safeParse(output);
   if (!record.success || record.data.preparation?.photoDigest !== photoDigest) return undefined;
-  return record.data.preparation;
+  if(!record.data.native||!record.data.proposals)return undefined;
+  const expected=prepareRecognitionCard(record.data.native,record.data.proposals);
+  return samePreparedCard(record.data.preparation,expected) ? record.data.preparation : undefined;
 }
 
 // This is a provisional routing decision. It never confirms a card or bypasses

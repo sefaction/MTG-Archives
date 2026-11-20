@@ -348,7 +348,7 @@ export async function recognizeAcquisitionPhoto(
   }
   if(native.scannerLayout?.readingStatus==="COMPLETE")proposals=combineScannerLayoutReadings(snapshot.index,native);
   signal.throwIfAborted();
-  proposals = applyEarlySetSymbol(proposals, native.orientations);
+  proposals = applyEarlySetSymbol(proposals, native.scannerLayout?.readingStatus==='COMPLETE' ? native.scannerLayout.orientations : native.orientations);
   proposals = applyPreparedInputPolicy(proposals, native);
   const preparation = prepareRecognitionCard(native, proposals);
   return {
