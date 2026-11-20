@@ -1,3 +1,11 @@
+## Current work - recognition pipeline design - November 20, 2026
+
+Owner attended-recognition-pipeline-design-20261120; isolated branch codex/recognition-pipeline-design from main c7872a24. Brian approved the proposed ordered flow and asked to commit it to writing before discussing additional foundational frameworks. Scope is documentation only; implementation and new production changes remain pending those provisions. Plan: [Recognition pipeline design](RECOGNITION_PIPELINE_DESIGN.md). Related #307 stays open; no issue created or merge authority granted.
+
+Recorded shared border-aware crop/orientation and matching preview, adaptive original-resolution footer reading, supported OCR/symbol fields, provisional identifier fast path, conditional DINOv2/SIFT retrieval, mandatory printing/final comparison and explicit human review/Inventory actions. Existing tools versus new integration work and unresolved framework entry points are explicit. Static content/link/whitespace checks precede PR publication; no runtime reload or product tests are needed for these prose changes. No runtime resource or temporary child is owned. Root WIP, existing review environments and paused John-Mark work are protected.
+
+Production activation is separately recorded in Foundry and the prior codex/portal-recognition checkpoint at e6d74c34; older pending-activation statements below are historical. This planning task does not assert new runtime/backlog results. Next: discuss Brian's additional frameworks and amend the plan before implementation. Default delivery is a documentation PR for review, with individual merge approval required.
+
 ## Current work - Portal recognition deployment gap - November 19, 2026
 
 Owner portal-recognition-20261119 / attended-portal-recognition-20261119; isolated codex/portal-recognition from maincb379e21, PR1054/related307. Brian requested diagnosis and recognition improvement for production Portal batches. Read-only production review/native service inspection and inbound original downloads only; no service/configuration, recognition-job, saved-review or Inventory writes. No merge/deployment authority. Root WIP, paused John-Mark work and protected13285/13295/13305 previews remain intact.
