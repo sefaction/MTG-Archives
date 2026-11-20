@@ -8,6 +8,7 @@ import { canonicalizeAcquisitionPhoto } from "../lib/acquisition-files";
 import { randomUUID } from "node:crypto";
 import { setTimeout } from "node:timers/promises";
 import { z } from "zod";
+import { runAcquisitionRerunOnce } from "../lib/acquisition-rerun";
 const db = new PrismaClient();
 const workerId = `photo-${randomUUID()}`;
 let stopped = false;
@@ -20,6 +21,12 @@ process.on("SIGINT", () => {
 async function main() {
   let nextCleanup = 0;
   do {
+    try {
+      const rerun = await runAcquisitionRerunOnce(db);
+      if (rerun.queued) console.log(JSON.stringify({event: "recognition-rerun-queued", ...rerun}));
+    } catch {
+      console.error("Recognition rerun queueing will retry; saved requests are kept");
+    }
     try {
       const capture = await runCorrectionCaptureOnce(db);
       if (capture.claimed) console.log(JSON.stringify({ event: "correction-original-capture", ...capture }));

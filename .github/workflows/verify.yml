@@ -145,6 +145,8 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npx prisma migrate deploy
+      - name: Durable recognition rerun ownership, concurrency and conservation
+        run: npx tsx scripts/verify-acquisition-rerun.ts --run
       - name: Retain the pinned original hydration ordering failure
         run: |
           mkdir -p .local-data/acquisition-order

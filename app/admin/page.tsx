@@ -1,4 +1,5 @@
 import { AdminNav } from "@/components/admin/AdminNav";
+import { AcquisitionRerunControl } from "@/components/AcquisitionRerunControl";
 export const dynamic = "force-dynamic";
 import { hashPassword, requireAdminMode } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -118,6 +119,7 @@ export default async function Page({
 
       {view === "overview" ? (
         <>
+          <AcquisitionRerunControl scope="ALL" />
           <section className="grid gap-3 md:grid-cols-4">
             {[
               ["Users", users.length, "Local accounts"],

@@ -1357,6 +1357,24 @@ enum AcquisitionPhase {
 }
 
 // Capture-only staging. No relation grants an inference worker inventory rights.
+// Durable recognition instructions; no Inventory/review reset authority. IDs
+// are audit provenance, not cascading lifetime relations to batches/accounts.
+model AcquisitionRecognitionRerun {
+  id String @id @default(uuid())
+  actorUserId String
+  ownerPlayerId String?
+  scope String
+  requestKey String
+  status String @default("QUEUED")
+  cursor String @default("")
+  queued Int @default(0)
+  createdAt DateTime @default(now())
+  finishedAt DateTime?
+  @@unique([actorUserId, requestKey])
+  @@index([actorUserId, scope, createdAt])
+  @@index([status])
+}
+
 model AcquisitionSession {
   reviewDefaults Json?
   defaultsRevision Int @default(0)
