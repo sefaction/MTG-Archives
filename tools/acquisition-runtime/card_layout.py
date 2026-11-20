@@ -72,4 +72,4 @@ def footer_top(card):
     if lines is None:
         return 1270
     rows = [1140+max(y1,y2) for x1,y1,x2,y2 in lines[:,0] if abs(y1-y2) <= 3]
-    return max(1160, min(1270, max(rows)+8)) if rows else 1270
+    return int(max(1160, min(1270, max(rows)+8))) if rows else 1270

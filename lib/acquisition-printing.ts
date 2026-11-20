@@ -17,10 +17,12 @@ export const finalComparisonSchema = z.object({version:z.literal('final-card-com
   const identity=value.identityRegions;
   if(identity&&new Set(identity.map(r=>r.region)).size!==2)
     ctx.addIssue({code:z.ZodIssueCode.custom,message:'Identity regions must be distinct'});
+  if(new Set(value.differentRegions).size!==value.differentRegions.length)
+    ctx.addIssue({code:z.ZodIssueCode.custom,message:'Different regions must be distinct'});
   if(value.status==='CONSISTENT'&&(!identity||value.measuredRegions<5||
     identity.some(r=>r.status!=='MEASURED'||(r.correlation??-1)<.75||(r.colorResidual??256)>25)))
     ctx.addIssue({code:z.ZodIssueCode.custom,message:'Frame agreement requires measured artwork and title agreement'});
-  if(value.status==='DIFFERENT'&&value.differentRegions.length<2&&
+  if(value.status==='DIFFERENT'&&new Set(value.differentRegions).size<2&&
     !(value.differentRegions.includes('ARTWORK')&&identity?.some(r=>r.region==='ARTWORK'&&r.status==='MEASURED'&&(r.correlation??1)<.35)))
     ctx.addIssue({code:z.ZodIssueCode.custom,message:'Difference requires distributed details or observed artwork disagreement'});
 });

@@ -19,6 +19,7 @@ test('final agreement requires actual artwork and title observations beyond matc
   assert.equal(finalComparisonSchema.safeParse({...result,identityRegions}).success,true);
   assert.equal(finalComparisonSchema.safeParse({...result,identityRegions:[identityRegions[0],identityRegions[0]]}).success,false);
   assert.equal(finalComparisonSchema.safeParse({...result,identityRegions:[identityRegions[0],{...identityRegions[1],status:'UNREADABLE'}]}).success,false);
+  assert.equal(finalComparisonSchema.safeParse({...result,status:'DIFFERENT',differentRegions:['FOOTER','FOOTER']}).success,false);
 });
 test('one original-space transform preserves selected direction and source bounds without overwriting the original',()=>{
   const frame=prepareRecognitionCard(native,proposals)!;

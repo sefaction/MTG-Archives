@@ -55,6 +55,9 @@ class PreparedCardTest(unittest.TestCase):
         self.assertEqual(footer_top(card),1270)
         cv2.line(card,(65,1240),(935,1240),(0,0,0),2)
         top=footer_top(card)
+        self.assertIs(type(top),int,'native line coordinates must cross the JSON protocol as plain integers')
+        from reading_direction import reading_zones
+        __import__('json').dumps(reading_zones(top))
         self.assertGreater(top,1240);self.assertLess(top,1270)
         lines=[{'text':'flavor text 123','polygon':[[80,1200],[700,1200],[700,1230],[80,1230]]},
                {'text':'Illustrator Name','polygon':[[80,1255],[600,1255],[600,1280],[80,1280]]}]
