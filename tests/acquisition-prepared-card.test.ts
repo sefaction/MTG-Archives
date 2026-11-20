@@ -11,7 +11,7 @@ const digest='a'.repeat(64);
 const native={photoDigest:digest,geometry:{status:'PROPOSED',method:'scanner-white-card-edges',
   quad:[[10,20],[650,20],[650,920],[10,920]],sourceFrame:{width:700,height:1000}}};
 const proposals={status:'STRONG_MATCH',totalProposals:1,orientation:{status:'SELECTED',rotationDegrees:180},
-  proposals:[{card:{id:'card'},reasons:['STRONG_EXACT_PRINTING','SET_AND_COLLECTOR_TEXT']}]};
+  proposals:[{card:{id:'card',name:'Card'},reasons:['STRONG_EXACT_PRINTING','SET_AND_COLLECTOR_TEXT']}]};
 test('final agreement requires actual artwork and title observations beyond matching frame details',()=>{
   const result={version:'final-card-comparison-v1',automaticAcceptance:false,status:'CONSISTENT',measuredRegions:5,differentRegions:[]};
   assert.equal(finalComparisonSchema.safeParse(result).success,false);
