@@ -9,8 +9,21 @@ import { printingDetailSchema, printingDetailSummarySchema, printingDetailSummar
 export const PRINTING_STAGE = "photo-printing-evidence-v1";
 export const finalComparisonSchema = z.object({version:z.literal('final-card-comparison-v1'),
   automaticAcceptance:z.literal(false),status:z.enum(['CONSISTENT','DIFFERENT','UNREADABLE']),
-  measuredRegions:z.number().int().min(0).max(5),
-  differentRegions:z.array(z.enum(['TYPE_LINE','SET_SYMBOL_AREA','FOOTER','LEFT_FRAME','RIGHT_FRAME'])).max(5)}).strict();
+  measuredRegions:z.number().int().min(0).max(7),
+  differentRegions:z.array(z.enum(['TYPE_LINE','SET_SYMBOL_AREA','FOOTER','LEFT_FRAME','RIGHT_FRAME','ARTWORK','TITLE'])).max(7),
+  identityRegions:z.array(z.object({region:z.enum(['ARTWORK','TITLE']),status:z.enum(['MEASURED','UNREADABLE']),
+    correlation:z.number().finite().min(-1).max(1).optional(),colorResidual:z.number().finite().min(0).max(255).optional()}).strict()).length(2).optional(),
+}).strict().superRefine((value,ctx)=>{
+  const identity=value.identityRegions;
+  if(identity&&new Set(identity.map(r=>r.region)).size!==2)
+    ctx.addIssue({code:z.ZodIssueCode.custom,message:'Identity regions must be distinct'});
+  if(value.status==='CONSISTENT'&&(!identity||value.measuredRegions<5||
+    identity.some(r=>r.status!=='MEASURED'||(r.correlation??-1)<.75||(r.colorResidual??256)>25)))
+    ctx.addIssue({code:z.ZodIssueCode.custom,message:'Frame agreement requires measured artwork and title agreement'});
+  if(value.status==='DIFFERENT'&&value.differentRegions.length<2&&
+    !(value.differentRegions.includes('ARTWORK')&&identity?.some(r=>r.region==='ARTWORK'&&r.status==='MEASURED'&&(r.correlation??1)<.35)))
+    ctx.addIssue({code:z.ZodIssueCode.custom,message:'Difference requires distributed details or observed artwork disagreement'});
+});
 // The native detector and the catalog interpretation have independent versions.
 export const PRINTING_POLICY_VERSION = "catalog-stamp-expectations-v1";
 
@@ -87,8 +100,7 @@ export const printingNativeSchema = z.object({
       ctx.addIssue({code:z.ZodIssueCode.custom,message:'Symbol observation requires supported alignment'});
     if(candidate.finalComparison && candidate.finalComparison.status !== 'UNREADABLE' &&
       (candidate.alignment.status !== 'ALIGNED' || (candidate.alignment.sourceCardWidth ?? 0)<500 ||
-       (candidate.finalComparison.status==='CONSISTENT' && candidate.finalComparison.measuredRegions<3) ||
-       (candidate.finalComparison.status==='DIFFERENT' && new Set(candidate.finalComparison.differentRegions).size<2)))
+       (candidate.finalComparison.status==='CONSISTENT' && candidate.finalComparison.measuredRegions<5)))
       ctx.addIssue({code:z.ZodIssueCode.custom,message:'Final comparison requires distributed observed details'});
     if (value.conflictingObservations && candidate.relation !== "UNRESOLVED")
       ctx.addIssue({code: z.ZodIssueCode.custom, message: "Conflicting observations cannot resolve a printing"});

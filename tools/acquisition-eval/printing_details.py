@@ -109,15 +109,33 @@ def printing_detail_evidence(warped, alignment, reference, visibility):
     return {'version': VERSION, 'regions': rows}
 
 
-def final_candidate_comparison(alignment, details):
+def final_candidate_comparison(alignment, details, warped=None, reference=None, visibility=None):
     """Conservative review flags, not calibrated exact-printing probabilities."""
     base={'version':'final-card-comparison-v1','automaticAcceptance':False}
     if alignment.get('status') != 'ALIGNED' or alignment.get('sourceCardWidth',0) < 500:
         return {**base,'status':'UNREADABLE','measuredRegions':0,'differentRegions':[]}
+    identity=[]
+    ref=cv2.resize(reference,SIZE) if reference is not None else None
+    lighting=_lighting(warped,ref,visibility) if warped is not None and ref is not None and visibility is not None else None
+    for name,bounds in [('ARTWORK',ARTWORK),('TITLE',(70,30,750,140))]:
+        row={'region':name,'status':'UNREADABLE'}
+        if warped is not None and ref is not None and visibility is not None and np.min(patch(visibility,bounds))>=254:
+            observed=cv2.cvtColor(patch(warped,bounds),cv2.COLOR_BGR2GRAY)
+            expected=cv2.cvtColor(patch(ref,bounds),cv2.COLOR_BGR2GRAY)
+            if min(float(observed.std()),float(expected.std()))>=5 and float(cv2.Laplacian(observed,cv2.CV_32F).var())>=25:
+                correlation=float(cv2.matchTemplate(observed,expected,cv2.TM_CCOEFF_NORMED)[0,0])
+                if np.isfinite(correlation):
+                    row.update(status='MEASURED',correlation=round(float(np.clip(correlation,-1,1)),6))
+                    if lighting is not None:
+                        gains,biases=lighting
+                        corrected=np.clip(patch(warped,bounds).astype(np.float32)*gains+biases,0,255)
+                        row['colorResidual']=round(float(np.mean(np.abs(corrected-patch(ref,bounds)))),4)
+        identity.append(row)
     measured=[r for r in details['regions'] if r['status']=='MEASURED']
-    # Two disagreeing distributed details flag inspection. Artwork-only geometric
-    # alignment is deliberately insufficient for a consistent-printing flag.
     different=[r['region'] for r in measured if r.get('correlation',1)<.35]
-    consistent=[r for r in measured if r.get('correlation',-1)>=.75 and r.get('colorResidual',0)<=25]
-    status='DIFFERENT' if len(different)>=2 else 'CONSISTENT' if len(consistent)>=3 else 'UNREADABLE'
-    return {**base,'status':status,'measuredRegions':len(measured),'differentRegions':different}
+    different += [r['region'] for r in identity if r['status']=='MEASURED' and r['correlation']<.35]
+    consistent=[r for r in measured if r.get('correlation',-1)>=.75 and r.get('colorResidual',256)<=25]
+    identity_agrees=all(r['status']=='MEASURED' and r['correlation']>=.75 and r.get('colorResidual',256)<=25 for r in identity)
+    status='DIFFERENT' if 'ARTWORK' in different or len(different)>=2 else 'CONSISTENT' if identity_agrees and len(consistent)>=3 else 'UNREADABLE'
+    return {**base,'status':status,'measuredRegions':len(measured)+sum(r['status']=='MEASURED' for r in identity),
+            'differentRegions':different,'identityRegions':identity}

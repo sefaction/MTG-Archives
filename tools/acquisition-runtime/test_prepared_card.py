@@ -66,8 +66,14 @@ class PreparedCardTest(unittest.TestCase):
         rows=[{'region':name,'status':'MEASURED','correlation':.95,'colorResidual':5}
               for name in ['TYPE_LINE','FOOTER','LEFT_FRAME']]
         aligned={'status':'ALIGNED','sourceCardWidth':700}
-        result=final_candidate_comparison(aligned,{'regions':rows})
+        image=np.random.default_rng(23).integers(0,256,(1397,1000,3),dtype=np.uint8)
+        visibility=np.full(image.shape[:2],255,np.uint8)
+        result=final_candidate_comparison(aligned,{'regions':rows},image,image,visibility)
         self.assertEqual(result['status'],'CONSISTENT');self.assertFalse(result['automaticAcceptance'])
+        self.assertEqual(final_candidate_comparison(aligned,{'regions':rows})['status'],'UNREADABLE','matching frames alone cannot verify identity')
+        wrong=image.copy();wrong[300:690,160:840]=255-wrong[300:690,160:840]
+        different=final_candidate_comparison(aligned,{'regions':rows},wrong,image,visibility)
+        self.assertEqual(different['status'],'DIFFERENT');self.assertIn('ARTWORK',different['differentRegions'])
         self.assertEqual(final_candidate_comparison(aligned,{'regions':rows[:1]})['status'],'UNREADABLE')
         self.assertEqual(final_candidate_comparison({'status':'UNREADABLE'},{'regions':rows})['status'],'UNREADABLE')
         for row in rows[:2]:row['correlation']=.1

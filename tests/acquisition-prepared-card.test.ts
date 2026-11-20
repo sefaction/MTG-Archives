@@ -6,11 +6,20 @@ import {randomUUID} from 'node:crypto';
 import {visualReuseIdentity,checkedVisualNative} from '../lib/acquisition-visual-reuse';
 import {acquisitionReviewEvidence} from '../lib/acquisition-review-evidence';
 import {sourceFooterSchema} from '../lib/acquisition-source-footer';
+import {finalComparisonSchema} from '../lib/acquisition-printing';
 const digest='a'.repeat(64);
 const native={photoDigest:digest,geometry:{status:'PROPOSED',method:'scanner-white-card-edges',
   quad:[[10,20],[650,20],[650,920],[10,920]],sourceFrame:{width:700,height:1000}}};
 const proposals={status:'STRONG_MATCH',totalProposals:1,orientation:{status:'SELECTED',rotationDegrees:180},
   proposals:[{card:{id:'card'},reasons:['STRONG_EXACT_PRINTING','SET_AND_COLLECTOR_TEXT']}]};
+test('final agreement requires actual artwork and title observations beyond matching frame details',()=>{
+  const result={version:'final-card-comparison-v1',automaticAcceptance:false,status:'CONSISTENT',measuredRegions:5,differentRegions:[]};
+  assert.equal(finalComparisonSchema.safeParse(result).success,false);
+  const identityRegions=['ARTWORK','TITLE'].map(region=>({region,status:'MEASURED',correlation:.95,colorResidual:5}));
+  assert.equal(finalComparisonSchema.safeParse({...result,identityRegions}).success,true);
+  assert.equal(finalComparisonSchema.safeParse({...result,identityRegions:[identityRegions[0],identityRegions[0]]}).success,false);
+  assert.equal(finalComparisonSchema.safeParse({...result,identityRegions:[identityRegions[0],{...identityRegions[1],status:'UNREADABLE'}]}).success,false);
+});
 test('one original-space transform preserves selected direction and source bounds without overwriting the original',()=>{
   const frame=prepareRecognitionCard(native,proposals)!;
   assert.equal(frame.boundary,'OBSERVED');assert.equal(frame.rotationDegrees,180);

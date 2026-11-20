@@ -122,7 +122,7 @@ class PrintingRuntime:
             stamp = stamp_evidence(warped, alignment, self.templates, image, state, visibility=visibility)
             details = printing_detail_evidence(warped, alignment, image, visibility)
             from printing_details import final_candidate_comparison
-            final_comparison = final_candidate_comparison(alignment, details)
+            final_comparison = final_candidate_comparison(alignment, details, warped, image, visibility)
             symbol = expansion_symbol_evidence(warped, alignment, image, visibility, self.symbol_bank)
             extra = {}
             if any(r['status'] == 'MEASURED' for r in details['regions']):
