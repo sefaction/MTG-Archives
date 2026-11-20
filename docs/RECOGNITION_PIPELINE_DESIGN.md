@@ -1,6 +1,6 @@
 # Recognition pipeline design
 
-Status: ordinary-card implementation authorized by Brian on November 20, 2026 and in progress in PR #1055; verification and individual merge approval remain pending. Related to [recognition tracker #307](https://github.com/sefaction/MTG-Archives/issues/307).
+Status: ordinary-card implementation author-qualified in PR #1055 on November 20, 2026. Individual merge approval, production rollout and independent acceptance remain separate. Related to [recognition tracker #307](https://github.com/sefaction/MTG-Archives/issues/307).
 
 ## November 20 implementation and profile decisions
 
@@ -10,9 +10,13 @@ Token profiles must preserve two linked identified faces of one physical copy. N
 
 The original agreed workflow and tool choices below remain the design baseline. Implementation adds a bounded full-index fallback when provisional identifier verification fails; this is not automatic confirmation. Adaptive reading/inferred geometry also withhold new automatic-acceptance authority in legacy text-only configurations. Actual accuracy, performance and source/runtime qualification must be recorded before readiness claims.
 
+The normal automated route uses one shared frame; a located exact title may establish upright direction even when old-card printing identifiers remain unresolved. Exact identifier routing is provisional and still reaches registered printing and final artwork/title/detail checks. An explicit human review can occur earlier and closes obsolete background authority; Inventory remains a separate action. Supporting mana glyphs cover the six basic W/U/B/R/G/C shapes, and artist extraction currently recognizes explicit artist/illustrator labels. Other text remains available as raw bounded readings; unreadable fields are not invented.
+
+Qualification uses two unchanged Portal originals plus controlled negative/synthetic guards. It establishes targeted behavior and data integrity, not universal accuracy or threshold calibration. Stamp unreadability and source/List alternatives stay reviewable. See [the current checkpoint](WORK_CHECKPOINT.md) for source/build/test bindings and retained failures.
+
 Recognition should establish one upright, complete card crop, use readable identifiers for an efficient first determination, and invoke full image search when identification remains unresolved. Every route must reach printing verification and a final candidate comparison before human confirmation. The scan shown during review must use the same framing as recognition.
 
-Brian approved recording this plan after reviewing the ordered process and tools. He also requested provisions for additional foundational frameworks, which he has not yet described. This document preserves the agreed direction without treating those provisions, implementation details or recognition thresholds as settled. The initial request authorized documentation only; the dated amendment above records the later ordinary-card implementation authority.
+Brian approved recording this plan after reviewing the ordered process and tools. He also requested provisions for additional foundational frameworks; the dated amendment above records the subsequently discussed Token and Art profile separation. This document preserves the agreed direction without treating those provisions, implementation details or recognition thresholds as settled. The initial request authorized documentation only; the dated amendment above records the later ordinary-card implementation authority.
 
 ## Current baseline and proposed changes
 
