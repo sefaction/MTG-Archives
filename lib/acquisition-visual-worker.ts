@@ -155,7 +155,7 @@ export async function retrieveAcquisitionVisual(
       recognition.candidateRevision !== job.candidateRevision || correctionHash(recognition.output) !== input.recognitionOutputHash))
     throw new AcquisitionJobSupersededError('Prepared recognition source changed');
   const preparation = recognition ? preparedCardFromOutput(recognition.output, input.digest) : undefined;
-  const exactId = recognition && !input.forceFullSearch ? exactRecognitionCandidate(recognition.output) : undefined;
+  const exactId = preparation && recognition && !input.forceFullSearch ? exactRecognitionCandidate(recognition.output) : undefined;
   const exactCard = exactId ? await db.card.findUnique({where:{id:exactId},select:{scryfallId:true}}) : undefined;
   const candidateScryfallIds = exactCard?.scryfallId ? [exactCard.scryfallId] : undefined;
   const run = await db.acquisitionRun.findUniqueOrThrow({where: {id: job.runId},
