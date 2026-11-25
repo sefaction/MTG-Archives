@@ -180,3 +180,8 @@ test("scope rejects unbounded data and duplicate per-request choices", () => {
     false,
   );
 });
+
+test("bulk progress rejects a repeated physical stack", () => {
+  const pin = { id: "stock", quantity: 1, stamp: "a".repeat(64) };
+  assert.equal(bulkScopeInput.safeParse({ held: [pin, pin] }).success, false);
+});

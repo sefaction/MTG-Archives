@@ -141,7 +141,7 @@ export function BulkCleanup({
       setReady(true);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [key]);
+  }, [key, batchId]);
   useEffect(() => {
     if (confirming && !dialog.current?.open) dialog.current?.showModal();
     if (!confirming && dialog.current?.open) dialog.current.close();
@@ -427,7 +427,7 @@ export function BulkCleanup({
           )}
           {noSpace && count > 0 && (
             <p role="alert" className="w-full text-sm">
-              {!destinationId
+              {!destination
                 ? "Choose or create a Bulk Box."
                 : "This destination does not have enough space for the selected copies."}
             </p>

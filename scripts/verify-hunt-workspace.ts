@@ -300,6 +300,32 @@ async function main() {
       false,
     );
     assert.equal(kept.plan!.totalCopies, bulk.plan!.totalCopies);
+    const heldRows = bulk
+      .plan!.items.filter(
+        (row) =>
+          row.cardId === f.card.id &&
+          row.language === "EN" &&
+          row.finish === "NONFOIL",
+      )
+      .slice(0, 2);
+    assert.equal(heldRows.length, 2);
+    const heldContext = await getBulkContext(db, f.owner, {
+      scope: {
+        excludedLocations: [f.box.id],
+        held: heldRows.map((row) => ({
+          id: row.id,
+          quantity: 1,
+          stamp: row.stamp,
+        })),
+      },
+    });
+    assert.ok(
+      heldRows.every((row) =>
+        heldContext.plan!.items.some(
+          (item) => item.id === row.id && item.pulledQuantity === 1,
+        ),
+      ),
+    );
     const excluded = await getBulkContext(db, f.owner, {
       scope: { excludedLocations: [f.box.id] },
     });

@@ -66,9 +66,20 @@ export const heldPullInput = z
     stamp: z.string().regex(/^[a-f0-9]{64}$/),
   })
   .strict();
-export const bulkScopeInput = pullScopeInput.extend({
-  held: z.array(heldPullInput).max(500).optional(),
-});
+export const bulkScopeInput = pullScopeInput
+  .extend({
+    held: z.array(heldPullInput).max(500).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (
+      value.held &&
+      new Set(value.held.map((row) => row.id)).size !== value.held.length
+    )
+      ctx.addIssue({
+        code: "custom",
+        message: "Choose each physically pulled stack once.",
+      });
+  });
 export type BulkScope = z.infer<typeof bulkScopeInput>;
 export const huntAdjustmentsInput = pullScopeInput
   .extend({

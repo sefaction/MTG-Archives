@@ -286,7 +286,12 @@ export function planCardHunt(input: {
   const boxes = new Map<string, HuntPlan["boxes"][number]>();
   // Physically pulled copies consume shared stock before replanning. Location
   // exclusions and a new printing choice apply only to the remaining copies.
+  const heldKeys = new Set<string>();
   for (const held of scope?.held ?? []) {
+    const heldKey = JSON.stringify([held.requestId, held.id]);
+    if (heldKeys.has(heldKey))
+      throw new Error("Choose each pulled stack once.");
+    heldKeys.add(heldKey);
     const line = lines.find((row) => row.request.id === held.requestId),
       item = stock.find((row) => row.id === held.id);
     if (
