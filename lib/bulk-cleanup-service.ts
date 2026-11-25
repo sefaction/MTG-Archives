@@ -26,8 +26,11 @@ export async function bulkReservations(tx: BulkTx, ids: string[]) {
   if (ids.length > 2000) {
     const result = new Map<string, number>();
     for (let offset = 0; offset < ids.length; offset += 2000) {
-      const part = await bulkReservations(tx, ids.slice(offset, offset + 2000));
-      for (const [id, quantity] of part) result.set(id, quantity);
+      const slice = ids.slice(offset, offset + 2000), part = await bulkReservations(tx, slice);
+      // A legacy trade can mention both sides in different chunks. Only take
+      // this chunk's IDs; its other-side count must not overwrite modern holds
+      // already accumulated for an earlier chunk.
+      for (const id of slice) if (part.has(id)) result.set(id, part.get(id)!);
     }
     return result;
   }

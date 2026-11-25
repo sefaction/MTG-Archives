@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
-import { getBulkContext } from "../lib/bulk-cleanup-service";
+import { getBulkContext, bulkReservations } from "../lib/bulk-cleanup-service";
 import { saveBulkSettings, performBulkAction } from "../lib/bulk-cleanup-actions";
 import type { BulkContext, BulkActionInput } from "../lib/bulk-cleanup-policy";
 import { createAcquisitionSession, saveAcquisitionReview } from "../lib/acquisition-store";
@@ -72,6 +72,11 @@ async function main() {
     context = await getBulkContext(db, f.owner); assert.equal(context.plan!.totalCopies, 8);
     const trade = await db.trade.create({ data: { proposerPlayerId: f.owner, receiverPlayerId: f.recipient, createdByUserId: f.owner, status: "PROPOSED", offeredInventoryItemId: f.normal.id } });
     await db.tradeLine.create({ data: { tradeId: trade.id, side: "PROPOSER", inventoryItemId: f.normal.id, quantity: 4, snapshotJson: {} } });
+    const legacy = await db.trade.create({ data: { proposerPlayerId: f.owner, receiverPlayerId: f.recipient, createdByUserId: f.owner,
+      status: "PROPOSED", offeredInventoryItemId: f.normal.id, requestedInventoryItemId: f.damaged.id } });
+    const chunked = await db.$transaction(tx => bulkReservations(tx, [f.normal.id, ...Array.from({ length: 2000 }, (_, index) => `absent-${index}`), f.damaged.id]));
+    assert.equal(chunked.get(f.normal.id), 5); assert.equal(chunked.get(f.damaged.id), 1);
+    await db.trade.update({ where: { id: legacy.id }, data: { status: "CANCELLED" } });
     context = await getBulkContext(db, f.owner); assert.equal(context.plan!.totalCopies, 6); assert.equal(context.plan!.protectedCopies, 2);
     assert.equal(context.plan!.items.find(row => row.id === f.normal.id)?.quantity, 3);
     // A stale, now-reserved plan is rejected and its request permanently closed.
