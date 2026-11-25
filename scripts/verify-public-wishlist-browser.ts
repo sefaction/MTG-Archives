@@ -10,7 +10,7 @@ export async function seedPublicWishlistBrowser(db: PrismaClient, tag: string, c
     const id = `${tag}-${role}`;
     await db.player.create({ data: { id, name: id, displayName: "PRIVATE-PROFILE" } });
     await db.user.create({ data: { id, username: id, displayName: "PRIVATE-DISPLAY", playerId: id, passwordHash,
-      role: role === "admin" ? "ADMIN" : "USER", preferredPriceProvider: "tcgplayer", publicWishlistCategories: role === "owner" ? ["manual"] : [] } });
+      role: role === "admin" ? "ADMIN" : "PLAYER", preferredPriceProvider: "tcgplayer", publicWishlistCategories: role === "owner" ? ["manual"] : [] } });
   }
   const owner = `${tag}-owner`, peer = `${tag}-peer`, admin = `${tag}-admin`;
   const image = (name: string) => `data:image/svg+xml;base64,${Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="252" height="352"><rect width="252" height="352" rx="12" fill="#246b75"/><rect x="12" y="12" width="228" height="328" rx="8" fill="#142b3c"/><text x="24" y="58" font-size="16" fill="white">${name}</text><path d="M24 220 L100 90 L150 160 L200 95 L228 220" fill="#55b8ae"/></svg>`).toString("base64")}`;
