@@ -44,6 +44,9 @@ export async function bulkStock(tx: BulkTx, owner: BulkOwner, cardIds?: string[]
     tx.inventoryLocation.findMany({ where: { ownerPlayerId: owner.playerId } }),
   ]);
   const paths = buildLocationPathMap(locations), byId = new Map(locations.map(row => [row.id, row]));
+  // Hash geometry once per location, rather than serializing a potentially
+  // hundred-section layout again for every physical inventory lot.
+  const locationStamps = new Map(locations.map(row => [row.id, handoffHash(row)]));
   const holds = await bulkReservations(tx, stock.map(row => row.id));
   const settings = bulkSettings(owner);
   type Group = { loose: number; deck: number; rows: typeof stock; stamp: string };
@@ -72,7 +75,7 @@ export async function bulkStock(tx: BulkTx, owner: BulkOwner, cardIds?: string[]
   for (const [key, group] of groups) {
     group.rows.sort((a, b) => a.id.localeCompare(b.id));
     group.stamp = handoffHash([settings.stamp, group.rows.map(row => [handoffStamp(row), holds.get(row.id) ?? 0,
-      row.locationId ? byId.get(row.locationId) : null])]);
+      row.locationId ? locationStamps.get(row.locationId) ?? null : null])]);
     const counts = excessCounts(group.loose, group.deck, settings.maxCopies, settings.includeDecks);
     let remaining = counts.existingExcess;
     const eligible = group.rows.filter(row => !isDeck(row.locationId) && safeLocation(row.locationId) && !row.roundId && !row.acquiredFromPullId);

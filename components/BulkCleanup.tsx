@@ -6,8 +6,8 @@ import { readPendingBulk, verifiedBulkResult } from "@/lib/bulk-cleanup-pending"
 
 const button = "rounded border border-[var(--app-border)] px-3 py-2 text-sm disabled:opacity-50";
 const inputClass = "rounded border border-[var(--app-border)] bg-[var(--app-surface)] p-2";
-async function api(url: string, body?: unknown) {
-  const response = await fetch(url, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : { cache: "no-store" });
+async function api(url: string, body?: unknown, signal?: AbortSignal) {
+  const response = await fetch(url, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : { cache: "no-store", signal });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Could not load bulk cleanup.");
   return data;
@@ -24,20 +24,28 @@ export function BulkCleanup({ actorId, enabled, batchId, revision, refresh, bloc
     [recipientType, setRecipientType] = useState("EXTERNAL"), [person, setPerson] = useState(""), [kind, setKind] = useState<"GIFT" | "TRADE">("GIFT"),
     [pulled, setPulled] = useState(false), [confirming, setConfirming] = useState(false), [recoveryBlocked, setRecoveryBlocked] = useState(false);
   const key = `mtg:bulk-cleanup:${actorId}`, dialog = useRef<HTMLDialogElement>(null);
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal?: AbortSignal) => {
     if (!enabled) return;
     try {
-      const value: BulkContext = await api(`/api/bulk-cleanup?page=${page}${batchId ? `&batchId=${encodeURIComponent(batchId)}` : ""}`);
+      const value: BulkContext = await api(`/api/bulk-cleanup?page=${page}${batchId ? `&batchId=${encodeURIComponent(batchId)}` : ""}`, undefined, signal);
+      if (signal?.aborted) return;
       setContext(value); setSelected({}); setError("");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not load cleanup."); }
+    } catch (cause) { if (!signal?.aborted) setError(cause instanceof Error ? cause.message : "Could not load cleanup."); }
   }, [enabled, page, batchId]);
-  useEffect(() => { if (!confirming && !pending) void load(); }, [load, revision, confirming, pending]);
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!confirming && !pending) void Promise.resolve().then(() => load(controller.signal));
+    return () => controller.abort();
+  }, [load, revision, confirming, pending]);
   useEffect(() => {
     // Keep the exact request across reloads. Disabling cleanup never hides a
     // prior confirmation whose result still needs recovery.
-    try { const raw = sessionStorage.getItem(key); if (raw) setPending(readPendingBulk(raw)); }
-    catch { setRecoveryBlocked(true); setError("The saved confirmation could not be read. Keep this tab open and reload before starting another cleanup."); }
-    setReady(true);
+    const timer = window.setTimeout(() => {
+      try { const raw = sessionStorage.getItem(key); if (raw) setPending(readPendingBulk(raw)); }
+      catch { setRecoveryBlocked(true); }
+      setReady(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [key]);
   useEffect(() => {
     if (confirming && !dialog.current?.open) dialog.current?.showModal();
@@ -85,6 +93,7 @@ export function BulkCleanup({ actorId, enabled, batchId, revision, refresh, bloc
     {pending && <div className="space-y-2 rounded border border-amber-500 p-3" role="status"><p>A previous cleanup confirmation needs its result checked. It may already have finished.</p>
       <button className={button} disabled={busy} onClick={() => void send(pending)}>{busy ? "Checking…" : "Check same confirmation"}</button></div>}
     {error && <p role="alert" className="text-sm text-amber-600">{error}</p>}
+    {recoveryBlocked && <p role="alert" className="text-sm">A saved confirmation could not be read. Reload this tab before starting another cleanup.</p>}
     {result && <p role="status" className="text-sm">{result.message}{result.replay ? " (Recovered confirmation)" : ""}</p>}
     {!context && enabled && !error && <p className="text-sm">Checking your collection…</p>}
     {plan && open && <>

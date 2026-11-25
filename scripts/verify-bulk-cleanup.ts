@@ -136,6 +136,14 @@ async function main() {
     assert.equal((await getBulkContext(db, guarded.owner)).plan!.totalCopies, 0);
     assert.equal((await getBulkContext(db, guarded.owner)).plan!.protectedCopies, 6);
     await db.inventoryLocation.update({ where: { id: guarded.box.id }, data: { active: true } });
+    const league = await db.league.create({ data: { name: "Protected fixture League", slug: tag, seasons: { create: { name: "Fixture season", year: 2026, startDate: new Date(), rounds: { create: { name: "Fixture round", monthNumber: 1, startDate: new Date() } } } } }, include: { seasons: { include: { rounds: true } } } });
+    const roundId = league.seasons[0].rounds[0].id;
+    const pull = await db.pull.create({ data: { roundId, playerId: guarded.owner, cardId: guarded.card.id, quantity: 7, condition: "NM" } });
+    await db.inventoryItem.update({ where: { id: guarded.normal.id }, data: { roundId, acquiredFromPullId: pull.id } });
+    const leaguePlan = await getBulkContext(db, guarded.owner);
+    assert.equal(leaguePlan.plan!.totalCopies, 3); assert.equal(leaguePlan.plan!.protectedCopies, 3);
+    assert.ok(leaguePlan.plan!.items.every(row => row.id !== guarded.normal.id));
+    await db.inventoryItem.update({ where: { id: guarded.normal.id }, data: { roundId: null, acquiredFromPullId: null } });
     const foreignAttempt = request(await getBulkContext(db, guarded.owner));
     assert.equal((await performBulkAction(db, guarded.other, foreignAttempt)).status, "REJECTED");
     assert.equal((await getBulkContext(db, guarded.owner)).plan!.totalCopies, 6);
@@ -170,6 +178,7 @@ async function main() {
     assert.equal((await performBulkAction(db, s.owner, staleScan)).status, "REJECTED");
     assert.equal(await db.acquisitionCandidate.count({ where: { runId: current.run.id, ignored: false } }), 1);
     const scale = await seedBulkCleanup(db, tag + "-scale");
+    await db.inventoryLocation.update({ where: { id: scale.box.id }, data: { storageLayout: { capacity: null, sections: Array.from({ length: 100 }, (_, index) => ({ name: `Section ${index}`, capacity: null })) } } });
     await saveBulkSettings(db, scale.owner, { action: "SETTINGS", enabled: true, maxCopies: 4, includeDecks: false, revision: 0 });
     for (let offset = 0; offset < 30000; offset += 1000) await db.inventoryItem.createMany({ data: Array.from({ length: 1000 }, () => ({ currentOwnerId: scale.owner, cardId: scale.card.id, quantity: 5, condition: "NM", locationId: scale.box.id })) });
     const started = performance.now(), scaled = await getBulkContext(db, scale.owner);
