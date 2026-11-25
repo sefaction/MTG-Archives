@@ -1738,10 +1738,12 @@ export async function searchAcquisitionPrintings(
           ? await searchLocalCardCatalog(tx, {
               query: input.query,
               setCode: input.query.toLowerCase(),
+              paperOnly: true,
               limit: 50,
             })
           : await tx.card.findMany({
               where: {
+                OR: [{ digital: false }, { digital: null }],
                 ...(input.query.length >= 2
                   ? {
                       name: {

@@ -16,6 +16,34 @@ import { enqueueReadyRecognition } from "../lib/acquisition-recognition-worker";
 import { finishForPrinting } from "../lib/acquisition-finish";
 import {verifyAcquisitionReviewProblems} from "./verify-acquisition-review-problems";
 
+// Put enough digital editions ahead of both eligible rows to fill an entire
+// result page. A local hit must also work with the catalog provider offline.
+export async function verifyPaperPrintingSearch(
+  db: PrismaClient, actor: AcquisitionActor, sessionId: string,
+) {
+  const name = `Paper search fixture ${randomUUID()}`;
+  const ids = Array.from({ length: 52 }, () => randomUUID());
+  try {
+    await db.card.createMany({ data: ids.map((scryfallId, index) => ({
+      scryfallId, name, setCode: "rfx", collectorNumber: "123a",
+      typeLine: "Creature", rarity: "common",
+      releasedAt: new Date(Date.UTC(2020, 0, 52 - index)),
+      digital: index < 50 ? true : index === 50 ? false : null,
+    })) });
+    const expected = await db.card.findMany({
+      where: { scryfallId: { in: ids.slice(50) } },
+      orderBy: { releasedAt: "desc" }, select: { id: true },
+    });
+    for (const filters of [{ set: "", number: "" }, { set: "RFX", number: "00123a" }]) {
+      const matches = await searchAcquisitionPrintings(db, actor, sessionId,
+        { query: name, ...filters }, async () => { throw Error("Unexpected catalog fallback"); });
+      assert.deepEqual(matches.map(card => card.id), expected.map(card => card.id));
+    }
+  } finally {
+    await db.card.deleteMany({ where: { scryfallId: { in: ids } } });
+  }
+}
+
 export async function verifyAcquisitionReview(
   db: PrismaClient,
   actor: AcquisitionActor,
@@ -80,6 +108,7 @@ export async function verifyAcquisitionReview(
     state = await getAcquisitionCardReview(db, actor, sessionId, photoId);
     assert.deepEqual(state.defaults, { finish: "NONFOIL", condition: "NM" });
     assert.equal(state.review, null);
+    await verifyPaperPrintingSearch(db, actor, sessionId);
     await verifyAcquisitionReviewProblems(db, actor, stranger, sessionId, photoId, card.id);
     assert.equal(
       (

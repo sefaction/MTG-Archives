@@ -12,6 +12,7 @@ export async function searchLocalCardCatalog(
     setCode: string;
     limit: number;
     includeTypeLine?: boolean;
+    paperOnly?: boolean;
   },
 ): Promise<Card[]> {
   if (
@@ -21,13 +22,14 @@ export async function searchLocalCardCatalog(
   )
     throw new Error("Invalid local card search limit");
   const pattern = `%${input.query}%`;
+  const paperFilter = input.paperOnly ? Prisma.sql`AND digital IS NOT TRUE` : Prisma.empty;
   // Broad types (e.g. Creature) can match most of the catalog. Keep that
   // ordered, bounded branch separate so it can stop early. Its first N rows
   // suffice for the first N of the union, using the same deterministic order.
   const typeMatch = input.includeTypeLine
     ? Prisma.sql`UNION (
         SELECT id, name, "releasedAt" FROM "Card"
-        WHERE "typeLine" ILIKE ${pattern}
+        WHERE "typeLine" ILIKE ${pattern} ${paperFilter}
         ORDER BY name ASC, "releasedAt" DESC, id ASC
         LIMIT ${input.limit}
       )`
@@ -35,9 +37,9 @@ export async function searchLocalCardCatalog(
   const matches = await db.$queryRaw<{ id: string }[]>(Prisma.sql`
     WITH matched AS MATERIALIZED (
       SELECT id, name, "releasedAt" FROM "Card"
-      WHERE name ILIKE ${pattern}
+      WHERE (name ILIKE ${pattern}
         OR "setCode" ILIKE ${input.setCode}
-        OR "collectorNumber" = ${input.query}
+        OR "collectorNumber" = ${input.query}) ${paperFilter}
     )
     SELECT id FROM (SELECT * FROM matched ${typeMatch}) candidates
     ORDER BY name ASC, "releasedAt" DESC, id ASC
