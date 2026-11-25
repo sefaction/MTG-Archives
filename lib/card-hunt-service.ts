@@ -432,6 +432,7 @@ export async function buildCardHunt(
           oracleId: true,
           setCode: true,
           collectorNumber: true,
+          colorIdentity: true,
           imageUri: true,
           cardFaces: true,
           manaCost: true,

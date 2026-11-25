@@ -45,6 +45,11 @@ export function CardHunt({
   initialDeckId?: string;
   card?: CardHuntContext;
 }) {
+  const planKey = card
+    ? JSON.stringify([card.id, card.scope, card.finish ?? ""])
+    : initialDeckId
+      ? `deck:${initialDeckId}`
+      : "decks";
   const [adjustments, setAdjustments] = useState<HuntAdjustments>({});
   const [printing, setPrinting] = useState<{
     requestId: string;
@@ -68,10 +73,6 @@ export function CardHunt({
     [message, setMessage] = useState("");
   const [result, setResult] = useState<Result | null>(null),
     [lastInput, setLastInput] = useState<CardHuntInput | null>(null);
-  const [boxPage, setBoxPage] = useState(0),
-    [filter, setFilter] = useState(""),
-    [showLines, setShowLines] = useState(false),
-    [linePage, setLinePage] = useState(0);
   const [selection, setSelection] = useState<Record<string, number>>({}),
     [given, setGiven] = useState(0),
     [needsRefresh, setNeedsRefresh] = useState(false);
@@ -95,15 +96,23 @@ export function CardHunt({
         try {
           const saved = JSON.parse(
             sessionStorage.getItem(
-              "mtg-hunt-workspace:" +
-                value.actorUserId +
-                ":" +
-                (card?.id ?? "decks"),
+              "mtg-hunt-workspace:" + value.actorUserId + ":" + planKey,
             ) || "null",
           );
-          if (saved?.input && saved?.result && !changedPlan.current) {
+          if (
+            saved?.input &&
+            saved.result?.actorUserId === value.actorUserId &&
+            Array.isArray(saved.result.boxes) &&
+            saved.result.boxes.every((box: { picks: unknown }) =>
+              Array.isArray(box.picks),
+            ) &&
+            Array.isArray(saved.result.lines) &&
+            !changedPlan.current
+          ) {
             setResult(saved.result);
             setLastInput(saved.input);
+            if (saved.selection && typeof saved.selection === "object")
+              setSelection(saved.selection);
             setAdjustments(saved.input.adjustments ?? {});
             setSetupOpen(false);
             setSelectedDecks(
@@ -142,7 +151,7 @@ export function CardHunt({
           );
       });
     return () => controller.abort();
-  }, []);
+  }, [planKey]);
   useEffect(() => {
     if (!context) return;
     const check = () => {
@@ -162,20 +171,23 @@ export function CardHunt({
     if (context && result && lastInput)
       try {
         sessionStorage.setItem(
-          "mtg-hunt-workspace:" +
-            context.actorUserId +
-            ":" +
-            (card?.id ?? "decks"),
-          JSON.stringify({ input: lastInput, result }),
+          "mtg-hunt-workspace:" + context.actorUserId + ":" + planKey,
+          JSON.stringify({ input: lastInput, result, selection }),
         );
       } catch {
         setMessage(
           "This browser could not save hunt progress. Keep this tab open until you finish.",
         );
       }
-  }, [context, result, lastInput, card?.id]);
+  }, [context, result, lastInput, planKey, selection]);
   const blocked = Boolean(frozen) || corruptPending || otherPending;
   function clearPlan() {
+    if (context)
+      try {
+        sessionStorage.removeItem(
+          "mtg-hunt-workspace:" + context.actorUserId + ":" + planKey,
+        );
+      } catch {}
     setResult(null);
     setAdjustments({});
     setPrinting(null);
@@ -223,10 +235,6 @@ export function CardHunt({
         throw Error(value.error ?? "The hunt could not be prepared.");
       setResult(value);
       setSetupOpen(false);
-      setBoxPage(0);
-      setLinePage(0);
-      setFilter("");
-      setShowLines(false);
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -294,27 +302,6 @@ export function CardHunt({
     blocked ||
     needsRefresh ||
     !context;
-  const boxes =
-    result?.boxes.filter((box) => {
-      const term = filter.trim().toLowerCase();
-      return (
-        !term ||
-        box.name.toLowerCase().includes(term) ||
-        box.picks.some((pick) =>
-          `${pick.name} ${pick.section ?? ""} ${pick.setCode} ${pick.collectorNumber} ${pick.sourceLabel ?? ""}`
-            .toLowerCase()
-            .includes(term),
-        )
-      );
-    }) ?? [];
-  function toggle(pick: HuntPick, checked: boolean) {
-    setSelection((previous) => {
-      const next = { ...previous };
-      if (checked) next[huntPickKey(pick)] = pick.quantity;
-      else delete next[huntPickKey(pick)];
-      return next;
-    });
-  }
   function known(value: HuntActionResult, input: HuntActionInput) {
     setAction(null);
     setFrozen(null);

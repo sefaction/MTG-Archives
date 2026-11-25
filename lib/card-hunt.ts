@@ -47,6 +47,7 @@ export type HuntStock = {
 };
 
 export type HuntCard = {
+  colorIdentity?: unknown;
   id: string;
   name: string;
   setCode: string;

@@ -28,6 +28,9 @@ export function pullCardRow(input: {
     foil: input.finish === "FOIL",
     imageUri: input.imageUri ?? input.card?.imageUri ?? undefined,
     cardFaces: Array.isArray(input.card?.cardFaces) ? input.card.cardFaces : [],
+    colorIdentity: Array.isArray(input.card?.colorIdentity)
+      ? input.card.colorIdentity.join(",")
+      : "",
     manaCost: input.card?.manaCost ?? "",
     typeLine: input.card?.typeLine ?? "",
     rarity: input.card?.rarity ?? "",
