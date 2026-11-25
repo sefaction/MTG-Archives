@@ -161,6 +161,7 @@ type InventoryRelatedPart = {
 };
 
 export type InventoryRow = {
+  pull?: {quantity:number;location?:string;destination?:string};
   wishlist?: { category: string; categoryLabel: string; printing: string; finish: string };
   id: string;
   cardId: string;
@@ -782,6 +783,7 @@ function InventoryDetailPanel({
   priceLabel: string;
   showPricing: boolean;
 }) {
+  if (row.pull) return <section className={detailBlockClass}><div className={detailHeaderClass}>Pull</div><div className={detailBodyClass}><p>Copies to pull: {row.pull.quantity}</p>{row.pull.location&&<p>From: {row.pull.location}</p>}{row.pull.destination&&<p>For: {row.pull.destination}</p>}</div></section>;
   if (row.wishlist) return (
     <section className={detailBlockClass}>
       <div className={detailHeaderClass}>Wishlist</div>
@@ -1670,6 +1672,10 @@ function CardDetail({
       </div>
     </dialog>
   );
+}
+
+export function InventoryCardDetails({ row, onClose }: { row: InventoryRow; onClose: () => void }) {
+  return <CardDetail row={row} onClose={onClose} capabilities={READ_ONLY_CAPABILITIES} deckTargets={[]} canHunt={false} showPricing={false} />;
 }
 
 // Public browsing omits private storage. Keep that default stable so the

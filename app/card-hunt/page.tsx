@@ -16,13 +16,13 @@ export default async function CardHuntPage({searchParams}: {
   const decks = await prisma.deck.findMany({where: {ownerUserId: user.id, commanderLeagueDeck: null},
     orderBy: [{name: "asc"}, {id: "asc"}], select: {id: true, name: true}});
   const initialDeckId = decks.find((deck) => deck.id === query.deckId)?.id;
-  return <main className="mx-auto max-w-6xl px-3 py-6 sm:px-6">
+  return <main className="min-w-0 space-y-4 p-4 sm:p-8">
     <Nav deckHunt={Boolean(initialDeckId && user.playerId)} />
     <div className="mb-6">
       {initialDeckId && user.playerId && (
         <Link href={deckToolHref(initialDeckId, query.from)} className="mb-2 inline-block text-sm underline">Back to deck</Link>
       )}
-      <h1 className="text-2xl font-semibold">Card Hunt</h1>
+      <h1 className="text-3xl font-bold">Card Hunt</h1>
       <p className="mt-2 text-sm text-[var(--app-muted)]">Find the boxes and sections to pull your cards from.</p>
     </div>
     {user.bulkCleanupEnabled && user.playerId && <nav aria-label="Card Hunt mode" className="mb-4 flex gap-4 text-sm"><Link href="/card-hunt" aria-current={query.mode !== "bulk" ? "page" : undefined} className="underline">Find cards</Link><Link href="/card-hunt?mode=bulk" aria-current={query.mode === "bulk" ? "page" : undefined} className="underline">Bulk cleanup</Link></nav>}

@@ -896,6 +896,7 @@ model InventoryLocation {
   normalizedName            String
   description               String?
   type                      String?
+  isBulk                    Boolean                   @default(false)
   storageLayout             Json?
   capacityRevision          Int                       @default(0)
   kind                      InventoryLocationKind     @default(NORMAL)

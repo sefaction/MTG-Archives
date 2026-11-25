@@ -1,6 +1,10 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { PullWorkspace, type PullRow } from "./PullWorkspace";
+import { HuntPrintingPicker } from "./HuntPrintingPicker";
+import { pullCardRow } from "@/lib/pull-card-row";
+import type { HuntAdjustments } from "@/lib/pull-scope";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { HuntFinish, HuntMode, HuntPick, HuntPlan } from "@/lib/card-hunt";
 import type { buildCardHunt, CardHuntInput } from "@/lib/card-hunt-service";
 import type {
@@ -41,6 +45,13 @@ export function CardHunt({
   initialDeckId?: string;
   card?: CardHuntContext;
 }) {
+  const [adjustments, setAdjustments] = useState<HuntAdjustments>({});
+  const [printing, setPrinting] = useState<{
+    requestId: string;
+    name: string;
+  } | null>(null);
+  const [setupOpen, setSetupOpen] = useState(true);
+  const changedPlan = useRef(false);
   const [selectedDecks, setSelectedDecks] = useState<string[]>(
       initialDeckId ? [initialDeckId] : [],
     ),
@@ -81,6 +92,36 @@ export function CardHunt({
           );
         if (controller.signal.aborted) return;
         setContext(value);
+        try {
+          const saved = JSON.parse(
+            sessionStorage.getItem(
+              "mtg-hunt-workspace:" +
+                value.actorUserId +
+                ":" +
+                (card?.id ?? "decks"),
+            ) || "null",
+          );
+          if (saved?.input && saved?.result && !changedPlan.current) {
+            setResult(saved.result);
+            setLastInput(saved.input);
+            setAdjustments(saved.input.adjustments ?? {});
+            setSetupOpen(false);
+            setSelectedDecks(
+              saved.input.sources
+                ?.filter((source: { kind: string }) => source.kind === "DECK")
+                .map((source: { deckId: string }) => source.deckId) ?? [],
+            );
+            setLists(
+              saved.input.sources?.filter(
+                (source: { kind: string }) => source.kind === "LIST",
+              ) ?? [],
+            );
+            setMode(saved.input.mode);
+            setFinish(saved.input.finish);
+            setIncludeMaybeboard(saved.input.includeMaybeboard ?? false);
+            setIgnoreBasicLands(saved.input.ignoreBasicLands ?? false);
+          }
+        } catch {}
         let saved: string | null = null;
         try {
           saved = sessionStorage.getItem(huntPendingKey(value.actorUserId));
@@ -117,9 +158,27 @@ export function CardHunt({
     window.addEventListener("mtg-card-handoff-pending", check);
     return () => window.removeEventListener("mtg-card-handoff-pending", check);
   }, [context]);
+  useEffect(() => {
+    if (context && result && lastInput)
+      try {
+        sessionStorage.setItem(
+          "mtg-hunt-workspace:" +
+            context.actorUserId +
+            ":" +
+            (card?.id ?? "decks"),
+          JSON.stringify({ input: lastInput, result }),
+        );
+      } catch {
+        setMessage(
+          "This browser could not save hunt progress. Keep this tab open until you finish.",
+        );
+      }
+  }, [context, result, lastInput, card?.id]);
   const blocked = Boolean(frozen) || corruptPending || otherPending;
   function clearPlan() {
     setResult(null);
+    setAdjustments({});
+    setPrinting(null);
     setSelection({});
     setError("");
     setMessage("");
@@ -149,6 +208,7 @@ export function CardHunt({
             ],
           }),
     };
+    changedPlan.current = true;
     setBusy(true);
     clearPlan();
     setLastInput(input);
@@ -162,6 +222,7 @@ export function CardHunt({
       if (!response.ok)
         throw Error(value.error ?? "The hunt could not be prepared.");
       setResult(value);
+      setSetupOpen(false);
       setBoxPage(0);
       setLinePage(0);
       setFilter("");
@@ -176,9 +237,43 @@ export function CardHunt({
       setBusy(false);
     }
   }
+  async function replan(next: HuntAdjustments) {
+    if (!lastInput || blocked || busy) return;
+    setBusy(true);
+    setError("");
+    changedPlan.current = true;
+    const input = {
+      ...lastInput,
+      adjustments: next,
+      printingRequestId: undefined,
+    };
+    try {
+      const response = await fetch("/api/card-hunt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const value = await response.json();
+      if (!response.ok)
+        throw Error(value.error || "Could not re-evaluate the hunt.");
+      setResult(value);
+      setLastInput(input);
+      setAdjustments(next);
+      setSelection({});
+      setNeedsRefresh(false);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not re-evaluate the hunt.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   const allPicks = result?.boxes.flatMap((box) => box.picks) ?? [];
   const chosen = allPicks
-    .filter((pick) => selection[huntPickKey(pick)] !== undefined)
+    .filter((pick) => selection[huntPickKey(pick)] > 0)
     .map((pick) => ({ ...pick, quantity: selection[huntPickKey(pick)] }));
   const quantity = chosen.reduce(
     (sum, pick) => sum + (Number.isFinite(pick.quantity) ? pick.quantity : 0),
@@ -232,6 +327,45 @@ export function CardHunt({
       setNeedsRefresh(true);
       return;
     }
+    const stamps = new Map(
+      value.stockUpdates.map((row) => [row.id, row.stamp]),
+    );
+    const held = (adjustments.held ?? [])
+      .map((pin) => ({
+        ...pin,
+        quantity:
+          pin.quantity -
+          input.selected
+            .filter(
+              (row) =>
+                row.requestId === pin.requestId &&
+                row.inventoryItemId === pin.id,
+            )
+            .reduce((n, row) => n + row.quantity, 0),
+        stamp: stamps.get(pin.id) ?? pin.stamp,
+      }))
+      .filter((pin) => pin.quantity > 0);
+    const completed = new Map(
+      (adjustments.completed ?? []).map((row) => [row.requestId, row.quantity]),
+    );
+    if (value.action === "GIVE")
+      for (const row of input.selected)
+        completed.set(
+          row.requestId,
+          (completed.get(row.requestId) ?? 0) + row.quantity,
+        );
+    const next = {
+      ...adjustments,
+      held,
+      completed: [...completed].map(([requestId, quantity]) => ({
+        requestId,
+        quantity,
+      })),
+    };
+    setAdjustments(next);
+    setLastInput((previous) =>
+      previous ? { ...previous, adjustments: next } : null,
+    );
     setMessage(value.message);
     setResult((previous) =>
       previous ? advanceHunt(previous, input.selected, value) : null,
@@ -271,235 +405,250 @@ export function CardHunt({
           </Link>
         </p>
       )}
-      <form
-        onSubmit={(event) => void generate(event)}
-        className="app-panel p-4 sm:p-5"
+      <details
+        open={setupOpen}
+        onToggle={(event) => setSetupOpen(event.currentTarget.open)}
       >
-        <fieldset
-          disabled={busy || blocked}
-          onChange={clearPlan}
-          className="min-w-0 space-y-4 disabled:opacity-70"
+        <summary className={filterButtonClass}>
+          {result
+            ? "Edit hunt sources and preferences"
+            : "Hunt sources and preferences"}
+        </summary>
+        <form
+          onSubmit={(event) => void generate(event)}
+          className="app-panel p-4 sm:p-5"
         >
-          {card ? (
-            <p className="text-sm font-medium">
-              {card.scope === "card"
-                ? "All printings and finishes"
-                : `Printing ${card.setCode.toUpperCase()} #${card.collectorNumber ?? "—"} · ${card.finish ? finishLabel(card.finish) : "All finishes"}`}
-            </p>
-          ) : (
-            <>
-              <section aria-label="Decks to hunt" className="space-y-2">
-                <h2 className="font-semibold">Saved decks</h2>
-                <p className="text-sm text-[var(--app-muted)]">
-                  Choose one or more decks. Each deck gets its own copies.
-                </p>
-                {decks.length > 8 && (
-                  <label className="block text-sm">
-                    Find a deck
-                    <input
-                      aria-label="Find a deck"
-                      value={deckSearch}
-                      onChange={(event) => setDeckSearch(event.target.value)}
-                      className={filterInputClass + " mt-1 w-full"}
-                    />
-                  </label>
-                )}
-                <div className="max-h-48 space-y-1 overflow-y-auto rounded border border-[var(--app-border)] p-2">
-                  {decks
-                    .filter((deck) =>
-                      deck.name
-                        .toLowerCase()
-                        .includes(deckSearch.trim().toLowerCase()),
-                    )
-                    .map((deck) => (
-                      <label
-                        key={deck.id}
-                        className="flex min-h-10 items-center gap-2 text-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedDecks.includes(deck.id)}
-                          onChange={(event) =>
-                            setSelectedDecks((previous) =>
-                              event.target.checked
-                                ? [...previous, deck.id]
-                                : previous.filter((id) => id !== deck.id),
-                            )
-                          }
-                        />
-                        {deck.name}
-                      </label>
-                    ))}
-                  {!decks.length && (
-                    <p className="text-sm">
-                      No personal decks yet. Paste a list below.
-                    </p>
+          <fieldset
+            disabled={busy || blocked}
+            onChange={clearPlan}
+            className="min-w-0 space-y-4 disabled:opacity-70"
+          >
+            {card ? (
+              <p className="text-sm font-medium">
+                {card.scope === "card"
+                  ? "All printings and finishes"
+                  : `Printing ${card.setCode.toUpperCase()} #${card.collectorNumber ?? "—"} · ${card.finish ? finishLabel(card.finish) : "All finishes"}`}
+              </p>
+            ) : (
+              <>
+                <section aria-label="Decks to hunt" className="space-y-2">
+                  <h2 className="font-semibold">Saved decks</h2>
+                  <p className="text-sm text-[var(--app-muted)]">
+                    Choose one or more decks. Each deck gets its own copies.
+                  </p>
+                  {decks.length > 8 && (
+                    <label className="block text-sm">
+                      Find a deck
+                      <input
+                        aria-label="Find a deck"
+                        value={deckSearch}
+                        onChange={(event) => setDeckSearch(event.target.value)}
+                        className={filterInputClass + " mt-1 w-full"}
+                      />
+                    </label>
                   )}
-                </div>
-              </section>
-              <section aria-label="Pasted lists" className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="font-semibold">Pasted lists</h2>
-                  <button
-                    type="button"
-                    className={filterButtonClass}
-                    onClick={() => {
-                      setLists((previous) => [
-                        ...previous,
-                        {
-                          id: crypto.randomUUID(),
-                          label: `List ${previous.length + 1}`,
-                          text: "",
-                        },
-                      ]);
-                      clearPlan();
-                    }}
-                  >
-                    Add pasted list
-                  </button>
-                </div>
-                {lists.map((list, index) => (
-                  <div
-                    key={list.id}
-                    className="space-y-2 rounded border border-[var(--app-border)] p-3"
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <label className="min-w-0 flex-1 text-sm">
-                        List name
-                        <input
-                          aria-label={`List ${index + 1} name`}
+                  <div className="max-h-48 space-y-1 overflow-y-auto rounded border border-[var(--app-border)] p-2">
+                    {decks
+                      .filter((deck) =>
+                        deck.name
+                          .toLowerCase()
+                          .includes(deckSearch.trim().toLowerCase()),
+                      )
+                      .map((deck) => (
+                        <label
+                          key={deck.id}
+                          className="flex min-h-10 items-center gap-2 text-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedDecks.includes(deck.id)}
+                            onChange={(event) =>
+                              setSelectedDecks((previous) =>
+                                event.target.checked
+                                  ? [...previous, deck.id]
+                                  : previous.filter((id) => id !== deck.id),
+                              )
+                            }
+                          />
+                          {deck.name}
+                        </label>
+                      ))}
+                    {!decks.length && (
+                      <p className="text-sm">
+                        No personal decks yet. Paste a list below.
+                      </p>
+                    )}
+                  </div>
+                </section>
+                <section aria-label="Pasted lists" className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="font-semibold">Pasted lists</h2>
+                    <button
+                      type="button"
+                      className={filterButtonClass}
+                      onClick={() => {
+                        setLists((previous) => [
+                          ...previous,
+                          {
+                            id: crypto.randomUUID(),
+                            label: `List ${previous.length + 1}`,
+                            text: "",
+                          },
+                        ]);
+                        clearPlan();
+                      }}
+                    >
+                      Add pasted list
+                    </button>
+                  </div>
+                  {lists.map((list, index) => (
+                    <div
+                      key={list.id}
+                      className="space-y-2 rounded border border-[var(--app-border)] p-3"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="min-w-0 flex-1 text-sm">
+                          List name
+                          <input
+                            aria-label={`List ${index + 1} name`}
+                            required
+                            maxLength={100}
+                            value={list.label}
+                            onChange={(event) =>
+                              setLists((previous) =>
+                                previous.map((item) =>
+                                  item.id === list.id
+                                    ? { ...item, label: event.target.value }
+                                    : item,
+                                ),
+                              )
+                            }
+                            className={filterInputClass + " mt-1 w-full"}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          className={filterButtonClass}
+                          onClick={() => {
+                            setLists((previous) =>
+                              previous.filter((item) => item.id !== list.id),
+                            );
+                            clearPlan();
+                          }}
+                        >
+                          Remove list {index + 1}
+                        </button>
+                      </div>
+                      <label className="block text-sm">
+                        Cards to find
+                        <textarea
+                          aria-label={`Cards to find in list ${index + 1}`}
                           required
-                          maxLength={100}
-                          value={list.label}
+                          maxLength={100000}
+                          value={list.text}
                           onChange={(event) =>
                             setLists((previous) =>
                               previous.map((item) =>
                                 item.id === list.id
-                                  ? { ...item, label: event.target.value }
+                                  ? { ...item, text: event.target.value }
                                   : item,
                               ),
                             )
                           }
-                          className={filterInputClass + " mt-1 w-full"}
+                          className={filterInputClass + " mt-1 min-h-32 w-full"}
+                          placeholder={
+                            "1 Sol Ring\n3 Forest (M21) 274\n1 Arcane Signet *F*"
+                          }
                         />
                       </label>
-                      <button
-                        type="button"
-                        className={filterButtonClass}
-                        onClick={() => {
-                          setLists((previous) =>
-                            previous.filter((item) => item.id !== list.id),
-                          );
-                          clearPlan();
-                        }}
-                      >
-                        Remove list {index + 1}
-                      </button>
                     </div>
-                    <label className="block text-sm">
-                      Cards to find
-                      <textarea
-                        aria-label={`Cards to find in list ${index + 1}`}
-                        required
-                        maxLength={100000}
-                        value={list.text}
-                        onChange={(event) =>
-                          setLists((previous) =>
-                            previous.map((item) =>
-                              item.id === list.id
-                                ? { ...item, text: event.target.value }
-                                : item,
-                            ),
-                          )
-                        }
-                        className={filterInputClass + " mt-1 min-h-32 w-full"}
-                        placeholder={
-                          "1 Sol Ring\n3 Forest (M21) 274\n1 Arcane Signet *F*"
-                        }
-                      />
-                    </label>
-                  </div>
-                ))}
-                <p className="text-xs text-[var(--app-muted)]">
-                  Combine up to 20 decks/lists and 1,000 card lines. Quantities
-                  add across all sources. Each pasted list keeps its name.
-                </p>
-              </section>
-            </>
-          )}
-          <div className="grid gap-4 sm:grid-cols-2">
-            {!card && (
+                  ))}
+                  <p className="text-xs text-[var(--app-muted)]">
+                    Combine up to 20 decks/lists and 1,000 card lines.
+                    Quantities add across all sources. Each pasted list keeps
+                    its name.
+                  </p>
+                </section>
+              </>
+            )}
+            <div className="grid gap-4 sm:grid-cols-2">
+              {!card && (
+                <label className="block text-sm">
+                  Finish preference
+                  <select
+                    aria-label="Finish preference"
+                    value={finish}
+                    onChange={(event) =>
+                      setFinish(event.target.value as HuntFinish)
+                    }
+                    className={filterSelectClass + " mt-1 w-full"}
+                  >
+                    <option value="ANY">Any finish</option>
+                    <option value="FOIL">Prefer foil</option>
+                    <option value="NONFOIL">Prefer nonfoil</option>
+                    <option value="ETCHED">Prefer etched</option>
+                  </select>
+                </label>
+              )}
               <label className="block text-sm">
-                Finish preference
+                Pull priority
                 <select
-                  aria-label="Finish preference"
-                  value={finish}
-                  onChange={(event) =>
-                    setFinish(event.target.value as HuntFinish)
-                  }
+                  aria-label="Pull priority"
+                  value={mode}
+                  onChange={(event) => setMode(event.target.value as HuntMode)}
                   className={filterSelectClass + " mt-1 w-full"}
                 >
-                  <option value="ANY">Any finish</option>
-                  <option value="FOIL">Prefer foil</option>
-                  <option value="NONFOIL">Prefer nonfoil</option>
-                  <option value="ETCHED">Prefer etched</option>
+                  <option value="preferences">My preferences first</option>
+                  <option value="boxes">Optimize boxes</option>
                 </select>
               </label>
+            </div>
+            {!card && (
+              <>
+                <p className="text-sm text-[var(--app-muted)]">
+                  {mode === "preferences"
+                    ? "Prioritize your finish preference and requested printing, then group by box. Other available copies can fill gaps."
+                    : "Favor boxes that cover more of the combined hunt. Printing and finish preferences break ties; substitutions are marked."}
+                </p>
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={includeMaybeboard}
+                      onChange={(event) =>
+                        setIncludeMaybeboard(event.target.checked)
+                      }
+                    />
+                    Include maybeboard
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={ignoreBasicLands}
+                      onChange={(event) =>
+                        setIgnoreBasicLands(event.target.checked)
+                      }
+                    />
+                    Ignore basic lands in decks
+                  </label>
+                </div>
+              </>
             )}
-            <label className="block text-sm">
-              Pull priority
-              <select
-                aria-label="Pull priority"
-                value={mode}
-                onChange={(event) => setMode(event.target.value as HuntMode)}
-                className={filterSelectClass + " mt-1 w-full"}
-              >
-                <option value="preferences">My preferences first</option>
-                <option value="boxes">Optimize boxes</option>
-              </select>
-            </label>
-          </div>
-          {!card && (
-            <>
-              <p className="text-sm text-[var(--app-muted)]">
-                {mode === "preferences"
-                  ? "Prioritize your finish preference and requested printing, then group by box. Other available copies can fill gaps."
-                  : "Favor boxes that cover more of the combined hunt. Printing and finish preferences break ties; substitutions are marked."}
-              </p>
-              <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={includeMaybeboard}
-                    onChange={(event) =>
-                      setIncludeMaybeboard(event.target.checked)
-                    }
-                  />
-                  Include maybeboard
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={ignoreBasicLands}
-                    onChange={(event) =>
-                      setIgnoreBasicLands(event.target.checked)
-                    }
-                  />
-                  Ignore basic lands in decks
-                </label>
-              </div>
-            </>
-          )}
-          <button type="submit" className={filterPrimaryButtonClass}>
-            {busy ? "Finding your cards…" : card ? "Find copies" : "Build hunt"}
-          </button>
-        </fieldset>
-        <p className="mt-3 text-xs text-[var(--app-muted)]">
-          Planning uses your available storage copies and does not reserve or
-          move cards. Cards committed to decks and active trade reservations are
-          excluded.
-        </p>
-      </form>
+            <button type="submit" className={filterPrimaryButtonClass}>
+              {busy
+                ? "Finding your cards…"
+                : card
+                  ? "Find copies"
+                  : "Build hunt"}
+            </button>
+          </fieldset>
+          <p className="mt-3 text-xs text-[var(--app-muted)]">
+            Planning uses your available storage copies and does not reserve or
+            move cards. Cards committed to decks and active trade reservations
+            are excluded.
+          </p>
+        </form>
+      </details>
       {contextError && (
         <p role="status" className="app-panel p-4">
           {contextError}
@@ -532,239 +681,241 @@ export function CardHunt({
       )}
       {busy && <p role="status">Checking storage and available copies…</p>}
       {result && (
-        <section aria-label="Hunt results" className="space-y-4">
-          <div className="app-panel p-4">
-            <h2 className="break-words text-xl font-semibold">
-              {result.title}
-            </h2>
-            <p role="status" className="mt-2">
-              {card && !result.planned
-                ? "No copies are currently available in storage."
-                : `${result.boxes.length} boxes · ${result.planned} to pull · ${result.shortage} short${result.alreadyInDeck ? ` · ${result.alreadyInDeck} already committed` : ""}`}
-            </p>
-            {given > 0 && (
-              <p className="mt-2 text-sm">
-                {given} copies given/traded in this hunt.
+        <section aria-label="Hunt results" className="min-w-0 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">{result.title}</h2>
+              <p role="status" className="text-sm">
+                {result.boxes.length} locations ? {result.planned} to pull ?{" "}
+                {result.shortage} short
+                {result.alreadyInDeck
+                  ? ` ? ${result.alreadyInDeck} committed`
+                  : ""}
               </p>
-            )}
-            {result.sources.length > 0 && (
-              <p className="mt-2 break-words text-sm text-[var(--app-muted)]">
-                For: {result.sources.map((source) => source.label).join(" · ")}
-              </p>
-            )}
-            {result.ignoredBasicLandCopies > 0 && (
-              <p className="mt-2 text-sm">
-                {result.ignoredBasicLandCopies} basic land copies skipped.
-                {!result.lines.length && " No other cards to hunt."}
-              </p>
-            )}
-            <p className="mt-2 text-xs text-[var(--app-muted)]">
-              Availability is rechecked when you confirm. Box optimization is a
-              practical grouping suggestion, not a guaranteed minimum. Build
-              hunt starts a fresh plan.
-            </p>
-            {result.warnings.length > 0 && (
-              <details className="mt-3 text-sm">
-                <summary>List notes ({result.warnings.length})</summary>
-                <ul className="mt-2 list-inside list-disc">
-                  {result.warnings.map((warning, index) => (
-                    <li key={index}>{warning}</li>
-                  ))}
-                </ul>
-              </details>
-            )}
+            </div>
+            <button
+              type="button"
+              className={filterButtonClass}
+              disabled={busy || blocked}
+              onClick={() => void replan(adjustments)}
+            >
+              Re-evaluate remaining
+            </button>
           </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              disabled={busy || blocked}
+              checked={adjustments.includeBulk !== false}
+              onChange={(event) =>
+                void replan({
+                  ...adjustments,
+                  includeBulk: event.target.checked,
+                })
+              }
+            />
+            Use Bulk Boxes only after normal storage
+          </label>
+          {!!result.ignoredBasicLandCopies && (
+            <p className="text-sm">
+              {result.ignoredBasicLandCopies} basic land copies skipped.
+            </p>
+          )}
           {result.shortage > 0 && (
-            <div className="app-panel p-4">
-              <h3 className="font-semibold">Still needed</h3>
-              <ul className="mt-2 space-y-1 text-sm">
+            <details open>
+              <summary className="text-sm font-medium">
+                Still needed ({result.shortage})
+              </summary>
+              <ul className="my-2 text-sm">
                 {result.lines
                   .filter((line) => line.shortage > 0)
                   .map((line) => (
-                    <li key={line.request.id} className="break-words">
-                      {line.shortage} × {line.request.name} —{" "}
-                      {line.request.sourceLabel ?? "This hunt"}
+                    <li key={line.request.id}>
+                      {line.shortage} ? {line.request.name} ?{" "}
+                      {line.request.sourceLabel}
+                      <button
+                        type="button"
+                        className="ml-3 underline"
+                        disabled={busy || blocked}
+                        onClick={() =>
+                          setPrinting({
+                            requestId: line.request.id,
+                            name: line.request.name,
+                          })
+                        }
+                      >
+                        Choose printing
+                      </button>
                     </li>
                   ))}
               </ul>
-            </div>
+            </details>
           )}
-          {result.lines.length > 0 && (
-            <div className="app-panel p-4">
-              <button
-                type="button"
-                onClick={() => setShowLines((previous) => !previous)}
-                aria-expanded={showLines}
-                className="text-sm underline"
-              >
-                {showLines ? "Hide" : "Show"} requested cards and alternate
-                printings
-              </button>
-              {showLines && (
-                <div className="mt-3 space-y-3">
-                  {result.lines
-                    .slice(linePage * 25, (linePage + 1) * 25)
-                    .map((line) => (
-                      <div
-                        key={line.request.id}
-                        className="min-w-0 border-b border-[var(--app-border)] pb-3 text-sm"
-                      >
-                        <p className="break-words font-medium">
-                          {line.request.quantity} × {line.request.name} ·{" "}
-                          {line.request.sourceLabel ?? "This hunt"}
-                        </p>
-                        <p>
-                          {line.planned} planned · {line.shortage} short
-                          {line.request.alreadyInDeck
-                            ? ` · ${line.request.alreadyInDeck} already in deck`
-                            : ""}
-                        </p>
-                        {line.alternativeCount > 0 && (
-                          <p className="mt-1 break-words text-[var(--app-muted)]">
-                            Other available printings:{" "}
-                            {line.alternatives
-                              .map(
-                                (alt) =>
-                                  `${alt.setCode.toUpperCase()} ${alt.collectorNumber} ${finishLabel(alt.finish)} (${alt.available})`,
-                              )
-                              .join("; ")}
-                            {line.alternativeCount > line.alternatives.length
-                              ? `; showing ${line.alternatives.length} of ${line.alternativeCount}`
-                              : ""}
-                            . Quantities are shared across the hunt.
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  {result.lines.length > 25 && (
-                    <Pagination
-                      page={linePage}
-                      total={Math.ceil(result.lines.length / 25)}
-                      onChange={setLinePage}
-                      label="Requested cards"
-                    />
-                  )}
-                </div>
-              )}
-            </div>
+          {!!result.warnings.length && (
+            <details>
+              <summary>List notes ({result.warnings.length})</summary>
+              {result.warnings.map((warning, index) => (
+                <p key={index} className="text-sm">
+                  {warning}
+                </p>
+              ))}
+            </details>
           )}
-          {allPicks.length > 0 && (
+          <PullWorkspace
+            rows={result.boxes.flatMap((box) =>
+              box.picks.map((pick) => ({
+                id: huntPickKey(pick),
+                itemId: pick.inventoryItemId,
+                name: pick.name,
+                quantity: pick.quantity,
+                printing: `${pick.setCode.toUpperCase()} #${pick.collectorNumber}`,
+                finish: pick.finish,
+                language: pick.language,
+                condition: pick.condition,
+                locationId: box.id,
+                location: box.name,
+                section: pick.section,
+                destination: pick.sourceLabel,
+                pulled: pick.pulledQuantity ?? 0,
+                card: pullCardRow({
+                  id: huntPickKey(pick),
+                  cardId: pick.cardId,
+                  name: pick.name,
+                  quantity: pick.quantity,
+                  setCode: pick.setCode,
+                  collectorNumber: pick.collectorNumber,
+                  finish: pick.finish,
+                  card: pick.card,
+                  location: box.name,
+                  destination: pick.sourceLabel,
+                }),
+              })),
+            )}
+            selection={selection}
+            onSelection={setSelection}
+            disabled={busy || blocked}
+            scope={adjustments}
+            locations={result.locations}
+            onScope={(scope) => void replan({ ...adjustments, ...scope })}
+            onSkip={(row) => {
+              const pick = allPicks.find(
+                (pick) => huntPickKey(pick) === row.id,
+              )!;
+              void replan({
+                ...adjustments,
+                excludedItems: [
+                  ...new Set([
+                    ...(adjustments.excludedItems ?? []),
+                    pick.inventoryItemId,
+                  ]),
+                ],
+              });
+            }}
+            onPrinting={(row) => {
+              const pick = allPicks.find(
+                (pick) => huntPickKey(pick) === row.id,
+              )!;
+              setPrinting({ requestId: pick.requestId, name: pick.name });
+            }}
+            onPulled={(row, quantity) => {
+              const pick = allPicks.find(
+                (pick) => huntPickKey(pick) === row.id,
+              )!;
+              const held = (adjustments.held ?? []).filter(
+                (pin) =>
+                  pin.requestId !== pick.requestId ||
+                  pin.id !== pick.inventoryItemId,
+              );
+              if (quantity)
+                held.push({
+                  requestId: pick.requestId,
+                  id: pick.inventoryItemId,
+                  quantity,
+                  stamp: pick.stamp!,
+                });
+              void replan({ ...adjustments, held });
+            }}
+          >
             <div
-              className="app-panel sticky top-3 z-10 space-y-3 bg-[var(--app-surface)] p-3 shadow-lg"
+              className="sticky bottom-2 z-10 flex flex-wrap items-center gap-3 rounded border border-[var(--app-border)] bg-[var(--app-surface)] p-3"
               aria-label="Selected hunt cards"
             >
-              <div className="flex flex-wrap items-center gap-3">
-                <strong aria-live="polite">
-                  {quantity} copies selected ({chosen.length} pulls)
-                </strong>
-                <button
-                  type="button"
-                  disabled={blocked || needsRefresh}
-                  className={filterButtonClass}
-                  onClick={() =>
-                    setSelection(
-                      Object.fromEntries(
-                        allPicks.map((pick) => [
-                          huntPickKey(pick),
-                          pick.quantity,
-                        ]),
-                      ),
-                    )
-                  }
-                >
-                  Select all {allPicks.length} pulls
-                </button>
-                <button
-                  type="button"
-                  disabled={blocked}
-                  className={filterButtonClass}
-                  onClick={() => setSelection({})}
-                >
-                  Clear selection
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={
-                    actionDisabled || chosen.some((pick) => !pick.deckId)
-                  }
-                  className={filterPrimaryButtonClass}
-                  onClick={() => setAction("COMMIT")}
-                >
-                  Commit selected to decks
-                </button>
-                <button
-                  type="button"
-                  disabled={actionDisabled}
-                  className={filterPrimaryButtonClass}
-                  onClick={() => setAction("GIVE")}
-                >
-                  Give / trade selected
-                </button>
-              </div>
+              <strong aria-live="polite">
+                {quantity} copies selected ({chosen.length} pulls)
+              </strong>
+              <button
+                type="button"
+                className={filterButtonClass}
+                disabled={busy || blocked}
+                onClick={() =>
+                  setSelection(
+                    Object.fromEntries(
+                      allPicks.map((pick) => [
+                        huntPickKey(pick),
+                        pick.quantity,
+                      ]),
+                    ),
+                  )
+                }
+              >
+                Select all {allPicks.length} pulls
+              </button>
+              <button
+                type="button"
+                className={filterPrimaryButtonClass}
+                disabled={
+                  busy || actionDisabled || chosen.some((pick) => !pick.deckId)
+                }
+                onClick={() => setAction("COMMIT")}
+              >
+                Commit selected to decks
+              </button>
+              <button
+                type="button"
+                className={filterPrimaryButtonClass}
+                disabled={busy || actionDisabled}
+                onClick={() => setAction("GIVE")}
+              >
+                Give / trade selected
+              </button>
               {chosen.some((pick) => !pick.deckId) && (
-                <p className="text-xs text-[var(--app-muted)]">
-                  Commit selects saved-deck pulls. Pasted-list pulls can be
-                  given away.
-                </p>
-              )}
-              {(invalid || chosen.length > 500) && (
-                <p role="alert" className="text-sm text-red-300">
-                  Choose whole quantities within each pull and up to 500 pulls
-                  per confirmation.
+                <p className="text-xs">
+                  Pasted-list pulls can be given away; deck commitment uses
+                  saved-deck pulls.
                 </p>
               )}
             </div>
-          )}
-          {result.boxes.length > 0 && (
-            <label className="block text-sm">
-              Find a box, section, card or destination
-              <input
-                className={filterInputClass + " mt-1 w-full"}
-                value={filter}
-                onChange={(event) => {
-                  setFilter(event.target.value);
-                  setBoxPage(0);
-                }}
-              />
-            </label>
-          )}
-          {boxes.slice(boxPage * 10, (boxPage + 1) * 10).map((box) => (
-            <HuntBox
-              key={box.id}
-              box={box}
-              selection={selection}
-              disabled={blocked || needsRefresh}
-              onToggle={toggle}
-              onQuantity={(pick, quantity) =>
-                setSelection((previous) => ({
-                  ...previous,
-                  [huntPickKey(pick)]: quantity,
-                }))
-              }
-              onSelectBox={() =>
-                setSelection((previous) => ({
-                  ...previous,
-                  ...Object.fromEntries(
-                    box.picks.map((pick) => [huntPickKey(pick), pick.quantity]),
-                  ),
-                }))
-              }
-            />
-          ))}
-          {result.boxes.length > 0 && !boxes.length && (
-            <p>No matching boxes.</p>
-          )}
-          {boxes.length > 10 && (
-            <Pagination
-              page={boxPage}
-              total={Math.ceil(boxes.length / 10)}
-              onChange={setBoxPage}
-              label="Boxes"
-            />
-          )}
+          </PullWorkspace>
         </section>
+      )}
+      {printing && lastInput && (
+        <HuntPrintingPicker
+          input={lastInput}
+          requestId={printing.requestId}
+          name={printing.name}
+          onClose={() => setPrinting(null)}
+          onChoose={(option) => {
+            const requestId = printing.requestId;
+            setPrinting(null);
+            void replan({
+              ...adjustments,
+              printings: [
+                ...(adjustments.printings ?? []).filter(
+                  (row) => row.requestId !== requestId,
+                ),
+                ...(option
+                  ? [
+                      {
+                        requestId,
+                        cardId: option.cardId,
+                        finish: option.finish as "NONFOIL" | "FOIL" | "ETCHED",
+                      },
+                    ]
+                  : []),
+              ],
+            });
+          }}
+        />
       )}
       {action && context && (frozen || lastInput) && (
         <CardHuntActionDialog
@@ -779,162 +930,5 @@ export function CardHunt({
         />
       )}
     </div>
-  );
-}
-function Pagination({
-  page,
-  total,
-  onChange,
-  label,
-}: {
-  page: number;
-  total: number;
-  onChange: (page: number) => void;
-  label: string;
-}) {
-  return (
-    <nav
-      aria-label={label}
-      className="flex flex-wrap items-center gap-3 text-sm"
-    >
-      <button
-        type="button"
-        className="underline disabled:opacity-40"
-        disabled={!page}
-        onClick={() => onChange(page - 1)}
-      >
-        Previous
-      </button>
-      <span>
-        Page {page + 1} of {total}
-      </span>
-      <button
-        type="button"
-        className="underline disabled:opacity-40"
-        disabled={page + 1 >= total}
-        onClick={() => onChange(page + 1)}
-      >
-        Next
-      </button>
-    </nav>
-  );
-}
-function HuntBox({
-  box,
-  selection,
-  disabled,
-  onToggle,
-  onQuantity,
-  onSelectBox,
-}: {
-  box: HuntPlan["boxes"][number];
-  selection: Record<string, number>;
-  disabled: boolean;
-  onToggle: (pick: HuntPick, value: boolean) => void;
-  onQuantity: (pick: HuntPick, value: number) => void;
-  onSelectBox: () => void;
-}) {
-  const [visible, setVisible] = useState(50);
-  return (
-    <section
-      className="app-panel min-w-0 p-4"
-      aria-label={`Pull from ${box.name}`}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="break-words text-lg font-semibold">{box.name}</h3>
-        <button
-          type="button"
-          disabled={disabled}
-          className={filterButtonClass}
-          onClick={onSelectBox}
-        >
-          Select this box
-        </button>
-      </div>
-      <p className="mt-1 text-sm text-[var(--app-muted)]">
-        {box.picks.reduce((sum, pick) => sum + pick.quantity, 0)} copies to pull
-      </p>
-      <ul className="mt-3 divide-y divide-[var(--app-border)]">
-        {box.picks.slice(0, visible).map((pick) => {
-          const checked = selection[huntPickKey(pick)] !== undefined;
-          return (
-            <li
-              key={huntPickKey(pick)}
-              className="flex min-w-0 items-start gap-3 py-3"
-            >
-              <input
-                type="checkbox"
-                checked={checked}
-                disabled={disabled}
-                onChange={(event) => onToggle(pick, event.target.checked)}
-                aria-label={`Select ${pick.name} for ${pick.sourceLabel ?? "this hunt"}, ${box.name}, section ${pick.section ?? "unassigned"}, ${pick.setCode} ${pick.collectorNumber}`}
-                className="mt-1 shrink-0"
-              />
-              <div className="min-w-0 flex-1 break-words text-sm">
-                <p className="font-medium">
-                  {pick.quantity} × {pick.name}
-                </p>
-                <p className="mt-1 font-medium text-[var(--app-accent)]">
-                  For {pick.sourceLabel ?? "this hunt"}
-                  {pick.deckId ? " · Deck" : " · List"}
-                </p>
-                <p className="mt-1">
-                  Section {pick.section || "unassigned"} ·{" "}
-                  {pick.setCode.toUpperCase()} #{pick.collectorNumber} ·{" "}
-                  {finishLabel(pick.finish)} · {pick.language} ·{" "}
-                  {pick.condition}
-                </p>
-                {(pick.alternatePrinting || pick.finishCompromise) && (
-                  <p className="mt-1 text-amber-300">
-                    {[
-                      pick.alternatePrinting && "Alternate printing",
-                      pick.finishCompromise &&
-                        "Different finish from preference",
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                )}
-                {checked && (
-                  <label className="mt-2 flex flex-wrap items-center gap-2">
-                    Copies selected
-                    <input
-                      aria-label={`Copies of ${pick.name} for ${pick.sourceLabel ?? "this hunt"} from ${box.name}`}
-                      type="number"
-                      min={1}
-                      max={pick.quantity}
-                      step={1}
-                      disabled={disabled}
-                      value={
-                        Number.isNaN(selection[huntPickKey(pick)])
-                          ? ""
-                          : selection[huntPickKey(pick)]
-                      }
-                      onChange={(event) =>
-                        onQuantity(pick, Number(event.target.value))
-                      }
-                      className={filterInputClass + " w-24"}
-                    />
-                  </label>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-      {visible < box.picks.length && (
-        <button
-          type="button"
-          className="mt-2 text-sm underline"
-          onClick={() => setVisible((previous) => previous + 50)}
-        >
-          Show more cards ({box.picks.length - visible} remaining)
-        </button>
-      )}
-      <p className="mt-2 text-xs text-[var(--app-muted)]">
-        Selections stay checked while you filter or page through this hunt. No
-        cards move until you confirm.
-      </p>
-    </section>
   );
 }

@@ -1,3 +1,5 @@
+import type { HuntAdjustments } from "./pull-scope";
+import { pullExcluded } from "./pull-scope";
 export type HuntFinish = "ANY" | "NONFOIL" | "FOIL" | "ETCHED";
 export type HuntMode = "preferences" | "boxes";
 
@@ -32,6 +34,8 @@ export type HuntStock = {
   language: string;
   condition: string;
   stamp?: string;
+  isBulk?: boolean;
+  card?: HuntCard;
   location: {
     id: string;
     name: string;
@@ -42,7 +46,26 @@ export type HuntStock = {
   } | null;
 };
 
+export type HuntCard = {
+  id: string;
+  name: string;
+  setCode: string;
+  collectorNumber: string;
+  imageUri?: string | null;
+  cardFaces?: unknown;
+  manaCost?: string | null;
+  typeLine?: string;
+  rarity?: string;
+  oracleText?: string | null;
+};
+
 export type HuntPick = {
+  cardId?: string;
+  card?: HuntCard;
+  pulled?: boolean;
+  pulledQuantity?: number;
+  isBulk?: boolean;
+  locationId?: string;
   sourceId?: string;
   sourceLabel?: string;
   deckId?: string;
@@ -80,6 +103,14 @@ export type HuntPlan = {
       available: number;
     }>;
     alternativeCount: number;
+    printingOptions?: Array<{
+      cardId: string;
+      setCode: string;
+      collectorNumber: string;
+      finish: string;
+      available: number;
+      card?: HuntCard;
+    }>;
   }>;
   requested: number;
   alreadyInDeck: number;
@@ -126,6 +157,9 @@ export function planCardHunt(input: {
   stock: HuntStock[];
   mode: HuntMode;
   finish: HuntFinish;
+  adjustments?: HuntAdjustments;
+  printingRequestId?: string;
+  locationParents?: Map<string, import("./pull-scope").PullLocation>;
 }): HuntPlan {
   const ids = new Set<string>();
   for (const request of input.requests) {
@@ -160,11 +194,51 @@ export function planCardHunt(input: {
       );
     })
     .sort((a, b) => compare(a.id, b.id));
+  const scope = input.adjustments;
   const remaining = new Map(
     stock.map((item) => [item.id, item.quantity - item.reserved]),
   );
   const lines = input.requests.map((request) => {
-    const candidates = stock.filter((item) => huntMatches(request, item));
+    const candidates = stock.filter(
+      (item) =>
+        huntMatches(request, item) &&
+        !pullExcluded(
+          scope,
+          item.id,
+          item.location?.id,
+          item.location?.section ?? null,
+          input.locationParents,
+        ) &&
+        (scope?.includeBulk !== false || !item.isBulk),
+    );
+    const choice = scope?.printings?.find(
+      (row) => row.requestId === request.id,
+    );
+    const options = new Map<
+      string,
+      {
+        cardId: string;
+        setCode: string;
+        collectorNumber: string;
+        finish: string;
+        available: number;
+        card?: HuntCard;
+      }
+    >();
+    for (const item of candidates) {
+      const key = JSON.stringify([item.cardId, item.finish]);
+      const prior = options.get(key);
+      if (prior) prior.available += remaining.get(item.id)!;
+      else
+        options.set(key, {
+          cardId: item.cardId,
+          setCode: item.setCode,
+          collectorNumber: item.collectorNumber,
+          finish: item.finish,
+          available: remaining.get(item.id)!,
+          card: item.card,
+        });
+    }
     const alternatives = new Map<
       string,
       HuntPlan["lines"][number]["alternatives"][number]
@@ -183,10 +257,24 @@ export function planCardHunt(input: {
           available: remaining.get(item.id)!,
         });
     }
-    const needed = Math.max(0, request.quantity - (request.alreadyInDeck ?? 0));
+    const completed =
+      scope?.completed?.find((row) => row.requestId === request.id)?.quantity ??
+      0;
+    const needed = Math.max(
+      0,
+      request.quantity - (request.alreadyInDeck ?? 0) - completed,
+    );
     return {
       request,
-      candidates,
+      candidates: choice
+        ? candidates.filter(
+            (item) =>
+              item.cardId === choice.cardId && item.finish === choice.finish,
+          )
+        : candidates,
+      ...(input.printingRequestId === request.id
+        ? { printingOptions: [...options.values()] }
+        : {}),
       needed,
       planned: 0,
       shortage: needed,
@@ -195,6 +283,59 @@ export function planCardHunt(input: {
     };
   });
   const boxes = new Map<string, HuntPlan["boxes"][number]>();
+  // Physically pulled copies consume shared stock before replanning. Location
+  // exclusions and a new printing choice apply only to the remaining copies.
+  for (const held of scope?.held ?? []) {
+    const line = lines.find((row) => row.request.id === held.requestId),
+      item = stock.find((row) => row.id === held.id);
+    if (
+      !line ||
+      !item ||
+      !huntMatches(line.request, item) ||
+      item.stamp !== held.stamp ||
+      held.quantity > (remaining.get(item.id) ?? 0) ||
+      held.quantity > line.shortage
+    )
+      throw new Error(
+        "A pulled copy changed or is unavailable. Unmark it and re-evaluate the hunt.",
+      );
+    const id = item.location?.id ?? "unassigned",
+      box = boxes.get(id) ?? {
+        id,
+        name: item.location?.name ?? "Unassigned",
+        picks: [],
+      };
+    box.picks.push({
+      requestId: line.request.id,
+      inventoryItemId: item.id,
+      quantity: held.quantity,
+      name: line.request.name,
+      setCode: item.setCode,
+      collectorNumber: item.collectorNumber,
+      finish: item.finish,
+      language: item.language,
+      condition: item.condition,
+      section: item.location?.section ?? null,
+      alternatePrinting: !huntPrintingMatches(line.request, item),
+      finishCompromise: false,
+      sourceId: line.request.sourceId,
+      sourceLabel: line.request.sourceLabel,
+      deckId: line.request.deckId,
+      deckCardId: line.request.deckCardId,
+      targetStamp: line.request.targetStamp,
+      stamp: item.stamp,
+      cardId: item.cardId,
+      card: item.card,
+      isBulk: item.isBulk,
+      locationId: id,
+      pulled: true,
+      pulledQuantity: held.quantity,
+    });
+    boxes.set(id, box);
+    remaining.set(item.id, remaining.get(item.id)! - held.quantity);
+    line.planned += held.quantity;
+    line.shortage -= held.quantity;
+  }
   const boxId = (item: HuntStock) => item.location?.id ?? "unassigned";
   const rank = (line: (typeof lines)[number], item: HuntStock) => {
     const finish =
@@ -211,9 +352,11 @@ export function planCardHunt(input: {
     const eligible = lines
       .filter((line) => line.shortage > 0)
       .map((line) => {
-        const available = line.candidates.filter(
+        const allAvailable = line.candidates.filter(
           (item) => remaining.get(item.id)! > 0,
         );
+        const normal = allAvailable.filter((item) => !item.isBulk);
+        const available = normal.length ? normal : allAvailable;
         const bestRank = available.reduce(
           (best, item) => Math.min(best, rank(line, item)),
           Infinity,
@@ -298,9 +441,16 @@ export function planCardHunt(input: {
       const previous = box.picks.find(
         (p) => p.requestId === line.request.id && p.inventoryItemId === item.id,
       );
-      if (previous) previous.quantity += quantity;
-      else
+      if (previous) {
+        previous.quantity += quantity;
+        if (previous.pulled)
+          previous.pulled = previous.pulledQuantity === previous.quantity;
+      } else
         box.picks.push({
+          cardId: item.cardId,
+          card: item.card,
+          isBulk: item.isBulk,
+          locationId: item.location?.id ?? "unassigned",
           sourceId: line.request.sourceId,
           sourceLabel: line.request.sourceLabel,
           deckId: line.request.deckId,
