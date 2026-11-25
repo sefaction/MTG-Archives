@@ -27,7 +27,7 @@ test("legacy public profile routes are removed", () => {
   assert.equal(existsSync("app/u/[publicSlug]/decks/page.tsx"), false);
   const navigation = readFileSync("components/PublicCollectionNav.tsx", "utf8");
   assert.doesNotMatch(navigation, /\/u\/|publicSlug|publicProfileEnabled/);
-  assert.match(navigation, /href="\/public\/inventory"/);
+  assert.match(navigation, /href="\/login"/);
 });
 
 test("migration makes existing users, locations, and decks public", () => {
