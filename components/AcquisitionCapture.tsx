@@ -11,6 +11,7 @@ import { readScannerStart, saveScannerStart, clearScannerStart, type PendingScan
 import { AcquisitionCommitControls } from "./AcquisitionCommitControls";
 import { ScannerSourceFields, ScannerRunControls, type ScannerChoice } from "./ScannerBatchControls";
 import { AcquisitionBulkReview } from "./AcquisitionBulkReview";
+import { BulkCleanup } from "./BulkCleanup";
 import { useAcquisitionDrafts } from "./useAcquisitionDrafts";
 import { acquisitionDraftKey } from "@/lib/acquisition-browser-review-draft";
 import { SCANNER_CAPTURE_PROVIDER } from "@/lib/scanner-run-protocol";
@@ -91,6 +92,7 @@ async function request<T>(url: string, value?: unknown, signal?: AbortSignal): P
 }
 export function AcquisitionCapture({
   userId,
+  bulkCleanupEnabled = false,
   locations,
   initialBatch,
   initialScanner,
@@ -101,6 +103,7 @@ export function AcquisitionCapture({
   openerChoices = [],
 }: {
   userId: string;
+  bulkCleanupEnabled?: boolean;
   locations: StorageLocation[];
   initialBatch: string;
   initialScanner: boolean;
@@ -1245,6 +1248,9 @@ export function AcquisitionCapture({
             blockedPhotos={blockedPhotos} draftsReady={cachedDrafts.ready} canUsePhotos={canUsePhotos}
             onOpenChange={setBulkOpen} onConfirmed={ids => { setSelectedPhotos(previous => [...new Set([...previous, ...ids])]);
               requestAnimationFrame(()=>scrollScanTarget(document.getElementById("scan-bulk-review"))); }}
+            onInspect={position => { setInventoryOpen(false); setReviewFilter("all"); revealCard(position - 1); }} />
+          <BulkCleanup actorId={userId} enabled={bulkCleanupEnabled} batchId={batchId} revision={progress.revision} refresh={refresh}
+            blockedPhotos={blockedPhotos} draftsReady={cachedDrafts.ready} canUsePhotos={canUsePhotos}
             onInspect={position => { setInventoryOpen(false); setReviewFilter("all"); revealCard(position - 1); }} />
           <div id="scan-inventory" tabIndex={-1} className="scroll-mt-[var(--scan-scroll-offset,14rem)]" hidden={!inventoryOpen}>
             <button className={button + " mb-2"} onClick={() => { setInventoryOpen(false); requestAnimationFrame(() => scrollScanTarget(document.getElementById("scan-review"))); }}>Back to matches</button>

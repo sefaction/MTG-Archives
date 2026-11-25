@@ -65,6 +65,7 @@ export default async function ScanPage({
       <AcquisitionCapture
         key={initialBatch || initialSetup?.continueFrom || photoInput || "new"}
         userId={user.id}
+        bulkCleanupEnabled={user.bulkCleanupEnabled}
         locations={storage}
         openerChoices={openerChoices}
         initialSetup={initialSetup}

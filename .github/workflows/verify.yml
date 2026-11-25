@@ -292,6 +292,15 @@ jobs:
           psql 'postgresql://ci:ci@127.0.0.1:5432/postgres' --set ON_ERROR_STOP=1 --command 'CREATE DATABASE hunt_actions_fixture'
           npx prisma migrate deploy
           npx tsx scripts/verify-card-hunt-actions.ts --run
+      - name: Personal bulk cleanup counts, scan conservation and replay
+        env:
+          DATABASE_URL: postgresql://ci:ci@mtg-bulk-cleanup-db:5432/bulk_cleanup_fixture?schema=public&connection_limit=3
+          MTG_BULK_CLEANUP_TEST: "1"
+        run: |
+          echo '127.0.0.1 mtg-bulk-cleanup-db' | sudo tee -a /etc/hosts
+          psql 'postgresql://ci:ci@127.0.0.1:5432/postgres' --set ON_ERROR_STOP=1 --command 'CREATE DATABASE bulk_cleanup_fixture'
+          npx prisma migrate deploy
+          npx tsx scripts/verify-bulk-cleanup.ts --run
       - name: Archive-aware Pricing refresh and full rebuild
         run: npx tsx scripts/verify-pricing-archive-aware-refresh.ts
       - name: Interrupted pricing source recovery preserves jobs and all summary tiers

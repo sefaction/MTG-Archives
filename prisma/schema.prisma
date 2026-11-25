@@ -160,6 +160,11 @@ model User {
   deckDefaultVisibility        DefaultCollectionVisibility         @default(PRIVATE)
   publicDisplayName            String?
   publicInventoryHidePricing   Boolean                             @default(false)
+  bulkCleanupEnabled           Boolean                             @default(false)
+  bulkCleanupMaxCopies         Int                                 @default(4)
+  bulkCleanupIncludeDecks       Boolean                             @default(false)
+  bulkCleanupRevision          Int                                 @default(0)
+  bulkCleanupActions           BulkCleanupAction[]
   publicWishlistCategories     String[]                            @default([])
   createdAt                    DateTime                            @default(now())
   updatedAt                    DateTime                            @updatedAt
@@ -1020,6 +1025,21 @@ model CardHandoff {
   @@index([fromPlayerId, createdAt, id])
   @@index([toPlayerId, createdAt, id])
   @@index([fromPlayerId, cardId, createdAt])
+}
+
+model BulkCleanupAction {
+  id            String   @id @default(cuid())
+  actorUserId   String
+  actorUser     User     @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  ownerPlayerId String
+  requestId     String
+  requestHash   String
+  action        String
+  resultJson    Json
+  createdAt     DateTime @default(now())
+
+  @@unique([actorUserId, requestId])
+  @@index([actorUserId, createdAt, id])
 }
 
 model CardHuntAction {

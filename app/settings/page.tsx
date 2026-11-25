@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Nav } from "@/components/Nav";
+import { BulkCleanupSettings } from "@/components/BulkCleanupSettings";
 import { PublicShareLink } from "@/components/PublicShareLink";
 import { publicInventoryLink, publicWishlistLink } from "@/lib/public-inventory-link";
 import { normalizePublicWishlistCategories, publicWishlistCategories } from "@/lib/public-wishlist";
@@ -272,6 +273,8 @@ export default async function SettingsPage({
         ) : null}
       </section>
 
+      {user.playerId && <BulkCleanupSettings enabled={user.bulkCleanupEnabled} maxCopies={user.bulkCleanupMaxCopies}
+        includeDecks={user.bulkCleanupIncludeDecks} revision={user.bulkCleanupRevision} />}
       <form action={updateVisibilitySettings} className="space-y-4">
         <div className="grid items-start gap-4 xl:grid-cols-2">
           <section
