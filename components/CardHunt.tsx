@@ -175,9 +175,14 @@ export function CardHunt({
           JSON.stringify({ input: lastInput, result, selection }),
         );
       } catch {
-        setMessage(
-          "This browser could not save hunt progress. Keep this tab open until you finish.",
+        const timer = window.setTimeout(
+          () =>
+            setMessage(
+              "This browser could not save hunt progress. Keep this tab open until you finish.",
+            ),
+          0,
         );
+        return () => window.clearTimeout(timer);
       }
   }, [context, result, lastInput, planKey, selection]);
   const blocked = Boolean(frozen) || corruptPending || otherPending;

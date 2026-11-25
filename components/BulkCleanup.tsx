@@ -152,15 +152,6 @@ export function BulkCleanup({
         sessionStorage.setItem(key + ":workspace", JSON.stringify(scope));
       } catch {}
   }, [scope, ready, batchId, key]);
-  useEffect(() => {
-    if (
-      context?.destinations?.length &&
-      !context.destinations.some((row) => row.id === destinationId)
-    ) {
-      setDestinationId(context.destinations[0].id);
-      setDestinationSection("");
-    }
-  }, [context, destinationId]);
   const rows = context?.plan?.items ?? [],
     chosen = rows.filter((row) => selected[row.id] > 0),
     count = chosen.reduce((sum, row) => sum + selected[row.id], 0);
@@ -186,6 +177,7 @@ export function BulkCleanup({
       setResult(value);
       setConfirming(false);
       setPulled(false);
+      setSelected({});
       if (!batchId)
         setScope((current) => ({
           ...current,
@@ -193,7 +185,7 @@ export function BulkCleanup({
             (pin) => !request.selected.some((row) => row.id === pin.id),
           ),
         }));
-      await load();
+      if (batchId) await load();
       await refresh?.();
     } catch (cause) {
       setError(
@@ -211,6 +203,7 @@ export function BulkCleanup({
       !chosen.length ||
       pending ||
       !pulled ||
+      noSpace ||
       busy ||
       recoveryBlocked
     )
@@ -241,8 +234,8 @@ export function BulkCleanup({
         ? {
             ...base,
             action,
-            ...(destinationId
-              ? { destinationId, destinationSection }
+            ...(resolvedDestinationId
+              ? { destinationId: resolvedDestinationId, destinationSection }
               : { boxName }),
           }
         : action === "GIVE"
@@ -262,8 +255,10 @@ export function BulkCleanup({
   if (!enabled && !pending && !recoveryBlocked) return null;
   if (batchId && context && !context.enabled && !pending) return null;
   const plan = context?.plan;
+  const resolvedDestinationId =
+    destinationId || context?.destinations?.[0]?.id || "";
   const destination = context?.destinations?.find(
-    (row) => row.id === destinationId,
+    (row) => row.id === resolvedDestinationId,
   );
   const section = destination?.sections.find(
     (row) => row.name === destinationSection,
@@ -282,7 +277,7 @@ export function BulkCleanup({
       )
     : Infinity;
   const noSpace =
-    !batchId && action === "MOVE" && (!destinationId || count > remaining);
+    !batchId && action === "MOVE" && (!destination || count > remaining);
   return (
     <section
       className="app-panel my-3 space-y-3 p-3"
@@ -386,7 +381,7 @@ export function BulkCleanup({
             Move selected copies to{" "}
             <select
               aria-label="Bulk destination"
-              value={destinationId}
+              value={resolvedDestinationId}
               className={inputClass}
               disabled={busy || !!pending}
               onChange={(event) => {

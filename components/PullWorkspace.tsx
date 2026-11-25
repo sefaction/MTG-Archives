@@ -79,22 +79,31 @@ export function PullWorkspace({
     [pageSize, setPageSize] = useState(server?.pageSize ?? 25),
     [detail, setDetail] = useState<InventoryRow | null>(null);
   useEffect(() => {
-    try {
-      setView(
-        localStorage.getItem("inventoryViewMode") === "binder"
-          ? "binder"
-          : "table",
-      );
-      setSize(
-        normalizeCollectionCardSize(localStorage.getItem("inventoryCardSize")),
-      );
-      setLayout(
-        localStorage.getItem("huntLayout") === "boxes" ? "boxes" : "inventory",
-      );
-    } catch {}
+    const timer = window.setTimeout(() => {
+      try {
+        setView(
+          localStorage.getItem("inventoryViewMode") === "binder"
+            ? "binder"
+            : "table",
+        );
+        setSize(
+          normalizeCollectionCardSize(
+            localStorage.getItem("inventoryCardSize"),
+          ),
+        );
+        setLayout(
+          localStorage.getItem("huntLayout") === "boxes"
+            ? "boxes"
+            : "inventory",
+        );
+      } catch {}
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
   const serverBrowse = useRef(server?.onBrowse);
-  serverBrowse.current = server?.onBrowse;
+  useEffect(() => {
+    serverBrowse.current = server?.onBrowse;
+  }, [server?.onBrowse]);
   useEffect(() => {
     if (!serverBrowse.current) return;
     const timer = setTimeout(
@@ -110,12 +119,14 @@ export function PullWorkspace({
     );
     return () => clearTimeout(timer);
   }, [query, sort, desc, box, pageSize]);
-  const seen = useRef(new Map<string, string>());
-  for (const row of rows)
-    seen.current.set(
-      row.itemId ?? row.id,
-      `${row.name} ${row.printing} from ${row.location}`,
-    );
+  const [seen, setSeen] = useState<Record<string, string>>({});
+  function remember(row: PullRow) {
+    setSeen((previous) => ({
+      ...previous,
+      [row.itemId ?? row.id]:
+        `${row.name} ${row.printing} from ${row.location}`,
+    }));
+  }
   const filtered = useMemo(
     () =>
       server
@@ -200,7 +211,10 @@ export function PullWorkspace({
             type="button"
             disabled={disabled || row.pulled >= row.quantity}
             className={filterButtonClass}
-            onClick={() => onPrinting(row)}
+            onClick={() => {
+              remember(row);
+              onPrinting(row);
+            }}
           >
             {bulk
               ? "Keep this stack / choose other copies"
@@ -212,7 +226,10 @@ export function PullWorkspace({
             type="button"
             className={filterButtonClass}
             disabled={disabled || row.pulled >= row.quantity}
-            onClick={() => onSkip(row)}
+            onClick={() => {
+              remember(row);
+              onSkip(row);
+            }}
           >
             Not found here
           </button>
@@ -479,7 +496,7 @@ export function PullWorkspace({
                   })
                 }
               >
-                Restore {seen.current.get(id) ?? `skipped stack ${index + 1}`}
+                Restore {seen[id] ?? `skipped stack ${index + 1}`}
               </button>
             ))}
           </div>
