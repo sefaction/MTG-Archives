@@ -1,3 +1,4 @@
+import { selectInventoryCardPrice } from "./inventory-price";
 // Reuse locale machinery across comparisons. localeCompare with options creates
 // equivalent collation work on every call in large server-side inventory sorts.
 // Keep the default locale and both original option sets (suffixes are case-aware).
@@ -142,12 +143,6 @@ function numberOrNull(value: unknown) {
   return Number.isFinite(numeric) ? numeric : null;
 }
 
-function scryfallUsdPrice(card: any) {
-  return numberOrNull(
-    card?.prices?.usd ?? card?.prices?.usd_foil ?? card?.prices?.usd_etched,
-  );
-}
-
 export function inventorySortValue(
   group: any,
   card: any,
@@ -200,9 +195,11 @@ export function inventorySortValue(
         value: colorIdentitySortKey(card?.colorIdentity),
       };
     case "priceUsd": {
+      const price = selectInventoryCardPrice(card?.prices, group?.foilStatus, preferredProvider);
       return {
         kind: "number",
-        value: scryfallUsdPrice(card),
+        value: price?.amount ?? null,
+        currency: price?.currency,
         nullsLast: true,
       };
     }
@@ -222,6 +219,10 @@ export function inventorySortValue(
         kind: "string",
         value: group?.currentOwner ?? group?.currentOwnerId ?? "",
       };
+    case "sourceType":
+      return { kind: "string", value: group?.sourceTypeLabel ?? group?.sourceType ?? "" };
+    case "effectiveVisibility":
+      return { kind: "string", value: group?.effectiveVisibility ?? "" };
     default:
       return { kind: "string", value: card?.name ?? group?.cardName ?? "" };
   }
@@ -256,6 +257,12 @@ export function compareInventorySortValues(
     return leftNull ? 1 : -1;
   }
   if (left?.kind === "number" || right?.kind === "number") {
+    // Keep different currencies in stable buckets; do not invent exchange rates.
+    if (left.currency && right.currency && left.currency !== right.currency) {
+      if (left.currency === "USD") return -1;
+      if (right.currency === "USD") return 1;
+      return inventoryTextCollator.compare(left.currency, right.currency);
+    }
     const diff = Number(left.value) - Number(right.value);
     if (diff) return diff * multiplier;
     if (left.fallback || right.fallback) {
@@ -300,8 +307,12 @@ export function compareInventoryGroups(
     sortDirection,
   );
   if (primary) return primary;
-  return inventoryTextCollator.compare(
+  const printingTie = inventoryTextCollator.compare(
     String(left.cardId ?? ""),
     String(right.cardId ?? ""),
+  );
+  return printingTie || inventoryTextCollator.compare(
+    inventoryGroupIdentity(left, ["foilStatus", "currentOwnerId", "condition", "language"]),
+    inventoryGroupIdentity(right, ["foilStatus", "currentOwnerId", "condition", "language"]),
   );
 }

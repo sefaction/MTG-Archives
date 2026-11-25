@@ -12,6 +12,7 @@ import {
   equivalentInventoryConditions,
   normalizeInventoryCondition,
 } from "./inventory-condition";
+import { mergeInventoryFacts, inventoryFactLabels, type InventorySortFacts } from "./inventory-row-facts";
 import { validateStorageLayout, type StorageLayout } from "./storage-layout";
 
 export function normalizeLocationName(name: string) {
@@ -374,6 +375,7 @@ export type InventoryLocationBreakdownEntry = {
   locationKind?: InventoryLocationKind | null;
   locationActive?: boolean | null;
   locationSystemManaged?: boolean | null;
+  locationVisibility?: string | null;
 };
 
 export function locationSummary(
@@ -419,7 +421,7 @@ export function inventoryPageGroupKey(
   displayMode: "exact" | "grouped",
   includeOwner = true,
 ) {
-  if (displayMode === "grouped") return value.cardId;
+  if (displayMode === "grouped") return printingFinishGroupKey(value.cardId, value.foilStatus);
   return [
     ...(includeOwner ? [value.currentOwnerId ?? ""] : []),
     value.cardId,
@@ -438,9 +440,13 @@ export function orderInventoryItemsByPageGroups<
 ) {
   const includeOwner = pageGroups.some((group) => group.currentOwnerId);
   const groupOrder = new Map<string, number>();
+  const printingOrder = new Map<string, number>();
   pageGroups.forEach((group, index) => {
     if (displayMode === "grouped" && group.cardIds?.length) {
-      group.cardIds.forEach((cardId) => groupOrder.set(cardId, index));
+      group.cardIds.forEach((cardId, printingIndex) => {
+        const key = printingFinishGroupKey(cardId, group.foilStatus);
+        groupOrder.set(key, index); printingOrder.set(key, printingIndex);
+      });
       return;
     }
     groupOrder.set(
@@ -451,11 +457,16 @@ export function orderInventoryItemsByPageGroups<
   return [...items].sort((left, right) => {
     const leftOrder =
       groupOrder.get(inventoryPageGroupKey(left, displayMode, includeOwner)) ??
+      (displayMode === "grouped" ? groupOrder.get(left.cardId) : undefined) ??
       Number.MAX_SAFE_INTEGER;
     const rightOrder =
       groupOrder.get(inventoryPageGroupKey(right, displayMode, includeOwner)) ??
+      (displayMode === "grouped" ? groupOrder.get(right.cardId) : undefined) ??
       Number.MAX_SAFE_INTEGER;
     if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+    const printingTie = (printingOrder.get(printingFinishGroupKey(left.cardId, left.foilStatus)) ?? 0) -
+      (printingOrder.get(printingFinishGroupKey(right.cardId, right.foilStatus)) ?? 0);
+    if (printingTie) return printingTie;
     const leftCreated = left.createdAt ? new Date(left.createdAt).getTime() : 0;
     const rightCreated = right.createdAt
       ? new Date(right.createdAt).getTime()
@@ -479,7 +490,7 @@ export function getInventoryExactPrintings<T extends InventoryWithCardLocation>(
   >();
   for (const item of items) {
     const normalizedCondition = normalizeInventoryCondition(item.condition);
-    const key = rollupPrinting ? item.cardId : [
+    const key = rollupPrinting ? JSON.stringify([item.currentOwnerId, item.cardId, item.foilStatus]) : [
       item.currentOwnerId,
       item.cardId,
       item.foilStatus,
@@ -500,6 +511,7 @@ export function getInventoryExactPrintings<T extends InventoryWithCardLocation>(
       locationKind: (item.location as any)?.kind ?? null,
       locationActive: (item.location as any)?.active ?? null,
       locationSystemManaged: (item.location as any)?.systemManaged ?? null,
+      locationVisibility: (item.location as any)?.visibility ?? null,
     };
     const existing = groups.get(key);
     if (!existing) {
@@ -561,6 +573,10 @@ export function normalizedCardGroupKey(card: {
   );
 }
 
+export function printingFinishGroupKey(cardId: string, foilStatus?: string | null) {
+  return foilStatus ? JSON.stringify([cardId, foilStatus]) : cardId;
+}
+
 type InventoryPrintingGroup = {
   cardId: string;
   foilStatus?: string;
@@ -571,9 +587,10 @@ type InventoryPrintingGroup = {
 export function rollupInventoryPrintingGroups(groups: InventoryPrintingGroup[]) {
   const totals = new Map<string, InventoryPrintingGroup>();
   for (const group of groups) {
-    const total = totals.get(group.cardId);
+    const key = printingFinishGroupKey(group.cardId, group.foilStatus);
+    const total = totals.get(key);
     if (!total) {
-      totals.set(group.cardId, {
+      totals.set(key, {
         ...group,
         _sum: { ...group._sum },
         _count: { ...group._count },
@@ -582,7 +599,6 @@ export function rollupInventoryPrintingGroups(groups: InventoryPrintingGroup[]) 
     }
     total._sum.quantity = (total._sum.quantity ?? 0) + (group._sum.quantity ?? 0);
     total._count._all += group._count._all;
-    if (total.foilStatus !== group.foilStatus) total.foilStatus = "MIXED";
   }
   return Array.from(totals.values());
 }
@@ -590,6 +606,8 @@ export function rollupInventoryPrintingGroups(groups: InventoryPrintingGroup[]) 
 export function groupInventoryPageGroupsByCardName<
   T extends {
     cardId: string;
+    foilStatus?: string;
+    sortFacts?: InventorySortFacts;
     _sum?: { quantity?: number | null };
     _count?: { _all?: number };
   },
@@ -608,7 +626,7 @@ export function groupInventoryPageGroupsByCardName<
   for (const group of groups) {
     const card = cardById.get(group.cardId);
     if (!card) continue;
-    const key = normalizedCardGroupKey(card);
+    const key = printingFinishGroupKey(normalizedCardGroupKey(card), group.foilStatus);
     const existing = grouped.get(key);
     if (!existing) {
       grouped.set(key, {
@@ -624,6 +642,10 @@ export function groupInventoryPageGroupsByCardName<
     }
     existing._sum.quantity += group._sum?.quantity ?? 0;
     existing._count._all += group._count?._all ?? 0;
+    if (existing.sortFacts && group.sortFacts) {
+      existing.sortFacts = mergeInventoryFacts(existing.sortFacts, group.sortFacts);
+      Object.assign(existing, inventoryFactLabels(existing.sortFacts));
+    }
   }
   return Array.from(grouped.values());
 }
@@ -644,7 +666,7 @@ export function getInventoryGroupedByCard<
     }
   >();
   for (const row of exactRows) {
-    const key = normalizedCardGroupKey(row.card);
+    const key = printingFinishGroupKey(normalizedCardGroupKey(row.card), row.foilStatus);
     const existing = groups.get(key);
     if (!existing) {
       groups.set(key, {
@@ -661,7 +683,7 @@ export function getInventoryGroupedByCard<
     } else {
       existing.quantity += row.quantity;
       existing.printings.push(row);
-      existing.printingCount = existing.printings.length;
+      existing.printingCount = new Set(existing.printings.map(printing => printing.cardId)).size;
       existing.locationCount = new Set(
         existing.printings.flatMap((p) =>
           p.locationBreakdown.map((l) => l.locationId ?? l.name),

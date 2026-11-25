@@ -37,7 +37,7 @@ const cards = new Map<string, any>([
       rarity: "common",
       manaValue: 1,
       colorIdentity: [],
-      prices: { usd: "2.00" },
+      prices: { usd: "2.00", usd_foil: "2.00" },
     },
   ],
   [
@@ -49,7 +49,7 @@ const cards = new Map<string, any>([
       rarity: "mythic",
       manaValue: null,
       colorIdentity: ["W", "U"],
-      prices: { usd: "100.00" },
+      prices: { usd: "100.00", usd_etched: "100.00" },
     },
   ],
 ]);

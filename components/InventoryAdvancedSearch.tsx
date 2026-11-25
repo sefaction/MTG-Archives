@@ -1680,7 +1680,7 @@ export function InventoryAdvancedSearch({
                   </label>
                 ) : null}
                 {capabilities.showPriceFilter ? <div className="flex min-h-10 flex-wrap items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 p-2 text-sm text-zinc-100 transition-colors focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/30">
-                  <span className={filterLabelClass}>USD</span>
+                  <span className={filterLabelClass} title="Scryfall USD unit price for the selected finish">Scryfall USD</span>
                   <input
                     name="priceMin"
                     aria-label="Minimum price in USD"

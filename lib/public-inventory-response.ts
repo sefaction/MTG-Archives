@@ -1,3 +1,4 @@
+import { selectInventoryCardPrice } from "@/lib/inventory-price";
 import { scopedPublicInventoryParams, publicInventoryRowsWithoutPricing, type PublicInventoryMember } from "@/lib/public-inventory-scope";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
@@ -8,9 +9,7 @@ import {
 import { getInventoryGroupedByCard } from "@/lib/inventory-locations";
 import { getManaFacesForDto } from "@/lib/mtg/mana-display";
 import {
-  finishForFoilStatus,
   formatSelectedPrice,
-  selectPreferredCardPrice,
 } from "@/lib/price-history";
 import {
   buildRelatedCardMetadataByScryfallId,
@@ -292,10 +291,7 @@ function toInventoryBrowserRows({
       priceEurFoil: (i.card.prices as any)?.eur_foil ?? "",
       priceTix: (i.card.prices as any)?.tix ?? "",
       preferredPriceLabel: formatSelectedPrice(
-        selectPreferredCardPrice(undefined, i.card.prices, {
-          finish: finishForFoilStatus(i.foilStatus),
-          preferredProvider: preferredPriceProvider || undefined,
-        }),
+        selectInventoryCardPrice(i.card.prices, i.foilStatus, preferredPriceProvider),
       ),
       priceChange7Day: "",
       priceChange30Day: "",
@@ -345,6 +341,7 @@ export async function publicInventoryResponse(request: Request, member?: PublicI
   const result = await getGlobalPublicInventory(
     params as PublicInventoryFilters,
     member,
+    viewer?.preferredPriceProvider,
   );
   const exactRows = getGlobalPublicExactPrintings(result.inventory);
   const allPublicExactRows = getGlobalPublicExactPrintings(

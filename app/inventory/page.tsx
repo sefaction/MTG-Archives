@@ -1,4 +1,7 @@
-import { prepareInventoryPageGroups } from "@/lib/inventory-page-groups";
+import { inventoryRowFacts } from "@/lib/inventory-row-facts";
+import { enrichInventoryGroupsForFactSort } from "@/lib/inventory-sort-enrichment";
+import { selectInventoryCardPrice } from "@/lib/inventory-price";
+import { inventoryPageScopeWhere, prepareInventoryPageGroups } from "@/lib/inventory-page-groups";
 import { inventorySortMetadataSelect } from "@/lib/inventory-sort-metadata";
 export const dynamic = "force-dynamic";
 import {
@@ -12,7 +15,6 @@ import { InventoryWorkspace } from "@/components/InventoryWorkspace";
 import { prisma } from "@/lib/prisma";
 import { getStorageLocations } from "@/lib/storage-summary";
 import { moveInventoryStorageBatch } from "@/lib/inventory-storage-move";
-import { resolveInventoryVisibility } from "@/lib/visibility";
 import { InventoryBrowser } from "@/components/InventoryBrowser";
 import {
   DefaultCollectionVisibility,
@@ -50,9 +52,7 @@ import {
 } from "@/lib/inventory-locations";
 import { getManaFacesForDto } from "@/lib/mtg/mana-display";
 import {
-  finishForFoilStatus,
   formatSelectedPrice,
-  selectPreferredCardPrice,
 } from "@/lib/price-history";
 import {
   enrichInventoryGroupsForLocationSort,
@@ -153,7 +153,7 @@ export default async function InventoryPage({
     ],
   } satisfies Prisma.InventoryItemGroupByArgs;
   const groupedGroupBy = {
-    by: (rollupPrinting ? ["cardId", "foilStatus"] : ["cardId"]),
+    by: ["cardId", "foilStatus"],
     where,
     _sum: { quantity: true as const },
     _count: { _all: true as const },
@@ -171,12 +171,12 @@ export default async function InventoryPage({
   ]);
   const inventoryGroupFields =
     displayMode === "grouped" || rollupPrinting
-      ? ["cardId"]
+      ? ["cardId", "foilStatus"]
       : ["currentOwnerId", "cardId", "foilStatus", "condition", "language"];
   const printingGroups = rollupPrinting
     ? rollupInventoryPrintingGroups(allGroups)
     : allGroups;
-  const sortableGroups = isInventoryLocationSort(String(sortField))
+  const locationSortableGroups = isInventoryLocationSort(String(sortField))
     ? await enrichInventoryGroupsForLocationSort(
         prisma,
         printingGroups,
@@ -184,6 +184,7 @@ export default async function InventoryPage({
         inventoryGroupFields,
       )
     : printingGroups;
+  const sortableGroups = await enrichInventoryGroupsForFactSort(prisma, locationSortableGroups, where, inventoryGroupFields, String(sortField));
   const cardSortData = await prisma.card.findMany({
     where: {
       id: {
@@ -194,35 +195,16 @@ export default async function InventoryPage({
   });
   const cardSortById = new Map(cardSortData.map((card) => [card.id, card]));
   const groupMatchesClientSafeFilters = (group: any) =>
-    inventoryCardMatchesPostFilters(cardSortById.get(group.cardId), filters);
+    inventoryCardMatchesPostFilters(cardSortById.get(group.cardId), filters, group.foilStatus);
   const filteredPrintingGroups = sortableGroups.filter(
     groupMatchesClientSafeFilters,
   );
-  const { filteredGroups, sortedGroups } = prepareInventoryPageGroups(filteredPrintingGroups, cardSortById, displayMode, String(sortField), sortDirection);
+  const { filteredGroups, sortedGroups } = prepareInventoryPageGroups(filteredPrintingGroups, cardSortById, displayMode, String(sortField), sortDirection, userWithPlayer?.preferredPriceProvider);
   const pageGroups = sortedGroups.slice(querySkip, querySkip + queryPageSize);
   const totalMatchingCount = filteredGroups.length;
   const totalPages = Math.max(1, Math.ceil(totalMatchingCount / queryPageSize));
 
-  const pageGroupWhere =
-    displayMode === "grouped" || rollupPrinting
-      ? {
-          ...where,
-          cardId: {
-            in: (pageGroups as any[]).flatMap(
-              (group) => group.cardIds ?? [group.cardId],
-            ),
-          },
-        }
-      : {
-          ...where,
-          OR: (pageGroups as any[]).map((group) => ({
-            currentOwnerId: group.currentOwnerId,
-            cardId: group.cardId,
-            foilStatus: group.foilStatus,
-            condition: group.condition,
-            language: group.language,
-          })),
-        };
+  const pageGroupWhere = { AND: [where, inventoryPageScopeWhere(pageGroups, displayMode, rollupPrinting)] };
 
   const items = pageGroups.length
     ? await prisma.inventoryItem.findMany({
@@ -264,7 +246,9 @@ export default async function InventoryPage({
   const ownerUsers = await prisma.user.findMany({
     where: {
       playerId: { in: Array.from(new Set(players.map((player) => player.id))) },
+      isActive: true,
     },
+    orderBy: { createdAt: "asc" },
     select: { playerId: true, inventoryDefaultVisibility: true },
   });
   const inventoryDefaultByPlayer = Object.fromEntries(
@@ -923,7 +907,7 @@ export default async function InventoryPage({
     .map((entry: any) => {
       const i = displayMode === "grouped" ? entry.representative : entry;
       return {
-        id: i.id,
+        id: displayMode === "grouped" ? entry.id : i.id,
         cardId: i.cardId,
         cardName: i.card.name,
         quantity: entry.quantity ?? i.quantity,
@@ -975,7 +959,6 @@ export default async function InventoryPage({
         locationName: i.location?.name ?? "Unassigned",
         locationSection: i.locationSection ?? null,
         currentOwnerId: i.currentOwnerId,
-        currentOwner: i.currentOwner.displayName,
         currentOwnerColor: i.currentOwner.color || "#64748b",
         setCode: i.card.setCode.toUpperCase(),
         setName: i.card.setName ?? "",
@@ -1003,10 +986,7 @@ export default async function InventoryPage({
         priceEurFoil: (i.card.prices as any)?.eur_foil ?? "",
         priceTix: (i.card.prices as any)?.tix ?? "",
         preferredPriceLabel: formatSelectedPrice(
-          selectPreferredCardPrice(undefined, i.card.prices, {
-            finish: finishForFoilStatus(i.foilStatus),
-            preferredProvider: userWithPlayer?.preferredPriceProvider,
-          }),
+          selectInventoryCardPrice(i.card.prices, i.foilStatus, userWithPlayer?.preferredPriceProvider),
         ),
         priceChange7Day: "",
         priceChange30Day: "",
@@ -1017,11 +997,6 @@ export default async function InventoryPage({
         sourceType: i.sourceType,
         language: i.language,
         locationVisibility: i.location?.visibility ?? "INHERIT",
-        effectiveVisibility: resolveInventoryVisibility(
-          inventoryDefaultByPlayer[i.currentOwnerId] ??
-            DefaultCollectionVisibility.PRIVATE,
-          i.location?.visibility ?? "INHERIT",
-        ),
         oracleText: i.card.oracleText ?? "",
         powerToughness: [i.card.power, i.card.toughness]
           .filter(Boolean)
@@ -1039,6 +1014,7 @@ export default async function InventoryPage({
           : JSON.stringify(i.card.keywords ?? ""),
         notes: i.notes ?? "",
         condition: i.condition,
+        ...inventoryRowFacts(displayMode === "grouped" ? entry.printings : [i], inventoryDefaultByPlayer),
         imageUri:
           (i.card.imageUris as any)?.normal ??
           (i.card.imageUris as any)?.small ??
@@ -1063,6 +1039,7 @@ export default async function InventoryPage({
           },
         },
         filters,
+        row.foilStatus,
       ),
     );
 

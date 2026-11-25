@@ -1,3 +1,4 @@
+import { selectInventoryCardPrice } from "@/lib/inventory-price";
 import Link from "next/link";
 import { InventoryBrowser } from "@/components/InventoryBrowser";
 import { InventoryAdvancedSearch } from "@/components/InventoryAdvancedSearch";
@@ -10,9 +11,7 @@ import {
 import { getInventoryGroupedByCard } from "@/lib/inventory-locations";
 import { getManaFacesForDto } from "@/lib/mtg/mana-display";
 import {
-  finishForFoilStatus,
   formatSelectedPrice,
-  selectPreferredCardPrice,
 } from "@/lib/price-history";
 import {
   buildRelatedCardMetadataByScryfallId,
@@ -307,10 +306,7 @@ function toInventoryBrowserRows({
       priceEurFoil: (i.card.prices as any)?.eur_foil ?? "",
       priceTix: (i.card.prices as any)?.tix ?? "",
       preferredPriceLabel: formatSelectedPrice(
-        selectPreferredCardPrice(undefined, i.card.prices, {
-          finish: finishForFoilStatus(i.foilStatus),
-          preferredProvider: preferredPriceProvider || undefined,
-        }),
+        selectInventoryCardPrice(i.card.prices, i.foilStatus, preferredPriceProvider),
       ),
       priceChange7Day: "",
       priceChange30Day: "",
@@ -377,7 +373,7 @@ export default async function PublicInventoryPage({ searchParams, member }: Page
   const initialBrowsingMode: "paginated" | "infinite" =
     p.browse === "infinite" ? "infinite" : "paginated";
   const sortField = p.sort || "cardName";
-  const sortDirection: "asc" | "desc" = p.sortDir === "desc" ? "desc" : "asc";
+  const sortDirection: "asc" | "desc" = p.sortDir === "desc" || (!p.sortDir && sortField === "releasedAt") ? "desc" : "asc";
 
   const result = await getGlobalPublicInventory({
     ...(p as any as PublicInventoryFilters),
@@ -387,7 +383,7 @@ export default async function PublicInventoryPage({ searchParams, member }: Page
         : Array.isArray(p.page)
           ? p.page[0]
           : p.page,
-  }, member);
+  }, member, viewer?.preferredPriceProvider);
   const setOptions: Array<{ setCode: string; setName: string | null }> = [];
   const cardNameRows: Array<{ name: string }> = [];
   const locationTypes = await getActiveLocationTypes(prisma);

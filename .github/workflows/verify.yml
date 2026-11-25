@@ -301,6 +301,15 @@ jobs:
           psql 'postgresql://ci:ci@127.0.0.1:5432/postgres' --set ON_ERROR_STOP=1 --command 'CREATE DATABASE bulk_cleanup_fixture'
           npx prisma migrate deploy
           npx tsx scripts/verify-bulk-cleanup.ts --run
+      - name: Inventory finish prices, page boundaries and public scope
+        env:
+          DATABASE_URL: postgresql://ci:ci@mtg-inventory-sort-db:5432/inventory_sort_fixture?schema=public&connection_limit=3
+          MTG_INVENTORY_SORT_TEST: "1"
+        run: |
+          echo '127.0.0.1 mtg-inventory-sort-db' | sudo tee -a /etc/hosts
+          psql 'postgresql://ci:ci@127.0.0.1:5432/postgres' --set ON_ERROR_STOP=1 --command 'CREATE DATABASE inventory_sort_fixture'
+          npx prisma migrate deploy
+          npx tsx scripts/verify-inventory-price-finishes.ts --run
       - name: Archive-aware Pricing refresh and full rebuild
         run: npx tsx scripts/verify-pricing-archive-aware-refresh.ts
       - name: Interrupted pricing source recovery preserves jobs and all summary tiers
