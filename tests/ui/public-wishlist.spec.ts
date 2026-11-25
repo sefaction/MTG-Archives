@@ -49,9 +49,10 @@ for (const viewport of [{ width: 1366, height: 900 }, { width: 390, height: 844 
       await visitor.goto(ownerPath + "?owner=foreign&categories=all");
       for (const [category, name, quantity] of [["Manual wishes", "Manual public card", 3], ["Deck needs", "Deck public card", 2],
         ["From members", "Member public card", 2], ["Set Completion", "Set public card", 1]] as const) {
-        const region = visitor.getByRole("region", { name: category, exact: true });
-        await expect(region.getByText(name, { exact: true })).toBeVisible();
-        await expect(region.getByText(`Wanted ${quantity}`, { exact: true })).toBeVisible();
+        const row = visitor.locator(".inventory-results tbody tr").filter({ hasText: name });
+        await expect(row.getByRole("button", { name, exact: true })).toBeVisible();
+        await expect(row.getByRole("cell", { name: category, exact: true })).toBeVisible();
+        await expect(row.getByRole("cell", { name: String(quantity), exact: true })).toBeVisible();
       }
       const response = await visitor.request.get(ownerPath);
       expect(response.headers()["cache-control"]).toContain("no-store");

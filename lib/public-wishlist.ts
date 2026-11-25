@@ -35,26 +35,38 @@ function finish(value: string | null) {
   }
 }
 
-const cardSelect = { name: true, setCode: true, collectorNumber: true } as const;
+const cardSelect = { id: true, name: true, setCode: true, collectorNumber: true } as const;
+
+// Catalog references stay server-side until mapped to the public card browser.
+// These are public Card IDs, never Wishlist/deck/trade/inventory source IDs.
+export type PublicWishReference = PublicWish & {
+  cardId?: string;
+  setCode: string;
+  collectorNumber: string | null;
+  preferredFinish: string | null;
+};
+function reference(wish: PublicWish, card: { id?: string; setCode: string; collectorNumber: string | null }, preferredFinish: string | null): PublicWishReference {
+  return { ...wish, cardId: card.id, setCode: card.setCode, collectorNumber: card.collectorNumber, preferredFinish };
+}
 
 // Public queries select only the fields needed to compute wishes. Never serialize
 // private Wishlist views, deck names, member identities, notes or storage details.
-export async function getPublicWishlist(db: PrismaClient, username: string) {
+export async function getPublicWishlistReferences(db: PrismaClient, username: string) {
   return db.$transaction(async tx => {
     const owner = await tx.user.findUnique({
       where: { username, isActive: true },
-      select: { id: true, username: true, playerId: true, publicWishlistCategories: true },
+      select: { id: true, username: true, playerId: true, publicWishlistCategories: true, publicInventoryHidePricing: true },
     });
     if (!owner) return null;
     const categories = normalizePublicWishlistCategories(owner.publicWishlistCategories);
-    const wishes: PublicWish[] = [];
+    const wishes: PublicWishReference[] = [];
     if (categories.includes("manual")) {
       const rows = await tx.wishlistItem.findMany({
         where: { ownerUserId: owner.id, quantity: { gt: 0 } },
         select: { quantity: true, desiredFinish: true, card: { select: cardSelect } },
       });
-      for (const row of rows) wishes.push({ name: row.card.name, quantity: row.quantity,
-        printing: printing(row.card), finish: finish(row.desiredFinish), category: "manual" });
+      for (const row of rows) wishes.push(reference({ name: row.card.name, quantity: row.quantity,
+        printing: printing(row.card), finish: finish(row.desiredFinish), category: "manual" }, row.card, row.desiredFinish));
     }
     if (categories.includes("decks")) {
       const decks = await tx.deck.findMany({
@@ -77,8 +89,8 @@ export async function getPublicWishlist(db: PrismaClient, username: string) {
           item.location?.deckId === deck.id && matchesDeckCardPrinting(row, { cardId: item.card.id, quantity: item.quantity, card: item.card })
             ? total + item.quantity : total, 0);
         const quantity = Math.max(0, row.quantity - committed);
-        if (quantity) wishes.push({ name: row.card.name, quantity,
-          printing: `${printing(row.card)} preferred`, finish: "Any finish", category: "decks" });
+        if (quantity) wishes.push(reference({ name: row.card.name, quantity,
+          printing: `${printing(row.card)} preferred`, finish: "Any finish", category: "decks" }, row.card, null));
       }
     }
     if (categories.includes("members")) {
@@ -86,8 +98,8 @@ export async function getPublicWishlist(db: PrismaClient, username: string) {
         where: { ownerUserId: owner.id, status: "OPEN", quantity: { gt: 0 } },
         select: { quantity: true, card: { select: cardSelect } },
       });
-      for (const row of rows) wishes.push({ name: row.card.name, quantity: row.quantity,
-        printing: printing(row.card), finish: "Any finish", category: "members" });
+      for (const row of rows) wishes.push(reference({ name: row.card.name, quantity: row.quantity,
+        printing: printing(row.card), finish: "Any finish", category: "members" }, row.card, null));
     }
     if (categories.includes("sets")) {
       const rows = await tx.collectorWishlistItem.findMany({
@@ -95,21 +107,29 @@ export async function getPublicWishlist(db: PrismaClient, username: string) {
         select: { cardName: true, setCode: true, collectorNumber: true, preferredFinish: true,
           allowOtherSets: true, allowOtherFinishes: true },
       });
-      for (const row of rows) wishes.push({ name: row.cardName, quantity: 1,
+      for (const row of rows) wishes.push(reference({ name: row.cardName, quantity: 1,
         printing: `${printing(row)} preferred${row.allowOtherSets ? "; other sets accepted" : ""}`,
         finish: `${finish(row.preferredFinish)} preferred${row.allowOtherFinishes ? "; other finishes accepted" : ""}`,
-        category: "sets" });
+        category: "sets" }, row, row.preferredFinish));
     }
     // Combine identical public preferences within a category. Private source IDs
     // and the number/names of decks or trade partners never enter the response.
-    const grouped = new Map<string, PublicWish>();
+    const grouped = new Map<string, PublicWishReference>();
     for (const wish of wishes) {
       const key = JSON.stringify([wish.category, wish.name, wish.printing, wish.finish]);
       const prior = grouped.get(key);
       if (prior) prior.quantity += wish.quantity;
       else grouped.set(key, { ...wish });
     }
-    return { username: owner.username, categories,
+    return { username: owner.username, categories, hidePricing: owner.publicInventoryHidePricing === true,
       wishes: [...grouped.values()].sort((a, b) => a.name.localeCompare(b.name) || a.printing.localeCompare(b.printing)) };
   });
+}
+
+// Keep the original five-field projection stable for other consumers.
+export async function getPublicWishlist(db: PrismaClient, username: string) {
+  const view = await getPublicWishlistReferences(db, username);
+  if (!view) return null;
+  return { username: view.username, categories: view.categories,
+    wishes: view.wishes.map(({ name, quantity, printing, finish, category }) => ({ name, quantity, printing, finish, category })) };
 }
