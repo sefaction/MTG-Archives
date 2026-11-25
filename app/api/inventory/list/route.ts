@@ -7,7 +7,6 @@ import { NextResponse } from "next/server";
 import { DefaultCollectionVisibility, type Prisma } from "@prisma/client";
 import { getAccessScope, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { resolveInventoryVisibility } from "@/lib/visibility";
 import {
   getInventoryExactPrintings,
   getInventoryGroupedByCard,
@@ -113,7 +112,6 @@ function rowsFromDisplayItems({
         locationName: i.location?.name ?? "Unassigned",
         locationSection: i.locationSection ?? null,
         currentOwnerId: i.currentOwnerId,
-        currentOwner: i.currentOwner.displayName,
         currentOwnerColor: i.currentOwner.color || "#64748b",
         setCode: i.card.setCode.toUpperCase(),
         setName: i.card.setName ?? "",
@@ -152,11 +150,6 @@ function rowsFromDisplayItems({
         sourceType: i.sourceType,
         language: i.language,
         locationVisibility: i.location?.visibility ?? "INHERIT",
-        effectiveVisibility: resolveInventoryVisibility(
-          inventoryDefaultByPlayer[i.currentOwnerId] ??
-            DefaultCollectionVisibility.PRIVATE,
-          i.location?.visibility ?? "INHERIT",
-        ),
         oracleText: i.card.oracleText ?? "",
         powerToughness: [i.card.power, i.card.toughness]
           .filter(Boolean)

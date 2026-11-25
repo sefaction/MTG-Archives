@@ -15,7 +15,6 @@ import { InventoryWorkspace } from "@/components/InventoryWorkspace";
 import { prisma } from "@/lib/prisma";
 import { getStorageLocations } from "@/lib/storage-summary";
 import { moveInventoryStorageBatch } from "@/lib/inventory-storage-move";
-import { resolveInventoryVisibility } from "@/lib/visibility";
 import { InventoryBrowser } from "@/components/InventoryBrowser";
 import {
   DefaultCollectionVisibility,
@@ -960,7 +959,6 @@ export default async function InventoryPage({
         locationName: i.location?.name ?? "Unassigned",
         locationSection: i.locationSection ?? null,
         currentOwnerId: i.currentOwnerId,
-        currentOwner: i.currentOwner.displayName,
         currentOwnerColor: i.currentOwner.color || "#64748b",
         setCode: i.card.setCode.toUpperCase(),
         setName: i.card.setName ?? "",
@@ -999,11 +997,6 @@ export default async function InventoryPage({
         sourceType: i.sourceType,
         language: i.language,
         locationVisibility: i.location?.visibility ?? "INHERIT",
-        effectiveVisibility: resolveInventoryVisibility(
-          inventoryDefaultByPlayer[i.currentOwnerId] ??
-            DefaultCollectionVisibility.PRIVATE,
-          i.location?.visibility ?? "INHERIT",
-        ),
         oracleText: i.card.oracleText ?? "",
         powerToughness: [i.card.power, i.card.toughness]
           .filter(Boolean)

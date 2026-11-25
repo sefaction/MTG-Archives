@@ -23,7 +23,7 @@ test("printing rollups and card groups retain all three finishes and their sourc
   assert.equal(new Set(named.map(row => row.id)).size, 3); assert.equal(named.reduce((n, row) => n + row.quantity, 0), 4);
 });
 test("both price aliases use the displayed finish and preferred source", () => {
-  const cards = new Map([["a", card]]);
+  const cards = new Map<string, any>([["a", card]]);
   for (const field of ["priceUsd", "preferredPriceLabel"]) {
     const sorted = [...groups].sort((a,b) => compareInventoryGroups(a,b,cards,field,"desc","tcgplayer"));
     assert.deepEqual(sorted.map(row => row.foilStatus), ["FOIL", "ETCHED", "NONFOIL"]);
@@ -37,16 +37,16 @@ test("missing and blank finish prices stay unknown, while zero remains a real pr
   assert.equal(selectInventoryCardPrice({ usd_foil: "5", mtgjson: { tcgplayer: { normal: { retail: { USD: { amount: 100 } } } } } }, "FOIL", "tcgplayer")!.amount, 5);
 });
 test("unit prices sort numerically with nulls last in both directions", () => {
-  const cards = new Map([ ["zero", { prices: { usd: "0" } }], ["low", { prices: { usd: "2" } }], ["high", { prices: { usd: "10" } }], ["missing", { prices: {} }] ]);
+  const cards = new Map<string, any>([ ["zero", { prices: { usd: "0" } }], ["low", { prices: { usd: "2" } }], ["high", { prices: { usd: "10" } }], ["missing", { prices: {} }] ]);
   const data = [...cards.keys()].map(cardId => ({ cardId, foilStatus: "NONFOIL", quantity: cardId === "low" ? 1000 : 1 }));
   for (const direction of ["asc", "desc"] as const) assert.deepEqual([...data].sort((a,b) => compareInventoryGroups(a,b,cards,"preferredPriceLabel",direction)).map(row => row.cardId), direction === "asc" ? ["zero", "low", "high", "missing"] : ["high", "low", "zero", "missing"]);
 });
 test("different currencies are ordered separately without pretending to convert them", () => {
-  const cards = new Map([ ["usd", { prices: { usd: "50" } }], ["eur", { prices: { mtgjson: { cardmarket: { normal: { retail: { EUR: { amount: 1 } } } } } } }] ]);
+  const cards = new Map<string, any>([ ["usd", { prices: { usd: "50" } }], ["eur", { prices: { mtgjson: { cardmarket: { normal: { retail: { EUR: { amount: 1 } } } } } } }] ]);
   for (const dir of ["asc", "desc"] as const) assert.deepEqual([...cards.keys()].map(cardId => ({ cardId })).sort((a,b) => compareInventoryGroups(a,b,cards,"preferredPriceLabel",dir,"cardmarket")).map(row => row.cardId), ["usd", "eur"]);
 });
 test("hydration retains the sorted representative within each card/finish group", () => {
-  const cards = new Map([["a", card], ["b", { ...card, id: "b", prices: { usd: "2" } }]]);
+  const cards = new Map<string, any>([["a", card], ["b", { ...card, id: "b", prices: { usd: "2" } }]]);
   const printingGroups = [{ ...groups[0], cardId: "a" }, { ...groups[0], cardId: "b" }, groups[1]];
   const page = prepareInventoryPageGroups(printingGroups, cards, "grouped", "preferredPriceLabel", "asc");
   assert.equal(page.sortedGroups.length, 2);
