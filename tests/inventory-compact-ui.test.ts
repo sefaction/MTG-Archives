@@ -191,7 +191,7 @@ test("inventory advanced search separates mechanical and collection filters", ()
   );
   assert.match(
     inventoryAdvancedSearch,
-    /Collection and storage[\s\S]*<span className=\{filterLabelClass\}>USD<\/span>/,
+    /Collection and storage[\s\S]*<span className=\{filterLabelClass\} title="Scryfall USD unit price for the selected finish">Scryfall USD<\/span>/,
   );
   assert.doesNotMatch(inventoryAdvancedSearch, /Color, mana, and price/);
   assert.match(inventoryAdvancedSearch, /grid items-end gap-3/);
