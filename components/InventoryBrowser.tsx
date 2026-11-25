@@ -3457,7 +3457,7 @@ export function InventoryBrowser({
                       x{row.quantity}
                     </span>
                     {(printingHasMixedFinishes(row) || row.foilStatus) ? (
-                      <span className="absolute top-1 left-1 bg-amber-400 text-black text-[10px] px-1 rounded">
+                      <span className="absolute top-1 left-7 bg-amber-400 text-black text-[10px] px-1 rounded">
                         {printingHasMixedFinishes(row) ? "Mixed finishes" : row.foilStatus}
                       </span>
                     ) : null}
