@@ -151,6 +151,10 @@ async function main() {
     await db.inventoryItem.update({ where: { id: guarded.normal.id }, data: { roundId: null, acquiredFromPullId: null } });
     const foreignAttempt = request(await getBulkContext(db, guarded.owner));
     assert.equal((await performBulkAction(db, guarded.other, foreignAttempt)).status, "REJECTED");
+    await saveBulkSettings(db, guarded.other, { action: "SETTINGS", enabled: true, maxCopies: 4, includeDecks: false, revision: 0 });
+    await db.user.update({ where: { id: guarded.other }, data: { role: "ADMIN" } });
+    const otherContext = await getBulkContext(db, guarded.other);
+    assert.equal((await performBulkAction(db, guarded.other, { ...foreignAttempt, requestId: randomUUID(), policyStamp: otherContext.settings.stamp })).status, "REJECTED");
     assert.equal((await getBulkContext(db, guarded.owner)).plan!.totalCopies, 6);
 
     const s = await seedBulkCleanup(db, tag + "-scans");
@@ -167,7 +171,10 @@ async function main() {
     await commitAcquisitionCards(db, { userId: s.owner, adminMode: false }, older.id, { ...selection, requestKey: randomUUID(), previewToken: preview.token, overfillReason: null });
     scanPlan = await getBulkContext(db, s.owner, { batchId: current.id });
     assert.equal(scanPlan.plan!.totalCopies, 4);
-    assert.equal((await getBulkContext(db, s.other, { batchId: current.id })).enabled, false);
+    await saveBulkSettings(db, s.other, { action: "SETTINGS", enabled: true, maxCopies: 4, includeDecks: false, revision: 0 });
+    await db.user.update({ where: { id: s.other }, data: { role: "ADMIN" } });
+    const foreignBatch = await getBulkContext(db, s.other, { batchId: current.id });
+    assert.equal(foreignBatch.settings.enabled, true); assert.equal(foreignBatch.enabled, false); assert.equal(foreignBatch.plan, undefined);
     const ignore = { ...request(scanPlan), action: "IGNORE_SCANS" as const, batchId: current.id };
     const original = await db.acquisitionCandidate.findMany({ where: { runId: current.run.id }, orderBy: { id: "asc" } });
     assert.equal((await performBulkAction(db, s.owner, ignore)).quantity, 4); assert.equal((await performBulkAction(db, s.owner, ignore)).replay, true);

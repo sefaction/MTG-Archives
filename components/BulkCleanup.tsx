@@ -114,7 +114,10 @@ export function BulkCleanup({ actorId, enabled, batchId, revision, refresh, bloc
         <div className="grid gap-2 lg:grid-cols-2">
           {rows.map(row => <article key={row.id} className="flex min-w-0 gap-3 rounded border border-[var(--app-border)] p-2">
             <input aria-label={`Select ${row.position ? `scan ${row.position}: ` : ""}${row.name} ${row.setCode} ${row.collectorNumber}`} type="checkbox" disabled={busy || !!pending || recoveryBlocked || isBlocked(row)} checked={!!selected[row.id]} onChange={event => setSelected(old => ({ ...old, [row.id]: event.target.checked ? row.quantity : 0 }))} />
-            {row.imageUri && <img src={row.imageUri} alt={row.position ? `Scan ${row.position}` : row.name} loading="lazy" className="h-28 w-20 shrink-0 rounded object-contain" />}
+            {row.imageUri && <img src={row.imageUri} alt={row.position ? `Scan ${row.position}` : row.name} loading="lazy" className="h-28 w-20 shrink-0 rounded object-contain"
+              onError={event => { const image = event.currentTarget;
+                if (batchId && image.src.endsWith("?preview=1")) image.src = image.src.slice(0, -"?preview=1".length);
+              }} />}
             <div className="min-w-0 flex-1 text-sm"><div className="font-medium">{row.position && <span className="mr-2">#{row.position}</span>}{row.name}</div>
               <p className="break-words">{row.setCode.toUpperCase()} · #{row.collectorNumber} · {row.finish} · {row.language} · {row.condition}</p>
               <p className="mt-1 font-medium">{row.location}{row.section ? ` / ${row.section}` : ""}</p>
