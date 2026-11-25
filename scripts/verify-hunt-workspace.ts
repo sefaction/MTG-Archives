@@ -431,15 +431,18 @@ async function main() {
       )._sum.quantity,
       2,
     );
-    const now = await getBulkContext(db, f.owner),
-      foreignResult = await performBulkAction(db, f.owner, {
-        action: "MOVE",
-        requestId: randomUUID(),
-        policyStamp: now.settings.stamp,
-        destinationId: foreign.id,
-        selected: chosen(now).slice(0, 1),
-      });
-    assert.equal(foreignResult.status, "REJECTED");
+    const now = await getBulkContext(db, f.owner);
+    await assert.rejects(
+      () =>
+        performBulkAction(db, f.owner, {
+          action: "MOVE",
+          requestId: randomUUID(),
+          policyStamp: now.settings.stamp,
+          destinationId: foreign.id,
+          selected: chosen(now).slice(0, 1),
+        }),
+      /own bulk storage/,
+    );
     // Global search/order is applied before server pagination.
     for (let i = 0; i < 30; i++) {
       const card = await db.card.create({
