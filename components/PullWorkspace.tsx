@@ -110,8 +110,12 @@ export function PullWorkspace({
     );
     return () => clearTimeout(timer);
   }, [query, sort, desc, box, pageSize]);
-  const seen = useRef(new Map<string,string>());
-  for(const row of rows)seen.current.set(row.itemId??row.id,`${row.name} ${row.printing} from ${row.location}`);
+  const seen = useRef(new Map<string, string>());
+  for (const row of rows)
+    seen.current.set(
+      row.itemId ?? row.id,
+      `${row.name} ${row.printing} from ${row.location}`,
+    );
   const filtered = useMemo(
     () =>
       server
@@ -460,7 +464,54 @@ export function PullWorkspace({
                 / {row.section}
               </button>
             ))}
-            {(scope.excludedItems??[]).map((id,index)=><button type="button" key={id} className={filterButtonClass} disabled={disabled} onClick={()=>onScope({...scope,excludedItems:scope.excludedItems?.filter(value=>value!==id)})}>Restore {seen.current.get(id)??`skipped stack ${index+1}`}</button>)}
+            {(scope.excludedItems ?? []).map((id, index) => (
+              <button
+                type="button"
+                key={id}
+                className={filterButtonClass}
+                disabled={disabled}
+                onClick={() =>
+                  onScope({
+                    ...scope,
+                    excludedItems: scope.excludedItems?.filter(
+                      (value) => value !== id,
+                    ),
+                  })
+                }
+              >
+                Restore {seen.current.get(id) ?? `skipped stack ${index + 1}`}
+              </button>
+            ))}
+          </div>
+        </details>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span>
+            {server?.total ?? filtered.length} matching pulls ·{" "}
+            {rows.reduce((n, row) => n + row.pulled, 0)} copies marked pulled
+          </span>
+          <button
+            type="button"
+            className={filterButtonClass}
+            disabled={disabled}
+            onClick={() =>
+              onSelection({
+                ...selection,
+                ...Object.fromEntries(
+                  visible.map((row) => [row.id, row.quantity]),
+                ),
+              })
+            }
+          >
+            Select this page
+          </button>
+          <button
+            type="button"
+            className={filterButtonClass}
+            disabled={disabled}
+            onClick={() => onSelection({})}
+          >
+            Clear selection
+          </button>
         </div>
         <div
           className={
