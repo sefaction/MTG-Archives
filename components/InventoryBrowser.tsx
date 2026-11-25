@@ -1811,27 +1811,23 @@ export function InventoryBrowser({
   const auditDialogRef = useInventoryModal(Boolean(auditRow), auditRow?.cardName);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditError, setAuditError] = useState("");
-  const [viewMode, setViewMode] = useState<"table" | "binder">(() =>
-    typeof window !== "undefined"
-      ? (localStorage.getItem("inventoryViewMode") as any) || "table"
-      : "table",
+  // The server and first client render must agree. Restore browser preferences
+  // after hydration so a saved binder/column layout cannot rebuild the page.
+  const [viewMode, setViewMode] = useState<"table" | "binder">("table");
+  const [cardSize, setCardSize] = useState<CollectionCardSize>("medium");
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() =>
+    wishlistMode ? { ...defaults, wishCategory: true, printingPreference: true } : defaults,
   );
-  const [cardSize, setCardSize] = useState<CollectionCardSize>(() =>
-    typeof window !== "undefined"
-      ? normalizeCollectionCardSize(localStorage.getItem("inventoryCardSize"))
-      : "medium",
-  );
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
-    () => {
-      const initial = wishlistMode ? { ...defaults, wishCategory: true, printingPreference: true } : defaults;
-      if (typeof window === "undefined") return initial;
-      try {
-        return { ...initial, ...JSON.parse(localStorage.getItem("inventoryColumns") || "null") };
-      } catch {
-        return initial;
-      }
-    },
-  );
+  useEffect(() => {
+    const initial = wishlistMode ? { ...defaults, wishCategory: true, printingPreference: true } : defaults;
+    try {
+      setViewMode(localStorage.getItem("inventoryViewMode") === "binder" ? "binder" : "table");
+      setCardSize(normalizeCollectionCardSize(localStorage.getItem("inventoryCardSize")));
+      setColumnVisibility({ ...initial, ...JSON.parse(localStorage.getItem("inventoryColumns") || "null") });
+    } catch {
+      setColumnVisibility(initial);
+    }
+  }, [wishlistMode]);
   const [message, setMessage] = useState<string>("");
   const [editingStackId, setEditingStackId] = useState("");
   const [splittingStackId, setSplittingStackId] = useState("");
