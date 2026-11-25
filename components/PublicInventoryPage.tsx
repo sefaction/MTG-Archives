@@ -24,6 +24,7 @@ import { addPublicInventoryToTradeWishlist } from "@/app/public/inventory/action
 import { buildPublicTradeWishlistTargets } from "@/lib/public-trade-wishlist-targets";
 import { addDeckCard } from "@/app/decks/actions";
 import { PublicNav } from "@/components/PublicNav";
+import { PublicCollectionNav } from "@/components/PublicCollectionNav";
 
 import { publicInventoryLink } from "@/lib/public-inventory-link";
 import { scopedPublicInventoryParams, publicInventoryRowsWithoutPricing, type PublicInventoryMember } from "@/lib/public-inventory-scope";
@@ -462,7 +463,7 @@ export default async function PublicInventoryPage({ searchParams, member }: Page
 
   return (
     <main className="min-w-0 space-y-4 p-4 sm:p-8">
-      {member ? <nav aria-label="Collection navigation" className="flex items-center justify-between gap-3 text-sm"><span className="font-semibold">MTG Archives</span><Link href="/login" className="underline">Log in</Link></nav> : <PublicNav active="inventory" />}
+      {member ? <PublicCollectionNav /> : <PublicNav active="inventory" />}
 
       <header className="space-y-2">
         <h1 className="text-3xl font-bold">{member ? `${member.displayName}’s inventory` : "Public inventory"}</h1>

@@ -5,6 +5,7 @@ import { InventoryBrowser } from "@/components/InventoryBrowser";
 import { InventoryWorkspace } from "@/components/InventoryWorkspace";
 import { InventoryQuickCardNameSearch } from "@/components/InventoryQuickCardNameSearch";
 import { PublicWishlistCategoryFilter } from "@/components/PublicWishlistCategoryFilter";
+import { PublicCollectionNav } from "@/components/PublicCollectionNav";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { publicWishlistPageUsername, publicWishlistLink } from "@/lib/public-inventory-link";
@@ -27,9 +28,7 @@ export default async function PublicWishlistPage({ params, searchParams }: {
   const clear = new URLSearchParams(query); clear.delete("cardName"); clear.delete("category");
   const clearHref = `${actionPath}?${clear}`;
   return <main className="min-w-0 space-y-4 p-4 sm:p-8">
-    <nav aria-label="Collection navigation" className="flex items-center justify-between gap-3 text-sm">
-      <span className="font-semibold">MTG Archives</span><Link href="/login" className="underline">Log in</Link>
-    </nav>
+    <PublicCollectionNav />
     <header className="space-y-2">
       <h1 className="break-words text-3xl font-bold">{wishlist.username}&apos;s public Wishlist</h1>
       <p className="text-zinc-400">Shared wishes by reason. Each reason keeps its own wanted quantity.</p>
