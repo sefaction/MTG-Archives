@@ -81,6 +81,8 @@ for (const viewport of [{ width: 1366, height: 900 }, { width: 390, height: 844 
       for (const username of [".", "A/B #1", "~public", "%2F"]) {
         await visitor.goto(publicWishlistLink(username));
         await expect(visitor.getByRole("heading", { name: `${username}'s public Wishlist`, exact: true })).toBeVisible();
+        expect((await visitor.request.get(`/api${publicWishlistLink(username)}/list`)).status()).toBe(200);
+        expect((await visitor.request.get(`/api${publicWishlistLink(username)}/filter-suggestions?kind=cardName&q=card`)).status()).toBe(200);
         if (username === ".") await expect(visitor.getByText("No wishes in this category.", { exact: true })).toBeVisible();
       }
       for (const username of ["public-wishlist-unknown", "public-wishlist-inactive"]) {
