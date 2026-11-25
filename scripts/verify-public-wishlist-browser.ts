@@ -8,7 +8,7 @@ export async function seedPublicWishlistBrowser(db: PrismaClient, tag: string, c
   const password = randomUUID(), passwordHash = await bcrypt.hash(password, 4);
   for (const role of ["owner", "peer", "admin"]) {
     const id = `${tag}-${role}`;
-    await db.player.create({ data: { id, name: id, displayName: "PRIVATE-PROFILE" } });
+    await db.player.create({ data: { id, name: id, displayName: `PRIVATE-PROFILE-${id}` } });
     await db.user.create({ data: { id, username: id, displayName: "PRIVATE-DISPLAY", playerId: id, passwordHash,
       role: role === "admin" ? "ADMIN" : "PLAYER", preferredPriceProvider: "tcgplayer", publicWishlistCategories: role === "owner" ? ["manual"] : [] } });
   }
