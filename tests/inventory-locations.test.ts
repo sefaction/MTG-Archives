@@ -372,11 +372,13 @@ test("owned inventory rolls up copy attributes and keeps every stack addressable
     makeItem({ id: "different-printing", cardId: "alternate" }),
   ] as any[], true);
 
-  assert.equal(rows.length, 2);
-  assert.equal(rows[0].quantity, 3);
-  assert.deepEqual(rows[0].sourceItemIds, ["scan", "manual"]);
+  assert.equal(rows.length, 3);
+  assert.equal(rows[0].quantity, 2);
+  assert.deepEqual(rows[0].sourceItemIds, ["scan"]);
+  assert.deepEqual(rows[1].sourceItemIds, ["manual"]);
+  assert.equal(rows[1].foilStatus, "FOIL");
   assert.deepEqual(
-    rows[0].locationBreakdown.map((stack: {
+    rows.filter(row => row.cardId === rows[0].cardId).flatMap(row => row.locationBreakdown).map((stack: {
       inventoryItemId: string; quantity: number; foilStatus: string; condition: string;
       language: string; sourceType: string; notes: string | null; section: string | null;
     }) => [

@@ -253,14 +253,17 @@ test("all-matching mutations constrain database candidates to post-filtered card
         return [
           {
             cardId: "matching-white-card",
+            foilStatus: "NONFOIL",
             card: { colors: ["W"], keywords: ["Flying"] },
           },
           {
             cardId: "nonmatching-blue-card",
+            foilStatus: "NONFOIL",
             card: { colors: ["U"], keywords: ["Flying"] },
           },
           {
             cardId: "nonmatching-white-card",
+            foilStatus: "NONFOIL",
             card: { colors: ["W"], keywords: ["Vigilance"] },
           },
         ];
@@ -275,11 +278,8 @@ test("all-matching mutations constrain database candidates to post-filtered card
   );
 
   assert.equal(receivedArgs.where, where);
-  assert.deepEqual(receivedArgs.distinct, ["cardId"]);
-  assert.deepEqual(constrained, {
-    ...where,
-    cardId: { in: ["matching-white-card"] },
-  });
+  assert.deepEqual(receivedArgs.distinct, ["cardId", "foilStatus"]);
+  assert.deepEqual(constrained, { AND: [where, { OR: [{ cardId: "matching-white-card", foilStatus: "NONFOIL" }] }] });
 });
 
 test("all-matching mutations preserve database-only filters without extra lookup", async () => {

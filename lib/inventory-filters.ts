@@ -5,6 +5,7 @@ import {
 } from "@prisma/client";
 import { isReservedLocationTypeName } from "./location-types";
 import { effectiveCardColors } from "./card-colors";
+import { selectInventoryCardPrice } from "./inventory-price";
 
 export const INVENTORY_FILTER_PARAM_KEYS = [
   "cardName",
@@ -515,6 +516,7 @@ function priceUsd(card: any) {
 export function inventoryCardMatchesPostFilters(
   card: any,
   filters: InventoryFilters,
+  foilStatus?: string,
 ) {
   if (
     filters.colorIdentity.length &&
@@ -541,7 +543,7 @@ export function inventoryCardMatchesPostFilters(
     if (!keywords.toLowerCase().includes(filters.keyword.toLowerCase()))
       return false;
   }
-  const usd = priceUsd(card);
+  const usd = foilStatus === undefined ? priceUsd(card) : selectInventoryCardPrice(card?.prices, foilStatus)?.amount;
   if (
     filters.priceMin !== undefined &&
     (usd === undefined || usd < filters.priceMin)
@@ -570,9 +572,10 @@ export async function constrainInventoryWhereToPostFilters(
 
   const candidateCards = (await prisma.inventoryItem.findMany({
     where,
-    distinct: ["cardId"],
+    distinct: ["cardId", "foilStatus"],
     select: {
       cardId: true,
+      foilStatus: true,
       card: {
         select: {
           colorIdentity: true,
@@ -583,14 +586,14 @@ export async function constrainInventoryWhereToPostFilters(
         },
       },
     },
-  })) as Array<{ cardId: string; card: any }>;
-  const matchingCardIds = candidateCards
+  })) as Array<{ cardId: string; foilStatus: string; card: any }>;
+  const matchingGroups = candidateCards
     .filter((candidate) =>
-      inventoryCardMatchesPostFilters(candidate.card, filters),
+      inventoryCardMatchesPostFilters(candidate.card, filters, candidate.foilStatus),
     )
-    .map((candidate) => candidate.cardId);
+    .map((candidate) => ({ cardId: candidate.cardId, foilStatus: candidate.foilStatus }));
 
-  return { ...where, cardId: { in: matchingCardIds } };
+  return { AND: [where, { OR: matchingGroups }] };
 }
 
 export function removeInventoryFilterParams(params: URLSearchParams) {

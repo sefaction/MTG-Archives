@@ -212,7 +212,7 @@ async function exportInventory(params: URLSearchParams) {
   });
 
   const items = allItems.filter((item) =>
-    inventoryCardMatchesPostFilters(item.card, filters),
+    inventoryCardMatchesPostFilters(item.card, filters, item.foilStatus),
   );
 
   const selectedOwner = effectiveOwnerId

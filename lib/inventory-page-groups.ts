@@ -1,5 +1,6 @@
 import { groupInventoryPageGroupsByCardName } from "./inventory-locations";
 import { compareInventoryGroups } from "./inventory-sort";
+import type { FoilStatus, Prisma } from "@prisma/client";
 
 type PrintingGroup = {
   cardId: string;
@@ -14,9 +15,10 @@ export function prepareInventoryPageGroups<T extends PrintingGroup>(
   displayMode: "exact" | "grouped",
   sortField: string,
   sortDirection: "asc" | "desc",
+  preferredProvider?: string | null,
 ) {
   const compare = (left: T, right: T) =>
-    compareInventoryGroups(left, right, cardById, sortField, sortDirection);
+    compareInventoryGroups(left, right, cardById, sortField, sortDirection, preferredProvider);
   const filteredGroups =
     displayMode === "grouped"
       ? groupInventoryPageGroupsByCardName(
@@ -25,4 +27,14 @@ export function prepareInventoryPageGroups<T extends PrintingGroup>(
         )
       : printingGroups;
   return { filteredGroups, sortedGroups: [...filteredGroups].sort(compare) };
+}
+
+/** Restrict hydration to selected finish groups without replacing any filters. */
+export function inventoryPageScopeWhere(groups: Array<PrintingGroup & {
+  cardIds?: string[]; foilStatus?: string; currentOwnerId?: string; condition?: string; language?: string;
+}>, displayMode: "exact" | "grouped", rollupPrinting = false): Prisma.InventoryItemWhereInput {
+  return { OR: groups.flatMap(group => (displayMode === "grouped" ? group.cardIds ?? [group.cardId] : [group.cardId]).map(cardId => ({
+    cardId, foilStatus: group.foilStatus as FoilStatus,
+    ...(displayMode === "exact" && !rollupPrinting ? { currentOwnerId: group.currentOwnerId, condition: group.condition, language: group.language } : {}),
+  }))) };
 }

@@ -12,7 +12,7 @@ export type SelectedPrice = {
 };
 
 function priceNumber(value: unknown) {
-  if (value == null) return null;
+  if (value == null || (typeof value === "string" && !value.trim())) return null;
   const n = Number(
     typeof value === "object" && "toString" in value ? value.toString() : value,
   );
@@ -36,12 +36,13 @@ export function finishForFoilStatus(status?: FoilStatus | string | null) {
 export function scryfallFallbackPrice(
   prices: unknown,
   finish = "normal",
+  strictFinish = false,
 ): SelectedPrice | null {
   const values = (prices ?? {}) as Record<string, string | null | undefined>;
   const key =
     finish === "foil" ? "usd_foil" : finish === "etched" ? "usd_etched" : "usd";
   const amount = priceNumber(
-    values[key] ?? values.usd ?? values.usd_foil ?? values.usd_etched,
+    strictFinish ? values[key] : values[key] ?? values.usd ?? values.usd_foil ?? values.usd_etched,
   );
   if (amount === null) return null;
   return {
@@ -60,6 +61,7 @@ function mtgjsonCurrentPrice(
   prices: unknown,
   preferredProvider: string,
   finish = "normal",
+  strictFinish = false,
 ): SelectedPrice | null {
   const values = (prices ?? {}) as Record<string, any>;
   const mtgjson = values.mtgjson;
@@ -76,7 +78,7 @@ function mtgjsonCurrentPrice(
     const providerPrices = mtgjson[provider];
     if (!providerPrices || typeof providerPrices !== "object") continue;
     const finishPrices =
-      providerPrices[finish] ||
+      strictFinish ? providerPrices[finish] : providerPrices[finish] ||
       providerPrices.normal ||
       providerPrices.foil ||
       providerPrices.etched;
@@ -121,7 +123,7 @@ function mtgjsonCurrentPrice(
 export function selectPreferredCardPrice(
   _snapshots: unknown,
   cardPrices: unknown,
-  options: { finish?: string; preferredProvider?: string } = {},
+  options: { finish?: string; preferredProvider?: string; strictFinish?: boolean } = {},
 ) {
   const preferredProvider = options.preferredProvider || "scryfall";
   if (preferredProvider !== "scryfall") {
@@ -129,10 +131,11 @@ export function selectPreferredCardPrice(
       cardPrices,
       preferredProvider,
       options.finish,
+      options.strictFinish,
     );
     if (selected) return selected;
   }
-  return scryfallFallbackPrice(cardPrices, options.finish);
+  return scryfallFallbackPrice(cardPrices, options.finish, options.strictFinish);
 }
 
 export function formatSelectedPrice(price: SelectedPrice | null) {

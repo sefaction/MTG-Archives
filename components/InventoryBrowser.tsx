@@ -204,7 +204,8 @@ export type InventoryRow = {
     | "CORRECTION"
     | "PRIZE"
     | "OTHER";
-  effectiveVisibility?: "PRIVATE" | "PUBLIC";
+  effectiveVisibility?: "PRIVATE" | "PUBLIC" | "MIXED";
+  sourceTypeLabel?: string;
   locationVisibility?: "PRIVATE" | "PUBLIC" | "INHERIT";
   oracleText?: string;
   powerToughness?: string;
@@ -410,7 +411,7 @@ function getRowSourceIds(row: InventoryRow) {
 function inventoryRowControlName(row: InventoryRow) {
   const printing = `${row.setCode.toUpperCase()} #${row.collectorNumber || "?"}`;
   if (row.rollupPrinting)
-    return [row.cardName, printing, row.currentOwner].filter(Boolean).join(", ");
+    return [row.cardName, printing, row.foilStatus, row.currentOwner].filter(Boolean).join(", ");
   const finish = row.foilStatus ||
     (row.displayMode === "exact" ? (row.foil ? "FOIL" : "NONFOIL") : null);
   return [
@@ -486,7 +487,7 @@ function SelectedCopyInput({ row, value, onChange, compact = false }: {
 }
 
 function friendlyVisibility(value?: InventoryRow["effectiveVisibility"]) {
-  return value === "PUBLIC" ? "Public" : "Private";
+  return value === "MIXED" ? "Mixed" : value === "PUBLIC" ? "Public" : "Private";
 }
 
 function friendlySource(value?: InventoryRow["sourceType"]) {
@@ -2475,7 +2476,7 @@ export function InventoryBrowser({
       },
       ...(showPricing ? [{
         accessorKey: "preferredPriceLabel",
-        header: "Preferred Price",
+        header: () => <span title="Unit price for this finish and your selected source. Different currencies sort separately; missing prices stay last.">Preferred Price</span>,
         cell: ({ row }) =>
           printingHasMixedFinishes(row.original) ? "Varies by finish" : row.original.preferredPriceLabel,
       } satisfies ColumnDef<InventoryRow>] : []),
@@ -2506,7 +2507,7 @@ export function InventoryBrowser({
                   (stack) => stack.sourceType !== row.original.sourceType,
                 )
                   ? "Mixed"
-                  : friendlySource(row.original.sourceType),
+                  : row.original.sourceTypeLabel ?? friendlySource(row.original.sourceType),
             } satisfies ColumnDef<InventoryRow>,
           ]
         : []),
@@ -3455,7 +3456,7 @@ export function InventoryBrowser({
                     <span className="absolute top-1 right-1 bg-black/80 text-white text-xs px-2 py-0.5 rounded">
                       x{row.quantity}
                     </span>
-                    {(printingHasMixedFinishes(row) || (row.foilStatus && row.foilStatus !== "NONFOIL")) ? (
+                    {(printingHasMixedFinishes(row) || row.foilStatus) ? (
                       <span className="absolute top-1 left-1 bg-amber-400 text-black text-[10px] px-1 rounded">
                         {printingHasMixedFinishes(row) ? "Mixed finishes" : row.foilStatus}
                       </span>

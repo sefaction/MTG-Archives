@@ -1,4 +1,5 @@
-import { prepareInventoryPageGroups } from "./inventory-page-groups";
+import { enrichInventoryGroupsForFactSort } from "@/lib/inventory-sort-enrichment";
+import { inventoryPageScopeWhere, prepareInventoryPageGroups } from "./inventory-page-groups";
 import { inventorySortMetadataSelect as publicInventorySortMetadataSelect } from "./inventory-sort-metadata";
 export { publicInventorySortMetadataSelect };
 import {
@@ -330,7 +331,7 @@ function filterPublicInventoryByClientSafeFilters<T extends { card: any; quantit
 ) {
   const structured = parseInventoryFilters(filters as any);
   return inventory.filter((item) =>
-    inventoryCardMatchesPostFilters(item.card, structured),
+    inventoryCardMatchesPostFilters(item.card, structured, (item as any).foilStatus),
   );
 }
 
@@ -360,6 +361,7 @@ const publicInventoryInclude = {
 export async function getGlobalPublicInventory(
   filters: PublicInventoryFilters = {},
   scope?: { ownerPlayerId: string },
+  preferredPriceProvider?: string | null,
 ) {
   if (scope) filters = { ...filters, owner: scope.ownerPlayerId };
   const pageSizeOptions = [10, 25, 50, 100, 250];
@@ -368,7 +370,7 @@ export async function getGlobalPublicInventory(
     : 50;
   const page = Math.max(1, Number(filters.page || "1") || 1);
   const displayMode =
-    (filters as any).displayMode === "exact" ? "exact" : "grouped";
+    (filters as any).displayMode === "grouped" ? "grouped" : "exact";
   const sortField = filters.sort || "cardName";
   const sortDirection: "asc" | "desc" =
     filters.sortDir === "desc" ||
@@ -395,7 +397,7 @@ export async function getGlobalPublicInventory(
     ] as any,
   };
   const groupedGroupBy = {
-    by: ["cardId"] as any,
+    by: ["cardId", "foilStatus"] as any,
     where,
     _sum: { quantity: true as const },
     _count: { _all: true as const },
@@ -436,9 +438,9 @@ export async function getGlobalPublicInventory(
   ]);
   const inventoryGroupFields =
     displayMode === "grouped"
-      ? ["cardId"]
+      ? ["cardId", "foilStatus"]
       : ["cardId", "foilStatus", "condition", "language"];
-  const sortableGroups = isInventoryLocationSort(sortField)
+  const locationSortableGroups = isInventoryLocationSort(sortField)
     ? await enrichInventoryGroupsForLocationSort(
         prisma,
         allGroups as any[],
@@ -446,6 +448,7 @@ export async function getGlobalPublicInventory(
         inventoryGroupFields,
       )
     : (allGroups as any[]);
+  const sortableGroups = await enrichInventoryGroupsForFactSort(prisma, locationSortableGroups, where, inventoryGroupFields, String(sortField), true);
   const structuredFilters = parseInventoryFilters(filters as any);
   const cardSortData = await prisma.card.findMany({
     where: {
@@ -460,32 +463,15 @@ export async function getGlobalPublicInventory(
     inventoryCardMatchesPostFilters(
       cardSortById.get(group.cardId),
       structuredFilters,
+      group.foilStatus,
     );
   const filteredPrintingGroups = sortableGroups.filter(
     groupMatchesClientSafeFilters,
   );
-  const { filteredGroups, sortedGroups } = prepareInventoryPageGroups(filteredPrintingGroups, cardSortById, displayMode, sortField, sortDirection);
+  const { filteredGroups, sortedGroups } = prepareInventoryPageGroups(filteredPrintingGroups, cardSortById, displayMode, sortField, sortDirection, preferredPriceProvider);
   const pageGroups = sortedGroups.slice((page - 1) * pageSize, page * pageSize);
 
-  const pageWhere =
-    displayMode === "grouped"
-      ? {
-          ...where,
-          cardId: {
-            in: (pageGroups as any[]).flatMap(
-              (group) => group.cardIds ?? [group.cardId],
-            ),
-          },
-        }
-      : {
-          ...where,
-          OR: (pageGroups as any[]).map((group) => ({
-            cardId: group.cardId,
-            foilStatus: group.foilStatus,
-            condition: group.condition,
-            language: group.language,
-          })),
-        };
+  const pageWhere = { AND: [where, inventoryPageScopeWhere(pageGroups, displayMode)] };
   const pageCardIds = Array.from(
     new Set(
       (pageGroups as any[]).flatMap((group) =>

@@ -197,7 +197,7 @@ test("full-dataset client-safe filters run before paging", () => {
     /groupInventoryPageGroupsByCardName\(/,
   );
   assert.match(
-    inventoryPage + inventoryListApi + publicInventoryQueries,
+    inventoryPage + inventoryListApi + publicInventoryQueries + fs.readFileSync("lib/inventory-page-groups.ts", "utf8"),
     /group\.cardIds \?\? \[group\.cardId\]/,
   );
   assert.match(inventoryPage, /isInventoryLocationSort\(String\(sortField\)\)/);
