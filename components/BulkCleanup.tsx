@@ -194,7 +194,7 @@ export function BulkCleanup({
       setConfirming(false);
       setPulled(false);
       setSelected({});
-      if (!batchId)
+      if (!batchId && value.status === "APPLIED")
         setScope((current) => ({
           ...current,
           held: (current.held ?? []).flatMap((pin) => {
@@ -235,7 +235,9 @@ export function BulkCleanup({
       (chosen.some(isBlocked) ||
         (canUsePhotos && !canUsePhotos(chosen.map((row) => row.id))))
     ) {
-      setError("Save or discard your card edits before ignoring these scans.");
+      setError(
+        "Save or discard your card edits before processing these scans.",
+      );
       return;
     }
     const base = {
@@ -473,7 +475,7 @@ export function BulkCleanup({
               : "Deck copies do not count toward this limit."}{" "}
             Deck and reserved cards stay protected.
             {batchId &&
-              " Only confirmed, physically counted scans appear here. Pull these cards from this batch before ignoring them."}
+              " Only confirmed, physically counted scans appear here. Separate these cards from the rest of this batch, then save them to a Bulk Box or ignore them."}
           </p>
           {plan.protectedCopies > 0 && (
             <p className="text-sm">
