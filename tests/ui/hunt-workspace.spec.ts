@@ -73,7 +73,7 @@ test("hunt exclusions, partial pulled state, owned printing and reload preserve 
   ).toBeVisible();
   await card.getByRole("button", { name: "Mark pulled", exact: true }).click();
   await expect(card).toContainText("1 pulled");
-  await expect(page.getByText("1 copies ready", { exact: true })).toBeVisible();
+  await expect(page.getByText(/^1 copies ready/)).toBeVisible();
   await card
     .getByRole("button", { name: "Select another printing", exact: true })
     .click();
@@ -292,7 +292,7 @@ test("an alternate-printing commit recovers a lost reply once and keeps the corr
   await row(page, "Counterspell")
     .getByRole("button", { name: "Mark pulled", exact: true })
     .click();
-  await expect(page.getByText("2 copies ready", { exact: true })).toBeVisible();
+  await expect(page.getByText(/^2 copies ready/)).toBeVisible();
   await page
     .getByRole("button", { name: "Commit selected to decks", exact: true })
     .click();
@@ -453,7 +453,7 @@ test("marked bulk copies stay ready across filters and a partial move", async ({
     .filter({ hasText: /NM/ });
   await card.getByRole("button", { name: "Mark pulled", exact: true }).click();
   await expect(pane.getByText("3 copies ready", { exact: true })).toBeVisible();
-  const search = pane.getByPlaceholder("Search card name?");
+  const search = pane.getByPlaceholder(/Search card name/);
   await search.fill("no-card-has-this-name");
   await expect(pane.locator("tbody tr")).toHaveCount(0);
   await expect(pane.getByText("3 copies ready", { exact: true })).toBeVisible();
