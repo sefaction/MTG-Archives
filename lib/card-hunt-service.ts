@@ -1,5 +1,7 @@
 import { Prisma, TradeStatus, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
+import { huntAdjustmentsInput, locationIsBulk } from "./pull-scope";
+import { buildLocationPathMap } from "./inventory-locations";
 import { handoffHash, handoffStamp } from "./card-handoff-policy";
 import { parseDecklistText } from "./deck-import";
 import { isBasicLandCard } from "./card-types";
@@ -45,6 +47,8 @@ export const cardHuntInput = z
       .optional(),
     mode: z.enum(["preferences", "boxes"]).default("preferences"),
     finish: z.enum(["ANY", "NONFOIL", "FOIL", "ETCHED"]).default("ANY"),
+    adjustments: huntAdjustmentsInput.optional(),
+    printingRequestId: z.string().min(1).max(500).optional(),
     includeMaybeboard: z.boolean().default(false),
     ignoreBasicLands: z.boolean().default(false),
   })
@@ -305,7 +309,9 @@ export async function buildCardHunt(
   if (!requests.length && !input.card)
     throw new CardHuntError("Add at least one card to hunt.");
   if (!input.sources && requests.length > 500)
-    throw new CardHuntError("Use up to 500 card lines in a single-source hunt.");
+    throw new CardHuntError(
+      "Use up to 500 card lines in a single-source hunt.",
+    );
   if (
     requests.length > 1000 ||
     requests.some(
@@ -327,21 +333,49 @@ export async function buildCardHunt(
       return false;
     });
   }
-  const result = (stock: HuntStock[]) => ({
-    title,
-    warnings,
-    sources: sourceTitles,
-    actorUserId: user.id,
-    generatedAt: new Date().toISOString(),
-    ignoredBasicLandCopies,
-    ...planCardHunt({
-      ownerId: user.playerId!,
-      requests,
-      stock,
-      mode: input.mode,
-      finish: input.finish,
-    }),
+  const ownedLocations = await db.inventoryLocation.findMany({
+    where: { ownerPlayerId: user.playerId },
   });
+  const locationParents = new Map(ownedLocations.map((row) => [row.id, row]));
+  const paths = buildLocationPathMap(ownedLocations);
+  const result = (stock: HuntStock[]) => {
+    try {
+      return {
+        locations: ownedLocations
+          .filter(
+            (row) => row.kind === "NORMAL" && !row.systemManaged && row.active,
+          )
+          .map((row) => ({
+            id: row.id,
+            name: paths.get(row.id) ?? row.name,
+            isBulk: locationIsBulk(row.id, locationParents),
+          })),
+        title,
+        warnings,
+        sources: sourceTitles,
+        actorUserId: user.id,
+        generatedAt: new Date().toISOString(),
+        ignoredBasicLandCopies,
+        ...planCardHunt({
+          ownerId: user.playerId!,
+          requests,
+          stock,
+          adjustments: input.adjustments,
+          printingRequestId: input.printingRequestId,
+          locationParents,
+          mode: input.mode,
+          finish: input.finish,
+        }),
+      };
+    } catch (error) {
+      throw new CardHuntError(
+        error instanceof Error
+          ? error.message
+          : "Could not re-evaluate the hunt.",
+        409,
+      );
+    }
+  };
   // An all-basic deck is a valid empty hunt when the user opted to skip basics.
   if (!requests.length && !input.card) return result([]);
 
@@ -398,6 +432,13 @@ export async function buildCardHunt(
           oracleId: true,
           setCode: true,
           collectorNumber: true,
+          colorIdentity: true,
+          imageUri: true,
+          cardFaces: true,
+          manaCost: true,
+          typeLine: true,
+          rarity: true,
+          oracleText: true,
         },
       },
       location: {
@@ -461,10 +502,12 @@ export async function buildCardHunt(
     language: item.language,
     condition: item.condition,
     stamp: handoffStamp(item),
+    card: item.card,
+    isBulk: locationIsBulk(item.locationId, locationParents),
     location: item.location
       ? {
           id: item.location.id,
-          name: item.location.name,
+          name: paths.get(item.location.id) ?? item.location.name,
           section: item.locationSection,
           ownerId: item.location.ownerPlayerId,
           active: item.location.active,
@@ -500,13 +543,20 @@ export async function buildCardHunt(
   }
   for (const source of sources.filter((source) => source.kind === "DECK")) {
     if (source.kind !== "DECK") continue;
-    const deckRequests = requests.filter(request => request.deckId === source.deckId);
-    const allocated = planCommittedDeckPrintings(
-      deckRequests.map(request => ({ ...request, cardName: request.name })),
-      items.filter(item => item.currentOwnerId === user.playerId &&
-        item.location?.ownerPlayerId === user.playerId && item.location.deckId === source.deckId),
+    const deckRequests = requests.filter(
+      (request) => request.deckId === source.deckId,
     );
-    for (const [index, request] of deckRequests.entries()) request.alreadyInDeck = allocated[index].committed;
+    const allocated = planCommittedDeckPrintings(
+      deckRequests.map((request) => ({ ...request, cardName: request.name })),
+      items.filter(
+        (item) =>
+          item.currentOwnerId === user.playerId &&
+          item.location?.ownerPlayerId === user.playerId &&
+          item.location.deckId === source.deckId,
+      ),
+    );
+    for (const [index, request] of deckRequests.entries())
+      request.alreadyInDeck = allocated[index].committed;
   }
   return result(stock);
 }

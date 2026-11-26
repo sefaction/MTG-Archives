@@ -7,6 +7,8 @@ import {
   NewLocationParentFields,
 } from "@/components/LocationSearchSelect";
 import { LocationBrowseFilters } from "@/components/LocationBrowseFilters";
+import { locationIsBulk } from "@/lib/pull-scope";
+import { BulkBoxToggle } from "@/components/BulkBoxToggle";
 import { LocationCreateWizard } from "@/components/LocationCreateWizard";
 import { LocationLayoutEditor } from "@/components/StorageLayoutFields";
 import { LocationTypeLayoutForm } from "@/components/LocationTypeLayoutForm";
@@ -437,6 +439,7 @@ export default async function LocationsPage({
           parentLocationId: String(fd.get("parentLocationId") || "") || null,
           description: String(fd.get("description") || "") || null,
           type: typeName,
+          isBulk: fd.get("isBulk") === "on",
           storageLayout:
             layout ??
             readStorageLayout(typeRecord?.defaultStorageLayout, typeName),
@@ -1652,6 +1655,7 @@ export default async function LocationsPage({
                           />
                         </section>
                       )}
+                      {location.ownerPlayerId === user.playerId && !location.systemManaged && location.normalizedName !== "unassigned" && <BulkBoxToggle inheritedBulk={!!location.parentLocationId && locationIsBulk(location.parentLocationId,new Map(locations.map(row=>[row.id,row])))} location={{id:location.id,name:location.name,isBulk:location.isBulk,revision:location.capacityRevision}} />}
                       {browseParams.edit === location.id ? (
                         <div className="mt-3 w-full space-y-4 border-t border-zinc-800 pt-3">
                           <form

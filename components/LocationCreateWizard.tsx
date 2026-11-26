@@ -37,6 +37,7 @@ export function LocationCreateWizard({
   const [state, formAction, pending] = useActionState(action, { error: "" });
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
+  const [isBulk, setIsBulk] = useState(false);
   const [type, setType] = useState("");
   const [newType, setNewType] = useState("");
   const [layout, setLayout] = useState<StorageLayout>(defaultStorageLayout());
@@ -161,6 +162,7 @@ export function LocationCreateWizard({
             ))}
           </select>
         </label>
+        <label className="flex items-center gap-2 text-sm md:col-span-2"><input type="checkbox" name="isBulk" checked={isBulk} onChange={event=>{setIsBulk(event.target.checked);if(event.target.checked && layout.capacity === null && !layout.sections.length){setLayout({capacity:1000,sections:[]});setLayoutVersion(value=>value+1);}}} />Bulk storage: owned cards stored outside the active keep limit</label>
         <NewLocationParentFields
           owners={owners}
           defaultOwnerId={defaultOwnerId}

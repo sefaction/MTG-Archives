@@ -3,7 +3,10 @@ import { runInNewContext } from "node:vm";
 export const CLIENT_MANIFEST_CONTRACTS: Record<string, string[]> = {
   "/imports/corrections/page": ["CorrectionLibrary"],
   "/imports/scan/page": ["AcquisitionCapture"],
-  "/imports/batches/page": ["AcquisitionBatchActions", "AcquisitionBatchRefresh"],
+  "/imports/batches/page": [
+    "AcquisitionBatchActions",
+    "AcquisitionBatchRefresh",
+  ],
   "/admin/prices/page": [
     "admin/PricingHistoryTotals",
     "admin/PricingDashboardAutoRefresh",
@@ -15,11 +18,20 @@ export const CLIENT_MANIFEST_CONTRACTS: Record<string, string[]> = {
     "ImportProgressPanel",
     "ImportResolverDialog",
   ],
+  "/card-hunt/page": ["CardHunt", "BulkCleanup"],
   "/collector/page": ["CollectorView"],
   "/inventory/page": ["InventoryAdvancedSearch", "InventoryBrowser"],
   "/public/inventory/page": ["InventoryAdvancedSearch", "InventoryBrowser"],
-  "/public/inventory/[username]/page": ["InventoryAdvancedSearch", "InventoryBrowser"],
-  "/public/wishlist/[username]/page": ["InventoryWorkspace", "InventoryQuickCardNameSearch", "PublicWishlistCategoryFilter", "InventoryBrowser"],
+  "/public/inventory/[username]/page": [
+    "InventoryAdvancedSearch",
+    "InventoryBrowser",
+  ],
+  "/public/wishlist/[username]/page": [
+    "InventoryWorkspace",
+    "InventoryQuickCardNameSearch",
+    "PublicWishlistCategoryFilter",
+    "InventoryBrowser",
+  ],
   "/league/page": ["league/LeaguePicker"],
   "/league/[leagueId]/page": ["league/LeaguePicker", "league/GameEntryForm"],
   "/locations/page": [

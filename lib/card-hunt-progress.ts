@@ -26,7 +26,9 @@ export function advanceHunt<T extends HuntPlan>(
   const stamps = new Map(
     result.stockUpdates.map((item) => [item.id, item.stamp]),
   );
-  const targets = new Map(result.targetUpdates?.map(item => [item.requestId, item.stamp]) ?? []);
+  const targets = new Map(
+    result.targetUpdates?.map((item) => [item.requestId, item.stamp]) ?? [],
+  );
   return {
     ...plan,
     planned: Math.max(0, plan.planned - result.quantity),
@@ -38,6 +40,20 @@ export function advanceHunt<T extends HuntPlan>(
         picks: box.picks
           .map((pick) => ({
             ...pick,
+            ...(pick.pulledQuantity
+              ? {
+                  pulledQuantity: Math.max(
+                    0,
+                    pick.pulledQuantity - (moved.get(huntPickKey(pick)) ?? 0),
+                  ),
+                  pulled:
+                    Math.max(
+                      0,
+                      pick.pulledQuantity - (moved.get(huntPickKey(pick)) ?? 0),
+                    ) ===
+                    pick.quantity - (moved.get(huntPickKey(pick)) ?? 0),
+                }
+              : {}),
             quantity: pick.quantity - (moved.get(huntPickKey(pick)) ?? 0),
             stamp: stamps.get(pick.inventoryItemId) ?? pick.stamp,
             targetStamp: targets.get(pick.requestId) ?? pick.targetStamp,

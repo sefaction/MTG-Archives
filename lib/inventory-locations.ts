@@ -197,6 +197,7 @@ export async function createLocation(
     parentLocationId?: string | null;
     description?: string | null;
     type?: string | null;
+    isBulk?: boolean;
     visibility?: Visibility;
     storageLayout?: StorageLayout;
   },
@@ -230,6 +231,7 @@ export async function createLocation(
         ? validateStorageLayout(input.storageLayout)
         : undefined,
       active: true,
+      isBulk: input.isBulk ?? false,
       visibility: input.visibility ?? Visibility.INHERIT,
     },
   });

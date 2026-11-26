@@ -199,4 +199,4 @@ async function main() {
     console.log("PASS bulk cleanup: opt-in/settings conflict; exact printing/finish/language; deck toggle/protection; modern reservations; stale rejection tombstones; concurrent replay; disabled recovery; provenance-preserving bulk move and recount; immediate Archives handoff; multi-batch original order; scan source/review/count conservation; restore; foreign privacy.");
   } finally { await db.$disconnect(); }
 }
-if (process.argv.includes("--run")) main().catch(error => { console.error(error); process.exitCode = 1; });
+if (process.argv.includes("--run") && /(^|[\\/])verify-bulk-cleanup\.ts$/.test(process.argv[1] ?? "")) main().catch(error => { console.error(error); process.exitCode = 1; });
