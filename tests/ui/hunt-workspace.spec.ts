@@ -60,7 +60,13 @@ test("hunt exclusions, partial pulled state, owned printing and reload preserve 
   );
   await hunt(page, f);
   const card = row(page, "Counterspell");
+  await expect(card.getByRole("spinbutton")).not.toBeVisible();
+  await expect(
+    card.getByRole("button", { name: "Mark pulled", exact: true }),
+  ).toBeVisible();
+  await more(card);
   await card.getByRole("spinbutton").fill("1");
+  await card.getByLabel(/Pull options for/).click();
   await expect(card.locator("details")).not.toHaveAttribute("open");
   await expect(
     card.getByRole("button", { name: "Select another printing", exact: true }),
@@ -126,6 +132,7 @@ test("hunt exclusions, partial pulled state, owned printing and reload preserve 
     .locator("article")
     .filter({ has: page.getByRole("img", { name: "Island", exact: true }) });
   await expect(islandCard.locator("details")).not.toHaveAttribute("open");
+  await expect(islandCard.getByRole("spinbutton")).not.toBeVisible();
   await expect(
     islandCard.getByRole("button", {
       name: "Select another printing",

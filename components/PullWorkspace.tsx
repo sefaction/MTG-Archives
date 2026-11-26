@@ -214,6 +214,19 @@ export function PullWorkspace({
       className={cn(filterInputClass, "w-20")}
     />
   );
+  const markPulled = (row: PullRow) => (
+    <button
+      type="button"
+      className={row.pulled ? filterButtonClass : filterPrimaryButtonClass}
+      aria-pressed={row.pulled > 0}
+      disabled={disabled}
+      onClick={() =>
+        onPulled(row, row.pulled ? 0 : selection[row.id] || row.quantity)
+      }
+    >
+      {row.pulled ? "Unmark pulled" : "Mark pulled"}
+    </button>
+  );
   const controls = (row: PullRow, binder = false) => (
     <div
       className={cn(
@@ -221,17 +234,7 @@ export function PullWorkspace({
         binder ? "flex-col" : "flex-wrap items-start",
       )}
     >
-      <button
-        type="button"
-        className={row.pulled ? filterButtonClass : filterPrimaryButtonClass}
-        aria-pressed={row.pulled > 0}
-        disabled={disabled}
-        onClick={() =>
-          onPulled(row, row.pulled ? 0 : selection[row.id] || row.quantity)
-        }
-      >
-        {row.pulled ? "Unmark pulled" : "Mark pulled"}
-      </button>
+      {binder && markPulled(row)}
       {!bulk && onPrinting && (
         <button
           type="button"
@@ -254,6 +257,13 @@ export function PullWorkspace({
           More
         </summary>
         <div className="mt-2 flex max-w-sm flex-col items-start gap-2 rounded border border-[var(--app-border)] bg-[var(--app-surface)] p-2">
+          <label className="flex flex-col gap-1 text-sm">
+            Selected copies
+            {quantity(row)}
+          </label>
+          <p className="max-w-xs text-xs text-[var(--app-muted)]">
+            Choose fewer copies for a partial pull or action.
+          </p>
           {bulk && onPrinting && (
             <button
               type="button"
@@ -665,15 +675,31 @@ export function PullWorkspace({
                             {row.condition}
                           </p>
                         </td>
-                        <td className="p-2">
-                          {quantity(row)}
-                          <p className="mt-1 text-xs">
-                            {bulk
-                              ? `${row.owned ?? 0} in storage · keep ${row.keep ?? 0} · `
-                              : ""}
-                            up to {row.quantity}
-                            {row.pulled > 0 ? ` · ${row.pulled} pulled` : ""}
+                        <td className="space-y-2 p-2">
+                          <p className="font-medium">
+                            {row.quantity}{" "}
+                            {row.quantity === 1 ? "copy" : "copies"}
                           </p>
+                          {markPulled(row)}
+                          {(bulk ||
+                            row.pulled > 0 ||
+                            (selection[row.id] > 0 &&
+                              selection[row.id] < row.quantity)) && (
+                            <p className="text-xs">
+                              {[
+                                bulk
+                                  ? `${row.owned ?? 0} in storage · keep ${row.keep ?? 0}`
+                                  : "",
+                                row.pulled > 0 ? `${row.pulled} pulled` : "",
+                                selection[row.id] > 0 &&
+                                selection[row.id] < row.quantity
+                                  ? `${selection[row.id]} selected`
+                                  : "",
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </p>
+                          )}
                         </td>
                         <td className="p-2">
                           {row.location}
@@ -682,7 +708,7 @@ export function PullWorkspace({
                         <td className="p-2">
                           {row.destination || "This hunt"}
                         </td>
-                        <td className="min-w-[20rem] p-2">{controls(row)}</td>
+                        <td className="min-w-[14rem] p-2">{controls(row)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -742,7 +768,12 @@ export function PullWorkspace({
                       {row.section ? ` / ${row.section}` : ""}
                     </p>
                     <p className="mb-2 text-xs">{row.destination}</p>
-                    {quantity(row)}
+                    {selection[row.id] > 0 &&
+                      selection[row.id] < row.quantity && (
+                        <p className="mb-2 text-xs">
+                          {selection[row.id]} copies selected
+                        </p>
+                      )}
                     <div className="mt-2">{controls(row, true)}</div>
                   </article>
                 ))}
