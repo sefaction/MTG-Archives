@@ -14,6 +14,7 @@ import {
   filterSelectClass,
   cn,
 } from "./filterStyles";
+import { markedPullSelection } from "@/lib/pull-selection";
 import type { PullScope, PullBrowse } from "@/lib/pull-scope";
 export type PullRow = {
   id: string;
@@ -37,6 +38,7 @@ export function PullWorkspace({
   rows,
   selection,
   onSelection,
+  onSelectMarked,
   onPulled,
   onPrinting,
   onSkip,
@@ -51,6 +53,7 @@ export function PullWorkspace({
   rows: PullRow[];
   selection: Record<string, number>;
   onSelection: (value: Record<string, number>) => void;
+  onSelectMarked?: () => void;
   onPulled: (row: PullRow, quantity: number) => void;
   onPrinting?: (row: PullRow) => void;
   onSkip?: (row: PullRow) => void;
@@ -561,15 +564,12 @@ export function PullWorkspace({
             className={filterButtonClass}
             disabled={disabled}
             onClick={() =>
-              onSelection({
-                ...selection,
-                ...Object.fromEntries(
-                  visible.map((row) => [row.id, row.quantity]),
-                ),
-              })
+              onSelectMarked
+                ? onSelectMarked()
+                : onSelection(markedPullSelection(rows))
             }
           >
-            Select this page
+            Select all marked
           </button>
           <button
             type="button"

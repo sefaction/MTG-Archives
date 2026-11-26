@@ -1,9 +1,21 @@
+import { markedPullSelection } from "./pull-selection";
 import type { HuntPick, HuntPlan } from "./card-hunt";
 import type { HuntActionResult } from "./card-hunt-action-policy";
 
 export const huntPickKey = (
   pick: Pick<HuntPick, "requestId" | "inventoryItemId">,
 ) => JSON.stringify([pick.requestId, pick.inventoryItemId]);
+export function markedHuntSelection(plan: HuntPlan) {
+  return markedPullSelection(
+    plan.boxes
+      .flatMap((box) => box.picks)
+      .map((pick) => ({
+        id: huntPickKey(pick),
+        quantity: pick.quantity,
+        pulled: pick.pulledQuantity,
+      })),
+  );
+}
 export function advanceHunt<T extends HuntPlan>(
   plan: T,
   selected: Array<{

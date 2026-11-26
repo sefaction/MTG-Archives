@@ -528,14 +528,15 @@ export function getBulkContext(
               return (browse.desc ? -order : order) || a.id.localeCompare(b.id);
             })
         : data.items;
-      const boxes = input.batchId
-        ? null
-        : await bulkDestinations(tx, actor.playerId);
+      const boxes = await bulkDestinations(tx, actor.playerId);
       return {
         actorId: actor.id,
         enabled: true,
         settings,
         scope: input.scope,
+        marked: input.batchId
+          ? []
+          : data.items.filter((row) => (row.pulledQuantity ?? 0) > 0),
         ...(boxes
           ? { locations: boxes.locations, destinations: boxes.destinations }
           : {}),

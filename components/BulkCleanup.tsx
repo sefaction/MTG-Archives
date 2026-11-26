@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { PullWorkspace } from "./PullWorkspace";
 import { BulkBoxCreate } from "./BulkBoxCreate";
+import { markedPullSelection } from "@/lib/pull-selection";
 import { pullCardRow } from "@/lib/pull-card-row";
 import {
   bulkScopeInput,
@@ -108,7 +109,16 @@ export function BulkCleanup({
             );
         if (signal?.aborted) return;
         setContext(value);
-        setSelected({});
+        setSelected(
+          batchId
+            ? {}
+            : markedPullSelection(
+                (value.marked ?? []).map((row) => ({
+                  ...row,
+                  pulled: row.pulledQuantity,
+                })),
+              ),
+        );
         setError("");
       } catch (cause) {
         if (!signal?.aborted)
@@ -154,7 +164,12 @@ export function BulkCleanup({
       } catch {}
   }, [scope, ready, batchId, key]);
   const rows = context?.plan?.items ?? [],
-    chosen = rows.filter((row) => selected[row.id] > 0),
+    actionRows = [
+      ...new Map(
+        [...(context?.marked ?? []), ...rows].map((row) => [row.id, row]),
+      ).values(),
+    ],
+    chosen = actionRows.filter((row) => selected[row.id] > 0),
     count = chosen.reduce((sum, row) => sum + selected[row.id], 0);
   const isBlocked = (row: BulkItem) =>
     !!batchId && (!draftsReady || blockedPhotos?.has(row.id));
@@ -182,9 +197,15 @@ export function BulkCleanup({
       if (!batchId)
         setScope((current) => ({
           ...current,
-          held: (current.held ?? []).filter(
-            (pin) => !request.selected.some((row) => row.id === pin.id),
-          ),
+          held: (current.held ?? []).flatMap((pin) => {
+            const moved = request.selected.find((row) => row.id === pin.id);
+            if (!moved) return [pin];
+            const quantity = pin.quantity - moved.quantity;
+            const fresh = value.stockUpdates?.find((row) => row.id === pin.id);
+            return quantity > 0 && fresh && fresh.quantity >= quantity
+              ? [{ ...pin, quantity, stamp: fresh.stamp }]
+              : [];
+          }),
         }));
       if (batchId) await load();
       await refresh?.();
@@ -230,7 +251,15 @@ export function BulkCleanup({
       })),
     };
     const request: BulkActionInput = batchId
-      ? { ...base, action: "IGNORE_SCANS", batchId }
+      ? action === "MOVE"
+        ? {
+            ...base,
+            action: "MOVE_SCANS",
+            batchId,
+            destinationId: resolvedDestinationId,
+            destinationSection,
+          }
+        : { ...base, action: "IGNORE_SCANS", batchId }
       : action === "MOVE"
         ? {
             ...base,
@@ -277,8 +306,7 @@ export function BulkCleanup({
         ),
       )
     : Infinity;
-  const noSpace =
-    !batchId && action === "MOVE" && (!destination || count > remaining);
+  const noSpace = action === "MOVE" && (!destination || count > remaining);
   return (
     <section
       className="app-panel my-3 space-y-3 p-3"
@@ -362,7 +390,7 @@ export function BulkCleanup({
       {!context && enabled && !error && (
         <p className="text-sm">Checking your collection…</p>
       )}
-      {!batchId && (
+      {
         <div className="flex flex-wrap items-center gap-3">
           <BulkBoxCreate
             onCreated={async (id) => {
@@ -375,8 +403,8 @@ export function BulkCleanup({
             Manage / tag Bulk Boxes
           </Link>
         </div>
-      )}
-      {!batchId && action === "MOVE" && (
+      }
+      {action === "MOVE" && (
         <div className="flex flex-wrap items-center gap-3 rounded border border-[var(--app-border)] p-3">
           <label className="text-sm font-medium">
             Move selected copies to{" "}
@@ -513,6 +541,16 @@ export function BulkCleanup({
                   }))}
                   selection={selected}
                   onSelection={setSelected}
+                  onSelectMarked={() =>
+                    setSelected(
+                      markedPullSelection(
+                        (context.marked ?? []).map((row) => ({
+                          ...row,
+                          pulled: row.pulledQuantity,
+                        })),
+                      ),
+                    )
+                  }
                   scope={scope}
                   locations={context.locations}
                   disabled={busy || !!pending || recoveryBlocked}
@@ -552,7 +590,7 @@ export function BulkCleanup({
                   }}
                 >
                   <div className="sticky bottom-2 z-10 flex flex-wrap items-center gap-3 rounded border border-[var(--app-border)] bg-[var(--app-surface)] p-3">
-                    <strong>{count} copies selected</strong>
+                    <strong>{count} copies ready</strong>
                     <select
                       aria-label="Cleanup action"
                       className={inputClass}
@@ -576,7 +614,13 @@ export function BulkCleanup({
                         recoveryBlocked
                       }
                       onClick={() => {
-                        setPulled(false);
+                        setPulled(
+                          !batchId &&
+                            chosen.every(
+                              (row) =>
+                                (row.pulledQuantity ?? 0) >= selected[row.id],
+                            ),
+                        );
                         setConfirming(true);
                       }}
                     >
@@ -612,22 +656,40 @@ export function BulkCleanup({
                     </button>
                     <span className="text-sm">{count} selected</span>
                     {batchId ? (
-                      <button
-                        className={button}
-                        disabled={
-                          !count ||
-                          noSpace ||
-                          busy ||
-                          !!pending ||
-                          recoveryBlocked
-                        }
-                        onClick={() => {
-                          setPulled(false);
-                          setConfirming(true);
-                        }}
-                      >
-                        Ignore selected as excess
-                      </button>
+                      <>
+                        <select
+                          aria-label="Excess scan action"
+                          className={inputClass}
+                          value={action === "MOVE" ? "MOVE" : "IGNORE"}
+                          disabled={busy || !!pending || recoveryBlocked}
+                          onChange={(event) =>
+                            setAction(
+                              event.target.value === "MOVE" ? "MOVE" : "REMOVE",
+                            )
+                          }
+                        >
+                          <option value="MOVE">Add to Bulk Box</option>
+                          <option value="IGNORE">Ignore as excess</option>
+                        </select>
+                        <button
+                          className={button}
+                          disabled={
+                            !count ||
+                            noSpace ||
+                            busy ||
+                            !!pending ||
+                            recoveryBlocked
+                          }
+                          onClick={() => {
+                            setPulled(false);
+                            setConfirming(true);
+                          }}
+                        >
+                          {action === "MOVE"
+                            ? "Add selected scans to Bulk Box"
+                            : "Ignore selected as excess"}
+                        </button>
+                      </>
                     ) : (
                       <>
                         <select
@@ -655,7 +717,14 @@ export function BulkCleanup({
                             recoveryBlocked
                           }
                           onClick={() => {
-                            setPulled(false);
+                            setPulled(
+                              !batchId &&
+                                chosen.every(
+                                  (row) =>
+                                    (row.pulledQuantity ?? 0) >=
+                                    selected[row.id],
+                                ),
+                            );
                             setConfirming(true);
                           }}
                         >
@@ -846,14 +915,16 @@ export function BulkCleanup({
           <p>
             {count} selected {count === 1 ? "copy" : "copies"}
             {batchId
-              ? " will be ignored in this batch. Images and confirmed matches remain; Restore is available."
+              ? action === "MOVE"
+                ? " will be added to Inventory in this Bulk Box. These scans will be saved, not ignored, and cannot be added a second time."
+                : " will be ignored in this batch. Images and confirmed matches remain; Restore is available."
               : action === "REMOVE"
                 ? " will leave your collection. This removal is recorded in cleanup history."
                 : action === "MOVE"
                   ? " will move into a bulk box and stop counting toward your cleanup limit while stored there."
                   : " will leave your inventory with a saved handoff history."}
           </p>
-          {!batchId && action === "MOVE" && (
+          {action === "MOVE" && (
             <p className="font-medium">
               Destination: {destination?.name ?? boxName}
               {destinationSection ? ` / ${destinationSection}` : ""}
@@ -933,16 +1004,24 @@ export function BulkCleanup({
               </li>
             ))}
           </ul>
-          <label className="flex items-start gap-2">
-            <input
-              type="checkbox"
-              required
-              checked={pulled}
-              disabled={busy || !!pending || recoveryBlocked}
-              onChange={(event) => setPulled(event.target.checked)}
-            />
-            I have physically pulled these selected cards.
-          </label>
+          {!batchId &&
+          chosen.length > 0 &&
+          chosen.every(
+            (row) => (row.pulledQuantity ?? 0) >= selected[row.id],
+          ) ? (
+            <p className="text-sm">Using your marked pulled copies.</p>
+          ) : (
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                required
+                checked={pulled}
+                disabled={busy || !!pending || recoveryBlocked}
+                onChange={(event) => setPulled(event.target.checked)}
+              />
+              I have physically pulled these selected cards.
+            </label>
+          )}
           {error && <p role="alert">{error}</p>}
           <div className="flex flex-wrap gap-3">
             <button
@@ -962,7 +1041,9 @@ export function BulkCleanup({
               {busy
                 ? "Applying…"
                 : batchId
-                  ? "Pulled and ignore selected"
+                  ? action === "MOVE"
+                    ? "Confirm add to Bulk Box"
+                    : "Pulled and ignore selected"
                   : action === "MOVE"
                     ? "Confirm move"
                     : action === "GIVE"

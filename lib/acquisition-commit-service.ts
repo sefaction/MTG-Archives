@@ -21,8 +21,11 @@ import { SCANNER_CAPTURE_PROVIDER } from "./scanner-run-protocol";
 import { lockAndReadInventoryCapacity } from "./inventory-capacity";
 import { writeInventoryReceipt } from "./inventory-receipt";
 import { requireVisibleAcquisitionBatch } from "./acquisition-batch-policy";
-import {z} from "zod";
-import {acquisitionSlotReviewState, acquisitionSlotBlockedReason} from "./acquisition-review-display";
+import { z } from "zod";
+import {
+  acquisitionSlotReviewState,
+  acquisitionSlotBlockedReason,
+} from "./acquisition-review-display";
 
 const digest = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -36,8 +39,13 @@ async function lockedSession(
 ) {
   await readAcquisitionRow(tx, actor, sessionId, {});
   await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
-  const photos = await tx.acquisitionPhoto.findMany({where: {id: {in: photoIds}}, select: {slotId: true}});
-  return readAcquisitionRow(tx, actor, sessionId, {slotIds: photos.map(photo => photo.slotId)});
+  const photos = await tx.acquisitionPhoto.findMany({
+    where: { id: { in: photoIds } },
+    select: { slotId: true },
+  });
+  return readAcquisitionRow(tx, actor, sessionId, {
+    slotIds: photos.map((photo) => photo.slotId),
+  });
 }
 async function prepare(
   tx: Tx,
@@ -46,7 +54,10 @@ async function prepare(
   selection: AcquisitionCommitSelection,
 ) {
   requireVisibleAcquisitionBatch(row);
-  if (row.intent !== "ADD_NEW" || !["phone-photo-v1", SCANNER_CAPTURE_PROVIDER].includes(row.run!.providerId))
+  if (
+    row.intent !== "ADD_NEW" ||
+    !["phone-photo-v1", SCANNER_CAPTURE_PROVIDER].includes(row.run!.providerId)
+  )
     throw new Error("Capture provider is not available for this commit method");
   if (!["STOPPING", "COMPLETE", "CANCELLED"].includes(row.phase))
     throw new Error("Capture must be stopped before adding reviewed cards");
@@ -64,8 +75,15 @@ async function prepare(
   // physical slot must itself be settled, current and certain before this subset
   // can commit. We do not label the entire capture run complete.
   const session = hydrateAcquisitionRow(row).session;
-  const allocated = await allocatedAcquisitionCandidates(tx, row.run!.id, row.target, photos.map(photo => photo.slotId));
-  const candidateBySlot = new Map(row.run!.candidates.map(candidate => [candidate.physicalId, candidate]));
+  const allocated = await allocatedAcquisitionCandidates(
+    tx,
+    row.run!.id,
+    row.target,
+    photos.map((photo) => photo.slotId),
+  );
+  const candidateBySlot = new Map(
+    row.run!.candidates.map((candidate) => [candidate.physicalId, candidate]),
+  );
   const chosen = photos
     .map((photo) => {
       const candidate = candidateBySlot.get(photo.slotId);
@@ -84,7 +102,9 @@ async function prepare(
         candidateKey(session.run.runId, candidate.physicalId),
       );
       const reasons = readiness.reasons.filter(
-        (r) => r !== "OVERFLOW" && !(r === "ACQUISITION_NOT_SETTLED" && row.phase === "STOPPING"),
+        (r) =>
+          r !== "OVERFLOW" &&
+          !(r === "ACQUISITION_NOT_SETTLED" && row.phase === "STOPPING"),
       );
       if (!allocated.has(candidate.physicalId)) reasons.push("OVERFLOW");
       if (reasons.length)
@@ -98,7 +118,8 @@ async function prepare(
           finish: (candidate.review as any).finish,
           condition: (candidate.review as any).condition,
           ...((candidate.review as any).openerPlayerId !== undefined
-            ? {openerPlayerId: (candidate.review as any).openerPlayerId} : {}),
+            ? { openerPlayerId: (candidate.review as any).openerPlayerId }
+            : {}),
         },
       );
       if (!parsed.success)
@@ -113,13 +134,25 @@ async function prepare(
   const cards = await tx.card.findMany({
     where: { id: { in: chosen.map((c) => c.decision.cardId) } },
   });
-  const openerIds = [...new Set(chosen.flatMap(c => c.decision.openerPlayerId ? [c.decision.openerPlayerId] : []))];
-  const openers = openerIds.length ? await tx.player.findMany({
-    where: {id: {in: openerIds}}, select: {id: true, displayName: true},
-  }) : [];
-  const cardById = new Map(cards.map(card => [card.id, card]));
-  const openerById = new Map(openers.map(opener => [opener.id, opener]));
-  if (openers.length !== openerIds.length) throw new Error("An original opener is unavailable; review the affected cards");
+  const openerIds = [
+    ...new Set(
+      chosen.flatMap((c) =>
+        c.decision.openerPlayerId ? [c.decision.openerPlayerId] : [],
+      ),
+    ),
+  ];
+  const openers = openerIds.length
+    ? await tx.player.findMany({
+        where: { id: { in: openerIds } },
+        select: { id: true, displayName: true },
+      })
+    : [];
+  const cardById = new Map(cards.map((card) => [card.id, card]));
+  const openerById = new Map(openers.map((opener) => [opener.id, opener]));
+  if (openers.length !== openerIds.length)
+    throw new Error(
+      "An original opener is unavailable; review the affected cards",
+    );
   for (const { decision } of chosen) {
     const card = cardById.get(decision.cardId);
     if (
@@ -182,10 +215,31 @@ async function prepare(
       setCode: c.setCode,
       collectorNumber: c.collectorNumber,
       ...c.decision,
-      ...(c.decision.openerPlayerId ? {openerName: openerById.get(c.decision.openerPlayerId)!.displayName} : {}),
+      ...(c.decision.openerPlayerId
+        ? { openerName: openerById.get(c.decision.openerPlayerId)!.displayName }
+        : {}),
     })),
   };
   return { preview, facts, chosen };
+}
+/** Shared transaction boundary for workflows that must save an acquisition
+ * receipt and another durable action atomically. Normal callers retain the
+ * same preview and commit validation. */
+export async function previewAcquisitionCommitInTransaction(
+  tx: Tx,
+  actor: AcquisitionActor,
+  sessionId: string,
+  raw: unknown,
+) {
+  const selection = acquisitionCommitSelectionSchema.parse(raw);
+  return (
+    await prepare(
+      tx,
+      actor,
+      await lockedSession(tx, actor, sessionId, selection.photoIds),
+      selection,
+    )
+  ).preview;
 }
 export async function previewAcquisitionCommit(
   db: PrismaClient,
@@ -193,42 +247,64 @@ export async function previewAcquisitionCommit(
   sessionId: string,
   raw: unknown,
 ) {
-  const selection = acquisitionCommitSelectionSchema.parse(raw);
-  return acquisitionTransaction(
-    db,
-    async (tx) =>
-      (
-        await prepare(
-          tx,
-          actor,
-          await lockedSession(tx, actor, sessionId, selection.photoIds),
-          selection,
-        )
-      ).preview,
+  return acquisitionTransaction(db, (tx) =>
+    previewAcquisitionCommitInTransaction(tx, actor, sessionId, raw),
   );
 }
 
 /** Read bounded review pages, then freeze/revalidate exactly those cards using
  * the ordinary preview. New confirmations never join an already approved set. */
-export async function previewConfirmedAcquisitionCommit(db: PrismaClient, actor: AcquisitionActor, sessionId: string, raw: unknown) {
-  const input = z.object({locationId:z.string().min(1).max(200), section:z.string().trim().max(100),
-    excludedPhotoIds:z.array(z.string().uuid())}).strict().parse(raw);
-  const excluded = new Set(input.excludedPhotoIds), photoIds: string[] = [], reasons = new Map<string,number>();
-  const addReason = (reason: string) => reasons.set(reason,(reasons.get(reason) ?? 0)+1);
-  for (let page=0; ; page++) {
-    const progress = await getAcquisitionProgress(db,actor,sessionId,page);
+export async function previewConfirmedAcquisitionCommit(
+  db: PrismaClient,
+  actor: AcquisitionActor,
+  sessionId: string,
+  raw: unknown,
+) {
+  const input = z
+    .object({
+      locationId: z.string().min(1).max(200),
+      section: z.string().trim().max(100),
+      excludedPhotoIds: z.array(z.string().uuid()),
+    })
+    .strict()
+    .parse(raw);
+  const excluded = new Set(input.excludedPhotoIds),
+    photoIds: string[] = [],
+    reasons = new Map<string, number>();
+  const addReason = (reason: string) =>
+    reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
+  for (let page = 0; ; page++) {
+    const progress = await getAcquisitionProgress(db, actor, sessionId, page);
     for (const slot of progress.slots) {
       if (slot.committed || slot.ignored || !slot.review) continue;
-      const photo = slot.photos.find(photo => photo.ready && !photo.purgedAt && photo.generation===slot.generation);
-      if (slot.photos.some(photo => excluded.has(photo.id))) addReason("Unsaved corrections");
-      else if (acquisitionSlotReviewState(slot) !== "ready") addReason(acquisitionSlotBlockedReason(slot));
+      const photo = slot.photos.find(
+        (photo) =>
+          photo.ready &&
+          !photo.purgedAt &&
+          photo.generation === slot.generation,
+      );
+      if (slot.photos.some((photo) => excluded.has(photo.id)))
+        addReason("Unsaved corrections");
+      else if (acquisitionSlotReviewState(slot) !== "ready")
+        addReason(acquisitionSlotBlockedReason(slot));
       else if (photo) photoIds.push(photo.id);
     }
-    if (page+1 >= progress.pagination.pages) break;
+    if (page + 1 >= progress.pagination.pages) break;
   }
-  if (!photoIds.length) throw new Error("Choose complete confirmed cards without unsaved corrections or physical reconciliation before adding to Inventory.");
-  const preview = await previewAcquisitionCommit(db,actor,sessionId,{photoIds,locationId:input.locationId,section:input.section});
-  return {...preview,scope:"confirmed" as const,excluded:[...reasons].map(([reason,count])=>({reason,count}))};
+  if (!photoIds.length)
+    throw new Error(
+      "Choose complete confirmed cards without unsaved corrections or physical reconciliation before adding to Inventory.",
+    );
+  const preview = await previewAcquisitionCommit(db, actor, sessionId, {
+    photoIds,
+    locationId: input.locationId,
+    section: input.section,
+  });
+  return {
+    ...preview,
+    scope: "confirmed" as const,
+    excluded: [...reasons].map(([reason, count]) => ({ reason, count })),
+  };
 }
 function receiptDto(
   row: { id: string; createdAt: Date; snapshot: Prisma.JsonValue },
@@ -245,8 +321,8 @@ function receiptDto(
     replay,
   };
 }
-export async function commitAcquisitionCards(
-  db: PrismaClient,
+export async function commitAcquisitionCardsInTransaction(
+  tx: Tx,
   actor: AcquisitionActor,
   sessionId: string,
   raw: unknown,
@@ -254,131 +330,143 @@ export async function commitAcquisitionCards(
   const input = acquisitionCommitRequestSchema.parse(raw);
   input.photoIds.sort();
   const requestDigest = digest({ actorId: actor.userId, ...input });
-  return acquisitionTransaction(db, async (tx) => {
-    const row = await lockedSession(tx, actor, sessionId, input.photoIds);
-    const existing = await tx.acquisitionCommit.findUnique({
-      where: {
-        runId_requestKey: { runId: row.run!.id, requestKey: input.requestKey },
-      },
-    });
-    if (existing) {
-      if (existing.requestDigest !== requestDigest)
-        throw new Error("Capture commit identity conflict");
-      return receiptDto(existing, true);
-    }
-    const { preview, facts, chosen } = await prepare(tx, actor, row, input);
-    if (preview.token !== input.previewToken)
-      throw new Error(
-        "Capture preview changed; reload and confirm the current destination and cards",
-      );
-    if (preview.overfill && !input.overfillReason)
-      throw new Error(
-        "Choose fewer cards, another destination, or confirm overfill with a reason",
-      );
-    if (!preview.overfill && input.overfillReason)
-      throw new Error("Capture overfill changed; reload the preview");
-    const commitId = randomUUID(),
-      now = new Date();
-    const groups = new Map<string, typeof chosen>();
-    for (const card of chosen) {
-      const key = JSON.stringify({...card.decision, openerPlayerId: card.decision.openerPlayerId ?? null});
-      const group = groups.get(key);
-      if (group) group.push(card); else groups.set(key,[card]);
-    }
-    const memberships: Prisma.AcquisitionCommitMemberCreateManyInput[] = [];
-    const inventoryItemIds: string[] = [];
-    const factsByCandidate = new Map(facts.cards.map(card => [card.candidateId,card]));
-    for (const group of groups.values()) {
-      const d = group[0].decision;
-      const result = await writeInventoryReceipt(tx, {
-        merge: null,
-        lot: {
-          currentOwnerId: row.ownerPlayerId,
-          originalOpenerId: d.openerPlayerId ?? null,
-          cardId: d.cardId,
-          quantity: group.length,
-          foilStatus: d.finish,
-          sourceType: "ACQUISITION",
-          condition: d.condition,
-          language: d.language,
-          locationId: preview.destination.locationId,
-          locationSection: preview.destination.section,
-          acquiredFromPullId: null,
-          roundId: null,
-          notes: null,
-        },
-        audit: {
-          action: "acquisition_committed",
-          actingUserId: actor.userId,
-          reason: input.overfillReason,
-          metadata: {
-            acquisitionCommitId: commitId,
-            acquisitionSessionId: row.id,
-            candidateIds: group.map((c) => c.candidate.id),
-            capacityBefore: preview.destination,
-            overfill: preview.overfill,
-            originalOpenerKnown: d.openerPlayerId != null,
-          },
-        },
-      });
-      inventoryItemIds.push(result.inventory.id);
-      for (const item of group)
-        memberships.push({
-          candidateId: item.candidate.id,
-          runId: row.run!.id,
-          commitId,
-          inventoryItemId: result.inventory.id,
-          snapshot: JSON.parse(
-            JSON.stringify(
-              factsByCandidate.get(item.candidate.id),
-            ),
-          ),
-        });
-    }
-    const receipt = await tx.acquisitionCommit.create({
-      data: {
-        id: commitId,
-        runId: row.run!.id,
-        actorUserId: actor.userId,
-        requestKey: input.requestKey,
-        requestDigest,
-        createdAt: now,
-        snapshot: JSON.parse(
-          JSON.stringify({
-            ...facts,
-            overfill: preview.overfill,
-            overfillReason: input.overfillReason,
-            inventoryItemIds,
-          }),
-        ),
-      },
-    });
-    // Unique physical candidate membership is the final independent duplicate
-    // fence, even with a new request key. A failure rolls back stock and audits.
-    await tx.acquisitionCommitMember.createMany({ data: memberships });
-    await tx.acquisitionPhoto.updateMany({
-      where: {
-        runId: row.run!.id,
-        slotId: { in: chosen.map((c) => c.photo.slotId) },
-      },
-      data: { purgeAfter: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) },
-    });
-    await tx.acquisitionProcessingJob.updateMany({
-      where: {
-        candidateId: { in: chosen.map((c) => c.candidate.id) },
-        status: { in: ["PENDING", "RUNNING"] },
-      },
-      data: {
-        status: "SUPERSEDED",
-        errorCode: "COMMITTED",
-        leaseToken: null,
-        leaseExpiresAt: null,
-      },
-    });
-    await tx.acquisitionSession.update({
-      where: { id: row.id },
-      data: { revision: { increment: 1 } },
-    });
-    return receiptDto(receipt, false);
+  const row = await lockedSession(tx, actor, sessionId, input.photoIds);
+  const existing = await tx.acquisitionCommit.findUnique({
+    where: {
+      runId_requestKey: { runId: row.run!.id, requestKey: input.requestKey },
+    },
   });
+  if (existing) {
+    if (existing.requestDigest !== requestDigest)
+      throw new Error("Capture commit identity conflict");
+    return receiptDto(existing, true);
+  }
+  const { preview, facts, chosen } = await prepare(tx, actor, row, input);
+  if (preview.token !== input.previewToken)
+    throw new Error(
+      "Capture preview changed; reload and confirm the current destination and cards",
+    );
+  if (preview.overfill && !input.overfillReason)
+    throw new Error(
+      "Choose fewer cards, another destination, or confirm overfill with a reason",
+    );
+  if (!preview.overfill && input.overfillReason)
+    throw new Error("Capture overfill changed; reload the preview");
+  const commitId = randomUUID(),
+    now = new Date();
+  const groups = new Map<string, typeof chosen>();
+  for (const card of chosen) {
+    const key = JSON.stringify({
+      ...card.decision,
+      openerPlayerId: card.decision.openerPlayerId ?? null,
+    });
+    const group = groups.get(key);
+    if (group) group.push(card);
+    else groups.set(key, [card]);
+  }
+  const memberships: Prisma.AcquisitionCommitMemberCreateManyInput[] = [];
+  const inventoryItemIds: string[] = [];
+  const factsByCandidate = new Map(
+    facts.cards.map((card) => [card.candidateId, card]),
+  );
+  for (const group of groups.values()) {
+    const d = group[0].decision;
+    const result = await writeInventoryReceipt(tx, {
+      merge: null,
+      lot: {
+        currentOwnerId: row.ownerPlayerId,
+        originalOpenerId: d.openerPlayerId ?? null,
+        cardId: d.cardId,
+        quantity: group.length,
+        foilStatus: d.finish,
+        sourceType: "ACQUISITION",
+        condition: d.condition,
+        language: d.language,
+        locationId: preview.destination.locationId,
+        locationSection: preview.destination.section,
+        acquiredFromPullId: null,
+        roundId: null,
+        notes: null,
+      },
+      audit: {
+        action: "acquisition_committed",
+        actingUserId: actor.userId,
+        reason: input.overfillReason,
+        metadata: {
+          acquisitionCommitId: commitId,
+          acquisitionSessionId: row.id,
+          candidateIds: group.map((c) => c.candidate.id),
+          capacityBefore: preview.destination,
+          overfill: preview.overfill,
+          originalOpenerKnown: d.openerPlayerId != null,
+        },
+      },
+    });
+    inventoryItemIds.push(result.inventory.id);
+    for (const item of group)
+      memberships.push({
+        candidateId: item.candidate.id,
+        runId: row.run!.id,
+        commitId,
+        inventoryItemId: result.inventory.id,
+        snapshot: JSON.parse(
+          JSON.stringify(factsByCandidate.get(item.candidate.id)),
+        ),
+      });
+  }
+  const receipt = await tx.acquisitionCommit.create({
+    data: {
+      id: commitId,
+      runId: row.run!.id,
+      actorUserId: actor.userId,
+      requestKey: input.requestKey,
+      requestDigest,
+      createdAt: now,
+      snapshot: JSON.parse(
+        JSON.stringify({
+          ...facts,
+          overfill: preview.overfill,
+          overfillReason: input.overfillReason,
+          inventoryItemIds,
+        }),
+      ),
+    },
+  });
+  // Unique physical candidate membership is the final independent duplicate
+  // fence, even with a new request key. A failure rolls back stock and audits.
+  await tx.acquisitionCommitMember.createMany({ data: memberships });
+  await tx.acquisitionPhoto.updateMany({
+    where: {
+      runId: row.run!.id,
+      slotId: { in: chosen.map((c) => c.photo.slotId) },
+    },
+    data: { purgeAfter: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) },
+  });
+  await tx.acquisitionProcessingJob.updateMany({
+    where: {
+      candidateId: { in: chosen.map((c) => c.candidate.id) },
+      status: { in: ["PENDING", "RUNNING"] },
+    },
+    data: {
+      status: "SUPERSEDED",
+      errorCode: "COMMITTED",
+      leaseToken: null,
+      leaseExpiresAt: null,
+    },
+  });
+  await tx.acquisitionSession.update({
+    where: { id: row.id },
+    data: { revision: { increment: 1 } },
+  });
+  return receiptDto(receipt, false);
+}
+export async function commitAcquisitionCards(
+  db: PrismaClient,
+  actor: AcquisitionActor,
+  sessionId: string,
+  raw: unknown,
+) {
+  return acquisitionTransaction(db, (tx) =>
+    commitAcquisitionCardsInTransaction(tx, actor, sessionId, raw),
+  );
 }

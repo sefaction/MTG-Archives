@@ -27,6 +27,10 @@ import { normalizeLocationName } from "./inventory-locations";
 import { recordInventoryAudit } from "./inventory-audit";
 import { writeInventoryReceipt } from "./inventory-receipt";
 import { acquisitionIgnoreTransition } from "./acquisition-ignore";
+import {
+  previewAcquisitionCommitInTransaction,
+  commitAcquisitionCardsInTransaction,
+} from "./acquisition-commit-service";
 
 const json = (value: unknown) =>
   JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -79,6 +83,91 @@ async function save(
   });
   return result;
 }
+async function bulkDestination(
+  tx: BulkTx,
+  ownerId: string,
+  input: {
+    destinationId?: string;
+    destinationSection?: string;
+    boxName?: string;
+  },
+  quantity: number,
+) {
+  // Serialize name creation with other cleanup requests; an ordinary box is
+  // never silently relabeled or removed from the normal counting policy.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${ownerId + ":bulk-box"},251126))`;
+  const normalizedName = input.boxName
+    ? normalizeLocationName(input.boxName)
+    : "";
+  let target = await tx.inventoryLocation.findFirst({
+    where: {
+      ownerPlayerId: ownerId,
+      ...(input.destinationId
+        ? { id: input.destinationId }
+        : { normalizedName, parentLocationId: null }),
+    },
+  });
+  if (!target && input.destinationId)
+    throw new HandoffError("Choose your own bulk storage destination.", 403);
+  if (!target)
+    target = await tx.inventoryLocation.create({
+      data: {
+        ownerPlayerId: ownerId,
+        name: input.boxName!,
+        normalizedName,
+        type: BULK_BOX_TYPE,
+        isBulk: true,
+        storageLayout: { capacity: 1000, sections: [] },
+        description:
+          "Bulk/outgoing stock excluded from personal bulk cleanup counts.",
+      },
+    });
+  const ownerLocations = await tx.inventoryLocation.findMany({
+    where: { ownerPlayerId: ownerId },
+  });
+  const byLocation = new Map(ownerLocations.map((row) => [row.id, row]));
+  let ancestor: typeof target | undefined = target;
+  const seen = new Set<string>();
+  while (ancestor) {
+    if (
+      seen.has(ancestor.id) ||
+      !ancestor.active ||
+      ancestor.kind !== "NORMAL" ||
+      ancestor.systemManaged
+    )
+      throw new HandoffError("Destination unavailable.");
+    seen.add(ancestor.id);
+    if (!ancestor.parentLocationId) break;
+    ancestor = byLocation.get(ancestor.parentLocationId);
+    if (!ancestor) throw new HandoffError("Destination unavailable.");
+  }
+  if (
+    !locationIsBulk(target.id, byLocation) ||
+    !target.active ||
+    target.kind !== "NORMAL" ||
+    target.systemManaged
+  )
+    throw new HandoffError(
+      "Choose a new box name or an existing bulk cleanup box. Ordinary boxes stay included in your collection limit.",
+    );
+  const capacity = await lockAndReadInventoryCapacity(tx, {
+    locationId: target.id,
+    ownerPlayerId: ownerId,
+    section: input.destinationSection || null,
+  });
+  const layout = readStorageLayout(target.storageLayout, target.type);
+  if (
+    input.destinationSection &&
+    !layout.sections.some((row) => row.name === input.destinationSection)
+  )
+    throw new HandoffError("Choose an existing destination section.");
+  const targetSection = input.destinationSection || null;
+  if (capacity.remaining !== null && capacity.remaining < quantity)
+    throw new HandoffError(
+      "The bulk box does not have enough available space.",
+    );
+  return { targetId: target.id, targetSection, destination: target.name };
+}
 async function apply(
   tx: BulkTx,
   userId: string,
@@ -94,7 +183,8 @@ async function apply(
     throw changed();
   await lockDeckOwners(tx, [userId]);
   let destination: string | undefined;
-  if (input.action === "IGNORE_SCANS") {
+  let acquisitionCommitId: string | undefined;
+  if (input.action === "IGNORE_SCANS" || input.action === "MOVE_SCANS") {
     await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id=${input.batchId} AND "ownerPlayerId"=${actor.playerId} FOR UPDATE`;
   } else {
     const ids = input.selected.map((row) => row.id).sort();
@@ -117,7 +207,7 @@ async function apply(
       );
   }
   const planned =
-    input.action === "IGNORE_SCANS"
+    input.action === "IGNORE_SCANS" || input.action === "MOVE_SCANS"
       ? await bulkScans(tx, actor, input.batchId)
       : await bulkStock(
           tx,
@@ -145,7 +235,45 @@ async function apply(
   // Quantities are bounded by each freshly allocated excess lot. A partial
   // selection can never spend the same group's allowance twice.
   const quantity = picked.reduce((sum, row) => sum + row.quantity, 0);
-  if (input.action === "IGNORE_SCANS") {
+  if (input.action === "MOVE_SCANS") {
+    const target = await bulkDestination(tx, actor.playerId, input, quantity);
+    destination = target.destination;
+    const acquisitionActor = { userId, adminMode: false };
+    const selection = {
+      photoIds: picked.map((row) => row.id),
+      locationId: target.targetId,
+      section: target.targetSection ?? "",
+    };
+    try {
+      const preview = await previewAcquisitionCommitInTransaction(
+        tx,
+        acquisitionActor,
+        input.batchId,
+        selection,
+      );
+      // Bulk storage is a hard-capacity destination; this flow never opts into overfill.
+      if (preview.overfill)
+        throw new HandoffError(
+          "The bulk box does not have enough available space.",
+        );
+      const committed = await commitAcquisitionCardsInTransaction(
+        tx,
+        acquisitionActor,
+        input.batchId,
+        {
+          ...selection,
+          requestKey: input.requestId,
+          previewToken: preview.token,
+          overfillReason: null,
+        },
+      );
+      acquisitionCommitId = committed.id;
+    } catch (error) {
+      if (error instanceof Error && error.constructor === Error)
+        throw new HandoffError(error.message);
+      throw error;
+    }
+  } else if (input.action === "IGNORE_SCANS") {
     const batch = await tx.acquisitionSession.findUniqueOrThrow({
       where: { id: input.batchId },
       include: { run: true },
@@ -196,84 +324,12 @@ async function apply(
     let targetId: string | undefined;
     let targetSection: string | null = null;
     if (input.action === "MOVE") {
-      // Serialize name creation with other cleanup requests; an ordinary box is
-      // never silently relabeled or removed from the normal counting policy.
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${actor.playerId + ":bulk-box"},251126))`;
-      const normalizedName = input.boxName
-        ? normalizeLocationName(input.boxName)
-        : "";
-      let target = await tx.inventoryLocation.findFirst({
-        where: {
-          ownerPlayerId: actor.playerId,
-          ...(input.destinationId
-            ? { id: input.destinationId }
-            : { normalizedName, parentLocationId: null }),
-        },
-      });
-      if (!target && input.destinationId)
-        throw new HandoffError(
-          "Choose your own bulk storage destination.",
-          403,
-        );
-      if (!target)
-        target = await tx.inventoryLocation.create({
-          data: {
-            ownerPlayerId: actor.playerId,
-            name: input.boxName!,
-            normalizedName,
-            type: BULK_BOX_TYPE,
-            isBulk: true,
-            storageLayout: { capacity: 1000, sections: [] },
-            description:
-              "Bulk/outgoing stock excluded from personal bulk cleanup counts.",
-          },
-        });
-      const ownerLocations = await tx.inventoryLocation.findMany({
-        where: { ownerPlayerId: actor.playerId },
-      });
-      const byLocation = new Map(ownerLocations.map((row) => [row.id, row]));
-      let ancestor: typeof target | undefined = target;
-      const seen = new Set<string>();
-      while (ancestor) {
-        if (
-          seen.has(ancestor.id) ||
-          !ancestor.active ||
-          ancestor.kind !== "NORMAL" ||
-          ancestor.systemManaged
-        )
-          throw new HandoffError("Destination unavailable.");
-        seen.add(ancestor.id);
-        if (!ancestor.parentLocationId) break;
-        ancestor = byLocation.get(ancestor.parentLocationId);
-        if (!ancestor) throw new HandoffError("Destination unavailable.");
-      }
-      if (
-        !locationIsBulk(target.id, byLocation) ||
-        !target.active ||
-        target.kind !== "NORMAL" ||
-        target.systemManaged
-      )
-        throw new HandoffError(
-          "Choose a new box name or an existing bulk cleanup box. Ordinary boxes stay included in your collection limit.",
-        );
-      const capacity = await lockAndReadInventoryCapacity(tx, {
-        locationId: target.id,
-        ownerPlayerId: actor.playerId,
-        section: input.destinationSection || null,
-      });
-      const layout = readStorageLayout(target.storageLayout, target.type);
-      if (
-        input.destinationSection &&
-        !layout.sections.some((row) => row.name === input.destinationSection)
-      )
-        throw new HandoffError("Choose an existing destination section.");
-      targetSection = input.destinationSection || null;
-      if (capacity.remaining !== null && capacity.remaining < quantity)
-        throw new HandoffError(
-          "The bulk box does not have enough available space.",
-        );
-      targetId = target.id;
-      destination = target.name;
+      ({ targetId, targetSection, destination } = await bulkDestination(
+        tx,
+        actor.playerId,
+        input,
+        quantity,
+      ));
     }
     for (const row of picked) {
       const item = await tx.inventoryItem.findUniqueOrThrow({
@@ -342,12 +398,27 @@ async function apply(
       }
     }
   }
+  const stockUpdates =
+    input.action === "IGNORE_SCANS" || input.action === "MOVE_SCANS"
+      ? undefined
+      : (
+          await tx.inventoryItem.findMany({
+            where: {
+              id: { in: picked.map((row) => row.id) },
+              currentOwnerId: actor.playerId,
+            },
+          })
+        ).map((row) => ({
+          id: row.id,
+          quantity: row.quantity,
+          stamp: handoffStamp(row),
+        }));
   const verb =
     input.action === "IGNORE_SCANS"
       ? "Ignored"
       : input.action === "REMOVE"
         ? "Removed"
-        : input.action === "MOVE"
+        : input.action === "MOVE" || input.action === "MOVE_SCANS"
           ? "Moved"
           : input.kind === "TRADE"
             ? "Traded"
@@ -368,6 +439,8 @@ async function apply(
       }),
     ),
     destination,
+    ...(acquisitionCommitId ? { acquisitionCommitId } : {}),
+    ...(stockUpdates ? { stockUpdates } : {}),
     message: `${verb} ${quantity} ${quantity === 1 ? "copy" : "copies"}${destination ? ` to ${destination}` : ""}.`,
   });
 }
