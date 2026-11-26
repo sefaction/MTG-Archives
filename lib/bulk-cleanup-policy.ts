@@ -52,6 +52,15 @@ export const bulkActionInput = z
     z
       .object({ ...base, action: z.literal("IGNORE_SCANS"), batchId: identity })
       .strict(),
+    z
+      .object({
+        ...base,
+        action: z.literal("MOVE_SCANS"),
+        batchId: identity,
+        destinationId: identity,
+        destinationSection: z.string().trim().max(100).optional(),
+      })
+      .strict(),
     z.object({ ...base, action: z.literal("REMOVE") }).strict(),
     z
       .object({
@@ -83,7 +92,7 @@ export const bulkActionInput = z
   .superRefine((input, ctx) => {
     if (input.action === "MOVE" && !input.boxName && !input.destinationId)
       ctx.addIssue({ code: "custom", message: "Choose a bulk destination." });
-    if (input.action === "IGNORE_SCANS" && input.scope)
+    if (["IGNORE_SCANS", "MOVE_SCANS"].includes(input.action) && input.scope)
       ctx.addIssue({
         code: "custom",
         message: "Scan cleanup keeps original physical order.",
@@ -97,7 +106,7 @@ export const bulkActionInput = z
         message: "Select each copy/lot only once.",
       });
     if (
-      input.action === "IGNORE_SCANS" &&
+      ["IGNORE_SCANS", "MOVE_SCANS"].includes(input.action) &&
       input.selected.some((row) => row.quantity !== 1)
     )
       ctx.addIssue({
@@ -166,6 +175,8 @@ export type BulkResult = {
   >;
   replay?: boolean;
   destination?: string;
+  acquisitionCommitId?: string;
+  stockUpdates?: Array<{ id: string; quantity: number; stamp: string }>;
 };
 export type BulkDestination = {
   id: string;
@@ -177,6 +188,7 @@ export type BulkDestination = {
 };
 export type BulkContext = {
   scope?: BulkScope;
+  marked?: BulkItem[];
   locations?: Array<{ id: string; name: string; isBulk: boolean }>;
   destinations?: BulkDestination[];
   actorId: string;

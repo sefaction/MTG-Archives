@@ -328,6 +328,15 @@ jobs:
           psql 'postgresql://ci:ci@127.0.0.1:5432/postgres' --set ON_ERROR_STOP=1 --command 'CREATE DATABASE hunt_workspace_fixture'
           npx prisma migrate deploy
           npx tsx scripts/verify-hunt-workspace.ts --run
+      - name: Marked pulls and scan-to-Bulk receipt integrity
+        env:
+          DATABASE_URL: postgresql://ci:ci@marked-pulls-db:5432/marked_pulls_fixture?schema=public&connection_limit=3
+          MTG_MARKED_PULLS_TEST: "1"
+        run: |
+          echo '127.0.0.1 marked-pulls-db' | sudo tee -a /etc/hosts
+          psql 'postgresql://ci:ci@127.0.0.1:5432/postgres' --set ON_ERROR_STOP=1 --command 'CREATE DATABASE marked_pulls_fixture'
+          npx prisma migrate deploy
+          npx tsx scripts/verify-marked-pulls-scan-bulk.ts --run
       - name: Archive-aware Pricing refresh and full rebuild
         run: npx tsx scripts/verify-pricing-archive-aware-refresh.ts
       - name: Interrupted pricing source recovery preserves jobs and all summary tiers

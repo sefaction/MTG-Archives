@@ -11,7 +11,11 @@ import type {
   HuntActionInput,
   HuntActionResult,
 } from "@/lib/card-hunt-action-policy";
-import { advanceHunt, huntPickKey } from "@/lib/card-hunt-progress";
+import {
+  advanceHunt,
+  huntPickKey,
+  markedHuntSelection,
+} from "@/lib/card-hunt-progress";
 import { parsePendingHuntAction } from "@/lib/card-hunt-pending";
 import {
   CardHuntActionDialog,
@@ -112,7 +116,10 @@ export function CardHunt({
             setResult(saved.result);
             setLastInput(saved.input);
             if (saved.selection && typeof saved.selection === "object")
-              setSelection(saved.selection);
+              setSelection({
+                ...saved.selection,
+                ...markedHuntSelection(saved.result),
+              });
             setAdjustments(saved.input.adjustments ?? {});
             setSetupOpen(false);
             setSelectedDecks(
@@ -272,7 +279,7 @@ export function CardHunt({
       setResult(value);
       setLastInput(input);
       setAdjustments(next);
-      setSelection({});
+      setSelection(markedHuntSelection(value));
       setNeedsRefresh(false);
     } catch (cause) {
       setError(
@@ -359,9 +366,11 @@ export function CardHunt({
       previous ? { ...previous, adjustments: next } : null,
     );
     setMessage(value.message);
-    setResult((previous) =>
-      previous ? advanceHunt(previous, input.selected, value) : null,
-    );
+    const remaining = result
+      ? advanceHunt(result, input.selected, value)
+      : null;
+    setResult(remaining);
+    setSelection(remaining ? markedHuntSelection(remaining) : {});
     if (value.action === "GIVE")
       setGiven((previous) => previous + value.quantity);
   }
@@ -833,25 +842,9 @@ export function CardHunt({
               aria-label="Selected hunt cards"
             >
               <strong aria-live="polite">
-                {quantity} copies selected ({chosen.length} pulls)
+                {quantity} copies ready ({chosen.length} pulls)
               </strong>
-              <button
-                type="button"
-                className={filterButtonClass}
-                disabled={busy || blocked}
-                onClick={() =>
-                  setSelection(
-                    Object.fromEntries(
-                      allPicks.map((pick) => [
-                        huntPickKey(pick),
-                        pick.quantity,
-                      ]),
-                    ),
-                  )
-                }
-              >
-                Select all {allPicks.length} pulls
-              </button>
+
               <button
                 type="button"
                 className={filterPrimaryButtonClass}
