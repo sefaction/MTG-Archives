@@ -31,6 +31,7 @@ async function api(url: string, body?: unknown, signal?: AbortSignal) {
       ? {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal,
           body: JSON.stringify(body),
         }
       : { cache: "no-store", signal },
@@ -392,7 +393,7 @@ export function BulkCleanup({
               <option value="">Choose a Bulk Box</option>
               {context?.destinations?.map((row) => (
                 <option key={row.id} value={row.id}>
-                  {row.name} ? {row.used.toLocaleString()} /{" "}
+                  {row.name} · {row.used.toLocaleString()} /{" "}
                   {row.capacity?.toLocaleString() ?? "unlimited"}
                 </option>
               ))}
@@ -411,7 +412,7 @@ export function BulkCleanup({
                 <option value="">No section</option>
                 {destination.sections.map((row) => (
                   <option key={row.name} value={row.name}>
-                    {row.name} ? {row.used} / {row.capacity ?? "unlimited"}
+                    {row.name} · {row.used} / {row.capacity ?? "unlimited"}
                   </option>
                 ))}
               </select>
@@ -422,7 +423,7 @@ export function BulkCleanup({
               {remaining === Infinity
                 ? "Capacity not limited"
                 : `${remaining.toLocaleString()} spaces available`}
-              {count ? ` ? ${count} selected` : ""}
+              {count ? ` · ${count} selected` : ""}
             </span>
           )}
           {noSpace && count > 0 && (

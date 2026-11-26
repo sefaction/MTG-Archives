@@ -678,7 +678,7 @@ export function CardHunt({
             <div>
               <h2 className="text-lg font-semibold">{result.title}</h2>
               <p role="status" className="text-sm">
-                {result.boxes.length} locations ? {result.planned} to pull ?{" "}
+                {result.boxes.length} locations · {result.planned} to pull ·{" "}
                 {result.shortage} short
                 {result.alreadyInDeck
                   ? ` ? ${result.alreadyInDeck} committed`
@@ -723,7 +723,7 @@ export function CardHunt({
                   .filter((line) => line.shortage > 0)
                   .map((line) => (
                     <li key={line.request.id}>
-                      {line.shortage} ? {line.request.name} ?{" "}
+                      {line.shortage} × {line.request.name} ·{" "}
                       {line.request.sourceLabel}
                       <button
                         type="button"

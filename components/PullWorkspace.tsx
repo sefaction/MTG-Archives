@@ -713,7 +713,8 @@ export function PullWorkspace({
                       </p>
                     </button>
                     <p className="my-1 text-xs text-[var(--app-muted)]">
-                      {row.printing} · {row.finish} · {row.language}
+                      {row.printing} · {row.finish} · {row.language} ·{" "}
+                      {row.condition}
                     </p>
                     <p className="my-1 text-sm">
                       {row.location}
