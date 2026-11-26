@@ -200,7 +200,7 @@ test("public inventory browser keeps read-only browse controls and hides write/a
   assert.match(inventoryBrowser, /Browsing mode:/);
   assert.match(inventoryBrowser, /Columns/);
   assert.match(inventoryBrowser, /header: "Card Name"/);
-  assert.match(inventoryBrowser, /header: "Total cards"/);
+  assert.match(inventoryBrowser, /header: wishlistMode \? "Wanted" : "Total cards"/);
   assert.match(inventoryBrowser, /header: "Location summary"/);
   assert.match(inventoryBrowser, /header: "Set"/);
   assert.match(inventoryBrowser, /header: "Rarity"/);
@@ -208,7 +208,7 @@ test("public inventory browser keeps read-only browse controls and hides write/a
   assert.match(inventoryBrowser, /header: "Type Line"/);
   assert.match(inventoryBrowser, /header: "Color Identity"/);
   assert.match(inventoryBrowser, />Preferred Price<\/span>/);
-  assert.match(inventoryBrowser, /header: "Foil"/);
+  assert.match(inventoryBrowser, /header: wishlistMode \? "Finish preference" : "Foil"/);
   assert.match(inventoryBrowser, /capabilities\.canBulkSelect/);
   assert.match(
     inventoryBrowser,

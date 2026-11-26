@@ -5,8 +5,9 @@ export function inventorySortHref(
   query: string,
   field: string,
   direction: "asc" | "desc" | false,
+  allowedFields: readonly string[] = INVENTORY_SORT_FIELDS,
 ) {
-  if (!(INVENTORY_SORT_FIELDS as readonly string[]).includes(field))
+  if (!allowedFields.includes(field))
     throw new Error("Unsupported inventory sort field");
   const params = new URLSearchParams(query);
   if (direction) {

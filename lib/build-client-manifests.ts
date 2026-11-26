@@ -19,6 +19,7 @@ export const CLIENT_MANIFEST_CONTRACTS: Record<string, string[]> = {
   "/inventory/page": ["InventoryAdvancedSearch", "InventoryBrowser"],
   "/public/inventory/page": ["InventoryAdvancedSearch", "InventoryBrowser"],
   "/public/inventory/[username]/page": ["InventoryAdvancedSearch", "InventoryBrowser"],
+  "/public/wishlist/[username]/page": ["InventoryWorkspace", "InventoryQuickCardNameSearch", "PublicWishlistCategoryFilter", "InventoryBrowser"],
   "/league/page": ["league/LeaguePicker"],
   "/league/[leagueId]/page": ["league/LeaguePicker", "league/GameEntryForm"],
   "/locations/page": [

@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { CardHunt } from "./CardHunt";
 import { CardHandoffDialog } from "./CardHandoffDialog";
 import { INVENTORY_SORT_FIELDS } from "@/lib/inventory-sort";
+import { PUBLIC_WISHLIST_SORT_FIELDS } from "@/lib/public-wishlist-sort";
 import { inventorySortHref } from "./inventorySortNavigation";
 import { StorageDestinationPicker } from "./StorageDestinationPicker";
 import { InventoryMoveDialog } from "./InventoryMoveDialog";
@@ -160,6 +161,7 @@ type InventoryRelatedPart = {
 };
 
 export type InventoryRow = {
+  wishlist?: { category: string; categoryLabel: string; printing: string; finish: string };
   id: string;
   cardId: string;
   cardName: string;
@@ -780,6 +782,18 @@ function InventoryDetailPanel({
   priceLabel: string;
   showPricing: boolean;
 }) {
+  if (row.wishlist) return (
+    <section className={detailBlockClass}>
+      <div className={detailHeaderClass}>Wishlist</div>
+      <div className={detailBodyClass}>
+        <p><span className="text-zinc-400">Wanted:</span> {row.quantity}</p>
+        <p>{row.wishlist.categoryLabel}</p>
+        <p>{row.wishlist.printing}</p>
+        <p>{row.wishlist.finish}</p>
+        {showPricing ? <p><span className="text-zinc-400">Catalog unit price:</span> {priceLabel}</p> : null}
+      </div>
+    </section>
+  );
   return (
     <section className={detailBlockClass}>
       <div className={detailHeaderClass}>Inventory</div>
@@ -1267,9 +1281,9 @@ function CardDetail({
   const hasLoyalty = Boolean(row.loyalty);
   const hasDefense = Boolean(row.defense);
   const mixedFinishes = printingHasMixedFinishes(row);
-  const treatment = mixedFinishes
+  const treatment = row.wishlist?.finish ?? (mixedFinishes
     ? "Multiple finishes"
-    : row.foilStatus || (row.foil ? "FOIL" : "NONFOIL");
+    : row.foilStatus || (row.foil ? "FOIL" : "NONFOIL"));
   const priceLabel = mixedFinishes
     ? "Varies by finish"
     : row.preferredPriceLabel || row.priceUsd || row.priceUsdFoil || row.priceUsdEtched || "-";
@@ -1700,7 +1714,9 @@ export function InventoryBrowser({
   importExportHref,
   huntOwnerId,
   handoffActorUserId,
+  collectionKind = "inventory",
 }: {
+  collectionKind?: "inventory" | "wishlist";
   rows: InventoryRow[];
   storageLocations?: StorageLocation[];
   players: PickRef[];
@@ -1768,6 +1784,8 @@ export function InventoryBrowser({
   huntOwnerId?: string;
   handoffActorUserId?: string;
 }) {
+  const wishlistMode = collectionKind === "wishlist";
+  const sortableFields: readonly string[] = wishlistMode ? PUBLIC_WISHLIST_SORT_FIELDS : INVENTORY_SORT_FIELDS;
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>(
     initialSortField
@@ -1793,29 +1811,23 @@ export function InventoryBrowser({
   const auditDialogRef = useInventoryModal(Boolean(auditRow), auditRow?.cardName);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditError, setAuditError] = useState("");
-  const [viewMode, setViewMode] = useState<"table" | "binder">(() =>
-    typeof window !== "undefined"
-      ? (localStorage.getItem("inventoryViewMode") as any) || "table"
-      : "table",
+  // The server and first client render must agree. Restore browser preferences
+  // after hydration so a saved binder/column layout cannot rebuild the page.
+  const [viewMode, setViewMode] = useState<"table" | "binder">("table");
+  const [cardSize, setCardSize] = useState<CollectionCardSize>("medium");
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() =>
+    wishlistMode ? { ...defaults, wishCategory: true, printingPreference: true } : defaults,
   );
-  const [cardSize, setCardSize] = useState<CollectionCardSize>(() =>
-    typeof window !== "undefined"
-      ? normalizeCollectionCardSize(localStorage.getItem("inventoryCardSize"))
-      : "medium",
-  );
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
-    () => {
-      if (typeof window === "undefined") return defaults;
-      try {
-        return (
-          JSON.parse(localStorage.getItem("inventoryColumns") || "null") ||
-          defaults
-        );
-      } catch {
-        return defaults;
-      }
-    },
-  );
+  useEffect(() => {
+    const initial = wishlistMode ? { ...defaults, wishCategory: true, printingPreference: true } : defaults;
+    try {
+      setViewMode(localStorage.getItem("inventoryViewMode") === "binder" ? "binder" : "table");
+      setCardSize(normalizeCollectionCardSize(localStorage.getItem("inventoryCardSize")));
+      setColumnVisibility({ ...initial, ...JSON.parse(localStorage.getItem("inventoryColumns") || "null") });
+    } catch {
+      setColumnVisibility(initial);
+    }
+  }, [wishlistMode]);
   const [message, setMessage] = useState<string>("");
   const [editingStackId, setEditingStackId] = useState("");
   const [splittingStackId, setSplittingStackId] = useState("");
@@ -1872,12 +1884,12 @@ export function InventoryBrowser({
   });
   const infiniteSentinelRef = useRef<HTMLDivElement | null>(null);
   const capabilities = useMemo<InventoryCapabilities>(() => {
-    return { ...defaultCapabilities(uiMode), ...capabilityOverrides };
-  }, [capabilityOverrides, uiMode]);
+    return wishlistMode ? READ_ONLY_CAPABILITIES : { ...defaultCapabilities(uiMode), ...capabilityOverrides };
+  }, [capabilityOverrides, uiMode, wishlistMode]);
   const canShowPublicOwnerIdentity =
-    capabilities.canViewOwnerAdminFields || uiMode === "public-readonly";
+    !wishlistMode && (capabilities.canViewOwnerAdminFields || uiMode === "public-readonly");
   const shouldShowOwnerColor =
-    capabilities.canViewOwnerAdminFields || uiMode === "public-readonly";
+    !wishlistMode && (capabilities.canViewOwnerAdminFields || uiMode === "public-readonly");
   const editableNormalLocations = useMemo(
     () =>
       locations.filter(
@@ -2407,8 +2419,11 @@ export function InventoryBrowser({
           </button>
         ),
       },
-      { accessorKey: "quantity", header: "Total cards" },
-      { accessorKey: "locationSummary", header: "Location summary" },
+      { accessorKey: "quantity", header: wishlistMode ? "Wanted" : "Total cards" },
+      ...(wishlistMode ? [
+        { accessorKey: "wishCategory", header: "Category", accessorFn: (row: InventoryRow) => row.wishlist?.categoryLabel },
+        { accessorKey: "printingPreference", header: "Printing preference", accessorFn: (row: InventoryRow) => row.wishlist?.printing },
+      ] : [{ accessorKey: "locationSummary", header: "Location summary" }]),
       ...(displayMode === "grouped"
         ? [
             { accessorKey: "printingCount", header: "Printings" },
@@ -2482,9 +2497,9 @@ export function InventoryBrowser({
       } satisfies ColumnDef<InventoryRow>] : []),
       {
         accessorKey: "foilStatus",
-        header: "Foil",
+        header: wishlistMode ? "Finish preference" : "Foil",
         cell: ({ row }) =>
-          printingHasMixedFinishes(row.original) ? "Mixed" : row.original.foilStatus,
+          row.original.wishlist?.finish ?? (printingHasMixedFinishes(row.original) ? "Mixed" : row.original.foilStatus),
       },
       ...(capabilities.canViewVisibility
         ? [
@@ -2584,6 +2599,7 @@ export function InventoryBrowser({
       capabilities.canViewPrivateSourceInfo,
       capabilities.canViewVisibility,
       canShowPublicOwnerIdentity,
+      wishlistMode,
       showPricing,
       displayMode,
       selectionAvailable,
@@ -2718,8 +2734,22 @@ export function InventoryBrowser({
         >
           Binder View
         </button>
+        {viewMode === "binder" ? <>
+          <label className={cn(filterLabelClass, "ml-2")}>Sort by
+            <select aria-label="Sort cards by" value={initialSortField}
+              className={cn(filterSelectClass, "ml-2")}
+              onChange={event => { rememberScrollPosition(); window.location.replace(inventorySortHref(sortActionPath || (uiMode === "public-readonly" ? "/public/inventory" : "/inventory"), pageHrefBase || "", event.target.value, initialSortDirection, sortableFields)); }}>
+              {table.getAllLeafColumns().filter(column => sortableFields.includes(column.id)).map(column =>
+                <option key={column.id} value={column.id}>{typeof column.columnDef.header === "string" ? column.columnDef.header : "Preferred Price"}</option>)}
+            </select>
+          </label>
+          <button type="button" className={filterButtonClass} aria-label="Reverse sort direction"
+            onClick={() => { rememberScrollPosition(); window.location.replace(inventorySortHref(sortActionPath || (uiMode === "public-readonly" ? "/public/inventory" : "/inventory"), pageHrefBase || "", initialSortField, initialSortDirection === "asc" ? "desc" : "asc", sortableFields)); }}>
+            {initialSortDirection === "asc" ? "Ascending" : "Descending"}
+          </button>
+        </> : null}
         <InventoryViewOptions>
-          <span className={cn(filterLabelClass, "ml-4")}>Display:</span>
+          {!wishlistMode ? <><span className={cn(filterLabelClass, "ml-4")}>Display:</span>
           <select
             aria-label="Inventory display"
             value={displayMode}
@@ -2733,7 +2763,7 @@ export function InventoryBrowser({
           >
             <option value="exact">Exact printings</option>
             <option value="grouped">Grouped by card</option>
-          </select>
+          </select></> : null}
           {viewMode === "binder" ? (
             <>
               <span className={cn(filterLabelClass, "ml-4")}>Card Size:</span>
@@ -2780,7 +2810,7 @@ export function InventoryBrowser({
           ) : null}
           <span className={cn(filterLabelClass, "ml-4")}>Page size:</span>
           <select
-            aria-label="Inventory page size"
+            aria-label={wishlistMode ? "Wishlist page size" : "Inventory page size"}
             value={pageSize}
             onChange={(event) => {
               const next = Number(event.target.value);
@@ -2799,7 +2829,7 @@ export function InventoryBrowser({
           </select>
           <span className={cn(filterLabelClass, "ml-4")}>Browsing mode:</span>
           <select
-            aria-label="Inventory browsing mode"
+            aria-label={wishlistMode ? "Wishlist browsing mode" : "Inventory browsing mode"}
             value={browsingMode}
             onChange={(event) => {
               const next = event.target.value as "paginated" | "infinite";
@@ -3287,11 +3317,11 @@ export function InventoryBrowser({
                         aria-sort={h.column.getIsSorted() === "asc" ? "ascending"
                           : h.column.getIsSorted() === "desc" ? "descending" : undefined}
                       >
-                        {h.column.getCanSort() && (INVENTORY_SORT_FIELDS as readonly string[]).includes(h.column.id) ? (
+                        {h.column.getCanSort() && sortableFields.includes(h.column.id) ? (
                           <a
                             className="inline-flex w-full items-center gap-1 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-500"
                             href={inventorySortHref(sortActionPath || (uiMode === "public-readonly" ? "/public/inventory" : "/inventory"),
-                              pageHrefBase || "", h.column.id, h.column.getNextSortingOrder())}
+                              pageHrefBase || "", h.column.id, h.column.getNextSortingOrder(), sortableFields)}
                             onClick={(event) => {
                               if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
                               event.preventDefault();
@@ -3454,9 +3484,9 @@ export function InventoryBrowser({
                       </div>
                     )}
                     <span className="absolute top-1 right-1 bg-black/80 text-white text-xs px-2 py-0.5 rounded">
-                      x{row.quantity}
+                      {row.wishlist ? "Wanted " : "x"}{row.quantity}
                     </span>
-                    {(printingHasMixedFinishes(row) || row.foilStatus) ? (
+                    {!row.wishlist && (printingHasMixedFinishes(row) || row.foilStatus) ? (
                       <span className="absolute top-1 left-7 bg-amber-400 text-black text-[10px] px-1 rounded">
                         {printingHasMixedFinishes(row) ? "Mixed finishes" : row.foilStatus}
                       </span>
@@ -3465,6 +3495,10 @@ export function InventoryBrowser({
                   <div className="mt-2 text-sm font-medium truncate">
                     {row.cardName}
                   </div>
+                  {row.wishlist ? <div className="mt-1 space-y-1 text-xs text-zinc-400">
+                    <p>{row.wishlist.categoryLabel}</p><p>{row.wishlist.printing}</p><p>{row.wishlist.finish}</p>
+                  </div> : null}
+                  {showPricing ? <div className="mt-1 text-sm">{row.preferredPriceLabel || "--"}</div> : null}
                   {row.manaCost ||
                   row.manaFaces?.length ||
                   row.colorIdentity ? (
@@ -3526,7 +3560,7 @@ export function InventoryBrowser({
             Previous page
           </button>
           <span>
-            {totalMatchingCount} matching cards · Page {currentPage} of{" "}
+            {totalMatchingCount} matching {wishlistMode ? "wishes" : "cards"} · Page {currentPage} of{" "}
             {totalPages || 1}
           </span>
           <button

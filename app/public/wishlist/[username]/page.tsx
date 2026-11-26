@@ -1,36 +1,56 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { notFound } from "next/navigation";
-import { Nav } from "@/components/Nav";
+import Link from "next/link";
+import { InventoryBrowser } from "@/components/InventoryBrowser";
+import { InventoryWorkspace } from "@/components/InventoryWorkspace";
+import { InventoryQuickCardNameSearch } from "@/components/InventoryQuickCardNameSearch";
+import { PublicWishlistCategoryFilter } from "@/components/PublicWishlistCategoryFilter";
+import { PublicCollectionNav } from "@/components/PublicCollectionNav";
 import { prisma } from "@/lib/prisma";
-import { publicWishlistPageUsername } from "@/lib/public-inventory-link";
-import { getPublicWishlist, publicWishlistCategories } from "@/lib/public-wishlist";
+import { getCurrentUser } from "@/lib/auth";
+import { publicWishlistPageUsername, publicWishlistLink } from "@/lib/public-inventory-link";
+import { publicWishlistCategories } from "@/lib/public-wishlist";
+import { getPublicWishlistBrowse } from "@/lib/public-wishlist-browser";
 
 export const dynamic = "force-dynamic";
 
-export default async function PublicWishlistPage({ params }: { params: Promise<{ username: string }> }) {
+export default async function PublicWishlistPage({ params, searchParams }: {
+  params: Promise<{ username: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   noStore();
-  const { username } = await params;
-  const wishlist = await getPublicWishlist(prisma, publicWishlistPageUsername(username));
+  const [{ username }, raw, viewer] = await Promise.all([params, searchParams, getCurrentUser()]);
+  const wishlist = await getPublicWishlistBrowse(prisma, publicWishlistPageUsername(username), raw, viewer?.preferredPriceProvider);
   if (!wishlist) notFound();
-  return (
-    <main className="space-y-6 p-4 md:p-8">
-      <Nav />
-      <h1 className="break-words text-2xl font-semibold">{wishlist.username}&apos;s public Wishlist</h1>
-      <p className="text-sm text-[var(--app-muted)]">Shared wishes, grouped by reason. Quantities for different reasons are tracked separately.</p>
-      {wishlist.categories.length === 0 && <p>No Wishlist categories are shared.</p>}
-      {publicWishlistCategories.filter(category => wishlist.categories.includes(category.value)).map(category => {
-        const wishes = wishlist.wishes.filter(wish => wish.category === category.value);
-        return <section key={category.value} aria-labelledby={`public-wishlist-${category.value}`} className="space-y-3">
-          <h2 id={`public-wishlist-${category.value}`} className="text-xl font-semibold">{category.label}</h2>
-          {wishes.length ? <ul className="divide-y divide-[var(--app-border)] rounded border border-[var(--app-border)]">
-            {wishes.map((wish, index) => <li key={index} className="flex flex-wrap justify-between gap-3 p-3">
-              <div className="min-w-0 break-words"><p className="font-medium">{wish.name}</p>
-                <p className="text-sm text-[var(--app-muted)]">{wish.printing} · {wish.finish}</p></div>
-              <p className="shrink-0">Wanted {wish.quantity}</p>
-            </li>)}
-          </ul> : <p className="text-sm text-[var(--app-muted)]">No wishes in this category.</p>}
-        </section>;
-      })}
-    </main>
-  );
+  const actionPath = publicWishlistLink(wishlist.username), apiBase = `/api${actionPath}`;
+  const browseParams = Object.fromEntries(Object.entries(wishlist.params).map(([key, value]) => [key, String(value)]));
+  const query = new URLSearchParams(browseParams); query.delete("page");
+  const clear = new URLSearchParams(query); clear.delete("cardName"); clear.delete("category");
+  const clearHref = `${actionPath}?${clear}`;
+  return <main className="min-w-0 space-y-4 p-4 sm:p-8">
+    <PublicCollectionNav />
+    <header className="space-y-2">
+      <h1 className="break-words text-3xl font-bold">{wishlist.username}&apos;s public Wishlist</h1>
+      <p className="text-zinc-400">Shared wishes by reason. Each reason keeps its own wanted quantity.</p>
+    </header>
+    {wishlist.categories.length === 0 ? <p>No Wishlist categories are shared.</p> : <InventoryWorkspace cardName={wishlist.params.cardName}>
+      <InventoryQuickCardNameSearch actionPath={actionPath} suggestionsEndpoint={`${apiBase}/filter-suggestions`} params={browseParams} />
+      <PublicWishlistCategoryFilter actionPath={actionPath} query={query.toString()} category={wishlist.params.category}
+        categories={publicWishlistCategories.filter(category => wishlist.categories.includes(category.value))
+          .map(category => ({ value: category.value, label: category.label, count: wishlist.categoryCounts[category.value] ?? 0 }))} />
+      <div className="inventory-results">
+        <p className="inventory-result-summary">{wishlist.totalMatchingCount.toLocaleString()} wishes · {wishlist.totalMatchingCards.toLocaleString()} requested copies</p>
+        {!wishlist.rows.length ? <div className="rounded border border-zinc-800 p-4 text-zinc-400">
+          <p>No wishes in this category.</p><Link href={clearHref} className="mt-2 inline-block underline">Clear filters</Link>
+        </div> : null}
+        <InventoryBrowser rows={wishlist.rows} players={[]} locations={[]} cardLabels={{}} isAdmin={false}
+          uiMode="public-readonly" collectionKind="wishlist" displayMode="exact" showPricing={wishlist.showPricing}
+          totalMatchingCount={wishlist.totalMatchingCount} totalMatchingCards={wishlist.totalMatchingCards}
+          currentPage={wishlist.page} totalPages={wishlist.totalPages} hasNextPage={wishlist.hasNextPage} hasPreviousPage={wishlist.page > 1}
+          pageHrefBase={query.toString()} sortActionPath={actionPath} infiniteApiPath={`${apiBase}/list`}
+          initialPageSize={wishlist.params.pageSize} initialBrowsingMode={wishlist.params.browse}
+          initialSortField={wishlist.params.sort} initialSortDirection={wishlist.params.sortDir} />
+      </div>
+    </InventoryWorkspace>}
+  </main>;
 }

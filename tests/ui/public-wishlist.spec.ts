@@ -49,13 +49,27 @@ for (const viewport of [{ width: 1366, height: 900 }, { width: 390, height: 844 
       await visitor.goto(ownerPath + "?owner=foreign&categories=all");
       for (const [category, name, quantity] of [["Manual wishes", "Manual public card", 3], ["Deck needs", "Deck public card", 2],
         ["From members", "Member public card", 2], ["Set Completion", "Set public card", 1]] as const) {
-        const region = visitor.getByRole("region", { name: category, exact: true });
-        await expect(region.getByText(name, { exact: true })).toBeVisible();
-        await expect(region.getByText(`Wanted ${quantity}`, { exact: true })).toBeVisible();
+        const row = visitor.locator(".inventory-results tbody tr").filter({ hasText: name });
+        await expect(row.getByRole("button", { name, exact: true })).toBeVisible();
+        await expect(row.getByRole("cell", { name: category, exact: true })).toBeVisible();
+        await expect(row.getByRole("cell", { name: String(quantity), exact: true })).toBeVisible();
       }
       const response = await visitor.request.get(ownerPath);
       expect(response.headers()["cache-control"]).toContain("no-store");
       expect(await response.text()).not.toMatch(/PRIVATE-|FOREIGN-|LEAGUE-|PRIVATE-CONDITION|PRIVATE-LANGUAGE/);
+      const browserErrors: string[] = [];
+      visitor.on("pageerror", error => browserErrors.push(error.message));
+      await visitor.getByRole("button", { name: "Binder View", exact: true }).click();
+      await visitor.getByRole("combobox", { name: "Sort cards by" }).selectOption("quantity");
+      await visitor.getByRole("button", { name: "Reverse sort direction" }).click();
+      await expect(visitor.getByText("Wanted 3", { exact: true })).toBeVisible();
+      await visitor.reload();
+      await expect(visitor.getByRole("combobox", { name: "Sort cards by" })).toHaveValue("quantity");
+      await visitor.getByRole("button").filter({ hasText: "Manual public card" }).click();
+      await expect(visitor.getByRole("dialog").getByText("Wanted:", { exact: true })).toBeVisible();
+      await visitor.keyboard.press("Escape");
+      await visitor.getByRole("button", { name: "Table View", exact: true }).click();
+      expect(browserErrors).toEqual([]);
       expect(await visitor.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await visitor.screenshot({ path: `.local-data/public-wishlist-${viewport.width}.png`, fullPage: true });
       await login(visitor, "public-wishlist-peer");
@@ -80,6 +94,8 @@ for (const viewport of [{ width: 1366, height: 900 }, { width: 390, height: 844 
       for (const username of [".", "A/B #1", "~public", "%2F"]) {
         await visitor.goto(publicWishlistLink(username));
         await expect(visitor.getByRole("heading", { name: `${username}'s public Wishlist`, exact: true })).toBeVisible();
+        expect((await visitor.request.get(`/api${publicWishlistLink(username)}/list`)).status()).toBe(200);
+        expect((await visitor.request.get(`/api${publicWishlistLink(username)}/filter-suggestions?kind=cardName&q=card`)).status()).toBe(200);
         if (username === ".") await expect(visitor.getByText("No wishes in this category.", { exact: true })).toBeVisible();
       }
       for (const username of ["public-wishlist-unknown", "public-wishlist-inactive"]) {
