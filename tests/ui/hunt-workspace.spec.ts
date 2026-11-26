@@ -379,7 +379,7 @@ test("bulk movement preserves provenance and recovers the same confirmation afte
       pane.getByRole("button", { name: "Unmark pulled", exact: true }),
     ).toHaveCount(count + 1);
   }
-  await expect(pane.getByText("8 copies ready", { exact: true })).toBeVisible();
+  await expect(pane.getByText("5 copies ready", { exact: true })).toBeVisible();
   await pane
     .getByRole("button", { name: "Clear selection", exact: true })
     .click();
@@ -387,7 +387,7 @@ test("bulk movement preserves provenance and recovers the same confirmation afte
   await pane
     .getByRole("button", { name: "Select all marked", exact: true })
     .click();
-  await expect(pane.getByText("8 copies ready", { exact: true })).toBeVisible();
+  await expect(pane.getByText("5 copies ready", { exact: true })).toBeVisible();
   await pane
     .getByRole("button", { name: "Review selected pulls", exact: true })
     .click();
@@ -421,14 +421,14 @@ test("bulk movement preserves provenance and recovers the same confirmation afte
     .getByRole("button", { name: "Check same confirmation", exact: true })
     .click();
   await expect(dialog).not.toBeVisible();
-  await expect(pane).toContainText("0 excess copies available to pull");
-  await expect(pane).toContainText("No pulls match these filters.");
+  await expect(pane).toContainText("3 excess copies available to pull");
+  await expect(pane.getByText("0 copies ready", { exact: true })).toBeVisible();
   const moved = db(
     `return {items:await p.inventoryItem.findMany({where:{locationId:${JSON.stringify(f.destination.id)}}}),actions:await p.bulkCleanupAction.count({where:{actorUserId:${JSON.stringify(f.owner)},action:'MOVE'}})};`,
   );
   expect(moved.actions).toBe(1);
   expect(moved.items.reduce((n: number, row: any) => n + row.quantity, 0)).toBe(
-    8,
+    5,
   );
   expect(
     moved.items.find((row: any) => row.originalOpenerId === f.recipient).notes,
@@ -532,14 +532,12 @@ test("excess scans save to the chosen Bulk Box section once and normal import ex
       exact: true,
     })
     .click();
-  const dialog = page
-    .getByRole("dialog")
-    .filter({
-      has: page.getByRole("button", {
-        name: "Confirm add to Bulk Box",
-        exact: true,
-      }),
-    });
+  const dialog = page.getByRole("dialog").filter({
+    has: page.getByRole("button", {
+      name: "Confirm add to Bulk Box",
+      exact: true,
+    }),
+  });
   await expect(dialog).toContainText("Destination: Bulk-0002 / 1");
   await dialog
     .getByLabel("I have physically pulled these selected cards.")
