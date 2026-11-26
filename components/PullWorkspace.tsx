@@ -63,6 +63,7 @@ export function PullWorkspace({
     page: number;
     pages: number;
     total: number;
+    pulled?: number;
     pageSize: number;
     onPage: (page: number) => void;
     onBrowse: (browse: PullBrowse) => void;
@@ -119,6 +120,21 @@ export function PullWorkspace({
     );
     return () => clearTimeout(timer);
   }, [query, sort, desc, box, pageSize]);
+  function resetBox() {
+    setBox("");
+    setPage(1);
+    server?.onBrowse({
+      search: query,
+      sort: sort as PullBrowse["sort"],
+      desc,
+      locationId: "",
+      pageSize,
+    });
+  }
+  function applyScope(next: PullScope) {
+    resetBox();
+    onScope(next);
+  }
   const [seen, setSeen] = useState<Record<string, string>>({});
   function remember(row: PullRow) {
     setSeen((previous) => ({
@@ -213,6 +229,7 @@ export function PullWorkspace({
             className={filterButtonClass}
             onClick={() => {
               remember(row);
+              resetBox();
               onPrinting(row);
             }}
           >
@@ -228,6 +245,7 @@ export function PullWorkspace({
             disabled={disabled || row.pulled >= row.quantity}
             onClick={() => {
               remember(row);
+              resetBox();
               onSkip(row);
             }}
           >
@@ -249,7 +267,7 @@ export function PullWorkspace({
           className={filterButtonClass}
           disabled={disabled}
           onClick={() =>
-            onScope({
+            applyScope({
               ...scope,
               excludedLocations: [
                 ...new Set([
@@ -268,7 +286,7 @@ export function PullWorkspace({
             className={filterButtonClass}
             disabled={disabled}
             onClick={() =>
-              onScope({
+              applyScope({
                 ...scope,
                 excludedSections: [
                   ...(scope.excludedSections ?? []).filter(
@@ -420,7 +438,7 @@ export function PullWorkspace({
               className={filterSelectClass}
               onChange={(event) => {
                 if (event.target.value)
-                  onScope({
+                  applyScope({
                     ...scope,
                     excludedLocations: [
                       ...new Set([
@@ -447,7 +465,7 @@ export function PullWorkspace({
                 key={id}
                 disabled={disabled}
                 onClick={() =>
-                  onScope({
+                  applyScope({
                     ...scope,
                     excludedLocations: scope.excludedLocations?.filter(
                       (value) => value !== id,
@@ -467,7 +485,7 @@ export function PullWorkspace({
                 key={JSON.stringify(row)}
                 disabled={disabled}
                 onClick={() =>
-                  onScope({
+                  applyScope({
                     ...scope,
                     excludedSections: scope.excludedSections?.filter(
                       (_, i) => i !== index,
@@ -488,7 +506,7 @@ export function PullWorkspace({
                 className={filterButtonClass}
                 disabled={disabled}
                 onClick={() =>
-                  onScope({
+                  applyScope({
                     ...scope,
                     excludedItems: scope.excludedItems?.filter(
                       (value) => value !== id,
@@ -504,7 +522,8 @@ export function PullWorkspace({
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span>
             {server?.total ?? filtered.length} matching pulls ·{" "}
-            {rows.reduce((n, row) => n + row.pulled, 0)} copies marked pulled
+            {server?.pulled ?? rows.reduce((n, row) => n + row.pulled, 0)}{" "}
+            copies marked pulled
           </span>
           <button
             type="button"

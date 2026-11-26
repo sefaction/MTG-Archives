@@ -452,7 +452,7 @@ export function BulkCleanup({
               cannot be pulled here.
             </p>
           )}
-          {!rows.length ? (
+          {batchId && !rows.length ? (
             <p className="text-sm">
               {batchId
                 ? "No excess confirmed scans in this batch."
@@ -467,6 +467,10 @@ export function BulkCleanup({
                     page: plan.page,
                     pages: plan.pages,
                     total: plan.totalItems,
+                    pulled: (scope.held ?? []).reduce(
+                      (total, pin) => total + pin.quantity,
+                      0,
+                    ),
                     pageSize: browse.pageSize,
                     onPage: setPage,
                     onBrowse: (value) => {
