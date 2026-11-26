@@ -61,10 +61,12 @@ test("hunt exclusions, partial pulled state, owned printing and reload preserve 
   await hunt(page, f);
   const card = row(page, "Counterspell");
   await card.getByRole("spinbutton").fill("1");
-  await more(card);
+  await expect(card.locator("details")).not.toHaveAttribute("open");
+  await expect(
+    card.getByRole("button", { name: "Select another printing", exact: true }),
+  ).toBeVisible();
   await card.getByRole("button", { name: "Mark pulled", exact: true }).click();
   await expect(card).toContainText("1 pulled");
-  await more(card);
   await card
     .getByRole("button", { name: "Select another printing", exact: true })
     .click();
@@ -120,6 +122,28 @@ test("hunt exclusions, partial pulled state, owned printing and reload preserve 
   await expect(
     page.getByRole("img", { name: "Island", exact: true }),
   ).toBeVisible();
+  const islandCard = page
+    .locator("article")
+    .filter({ has: page.getByRole("img", { name: "Island", exact: true }) });
+  await expect(islandCard.locator("details")).not.toHaveAttribute("open");
+  await expect(
+    islandCard.getByRole("button", {
+      name: "Select another printing",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await islandCard
+    .getByRole("button", { name: "Mark pulled", exact: true })
+    .click();
+  await expect(
+    islandCard.getByRole("button", { name: "Unmark pulled", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await islandCard
+    .getByRole("button", { name: "Unmark pulled", exact: true })
+    .click();
+  await expect(
+    islandCard.getByRole("button", { name: "Mark pulled", exact: true }),
+  ).toHaveAttribute("aria-pressed", "false");
   await page.screenshot({
     path: info.outputPath("hunt-binder-desktop.png"),
     fullPage: true,
@@ -228,7 +252,6 @@ test("an alternate-printing commit recovers a lost reply once and keeps the corr
   await login(page, f);
   await hunt(page, f);
   const card = row(page, "Counterspell");
-  await more(card);
   await card
     .getByRole("button", { name: "Select another printing", exact: true })
     .click();

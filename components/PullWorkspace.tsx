@@ -9,6 +9,7 @@ import {
 import { getInventoryCardImagePair } from "@/lib/inventory-card-images";
 import {
   filterButtonClass,
+  filterPrimaryButtonClass,
   filterInputClass,
   filterSelectClass,
   cn,
@@ -213,74 +214,74 @@ export function PullWorkspace({
       className={cn(filterInputClass, "w-20")}
     />
   );
-  const controls = (row: PullRow) => (
-    <details className="relative">
-      <summary
-        className={cn(filterButtonClass, "cursor-pointer list-none")}
-        aria-label={`Pull options for ${row.name}`}
+  const controls = (row: PullRow, binder = false) => (
+    <div
+      className={cn(
+        "flex gap-2",
+        binder ? "flex-col" : "flex-wrap items-start",
+      )}
+    >
+      <button
+        type="button"
+        className={row.pulled ? filterButtonClass : filterPrimaryButtonClass}
+        aria-pressed={row.pulled > 0}
+        disabled={disabled}
+        onClick={() =>
+          onPulled(row, row.pulled ? 0 : selection[row.id] || row.quantity)
+        }
       >
-        More
-      </summary>
-      <div className="mt-2 flex max-w-sm flex-col items-start gap-2 rounded border border-[var(--app-border)] bg-[var(--app-surface)] p-2">
-        {onPrinting && (
-          <button
-            type="button"
-            disabled={disabled || row.pulled >= row.quantity}
-            className={filterButtonClass}
-            onClick={() => {
-              remember(row);
-              resetBox();
-              onPrinting(row);
-            }}
-          >
-            {bulk
-              ? "Keep this stack / choose other copies"
-              : "Select another printing"}
-          </button>
-        )}
-        {onSkip && (
-          <button
-            type="button"
-            className={filterButtonClass}
-            disabled={disabled || row.pulled >= row.quantity}
-            onClick={() => {
-              remember(row);
-              resetBox();
-              onSkip(row);
-            }}
-          >
-            Not found here
-          </button>
-        )}
+        {row.pulled ? "Unmark pulled" : "Mark pulled"}
+      </button>
+      {!bulk && onPrinting && (
         <button
           type="button"
+          disabled={disabled || row.pulled >= row.quantity}
           className={filterButtonClass}
-          disabled={disabled}
-          onClick={() =>
-            onPulled(row, row.pulled ? 0 : selection[row.id] || row.quantity)
-          }
+          onClick={() => {
+            remember(row);
+            resetBox();
+            onPrinting(row);
+          }}
         >
-          {row.pulled ? "Unmark pulled" : "Mark pulled"}
+          Select another printing
         </button>
-        <button
-          type="button"
-          className={filterButtonClass}
-          disabled={disabled}
-          onClick={() =>
-            applyScope({
-              ...scope,
-              excludedLocations: [
-                ...new Set([
-                  ...(scope.excludedLocations ?? []),
-                  row.locationId,
-                ]),
-              ],
-            })
-          }
+      )}
+      <details className="relative">
+        <summary
+          className={cn(filterButtonClass, "cursor-pointer list-none")}
+          aria-label={`Pull options for ${row.name}`}
         >
-          Exclude this location and re-evaluate
-        </button>
-        {row.section && (
+          More
+        </summary>
+        <div className="mt-2 flex max-w-sm flex-col items-start gap-2 rounded border border-[var(--app-border)] bg-[var(--app-surface)] p-2">
+          {bulk && onPrinting && (
+            <button
+              type="button"
+              disabled={disabled || row.pulled >= row.quantity}
+              className={filterButtonClass}
+              onClick={() => {
+                remember(row);
+                resetBox();
+                onPrinting(row);
+              }}
+            >
+              Keep this stack / choose other copies
+            </button>
+          )}
+          {onSkip && (
+            <button
+              type="button"
+              className={filterButtonClass}
+              disabled={disabled || row.pulled >= row.quantity}
+              onClick={() => {
+                remember(row);
+                resetBox();
+                onSkip(row);
+              }}
+            >
+              Not found here
+            </button>
+          )}
           <button
             type="button"
             className={filterButtonClass}
@@ -288,22 +289,42 @@ export function PullWorkspace({
             onClick={() =>
               applyScope({
                 ...scope,
-                excludedSections: [
-                  ...(scope.excludedSections ?? []).filter(
-                    (value) =>
-                      value.locationId !== row.locationId ||
-                      value.section !== row.section,
-                  ),
-                  { locationId: row.locationId, section: row.section! },
+                excludedLocations: [
+                  ...new Set([
+                    ...(scope.excludedLocations ?? []),
+                    row.locationId,
+                  ]),
                 ],
               })
             }
           >
-            Exclude this section and re-evaluate
+            Exclude this location and re-evaluate
           </button>
-        )}
-      </div>
-    </details>
+          {row.section && (
+            <button
+              type="button"
+              className={filterButtonClass}
+              disabled={disabled}
+              onClick={() =>
+                applyScope({
+                  ...scope,
+                  excludedSections: [
+                    ...(scope.excludedSections ?? []).filter(
+                      (value) =>
+                        value.locationId !== row.locationId ||
+                        value.section !== row.section,
+                    ),
+                    { locationId: row.locationId, section: row.section! },
+                  ],
+                })
+              }
+            >
+              Exclude this section and re-evaluate
+            </button>
+          )}
+        </div>
+      </details>
+    </div>
   );
   return (
     <div
@@ -661,7 +682,7 @@ export function PullWorkspace({
                         <td className="p-2">
                           {row.destination || "This hunt"}
                         </td>
-                        <td className="p-2">{controls(row)}</td>
+                        <td className="min-w-[20rem] p-2">{controls(row)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -722,7 +743,7 @@ export function PullWorkspace({
                     </p>
                     <p className="mb-2 text-xs">{row.destination}</p>
                     {quantity(row)}
-                    <div className="mt-2">{controls(row)}</div>
+                    <div className="mt-2">{controls(row, true)}</div>
                   </article>
                 ))}
               </div>
