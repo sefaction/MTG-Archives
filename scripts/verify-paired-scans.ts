@@ -794,6 +794,19 @@ async function main() {
         ),
       );
     }
+    const retainedIdentity = await readPairedScanBatch(
+      db,
+      actor,
+      artBatch.run.sessionId,
+    );
+    assert.equal(retainedIdentity.item!.problem, "");
+    assert.equal(retainedIdentity.item!.saved?.profile, "ART");
+    assert(
+      retainedIdentity.evidence.some((side) =>
+        side.choices.some((c) => c.cardId === art.id),
+      ),
+      "catalog identity remains visible after reverse originals expire",
+    );
     assert.equal(
       (
         await eligibleScannerOriginals(

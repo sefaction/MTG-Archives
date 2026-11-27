@@ -105,7 +105,7 @@ export async function readPairedScanBatch(
       : null;
     let sourceFingerprint: string | null = null,
       problem = "";
-    if (slot)
+    if (slot && !candidate?.receipt)
       try {
         sourceFingerprint = pairedSourceFingerprint(
           row.scanProfile,
@@ -240,6 +240,19 @@ export async function readPairedScanBatch(
       };
     }),
   );
+  if (!eligible.length && state.item?.saved) {
+    const saved = state.item.saved;
+    const ids =
+      saved.profile === "ART"
+        ? [saved.cardId]
+        : [saved.front.cardId, saved.back.cardId];
+    const choices = pairedCatalogChoices(
+      await db.card.findMany({ where: { id: { in: ids } } }),
+      state.profile,
+    );
+    for (const side of ["FRONT", "BACK"])
+      evidence.push({ side, status: "USER_CONFIRMED", choices });
+  }
   return { ...state, evidence };
 }
 export async function searchPairedCatalog(
