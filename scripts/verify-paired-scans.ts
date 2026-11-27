@@ -611,6 +611,98 @@ async function main() {
       }),
     );
     assert.equal(pendingCapacity.pendingSection, 1);
+    // Force both real Serializable transactions to see the source printing
+    // before either shared identity exists. Retries must preserve both reviews.
+    const concurrentBatches = [await batch("ART", ["FRONT", "BACK"])];
+    concurrentBatches.push(await batch("ART", ["FRONT", "BACK"]));
+    const concurrentInputs = await Promise.all(
+      concurrentBatches.map(async (b) => {
+        const state = await readPairedScanBatch(db, actor, b.run.sessionId);
+        return {
+          requestKey: randomUUID(),
+          slotId: state.item!.slotId,
+          revision: state.item!.revision,
+          sourceFingerprint: state.item!.sourceFingerprint,
+          decision: {
+            profile: "ART",
+            cardId: art.id,
+            artworkSide: "FRONT",
+            stamp: "GOLD_PLANESWALKER",
+          },
+          attributes,
+        };
+      }),
+    );
+    let atSource = 0,
+      release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const sharedCreation = new Proxy(db, {
+      get(target, property) {
+        if (property === "$transaction")
+          return (work: (tx: any) => Promise<unknown>, options: unknown) =>
+            Reflect.apply(target.$transaction, target, [
+              async (tx: any) =>
+                work(
+                  new Proxy(tx, {
+                    get(current, key) {
+                      if (key === "card")
+                        return new Proxy(current.card, {
+                          get(cards, operation) {
+                            if (operation === "findMany")
+                              return async (args: any) => {
+                                const rows = await cards.findMany(args);
+                                if (
+                                  args.where?.id?.in?.length === 1 &&
+                                  args.where.id.in[0] === art.id &&
+                                  atSource < 2
+                                ) {
+                                  if (++atSource === 2) release();
+                                  await gate;
+                                }
+                                return rows;
+                              };
+                            const value = Reflect.get(cards, operation);
+                            return typeof value === "function"
+                              ? value.bind(cards)
+                              : value;
+                          },
+                        });
+                      const value = Reflect.get(current, key);
+                      return typeof value === "function"
+                        ? value.bind(current)
+                        : value;
+                    },
+                  }),
+                ),
+              options,
+            ]);
+        const value = Reflect.get(target, property);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+    const concurrentResults = await Promise.all(
+      concurrentBatches.map((b, i) =>
+        confirmPairedScan(
+          sharedCreation,
+          actor,
+          b.run.sessionId,
+          concurrentInputs[i],
+        ),
+      ),
+    );
+    assert.equal(atSource, 2);
+    assert.equal(concurrentResults[0].cardId, concurrentResults[1].cardId);
+    assert.equal(
+      await db.card.count({
+        where: {
+          applicationIdentityKind: "ART_GOLD_PLANESWALKER",
+          applicationFaces: { some: { sourceCardId: art.id } },
+        },
+      }),
+      1,
+    );
     const cleanStatus = (
       await db.scannerRun.findUniqueOrThrow({ where: { id: first.run.runId } })
     ).status;
