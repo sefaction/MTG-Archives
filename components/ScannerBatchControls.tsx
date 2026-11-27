@@ -8,12 +8,13 @@ import { filterButtonClass as button, filterInputClass as input, filterPanelClas
 import { scannerPreflightMessage, scannerUploadMessage } from "@/lib/scanner-preflight-message";
 import { ScannerDiscoveryNotice } from "./ScannerDiscoveryNotice";
 import { COUNTED_SCANNER_DEVICE, isCountedScannerDevice, countedScannerSettings,
-  isNativeScannerVersion, supportsCountedResolution } from "@/lib/scanner-counted-profile";
+  isNativeScannerVersion, supportsCountedResolution, supportsPairedScanner } from "@/lib/scanner-counted-profile";
+import {type ScanProfile, scanProfileLabels} from "@/lib/paired-scan-profile";
 type Agent = Awaited<ReturnType<typeof listScannerAgents>>[number];
 type Run = Awaited<ReturnType<typeof getScannerBatch>>;
 export type ScannerChoice = { agentId: string; deviceId: string; loadedCount: null;
-  operatorLoadedSimplexFronts: true; settings: { dpi: 300 | 600; widthInches: number; heightInches: number;
-    horizontalPlacement: "Start" | "Center" | "End"; duplex: false; color: "RGB"; autoCrop: false; deskew: false; removeBlank: false } };
+  scanProfile?: ScanProfile; operatorLoadedSimplexFronts?: true; operatorLoadedBothSides?: true; settings: { dpi: 300 | 600; widthInches: number; heightInches: number;
+    horizontalPlacement: "Start" | "Center" | "End"; duplex: boolean; color: "RGB"; autoCrop: false; deskew: false; removeBlank: false } };
 async function call<T>(path: string, body?: object, signal?: AbortSignal): Promise<T> {
   const response = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : { cache: "no-store", signal });
   const value = await response.json();
@@ -23,6 +24,8 @@ async function call<T>(path: string, body?: object, signal?: AbortSignal): Promi
 export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, remaining, disabled }: { initialEnabled: boolean; initialChoice?: ScannerChoice; onChange: (value: ScannerChoice | null, enabled: boolean, detecting?: boolean) => void; remaining: number | null; disabled: boolean }) {
   const [agents, setAgents] = useState<Agent[]>([]), [selected, setSelected] = useState(initialChoice ? `${initialChoice.agentId}/${initialChoice.deviceId}` : "");
   const [enabled, setEnabled] = useState(initialEnabled);
+  const [profile,setProfile]=useState<ScanProfile>(initialChoice?.scanProfile ?? "STANDARD");
+  const paired=profile!=="STANDARD";
   const initialCounted = initialChoice?.deviceId === COUNTED_SCANNER_DEVICE;
   const [dpi, setDpi] = useState<300 | 600>(initialCounted ? 600 : initialChoice?.settings.dpi ?? 600);
   const [countedDpi, setCountedDpi] = useState<300 | 600>(initialCounted ? initialChoice.settings.dpi : 600);
@@ -40,10 +43,11 @@ export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, r
   const sources = agents.filter(a=>a.online && isNativeScannerVersion(a.agentVersion)).flatMap(a=>a.devices
     .filter(d=>d.qualification!=="Unsupported").map(d=>({ key: `${a.id}/${d.id}`, agentId: a.id, device: d,
       detecting: a.discoveryIssues?.some(issue=>issue.code==="DISCOVERY_IN_PROGRESS") ?? false,
+      supportsPaired: supportsPairedScanner(a.agentVersion),
       supports300Dpi: supportsCountedResolution(a.agentVersion, 300) })));
   const source = sources.find(s=>s.key === selected);
   const counted = !!source && isCountedScannerDevice(source.device);
-  const countedResolutionReady = !counted || countedDpi === 600 || source.supports300Dpi;
+  const countedResolutionReady = (!counted || countedDpi === 600 || source.supports300Dpi) && (!paired || counted && source.supportsPaired);
   const detecting = agents.some(agent=>agent.online &&
     (!selected || selected.startsWith(`${agent.id}/`)) &&
     agent.discoveryIssues?.some(issue=>issue.code==="DISCOVERY_IN_PROGRESS")) &&
@@ -60,17 +64,19 @@ export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, r
   }, [agents, selected, sources]);
   useEffect(() => {
     onChange(enabled && source && !source.detecting && countedResolutionReady ? { agentId: source.agentId, deviceId: source.device.id, loadedCount: null,
-        operatorLoadedSimplexFronts: true, settings: counted ? { ...countedScannerSettings, dpi: countedDpi } : { dpi, widthInches: frame?.widthInches ?? 2.6, heightInches: frame?.heightInches ?? 3.6, horizontalPlacement: placement,
+        ...(paired ? {scanProfile:profile,operatorLoadedBothSides:true as const} : {operatorLoadedSimplexFronts:true as const}), settings: counted ? { ...countedScannerSettings, dpi: countedDpi, duplex:paired } : { dpi, widthInches: frame?.widthInches ?? 2.6, heightInches: frame?.heightInches ?? 3.6, horizontalPlacement: placement,
           duplex: false, color: "RGB", autoCrop: false, deskew: false, removeBlank: false } } : null, enabled, enabled && detecting);
   // sources are refreshed by explicit user action; dependencies are the underlying inputs.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agents, selected, enabled, dpi, placement, remaining, onChange, frame, detecting, counted, countedDpi, countedResolutionReady]);
+  }, [agents, selected, enabled, dpi, placement, remaining, onChange, frame, detecting, counted, countedDpi, countedResolutionReady, paired, profile]);
   return <fieldset id="scanner-source" className="space-y-3 min-w-0 my-3" disabled={disabled}>
     <legend className="font-semibold">3. Card input</legend>
     <label className="flex gap-2 items-start"><input type="checkbox" checked={enabled}
       onChange={e=>{ setEnabled(e.target.checked); if(e.target.checked) void refresh(); else onChange(null,false); }} />Scan from a connected scanner</label>
     {enabled && <>
-      <p className="text-sm">{counted ? "This fi-7160 source requests the selected count before feeding. Clean runs use saved front images for the assumed card count; watch for feeding problems." : "Choose the scanner once. The Start scanner batch button scans everything in the feeder."}</p>
+      <label className="block">Scan profile<select className={input+" block mt-1"} value={profile} onChange={e=>setProfile(e.target.value as ScanProfile)}>{Object.entries(scanProfileLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+      {paired && <p className="text-sm">Automatic duplex: both sides in one pass, one physical copy. Requires fi-7160 helper 0.5.0. Blank removal stays off. Review both sides together before adding to Inventory.</p>}
+      <p className="text-sm">{counted ? "This fi-7160 source requests the selected count before feeding. Clean ordinary runs use saved front images for the assumed card count; watch for feeding problems." : "Choose the scanner once. The Start scanner batch button scans everything in the feeder."}</p>
       <div className="flex flex-wrap gap-2 items-center"><label className="min-w-0 flex-1">Scanner source
         <select className={input+" block w-full max-w-full mt-1"} value={selected} onChange={e=>{setSelected(e.target.value);try {localStorage.setItem("mtg-scanner-source",e.target.value);} catch { /* Optional preference. */ }}}>
           <option value="">Choose a source</option>{selected && !sources.some(s=>s.key === selected) && <option value={selected} disabled>Previous scanner source (offline)</option>}{sources.map(s=><option key={s.key} value={s.key}>{s.device.name} · {s.device.source}</option>)}
@@ -98,7 +104,7 @@ export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, r
         <p className="text-sm mt-2">Match the position of the cards in the feeder. Use Center when the guides hold cards in the middle.</p>
         <p className="text-sm mt-2">Simplex color, fixed {frame?.widthInches ?? 2.6} × {frame?.heightInches ?? 3.6} inch frame; crop, deskew and blank removal off.</p>
       </details>
-      <p className="text-sm">{counted ? `${countedDpi} DPI card fronts with the Cards profile and Pre-Pick Off. Clean runs count saved fronts automatically. If the hopper empties early, refill and resume the same batch. Clear the transport before Start. Stop waits for the current scan.` : "Load card fronts and clear the transport. Start scans everything in the feeder; it does not stop at a chosen count. Keep the loaded cards within the destination's remaining capacity. Stop requests drain the feeder."}</p>
+      <p className="text-sm">{paired ? "Load the token or art cards once, check both sides are available, and clear the transport before Start. Counts refer to physical items, not images. Each batch is started explicitly." : counted ? `${countedDpi} DPI card fronts with the Cards profile and Pre-Pick Off. Clean runs count saved fronts automatically. If the hopper empties early, refill and resume the same batch. Clear the transport before Start. Stop waits for the current scan.` : "Load card fronts and clear the transport. Start scans everything in the feeder; it does not stop at a chosen count. Keep the loaded cards within the destination's remaining capacity. Stop requests drain the feeder."}</p>
       {error && <p role="alert">{error}</p>}
     </>}
   </fieldset>;

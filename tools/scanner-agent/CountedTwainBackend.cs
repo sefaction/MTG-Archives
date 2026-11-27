@@ -96,9 +96,9 @@ public sealed class CountedTwainBackend : IScannerBackend
         started = true; spool = output;
         output.Event("AcquisitionStarted", new { requested = prepared, route = BackendId,
             actualConfiguration = fixtureScenario != null ? "Fixture channel; no TWAIN session constructed" :
-                $"PaperStream 3.40.2.1815 / legacy x86 DSM / verified simplex native RGB24 {prepared.Dpi} DPI / current 2.7x3.6 frame / AUTOSCAN=false / blank-page discard disabled",
+                $"PaperStream 3.40.2.1815 / legacy x86 DSM / verified {(prepared.Duplex ? "duplex" : "simplex")} native RGB24 {prepared.Dpi} DPI / current 2.7x3.6 frame / AUTOSCAN=false / blank-page discard disabled",
             physicalCount = "UNKNOWN; operator observation required" });
-        var retained = 0; var error = false;
+        var retained = 0; var error = false; var pairing = new PairedSheetPolicy();
         try
         {
             await Write(new { action = "start", directory = output.DirectoryPath });
@@ -118,6 +118,7 @@ public sealed class CountedTwainBackend : IScannerBackend
                         if (message.TryGetProperty("side",out var sideJson)) side=sideJson.GetString() ?? "UNKNOWN";
                         if (sheet is not {Version:1,DocumentNumber:>=0,PaperCount:>0} || side is not ("FRONT" or "BACK")) {sheet=null;side="UNKNOWN";error=true;}
                     }
+                    if (sheet != null && !pairing.Receive(sheet.DocumentNumber,sheet.PaperCount,side)) error=true;
                     output.PublishImage(Path.Combine(output.DirectoryPath, $"{id}.pending.png"), id, sequence,
                         message.GetProperty("width").GetInt32(), message.GetProperty("height").GetInt32(),side,sheet);
                     retained++;
@@ -139,7 +140,7 @@ public sealed class CountedTwainBackend : IScannerBackend
                     if (worker.ExitCode != 0 || !CleanClosure(message)) error = true;
                     if (message.GetProperty("imageCount").GetInt32() != retained) error = true;
                     var outcome = message.GetProperty("outcome").GetString();
-                    if (outcome == "ERROR") error = true;
+                    if (outcome == "ERROR" || prepared!.Duplex && !pairing.Complete) error = true;
                     if (error) output.Event("ScannerError", new { type = "CountedTwainReconciliationRequired", nativeStatus = 0 });
                     output.Event("AcquisitionCompleted", new { outcome = error ? "ERROR" : stopped ? "DRAINED_AFTER_UNSUPPORTED_STOP" : outcome,
                         imageCount = retained, elapsedMs = message.GetProperty("elapsedMs").GetInt64(), knownPhysicalItems = (int?)null,

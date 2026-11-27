@@ -13,7 +13,7 @@ import {
 import { isPairedProfile } from "./paired-scan-profile";
 import { requireVisibleAcquisitionBatch } from "./acquisition-batch-policy";
 import { searchLocalCardCatalog } from "./local-card-search";
-import { searchCardPrintsResult } from "./scryfall";
+import { searchPairedCardsResult } from "./scryfall";
 import { upsertScryfallCard } from "./card-import";
 import type { Card } from "@prisma/client";
 const sourceAllowed = (
@@ -52,6 +52,14 @@ export function pairedCatalogChoices(cards: Card[], profile: string) {
               setCode: c.setCode,
               collectorNumber: c.collectorNumber,
               imageUri: face?.image_uris?.normal ?? c.imageUri,
+              backImageUri:
+                profile === "ART"
+                  ? ((
+                      faces[1] as
+                        | { image_uris?: { normal?: string } }
+                        | undefined
+                    )?.image_uris?.normal ?? null)
+                  : null,
               language: c.lang,
             },
           ];
@@ -71,12 +79,18 @@ export async function readPairedScanBatch(
     requireVisibleAcquisitionBatch(row);
     if (!isPairedProfile(row.scanProfile))
       throw Error("Use the ordinary scan review for this batch.");
-    const total = await tx.acquisitionCaptureSlot.count({
+    const candidates = await tx.acquisitionCandidate.findMany({
       where: { runId: row.run!.id },
+      include: { receipt: true },
     });
+    const retired = candidates
+      .filter((c) => c.excluded)
+      .map((c) => c.physicalId);
+    const slotWhere = { runId: row.run!.id, id: { notIn: retired } };
+    const total = await tx.acquisitionCaptureSlot.count({ where: slotWhere });
     const at = Math.min(page, Math.max(0, total - 1));
     const slot = await tx.acquisitionCaptureSlot.findFirst({
-      where: { runId: row.run!.id },
+      where: slotWhere,
       orderBy: { position: "asc" },
       skip: at,
       include: { photos: true },
@@ -116,6 +130,7 @@ export async function readPairedScanBatch(
           side: p.side,
           ready: p.ready && !p.purgedAt,
           digest: p.digest,
+          purged: !!p.purgedAt,
           generation: p.generation,
         })) ?? [];
     const confirmed = await tx.acquisitionCandidate.count({
@@ -124,10 +139,38 @@ export async function readPairedScanBatch(
         review: { not: Prisma.DbNull },
         receipt: null,
         ignored: false,
+        excluded: false,
       },
     });
     const committed = await tx.acquisitionCommitMember.count({
       where: { runId: row.run!.id },
+    });
+    const scanner = await tx.scannerRun.findFirst({
+      where: { acquisitionRunId: row.run!.id },
+      orderBy: { segment: "desc" },
+      select: { id: true, status: true, reconciliation: true, outcome: true },
+    });
+    const repair = await tx.acquisitionCaptureSlot.findMany({
+      where: slotWhere,
+      include: { photos: true },
+      orderBy: { position: "asc" },
+    });
+    const repairSources = repair.flatMap((s) => {
+      const c = candidates.find((c) => c.physicalId === s.id);
+      return !c || c.receipt || c.ignored
+        ? []
+        : s.photos
+            .filter(
+              (p) => p.generation === s.generation && p.ready && !p.purgedAt,
+            )
+            .map((p) => ({
+              photoId: p.id,
+              slotId: s.id,
+              position: s.position,
+              side: p.side,
+              digest: p.digest,
+              revision: c.revision,
+            }));
     });
     return {
       id: row.id,
@@ -141,6 +184,11 @@ export async function readPairedScanBatch(
       confirmed,
       committed,
       defaults: row.reviewDefaults,
+      scanner,
+      repairSources,
+      unresolvedImages: repairSources.filter(
+        (p) => repairSources.filter((q) => q.slotId === p.slotId).length !== 2,
+      ).length,
       item: slot
         ? {
             slotId: slot.id,
@@ -152,6 +200,7 @@ export async function readPairedScanBatch(
             saved: saved.success ? saved.data : null,
             review: candidate?.review ?? null,
             committed: !!candidate?.receipt,
+            ignored: !!candidate?.ignored,
           }
         : null,
     };
@@ -165,7 +214,18 @@ export async function readPairedScanBatch(
         batchId,
         photo.id,
       );
-      const ids = review.suggestions.map((s) => s.printing.id);
+      const savedIds =
+        state.item?.saved?.profile === "TOKEN"
+          ? [state.item.saved.front.cardId, state.item.saved.back.cardId]
+          : state.item?.saved?.profile === "ART"
+            ? [state.item.saved.cardId]
+            : [];
+      const ids = [
+        ...new Set([
+          ...review.suggestions.map((s) => s.printing.id),
+          ...savedIds,
+        ]),
+      ];
       const cards = ids.length
         ? await db.card.findMany({ where: { id: { in: ids } } })
         : [];
@@ -204,7 +264,7 @@ export async function searchPairedCatalog(
     layouts,
   });
   if (!cards.length) {
-    const external = await searchCardPrintsResult(
+    const external = await searchPairedCardsResult(
       "(" +
         query +
         ") (" +

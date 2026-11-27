@@ -548,6 +548,7 @@ export async function searchAcquisitionPrintingsPageResult(
   page: number,
   language: string,
   signal?: AbortSignal,
+  scanProfile?: "TOKEN" | "ART",
 ) {
   if (
     !name.trim() ||
@@ -562,7 +563,7 @@ export async function searchAcquisitionPrintingsPageResult(
     throw new Error("Invalid bounded acquisition printing lookup");
   const escaped = name.trim().replace(/\\/g, "\\\\").replace(/"/g, '\\"');
   const params = new URLSearchParams({
-    q: `!"${escaped}" game:paper lang:${language}`,
+    q: `!"${escaped}" game:paper lang:${language}${scanProfile ? " " + pairedCatalogLayoutQuery(scanProfile) : ""}`,
     unique: "prints",
     order: "set",
     include_extras: "true",
@@ -581,7 +582,12 @@ export async function searchAcquisitionPrintingsPageResult(
 export async function getAcquisitionCardResult(
   query:
     | { kind: "printing"; set: string; number: string; language: string }
-    | { kind: "name"; name: string; fuzzy?: boolean }
+    | {
+        kind: "name";
+        name: string;
+        fuzzy?: boolean;
+        scanProfile?: "TOKEN" | "ART";
+      }
     | { kind: "id"; id: string },
   signal?: AbortSignal,
 ) {
@@ -601,6 +607,20 @@ export async function getAcquisitionCardResult(
   } else {
     if (query.name.trim().length < 3 || query.name.length > 200)
       throw new Error("Invalid name lookup");
+    if (query.scanProfile) {
+      const escaped = query.name
+        .trim()
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"');
+      const result = await searchPairedCardsResult(
+        `${query.fuzzy ? "name:" : "!"}"${escaped}" ${pairedCatalogLayoutQuery(query.scanProfile)} game:paper`,
+        signal,
+      );
+      if (!result.ok) return result;
+      if (!result.data.data.length)
+        throw new Error("Empty paired catalog search response");
+      return { ...result, data: result.data.data[0] };
+    }
     path = `cards/named?${new URLSearchParams({ [query.fuzzy ? "fuzzy" : "exact"]: query.name.trim() })}`;
   }
   return requestJson<ScryfallCard>(path, { signal }, "acquisition_card_lookup");
@@ -628,6 +648,30 @@ export function buildCardPrintingSearchQuery(query: string) {
   return hasScryfallSearchSyntax(trimmed)
     ? trimmed
     : buildCardNameSearchQuery(trimmed);
+}
+
+export function pairedCatalogLayoutQuery(profile: "TOKEN" | "ART") {
+  return profile === "ART"
+    ? "layout:art_series"
+    : "(layout:token or layout:double_faced_token)";
+}
+export async function searchPairedCardsResult(
+  query: string,
+  signal?: AbortSignal,
+) {
+  if (!query.trim() || query.length > 1000)
+    throw new Error("Invalid paired catalog search");
+  const params = new URLSearchParams({
+    q: query,
+    unique: "prints",
+    include_extras: "true",
+    order: "set",
+  });
+  return requestJson<{ object: "list"; data: ScryfallCard[] }>(
+    `cards/search?${params}`,
+    { signal },
+    "paired_card_search",
+  );
 }
 
 export async function searchCardPrintsResult(query: string) {
@@ -699,10 +743,29 @@ export function __resetScryfallClientForTests() {
 export function getCollectorSetsResult(signal?: AbortSignal) {
   return requestJson<unknown>("sets", { signal }, "collector_sets");
 }
-export function getCollectorSetPageResult(set: string, page: number, signal?: AbortSignal) {
-  if (!/^[a-z0-9]{2,8}$/.test(set) || !Number.isInteger(page) || page < 1 || page > 100)
+export function getCollectorSetPageResult(
+  set: string,
+  page: number,
+  signal?: AbortSignal,
+) {
+  if (
+    !/^[a-z0-9]{2,8}$/.test(set) ||
+    !Number.isInteger(page) ||
+    page < 1 ||
+    page > 100
+  )
     throw new Error("Invalid collector catalog request");
-  const params = new URLSearchParams({q: `set:${set} game:paper lang:en`, unique: "prints",
-    order: "set", include_extras: "true", include_variations: "true", page: String(page)});
-  return requestJson<unknown>(`cards/search?${params}`, {signal}, "collector_set_page");
+  const params = new URLSearchParams({
+    q: `set:${set} game:paper lang:en`,
+    unique: "prints",
+    order: "set",
+    include_extras: "true",
+    include_variations: "true",
+    page: String(page),
+  });
+  return requestJson<unknown>(
+    `cards/search?${params}`,
+    { signal },
+    "collector_set_page",
+  );
 }

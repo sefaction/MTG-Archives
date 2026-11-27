@@ -12,6 +12,14 @@ export async function finishPairedScannerRun(
   outcome: z.infer<typeof scannerRunOutcomeSchema>,
   actorId: string,
 ) {
+  if (run.outcome)
+    return {
+      version: 1,
+      runId: run.id,
+      status: run.status,
+      physicalCount: "RECORDED",
+      replay: true,
+    };
   const sequences = photos
     .map((p) => (p.sourceMetadata as { sequence?: number } | null)?.sequence)
     .sort((a, b) => (a ?? 0) - (b ?? 0));

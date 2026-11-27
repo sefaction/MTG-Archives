@@ -150,7 +150,7 @@ export async function createScannerBatch(db: PrismaClient, actor: AcquisitionAct
     const run = await tx.scannerRun.create({ data: { id: input.requestKey, agentId: helper.id,
       acquisitionRunId: row.run!.id, epoch, requestPayload: scannerCanonical(input), deviceId: device.id,
       device: admittedDevice, settings: input.settings, loadedCount: input.loadedCount, counted,
-      physicalTarget: counted ? scannerFeedTarget(row.target) : row.target, seriesRootId, seriesOrdinal }, include });
+      physicalTarget: counted ? Math.min(paired ? 2500 : 5000,scannerFeedTarget(row.target)) : row.target, seriesRootId, seriesOrdinal }, include });
     return command(run);
   });
 }
@@ -249,25 +249,34 @@ export async function receiveScannerImage(db: PrismaClient, authorization: strin
     const state = hydrateAcquisitionRow(row);
     const paired = isPairedProfile(row.scanProfile);
     if (!paired && !!(input.sheet || input.physicalBoundary !== "UNKNOWN" || input.side !== "UNKNOWN")) throw new ScannerRunConflict("The scanner transfer does not match this batch's physical-side profile.");
-    const evidence = paired && input.sheet ? pairedEvidenceSchema.parse({kind:"SCANNER_SHEET",runId:input.runId,executionId:input.executionId,...input.sheet}) : null;
-    const quarantine = paired && !evidence ? unpairedEvidenceSchema.parse({version:1,kind:"UNPAIRED_IMAGE",runId:input.runId,executionId:input.executionId,artifactId:input.artifactId}) : null;
-    const requestKey = evidence ? pairedSheetKey(evidence) : quarantine ? "unpaired-image:"+input.artifactId : input.artifactId;
-    const old = await tx.acquisitionCaptureSlot.findUnique({where:{runId_requestKey:{runId:row.run!.id,requestKey}}});
+    let evidence = paired && input.sheet ? pairedEvidenceSchema.parse({kind:"SCANNER_SHEET",runId:input.runId,executionId:input.executionId,...input.sheet}) : null;
+    let quarantine = paired && !evidence ? unpairedEvidenceSchema.parse({version:1,kind:"UNPAIRED_IMAGE",runId:input.runId,executionId:input.executionId,artifactId:input.artifactId}) : null;
+    let requestKey = evidence ? pairedSheetKey(evidence) : quarantine ? "unpaired-image:"+input.artifactId : input.artifactId;
+    let old = await tx.acquisitionCaptureSlot.findUnique({where:{runId_requestKey:{runId:row.run!.id,requestKey}}});
+    if(paired && old && evidence){
+      const occupied=await tx.acquisitionPhoto.findUnique({where:{slotId_generation_side:{slotId:old.id,generation:old.generation,side:input.side}}});
+      if(occupied&&occupied.uploadKey!==input.artifactId){
+        evidence=null;quarantine=unpairedEvidenceSchema.parse({version:1,kind:"UNPAIRED_IMAGE",runId:input.runId,executionId:input.executionId,artifactId:input.artifactId});
+        requestKey="unpaired-image:"+input.artifactId;old=await tx.acquisitionCaptureSlot.findUnique({where:{runId_requestKey:{runId:row.run!.id,requestKey}}});
+      }
+    }
     if (old && !paired && old.position !== run.sequenceOffset + input.sequence - 1) throw new ScannerRunConflict("Photo scanner sequence identity conflict");
     if (!old && (run.outcome || !state.destinationCurrent || !(["CAPTURING", "STOPPING"].includes(row.phase) || row.phase === "CANCELLED" && row.cancelledAt) || run.status === "DRAINED")) throw denied();
     const position = paired ? await tx.acquisitionCaptureSlot.count({where:{runId:row.run!.id}}) : run.sequenceOffset + input.sequence - 1;
-    const slot = old ?? await tx.acquisitionCaptureSlot.create({data:{runId:row.run!.id,requestKey,position,
+    const replayPhoto = paired ? await tx.acquisitionPhoto.findUnique({where:{runId_uploadKey:{runId:row.run!.id,uploadKey:input.artifactId}}}) : null;
+    const replaySlot = replayPhoto ? await tx.acquisitionCaptureSlot.findUniqueOrThrow({where:{id:replayPhoto.captureSlotId??replayPhoto.slotId}}) : null;
+    const slot = replaySlot ?? old ?? await tx.acquisitionCaptureSlot.create({data:{runId:row.run!.id,requestKey,position,
       ...(paired ? {generation:1,pairingEvidence:(evidence??quarantine)!} : {})}});
     if (!old) await tx.acquisitionSession.update({ where: { id: row.id }, data: { revision: { increment: 1 } } });
-    return { ...auth, slot, paired };
+    return { ...auth, slot, paired, quarantine:!!quarantine, captureGeneration:replayPhoto?.captureGeneration??slot.generation };
   });
-  const { run, actor, slot, paired } = assigned;
+  const { run, actor, slot, paired, quarantine, captureGeneration } = assigned;
   const sourceMetadata = { ...input, backend: (run.device as Prisma.JsonObject).backend, device: run.device,
     requestedSettings: run.settings, negotiatedSettings: "UNKNOWN",
     ...(run.helperIdentity ? { helperIdentity: run.helperIdentity } : {}) } as Prisma.InputJsonObject;
   const photo = await beginAcquisitionPhoto(db, actor, run.acquisitionRun.sessionId, {
-      slotId: slot.id, uploadKey: input.artifactId, generation: paired ? slot.generation : 0, metadata, inputKind: "CARD_SCAN", sourceMetadata,
-      ...(paired ? {side:input.side as "FRONT"|"BACK"|"UNKNOWN"} : {}),
+      slotId: slot.id, uploadKey: input.artifactId, generation: paired ? captureGeneration : 0, metadata, inputKind: "CARD_SCAN", sourceMetadata,
+      ...(paired ? {side:quarantine ? "UNKNOWN" as const : input.side as "FRONT"|"BACK"|"UNKNOWN"} : {}),
     });
   try {
     if (!photo.ready) {

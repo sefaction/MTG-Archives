@@ -45,7 +45,7 @@ export async function beginPairedPhoto(
       (prior.captureSlotId ?? prior.slotId) !== slot.id ||
       (prior.captureGeneration ?? prior.generation) !== input.generation ||
       ((prior.sourceMetadata as { side?: string } | null)?.side ??
-        prior.side) !== side ||
+        prior.side) !== (input.sourceMetadata?.side ?? side) ||
       prior.digest !== input.metadata.digest ||
       prior.bytes !== input.metadata.bytes ||
       scannerCanonical(prior.sourceMetadata) !==
@@ -86,8 +86,10 @@ export async function beginPairedPhoto(
     const metadata = input.sourceMetadata;
     if (
       side !== "UNKNOWN" ||
-      metadata?.side !== "UNKNOWN" ||
-      metadata?.physicalBoundary !== "UNKNOWN" ||
+      !["UNKNOWN", "FRONT", "BACK"].includes(String(metadata?.side)) ||
+      !["UNKNOWN", "SCANNER_SHEET"].includes(
+        String(metadata?.physicalBoundary),
+      ) ||
       metadata?.runId !== unpaired!.runId ||
       metadata?.executionId !== unpaired!.executionId ||
       metadata?.artifactId !== unpaired!.artifactId

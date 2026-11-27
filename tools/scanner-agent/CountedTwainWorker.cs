@@ -357,13 +357,16 @@ internal static class CountedTwainWorker
     {
         if (!new[] { "normal", "early-empty", "overtransfer", "restore-error", "late-exit-error", "closure-proof-missing", "prepare-close-error",
             "blank-discard-auto", "blank-proof-missing", "blank-proof-malformed", "old-profile", "wrong-driver", "wrong-source",
-            "wrong-frame", "wrong-resolution", "capture-proof-missing", "invariant-proof-missing", "invariant-proof-malformed" }.Contains(scenario)) return 2;
+            "wrong-frame", "wrong-resolution", "capture-proof-missing", "invariant-proof-missing", "invariant-proof-malformed",
+            "paired-normal","paired-reversed","paired-missing","paired-duplicate","paired-unknown","paired-gap" }.Contains(scenario)) return 2;
         var prepare = Read(); int target = Convert.ToInt32(prepare["target"]);
         if ((string)prepare["action"] != "prepare" || target < 1 || target > 3) return 2;
+        var paired = scenario.StartsWith("paired-");
         var proof = new Dictionary<string, object> { { "kind", "prepared" }, { "target", target }, { "dpi", ReadDpi(prepare) }, { "autoScan", false },
             { "blankDiscard", false }, { "profileVersion", ProfileVersion }, { "driver", ProfileDriver }, { "protocol", "2.4" },
             { "source", "PaperStream IP fi-7160" }, { "widthInches", 2.7 }, { "heightInches", 3.6 },
             { "captureReadbacksVerified", true }, { "observedInvariantVerified", true }, { "feederLoaded", false }, { "fixture", true } };
+        if(paired){proof["profileVersion"]=3;proof["duplex"]=true;proof["sheetMetadataVerified"]=true;proof["imageTarget"]=target*2;}
         if (scenario == "blank-proof-missing") proof.Remove("blankDiscard");
         if (scenario == "blank-proof-malformed") proof["blankDiscard"] = 0;
         if (scenario == "blank-discard-auto") proof["blankDiscard"] = true;
@@ -385,12 +388,15 @@ internal static class CountedTwainWorker
         }
         if ((string)start["action"] != "start") return 2;
         var directory = (string)start["directory"];
-        int count = scenario == "early-empty" ? 1 : scenario == "overtransfer" ? target + 1 : target;
+        int count = paired ? target*2-(scenario=="paired-missing"?1:0) : scenario == "early-empty" ? 1 : scenario == "overtransfer" ? target + 1 : target;
         for (int i = 1; i <= count; i++)
         {
             var id = Guid.NewGuid();
             using (var bitmap = new Bitmap(10, 14)) bitmap.Save(Path.Combine(directory, id + ".pending.png"), ImageFormat.Png);
-            Send(new { kind = "image", id, sequence = i, width = 10, height = 14 });
+            if(paired && scenario!="paired-unknown") Send(new {kind="image",id,sequence=i,width=10,height=14,
+                side=scenario=="paired-duplicate"?"FRONT":((i%2==1) != (scenario=="paired-reversed")?"FRONT":"BACK"),
+                sheet=new {version=1,documentNumber=0,paperCount=(i+1)/2+(scenario=="paired-gap"&&i>2?1:0)}});
+            else Send(new { kind = "image", id, sequence = i, width = 10, height = 14 });
         }
         if (scenario == "restore-error") Send(new { kind = "problem", code = "RESTORE_ERROR" });
         var completion = new Dictionary<string, object> { { "kind", "completed" }, { "imageCount", count },

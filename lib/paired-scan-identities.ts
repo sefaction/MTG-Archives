@@ -64,7 +64,7 @@ export async function resolvePairedCardIdentity(
         decision.profile === "TOKEN"
           ? identity.faces.map((f) => f.snapshot.type_line).join(" // ")
           : "Art Card",
-      setCode: primary.setCode,
+      setCode: [...new Set(identity.faces.map(f=>f.setCode))].join(" // "),
       collectorNumber:
         decision.profile === "TOKEN"
           ? identity.faces.map((f) => f.collectorNumber).join(" // ")

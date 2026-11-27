@@ -7,6 +7,7 @@ import {
   artCardIdentity,
   pairedSourceFingerprint,
   pairedSheetKey,
+  pairedMetadataHash,
 } from "../lib/paired-scan-policy";
 const card = (name: string) => ({
   id: randomUUID(),
@@ -18,6 +19,54 @@ const card = (name: string) => ({
   collectorNumber: "1",
   cardFaces: null,
   imageUri: null,
+});
+
+test("operator pairing binds immutable capture provenance and exact source bytes", () => {
+  const photos = ["FRONT", "BACK"].map((side) => ({
+    id: randomUUID(),
+    side,
+    generation: 1,
+    digest: "b".repeat(64),
+    ready: true,
+    purgedAt: null,
+    sourceMetadata: { side: "UNKNOWN", artifactId: randomUUID() },
+    captureSlotId: randomUUID(),
+    captureGeneration: 1,
+  }));
+  const evidence = {
+    version: 1,
+    kind: "OPERATOR_PAIR",
+    operatorUserId: "owner",
+    requestKey: randomUUID(),
+    reason: "Checked physical item",
+    confirmedAt: new Date().toISOString(),
+    sources: photos.map((p) => ({
+      photoId: p.id,
+      digest: p.digest,
+      side: p.side,
+      captureSlotId: p.captureSlotId,
+      captureGeneration: p.captureGeneration,
+      metadataHash: pairedMetadataHash(p.sourceMetadata),
+    })),
+  };
+  const original = pairedSourceFingerprint("TOKEN", 1, evidence, photos);
+  assert.equal(
+    pairedSourceFingerprint("TOKEN", 1, evidence, [...photos].reverse()),
+    original,
+  );
+  for (const override of [
+    { digest: "c".repeat(64) },
+    { captureSlotId: randomUUID() },
+    { captureGeneration: 2 },
+    { sourceMetadata: { side: "BACK" } },
+    { purgedAt: new Date() },
+  ])
+    assert.throws(() =>
+      pairedSourceFingerprint("TOKEN", 1, evidence, [
+        { ...photos[0], ...override },
+        photos[1],
+      ]),
+    );
 });
 test("token identity is a multiset of exact face printings, independent of feed direction and names", () => {
   const a = tokenFace(card("Treasure"), 0),

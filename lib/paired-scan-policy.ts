@@ -169,6 +169,8 @@ export function artCardIdentity(card: SourceFaceCard, stamp: unknown) {
   };
 }
 export type PairSourcePhoto = {
+  captureSlotId?: string | null;
+  captureGeneration?: number | null;
   id: string;
   side: string;
   generation: number;
@@ -206,6 +208,8 @@ export function pairedSourceFingerprint(
         photo.purgedAt ||
         !source ||
         source.digest !== photo.digest ||
+        source.captureSlotId !== photo.captureSlotId ||
+        source.captureGeneration !== photo.captureGeneration ||
         source.metadataHash !== pairedMetadataHash(photo.sourceMetadata)
       )
         throw Error(

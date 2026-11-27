@@ -56,6 +56,17 @@ export async function confirmPairedScan(
         throw Error("Paired confirmation identity conflict.");
       return { replay: true };
     }
+    const scanner = await tx.scannerRun.findFirst({
+      where: { acquisitionRunId: row.run!.id },
+      orderBy: { segment: "desc" },
+    });
+    if (
+      !scanner?.reconciliation ||
+      ["QUEUED", "STARTED"].includes(scanner.status)
+    )
+      throw Error(
+        "Capture must finish and its transport be reconciled before confirming pairs.",
+      );
     const candidate = row.run!.candidates.find(
       (c) => c.physicalId === input.slotId,
     );

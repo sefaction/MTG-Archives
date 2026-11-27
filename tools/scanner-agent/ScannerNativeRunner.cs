@@ -118,7 +118,7 @@ public static class ScannerNativeRunner
             s.Dpi is not (300 or 600) || s.WidthInches is < 2.5m or > 4 ||
             s.HeightInches is < 3.5m or > 6 || s.HorizontalPlacement is not ("Start" or "Center" or "End") ||
             (s.Duplex != (run.ScanProfile is "TOKEN" or "ART")) ||
-            (run.ScanProfile is not ("STANDARD" or "TOKEN" or "ART")) || s.Duplex && !run.Counted || s.Color != "RGB" || s.AutoCrop || s.Deskew || s.RemoveBlank)
+            (run.ScanProfile is not ("STANDARD" or "TOKEN" or "ART")) || s.Duplex && (!run.Counted || run.PhysicalTarget > 2500) || s.Color != "RGB" || s.AutoCrop || s.Deskew || s.RemoveBlank)
             throw new InvalidOperationException("Unsupported scanner instruction; no feed started");
     }
     private static bool SameInstruction(NativeInstruction a, NativeInstruction b) =>
@@ -152,6 +152,8 @@ public static class ScannerNativeRunner
         }
         if (run.Status != "QUEUED" || run.StopRequested || run.ExecutionId != null)
             throw new InvalidOperationException("Started scanner run has no local journal; manual reconciliation required");
+        if (run.ScanProfile != "STANDARD" && advertisedVersion != ScannerConnection.PairedVersion)
+            throw new InvalidOperationException("The connected site does not support paired duplex scanning");
         if (run.Counted && run.Settings.Dpi == 300 && advertisedVersion != ScannerConnection.CountedResolutionVersion && advertisedVersion != ScannerConnection.PairedVersion)
             throw new InvalidOperationException("The connected site does not support counted scanning at 300 DPI");
         var helperIdentity = poll.TryGetProperty("helperIdentityReporting", out var reporting) && reporting.ValueKind == JsonValueKind.True
@@ -235,7 +237,8 @@ public static class ScannerNativeRunner
                 ?? throw new InvalidDataException("Scanner artifact manifest unavailable");
             if (artifact.Id != id || artifact.FileName != $"{id}.png" || artifact.Sequence < 1 ||
                 artifact.Sequence > 5000 || artifact.Bytes <= 0 || artifact.Timestamp == null ||
-                artifact.Side != "UNKNOWN" || artifact.PhysicalBoundary != "UNKNOWN")
+                (artifact.Sheet == null ? artifact.Side != "UNKNOWN" || artifact.PhysicalBoundary != "UNKNOWN" :
+                 artifact.Sheet is not {Version:1,DocumentNumber:>=0,PaperCount:>0} || artifact.Side is not ("FRONT" or "BACK") || artifact.PhysicalBoundary != "SCANNER_SHEET"))
                 throw new InvalidDataException("Scanner manifest requires reconciliation");
             values.Add(artifact);
         }

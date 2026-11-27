@@ -75,7 +75,7 @@ export async function getAcquisitionBatchDashboard(db: PrismaClient, actor: Acqu
       FROM sessions s LEFT JOIN "AcquisitionCandidate" c ON c."runId"=s."runId" AND NOT c.excluded
       LEFT JOIN "AcquisitionCommitMember" receipt ON receipt."candidateId"=c.id
       LEFT JOIN "AcquisitionCaptureSlot" slot ON slot.id=c."physicalId" AND slot."runId"=c."runId"
-      LEFT JOIN "AcquisitionPhoto" photo ON photo."slotId"=slot.id AND photo.generation=slot.generation AND photo.ready
+      LEFT JOIN "AcquisitionPhoto" photo ON photo."slotId"=slot.id AND photo.generation=slot.generation AND photo.ready AND photo.side='FRONT'
       LEFT JOIN "AcquisitionArtifact" artifact ON artifact."runId"=c."runId" AND artifact."sourceId"=photo.id
       LEFT JOIN latest_checks checked ON checked."candidateId"=c.id AND checked."artifactId"=artifact.id
       LEFT JOIN failed_checks failed ON failed."candidateId"=c.id AND failed."artifactId"=artifact.id AND failed."candidateRevision"=c.revision
