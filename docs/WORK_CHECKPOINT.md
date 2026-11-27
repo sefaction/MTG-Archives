@@ -1,3 +1,9 @@
+## Current - Binder finish badge review - November27,2026
+
+Brian requested hiding Nonfoil in binder view and making special-finish badges larger over artwork, avoiding card text. Branch feature/binder-finish-badge from maina525eeb1 in .local-data/worktrees/binder-finish-badge-20261127. Shared InventoryBrowser binder hides ordinary NONFOIL, retains FOIL/ETCHED/mixed and legacy foil fallback, enlarges contrast/padding and positions the badge at18% image height/8% inset. No finish grouping/quantity/sort/selection authority or table changes. Existing Wishlist-specific finish presentation remains.
+
+Implementation/local review/one PR authorized, no merge or production authority. Meaningful visual/runtime checks and exact-head CI pending. No new issue required for this small human-requested change; duplicate search found no matching open badge request. Prior Token/Art draftPR1075 remains independently pending physical acceptance; its13525 review/data and root WIP protected. Planned own13535 review/new binder_finish_review DB on existing unchanged peer DB, resource admission still pending. Private .local-data/binder-finish-badge-20261127 will hold exact ownership/build/browser evidence. Next admit one bounded local build, inspect desktop/phone binder at different sizes and preserve card controls.
+
 ## Current work - Quick card handoffs - November 23, 2026
 
 Brian requests one card action for named outside recipients and permanent given/traded-away history, plus immediate gifting to Archive users' Unassigned locations. His explicit November23 answer chooses sender confirmation without recipient acceptance. Ordinary negotiated trade consent is unchanged. Branch codex/card-handoffs from main195ab07c; direct agreed implementation/local qualification/one PR, not merge or production. No issue created while shared intake coordination is unverified; ready connector1063 and another worker's recognition1064 stay independent.
