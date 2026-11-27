@@ -1,3 +1,4 @@
+import {isPairedProfile} from "../lib/paired-scan-profile";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { acquisitionPhotoLimits } from "../lib/acquisition-photo-limits";
@@ -25,7 +26,7 @@ test("actual photo admission and replay do not stop at retained-original allowan
   const begin = source.statements.find(n => ts.isFunctionDeclaration(n) && n.name?.text === "beginAcquisitionPhoto");
   const schema = source.statements.find(n => ts.isVariableStatement(n) && n.declarationList.declarations.some(d => d.name.getText(source) === "acquisitionPhotoMetadataSchema"));
   assert.ok(begin); assert.ok(schema);
-  const row = {id: "batch", ownerPlayerId: "owner", phase: "CAPTURING", run: {id: "run", providerId: "phone-photo-v1", candidates: []}};
+  const row = {id: "batch", ownerPlayerId: "owner", phase: "CAPTURING", scanProfile:"STANDARD", run: {id: "run", providerId: "phone-photo-v1", candidates: []}};
   const slot = {id: randomUUID(), runId: "run", generation: 0};
   let previous: any = null, inserts = 0;
   const tx = {acquisitionCaptureSlot: {findUnique: async () => slot, update: async () => {slot.generation++;}},
@@ -35,7 +36,7 @@ test("actual photo admission and replay do not stop at retained-original allowan
   const exports: any = {};
   new Script(ts.transpileModule(schema.getText(source) + "\n" + begin.getText(source), {
     compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022},
-  }).outputText).runInNewContext({exports, z, scannerCanonical, acquisitionImageInputKindSchema, SCANNER_CAPTURE_PROVIDER: "scanner",
+  }).outputText).runInNewContext({exports, z, isPairedProfile, scannerCanonical, acquisitionImageInputKindSchema, SCANNER_CAPTURE_PROVIDER: "scanner",
     lockedPhotoTransaction: (_db: unknown, _actor: unknown, _id: unknown, work: any) => work(tx),
     read: async () => row, destinationCurrent: () => true, selectCorrectionControl: async () => ({})});
   const input = {slotId: slot.id, uploadKey: randomUUID(), generation: 0,

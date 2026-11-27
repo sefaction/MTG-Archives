@@ -46,9 +46,13 @@ test("token review preserves drafts and retries the same lost-ACK confirmation b
   await page.goto(`/imports/scan?batch=${fixture.tokenBatch}`);
   await search(page, "Token face 1", "Goblin", fixture.goblin + ":0");
   await search(page, "Token face 2", "Treasure", fixture.treasure + ":0");
-  await page.getByLabel("Condition", { exact: true }).selectOption("LP");
+  await page
+    .getByRole("combobox", { name: "Condition", exact: true })
+    .selectOption("LP");
   await page.reload();
-  await expect(page.getByLabel("Condition", { exact: true })).toHaveValue("LP");
+  await expect(
+    page.getByRole("combobox", { name: "Condition", exact: true }),
+  ).toHaveValue("LP");
   const sizes = await page
     .getByRole("region", { name: "Review both sides", exact: true })
     .locator("img")
@@ -122,9 +126,11 @@ test("art review keeps stamp choices separate and remains usable on desktop and 
   await page.goto(`/imports/scan?batch=${fixture.artBatch}`);
   await search(page, "Art-series printing", "Island", fixture.art + ":0");
   await page
-    .getByLabel("Stamp", { exact: true })
+    .getByRole("combobox", { name: "Stamp", exact: true })
     .selectOption("GOLD_PLANESWALKER");
-  await page.getByLabel("Artwork is on", { exact: true }).selectOption("BACK");
+  await page
+    .getByRole("combobox", { name: "Artwork is on", exact: true })
+    .selectOption("BACK");
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 950 });
     expect(
@@ -141,9 +147,9 @@ test("art review keeps stamp choices separate and remains usable on desktop and 
     });
   }
   await page.reload();
-  await expect(page.getByLabel("Stamp", { exact: true })).toHaveValue(
-    "GOLD_PLANESWALKER",
-  );
+  await expect(
+    page.getByRole("combobox", { name: "Stamp", exact: true }),
+  ).toHaveValue("GOLD_PLANESWALKER");
   await page.getByRole("checkbox", { name: /I checked both images/ }).check();
   await page
     .getByRole("button", { name: "Confirm physical item", exact: true })
@@ -156,6 +162,12 @@ test("art review keeps stamp choices separate and remains usable on desktop and 
   ).json();
   expect(state.item.saved.stamp).toBe("GOLD_PLANESWALKER");
   expect(state.item.review.finish).toBe("NONFOIL");
+  await expect(
+    page.getByRole("combobox", { name: "Stamp", exact: true }),
+  ).toHaveValue("GOLD_PLANESWALKER");
+  await expect(
+    page.getByRole("combobox", { name: "Stamp", exact: true }),
+  ).toBeEnabled();
 });
 test("pair repair is explicit and never consumes a third image", async ({
   page,
@@ -182,10 +194,10 @@ test("pair repair is explicit and never consumes a third image", async ({
     state.repairSources.find((p: { photoId: string }) => p.photoId === id),
   );
   await page
-    .getByLabel("First source", { exact: true })
+    .getByRole("combobox", { name: "First source", exact: true })
     .selectOption(sources[0].photoId);
   await page
-    .getByLabel("Second source", { exact: true })
+    .getByRole("combobox", { name: "Second source", exact: true })
     .selectOption(sources[1].photoId);
   await page
     .getByLabel("Reason for repair", { exact: true })
@@ -214,9 +226,13 @@ test("profiles are visible at setup and private paired sources reject foreign us
   baseURL,
 }) => {
   await page.goto("/imports/scan?input=scanner");
-  await page.getByLabel("Scan profile", { exact: true }).selectOption("ART");
+  await page
+    .getByRole("combobox", { name: "Scan profile", exact: true })
+    .selectOption("ART");
   await expect(page.getByText(/Automatic duplex: both sides/)).toBeVisible();
-  await page.getByLabel("Scan profile", { exact: true }).selectOption("TOKEN");
+  await page
+    .getByRole("combobox", { name: "Scan profile", exact: true })
+    .selectOption("TOKEN");
   const source = await (
     await page.request.get(`/api/acquisition/${fixture.artBatch}/paired`)
   ).json();

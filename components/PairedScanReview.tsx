@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   readPairedScanBatch,
   pairedCatalogChoices,
@@ -177,9 +177,9 @@ export function PairedScanReview({
         localStorage.removeItem(clientDraftKey);
       localStorage.removeItem(pendingKey);
       setPending(null);
-      setClearNonce((n) => n + 1);
       scanDrafts();
       await refresh();
+      setClearNonce((n) => n + 1);
     } catch (e) {
       setError((e as Error).message);
       setRejected(
@@ -494,21 +494,24 @@ function PairItem({
   const item = state.item!;
   const savedReview = item.review as Partial<Draft> | null,
     defaults = state.defaults as Partial<Draft> | null;
-  const initial: Draft = {
-    fingerprint: item.sourceFingerprint,
-    revision: item.revision,
-    front: null,
-    back: null,
-    stamp: item.saved?.profile === "ART" ? item.saved.stamp : "UNSTAMPED",
-    artworkSide:
-      item.saved?.profile === "ART" ? item.saved.artworkSide : "FRONT",
-    language: savedReview?.language ?? defaults?.language ?? "en",
-    finish: savedReview?.finish ?? defaults?.finish ?? "NONFOIL",
-    condition: savedReview?.condition ?? defaults?.condition ?? "NM",
-    openerPlayerId:
-      savedReview?.openerPlayerId ?? defaults?.openerPlayerId ?? null,
-    photos: item.photos.map((p) => p.id),
-  };
+  const initial = useMemo<Draft>(
+    () => ({
+      fingerprint: item.sourceFingerprint,
+      revision: item.revision,
+      front: null,
+      back: null,
+      stamp: item.saved?.profile === "ART" ? item.saved.stamp : "UNSTAMPED",
+      artworkSide:
+        item.saved?.profile === "ART" ? item.saved.artworkSide : "FRONT",
+      language: savedReview?.language ?? defaults?.language ?? "en",
+      finish: savedReview?.finish ?? defaults?.finish ?? "NONFOIL",
+      condition: savedReview?.condition ?? defaults?.condition ?? "NM",
+      openerPlayerId:
+        savedReview?.openerPlayerId ?? defaults?.openerPlayerId ?? null,
+      photos: item.photos.map((p) => p.id),
+    }),
+    [item, defaults, savedReview],
+  );
   const [draft, setDraft] = useState(initial),
     [ready, setReady] = useState(false),
     [stored, setStored] = useState(false),
@@ -531,6 +534,20 @@ function PairItem({
     }, 0);
     return () => clearTimeout(timer);
   }, [draftKey]);
+  useEffect(() => {
+    if (
+      !ready ||
+      stored ||
+      (draft.revision === initial.revision &&
+        draft.fingerprint === initial.fingerprint)
+    )
+      return;
+    const timer = setTimeout(() => {
+      setDraft(initial);
+      setChecked(false);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [ready, stored, draft.revision, draft.fingerprint, initial]);
   const stale =
     draft.fingerprint !== item.sourceFingerprint ||
     draft.revision !== item.revision;

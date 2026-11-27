@@ -64,7 +64,7 @@ async function main() {
   const db = new PrismaClient();
   const tag = seed
       ? browserSeed
-        ? "paired-browser"
+        ? "paired-browser-" + randomUUID()
         : "paired-review"
       : "paired-" + randomUUID(),
     actor = { userId: tag, adminMode: false },

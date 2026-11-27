@@ -27,7 +27,7 @@ async function reconcile(options: { explicitFrench?: boolean; frenchUnavailable?
       proposals: { proposals: [{ card: { id: english.id, name }, reasons: ["TITLE_EXACT"] }] } } };
   const db = { acquisitionProcessingJob: { findUniqueOrThrow: async () => raw },
     acquisitionPhoto: { findUniqueOrThrow: async () => ({ id: ids.photo, ready: true, purgedAt: null, generation: 1,
-      slot: { generation: 1 }, runId: ids.run, digest }) },
+      slot: { generation: 1 }, runId: ids.run, digest,run:{session:{scanProfile:"STANDARD"}} }) },
     $transaction: async (fn: (tx: unknown) => unknown) => fn({ card: { findMany: async () => [english, alternative] } }),
   } as unknown as PrismaClient;
   const asRaw = (card: typeof english) => ({ object: "card" as const, id: card.scryfallId, name,
