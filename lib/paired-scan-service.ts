@@ -155,8 +155,9 @@ export async function readPairedScanBatch(
       include: { photos: true },
       orderBy: { position: "asc" },
     });
+    const candidateBySlot = new Map(candidates.map((c) => [c.physicalId, c]));
     const repairSources = repair.flatMap((s) => {
-      const c = candidates.find((c) => c.physicalId === s.id);
+      const c = candidateBySlot.get(s.id);
       return !c || c.receipt || c.ignored
         ? []
         : s.photos
@@ -172,6 +173,9 @@ export async function readPairedScanBatch(
               revision: c.revision,
             }));
     });
+    const imageCounts = new Map<string, number>();
+    for (const source of repairSources)
+      imageCounts.set(source.slotId, (imageCounts.get(source.slotId) ?? 0) + 1);
     return {
       id: row.id,
       profile: row.scanProfile as "TOKEN" | "ART",
@@ -187,7 +191,7 @@ export async function readPairedScanBatch(
       scanner,
       repairSources,
       unresolvedImages: repairSources.filter(
-        (p) => repairSources.filter((q) => q.slotId === p.slotId).length !== 2,
+        (p) => imageCounts.get(p.slotId) !== 2,
       ).length,
       item: slot
         ? {
