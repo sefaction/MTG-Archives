@@ -444,7 +444,11 @@ model PointCategory {
 
 model Card {
   id                           String                            @id @default(cuid())
-  scryfallId                   String                            @unique
+  scryfallId                   String?                           @unique
+  applicationIdentityKey       String?                           @unique
+  applicationIdentityKind      String?
+  applicationFaces             ApplicationCardFace[]             @relation("ApplicationCardFaces")
+  applicationUses              ApplicationCardFace[]             @relation("ApplicationSourceFace")
   mtgjsonUuid                  String?                           @unique
   oracleId                     String?
   multiverseIds                Json?
@@ -534,6 +538,22 @@ model Card {
   @@index([setCode(ops: raw("gin_trgm_ops"))], type: Gin, map: "Card_setCode_trgm_idx")
   @@index([collectorNumber])
   @@index([typeLine(ops: raw("gin_trgm_ops"))], type: Gin, map: "Card_typeLine_trgm_idx")
+}
+
+// An application identity has no invented catalog ID. Faces retain exact source
+// printing IDs and face indices; the parent remains one ordinary Inventory card.
+model ApplicationCardFace {
+  cardId       String
+  card         Card @relation("ApplicationCardFaces", fields: [cardId], references: [id], onDelete: Cascade)
+  position     Int
+  sourceCardId String
+  sourceCard   Card @relation("ApplicationSourceFace", fields: [sourceCardId], references: [id], onDelete: Restrict)
+  sourceFace   Int
+  identityKey  String
+  snapshot     Json
+
+  @@id([cardId, position])
+  @@index([sourceCardId])
 }
 
 model Pull {
@@ -1482,6 +1502,7 @@ model AcquisitionRecognitionRerun {
 }
 
 model AcquisitionSession {
+  scanProfile     String @default("STANDARD")
   reviewDefaults Json?
   defaultsRevision Int @default(0)
   batchNumber     Int      @unique @default(autoincrement())
@@ -1568,6 +1589,7 @@ model AcquisitionArtifact {
 }
 
 model AcquisitionCandidate {
+  pairedReview     Json?
   id               String @id @default(cuid())
   runId            String
   run              AcquisitionRun @relation(fields: [runId], references: [id], onDelete: Restrict)
@@ -1631,6 +1653,7 @@ model AcquisitionCountCorrection {
 
 // Reserved before a single-card camera exposure/upload, retained across retries.
 model AcquisitionCaptureSlot {
+  pairingEvidence Json?
   id         String @id @default(uuid())
   runId      String
   run        AcquisitionRun @relation(fields: [runId], references: [id], onDelete: Restrict)
@@ -1713,6 +1736,9 @@ enum AcquisitionImageInputKind {
 }
 
 model AcquisitionPhoto {
+  captureSlotId String?
+  captureGeneration Int?
+  side       String @default("FRONT")
   id         String @id @default(uuid())
   runId      String
   run        AcquisitionRun @relation(fields: [runId], references: [id], onDelete: Restrict)
@@ -1742,7 +1768,7 @@ model AcquisitionPhoto {
   firstMachineEvidence Json?
 
   @@unique([runId, uploadKey])
-  @@unique([slotId, generation])
+  @@unique([slotId, generation, side])
   @@index([runId, ready])
   @@index([purgeAfter, purgedAt])
 }

@@ -10,7 +10,7 @@ export const collectorCardSchema = z.object({
 });
 export type CollectorCard = z.infer<typeof collectorCardSchema>;
 export type CollectorOwned = { currentOwnerId: string; quantity: number; language: string;
-  foilStatus: string; card: { scryfallId: string } };
+  foilStatus: string; card: { scryfallId: string | null } };
 export type CollectorCounts = { owned: number; total: number; percent: number };
 export type CollectorProgress = { grouped: CollectorCounts; variants: CollectorCounts };
 export type CollectorMode = keyof CollectorProgress;
@@ -54,7 +54,7 @@ function collectorTally(cards: CollectorCard[], owned: CollectorOwned[], ownerId
   }
   for (const item of owned) {
     if (item.currentOwnerId !== ownerId || item.quantity <= 0 || item.language.toLowerCase() !== "en") continue;
-    const card = eligible.get(item.card.scryfallId);
+    const card = eligible.get(item.card.scryfallId ?? "");
     if (!card) continue;
     const variant = variants.get(`${card.id}:${item.foilStatus.toLowerCase()}`);
     if (!variant) continue;

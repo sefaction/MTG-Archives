@@ -1,3 +1,8 @@
+import {finishPairedScannerRun} from "./paired-scanner-finish";
+import {unpairedEvidenceSchema} from "./paired-scan-profile";
+import {isPairedProfile} from "./paired-scan-profile";
+import {pairedSheetKey,pairedEvidenceSchema} from "./paired-scan-policy";
+import {supportsPairedScanner} from "./scanner-counted-profile";
 import { scannerContinuationRunId } from "./scanner-continuation-identity";
 import { scannerFeedTarget } from "./acquisition-continuation";
 import { Prisma, type PrismaClient } from "@prisma/client";
@@ -52,6 +57,7 @@ async function guardScannerCreation(tx: Tx, requestKey: string) {
 function scannerCaptureInput(input: z.infer<typeof scannerBatchSchema>, ownerPlayerId: string): CreateAcquisitionInput {
   return { requestKey: input.requestKey, ownerPlayerId, locationId: input.locationId, section: input.section,
     ...(input.defaults ? { defaults: input.defaults } : {}),
+    ...(input.scanProfile ? {scanProfile:input.scanProfile} : {}),
     policy: input.quantity === null ? { kind: "FILL" } : { kind: "MANUAL", quantity: input.quantity },
     run: { providerId: SCANNER_CAPTURE_PROVIDER, runId: input.requestKey,
       enforcement: "LOGICAL_ALLOCATION", controls: ["STOP"] } };
@@ -67,11 +73,11 @@ async function agentRun(tx: Tx, authorization: string | null, input: { runId: st
 }
 function command(run: { id: string; epoch: string; deviceId: string; loadedCount: number | null; settings: Prisma.JsonValue;
   physicalTarget: number | null; sequenceOffset: number; segment: number; counted: boolean;
-  stopRequestedAt: Date | null; status: string; executionId: string | null; acquisitionRun: { sessionId: string; session: { target: number | null } } }) {
+  stopRequestedAt: Date | null; status: string; executionId: string | null; acquisitionRun: { sessionId: string; session: { target: number | null; scanProfile: string } } }) {
   return { version: 1, runId: run.id, epoch: run.epoch, sessionId: run.acquisitionRun.sessionId,
     deviceId: run.deviceId, loadedCount: run.loadedCount, settings: run.settings,
     physicalTarget: run.physicalTarget, sequenceOffset: run.sequenceOffset, segment: run.segment,
-    counted: run.counted, logicalTarget: run.acquisitionRun.session.target, stopRequested: !!run.stopRequestedAt,
+    counted: run.counted, scanProfile: run.acquisitionRun.session.scanProfile, logicalTarget: run.acquisitionRun.session.target, stopRequested: !!run.stopRequestedAt,
     status: run.status, executionId: run.executionId };
 }
 export async function createScannerBatch(db: PrismaClient, actor: AcquisitionActor, value: unknown, epoch: string) {
@@ -83,10 +89,12 @@ export async function createScannerBatch(db: PrismaClient, actor: AcquisitionAct
   const device = helper?.devices.find(d => d.id === input.deviceId);
   if (!helper?.online || !device || device.qualification === "Unsupported") throw denied();
   const counted = isCountedScannerDevice(device);
+  const paired = isPairedProfile(input.scanProfile ?? "STANDARD");
+  if (paired && (!counted || !supportsPairedScanner(helper.agentVersion))) throw new ScannerRunConflict("Reconnect with the updated duplex-capable Windows helper before starting this profile.");
   if (counted) currentCountedSource(helper, device.id, input.settings.dpi);
   if ((input.continuous || input.continueFrom) && (!counted || !input.continuous || input.quantity !== null))
     throw new ScannerRunConflict("Section series requires a count controlled source and automatic section capacity");
-  if (counted && scannerCanonical(input.settings) !== scannerCanonical({ ...countedScannerSettings, dpi: input.settings.dpi }))
+  if (counted && scannerCanonical(input.settings) !== scannerCanonical({ ...countedScannerSettings, dpi: input.settings.dpi, duplex: paired }))
     throw new ScannerRunConflict("Count controlled fi-7160 requires the centered Cards profile");
   const location = await db.inventoryLocation.findUnique({ where: { id: input.locationId } });
   if (!location) throw denied();
@@ -239,23 +247,27 @@ export async function receiveScannerImage(db: PrismaClient, authorization: strin
     await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${run.acquisitionRun.sessionId} FOR UPDATE`;
     const row = await readAcquisitionRow(tx, auth.actor, run.acquisitionRun.sessionId, {});
     const state = hydrateAcquisitionRow(row);
-    const old = await tx.acquisitionCaptureSlot.findUnique({ where: { runId_requestKey: {
-      runId: row.run!.id, requestKey: input.artifactId } } });
-    if (old && old.position !== run.sequenceOffset + input.sequence - 1) throw new ScannerRunConflict("Photo scanner sequence identity conflict");
+    const paired = isPairedProfile(row.scanProfile);
+    if (!paired && !!(input.sheet || input.physicalBoundary !== "UNKNOWN" || input.side !== "UNKNOWN")) throw new ScannerRunConflict("The scanner transfer does not match this batch's physical-side profile.");
+    const evidence = paired && input.sheet ? pairedEvidenceSchema.parse({kind:"SCANNER_SHEET",runId:input.runId,executionId:input.executionId,...input.sheet}) : null;
+    const quarantine = paired && !evidence ? unpairedEvidenceSchema.parse({version:1,kind:"UNPAIRED_IMAGE",runId:input.runId,executionId:input.executionId,artifactId:input.artifactId}) : null;
+    const requestKey = evidence ? pairedSheetKey(evidence) : quarantine ? "unpaired-image:"+input.artifactId : input.artifactId;
+    const old = await tx.acquisitionCaptureSlot.findUnique({where:{runId_requestKey:{runId:row.run!.id,requestKey}}});
+    if (old && !paired && old.position !== run.sequenceOffset + input.sequence - 1) throw new ScannerRunConflict("Photo scanner sequence identity conflict");
     if (!old && (run.outcome || !state.destinationCurrent || !(["CAPTURING", "STOPPING"].includes(row.phase) || row.phase === "CANCELLED" && row.cancelledAt) || run.status === "DRAINED")) throw denied();
-    // No target truncation: overscan becomes provisional overflow in the ordinary
-    // acquisition model. Its original remains recoverable on either host.
-    const slot = old ?? await tx.acquisitionCaptureSlot.create({ data: {
-      runId: row.run!.id, requestKey: input.artifactId, position: run.sequenceOffset + input.sequence - 1 } });
+    const position = paired ? await tx.acquisitionCaptureSlot.count({where:{runId:row.run!.id}}) : run.sequenceOffset + input.sequence - 1;
+    const slot = old ?? await tx.acquisitionCaptureSlot.create({data:{runId:row.run!.id,requestKey,position,
+      ...(paired ? {generation:1,pairingEvidence:(evidence??quarantine)!} : {})}});
     if (!old) await tx.acquisitionSession.update({ where: { id: row.id }, data: { revision: { increment: 1 } } });
-    return { ...auth, slot };
+    return { ...auth, slot, paired };
   });
-  const { run, actor, slot } = assigned;
+  const { run, actor, slot, paired } = assigned;
   const sourceMetadata = { ...input, backend: (run.device as Prisma.JsonObject).backend, device: run.device,
     requestedSettings: run.settings, negotiatedSettings: "UNKNOWN",
     ...(run.helperIdentity ? { helperIdentity: run.helperIdentity } : {}) } as Prisma.InputJsonObject;
   const photo = await beginAcquisitionPhoto(db, actor, run.acquisitionRun.sessionId, {
-      slotId: slot.id, uploadKey: input.artifactId, generation: 0, metadata, inputKind: "CARD_SCAN", sourceMetadata,
+      slotId: slot.id, uploadKey: input.artifactId, generation: paired ? slot.generation : 0, metadata, inputKind: "CARD_SCAN", sourceMetadata,
+      ...(paired ? {side:input.side as "FRONT"|"BACK"|"UNKNOWN"} : {}),
     });
   try {
     if (!photo.ready) {
@@ -293,6 +305,7 @@ export async function finishScannerRun(db: PrismaClient, authorization: string |
     if (run.outcome && scannerCanonical(run.outcome) !== scannerCanonical(input.outcome)) throw denied();
     const photos = await tx.acquisitionPhoto.findMany({ where: { runId: run.acquisitionRunId,
       ...(run.counted ? { sourceMetadata: { path: ["runId"], equals: run.id } } : {}) }, include: { slot: true } });
+    if (isPairedProfile(run.acquisitionRun.session.scanProfile)) return finishPairedScannerRun(tx,run,photos,input.outcome,actor.userId);
     const positions = photos.map(p=>p.slot.position).sort((a,b)=>a-b);
     if (photos.length !== input.outcome.imageCount || photos.some(p=>!p.ready) || positions.some((p,i)=>p!==i + run.sequenceOffset))
       throw new ScannerRunConflict("Capture scanner transfers need reconciliation before completion");
@@ -505,6 +518,7 @@ export async function reconcileScannerBatch(db: PrismaClient, userId: string, va
     await tx.$queryRaw`SELECT id FROM "ScannerRun" WHERE id = ${input.runId} FOR UPDATE`;
     const run = await tx.scannerRun.findUnique({ where: { id: input.runId }, include });
     if (!run || run.acquisitionRun.session.createdByUserId !== userId || !["DRAINED", "ERROR", "CANCELLED_BEFORE_START"].includes(run.status)) throw denied();
+    if (isPairedProfile(run.acquisitionRun.session.scanProfile)) throw new ScannerRunConflict("Use paired scan reconciliation for this batch.");
     if (run.reconciliation && !(run.counted && (run.reconciliation as Prisma.JsonObject).mode === "SCANNER_IMAGE_COUNT")) {
       const existing = run.reconciliation as Prisma.JsonObject;
       if (existing.mode === "CANCELLED_WITHOUT_START" && input.cardsEmitted === 0)
@@ -554,6 +568,7 @@ export async function refillScannerBatch(db: PrismaClient, userId: string, value
     await guardScannerCreation(tx, input.requestKey);
     const prior = await tx.scannerRun.findUnique({ where: { id: input.runId }, include });
     if (!prior || !prior.counted || prior.acquisitionRun.session.createdByUserId !== userId || prior.epoch !== epoch) throw denied();
+    if (isPairedProfile(prior.acquisitionRun.session.scanProfile)) throw new ScannerRunConflict("Use a new duplex batch after settling this paired batch.");
     if (prior.seriesRootId) {
       const { root } = await lockScannerSeries(tx, prior.seriesRootId, userId);
       // Saved request recovery below is allowed; no new feed after Stop.

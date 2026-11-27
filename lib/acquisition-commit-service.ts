@@ -1,3 +1,4 @@
+import {requirePairedCommit} from "./paired-scan-review";
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import {
@@ -84,6 +85,16 @@ async function prepare(
   const candidateBySlot = new Map(
     row.run!.candidates.map((candidate) => [candidate.physicalId, candidate]),
   );
+  if (row.scanProfile !== "STANDARD") {
+    const slots = new Set<string>();
+    for (const photo of photos) {
+      if (photo.side !== "FRONT" || slots.has(photo.slotId)) throw new Error("Select each paired physical item once using its front source.");
+      slots.add(photo.slotId);
+      const candidate = candidateBySlot.get(photo.slotId);
+      if (!candidate) throw new Error("Physical pair unavailable.");
+      await requirePairedCommit(tx, row, candidate);
+    }
+  }
   const chosen = photos
     .map((photo) => {
       const candidate = candidateBySlot.get(photo.slotId);
@@ -193,6 +204,7 @@ async function prepare(
         position: photo.slot.position,
         generation: photo.generation,
         review: candidate.review,
+        ...(row.scanProfile !== "STANDARD" ? {pairedReview:candidate.pairedReview} : {}),
         decision,
         name: card.name,
         setCode: card.setCode,

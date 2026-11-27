@@ -2,7 +2,7 @@ import { z } from "zod";
 import { scannerBatchSchema } from "./scanner-run-protocol";
 
 // Per-tab, per-account pending intent. No connection secret or image is stored.
-const browserRequestSchema = scannerBatchSchema.extend({ loadedCount: z.null() });
+const browserRequestSchema = scannerBatchSchema.innerType().extend({ loadedCount: z.null() }).refine(value=>scannerBatchSchema.safeParse(value).success,"Check the scan profile and duplex loading confirmation.");
 const pendingSchema = z.object({ version: z.literal(1), request: browserRequestSchema }).strict();
 export type PendingScannerStart = z.infer<typeof browserRequestSchema>;
 type Storage = Pick<globalThis.Storage, "getItem" | "setItem" | "removeItem">;

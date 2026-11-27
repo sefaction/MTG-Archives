@@ -770,7 +770,7 @@ export default async function TradesPage({
   // sender organization stored in the immutable transaction snapshot.
   const catalogIds = [...new Set(visibleTrades.flatMap(trade => trade.deckBundles.flatMap(bundle =>
     (bundle.snapshotJson as unknown as TradeDeckSnapshot).stock.map(item => String(item.cardId)))))];
-  const catalog = [] as { id: string; name: string; setCode: string; collectorNumber: string; scryfallId: string }[];
+  const catalog = [] as { id: string; name: string; setCode: string; collectorNumber: string; scryfallId: string | null }[];
   for (let offset = 0; offset < catalogIds.length; offset += 500) {
     catalog.push(...await prisma.card.findMany({ where: { id: { in: catalogIds.slice(offset, offset + 500) } },
       select: { id: true, name: true, setCode: true, collectorNumber: true, scryfallId: true } }));

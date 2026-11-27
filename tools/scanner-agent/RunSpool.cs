@@ -47,7 +47,7 @@ public sealed class RunSpool : IDisposable
         }
     }
     public ScannerArtifact PublishImage(string temporaryFile, Guid id, int imageSequence,
-        int width, int height)
+        int width, int height, string side = "UNKNOWN", ScannerSheet? sheet = null)
     {
         // Image is published before the manifest. A crash can leave an orphan; audit
         // reports it rather than silently discarding it or fabricating a transfer.
@@ -59,7 +59,7 @@ public sealed class RunSpool : IDisposable
         using var input = File.OpenRead(target);
         var artifact = new ScannerArtifact(id, imageSequence, fileName,
             Convert.ToHexString(SHA256.HashData(input)).ToLowerInvariant(),
-            input.Length, width, height, Timestamp: DateTimeOffset.UtcNow);
+            input.Length, width, height, Side: side, PhysicalBoundary: sheet == null ? "UNKNOWN" : "SCANNER_SHEET", Timestamp: DateTimeOffset.UtcNow, Sheet: sheet);
         WriteNew(Path.Combine(DirectoryPath, $"{id}.json"), artifact);
         Event("ImageReceived", artifact);
         return artifact;

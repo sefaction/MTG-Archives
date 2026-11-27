@@ -45,7 +45,7 @@ export async function buildRelatedCardMetadataByScryfallId(items: any[]) {
       collectorNumber: true,
     },
   });
-  return new Map(cards.map((card) => [card.scryfallId, card]));
+  return new Map(cards.flatMap((card) => card.scryfallId ? [[card.scryfallId, card] as const] : []));
 }
 
 export function enrichAllPartsWithLocalCardMetadata(

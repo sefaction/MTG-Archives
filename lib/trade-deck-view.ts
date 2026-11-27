@@ -12,7 +12,7 @@ export type TradeDeckSearchItem = { deckId: string; name: string; format: string
  * still binds the complete source, without exposing stock IDs, private notes,
  * provenance identities, folders/tags or storage organization. */
 export function tradeDeckReview(snapshot: TradeDeckSnapshot, digest: string,
-  publicCatalog: readonly { id: string; name: string; setCode: string; collectorNumber: string; scryfallId: string }[] = []): TradeDeckReview {
+  publicCatalog: readonly { id: string; name: string; setCode: string; collectorNumber: string; scryfallId: string | null }[] = []): TradeDeckReview {
   const cards = snapshot.cards.map(card => ({ cardId: typeof card.cardId === "string" ? card.cardId : null,
     scryfallId: typeof card.scryfallId === "string" ? card.scryfallId : null,
     name: String(card.cardName), section: String(card.section), quantity: Number(card.quantity), isCommander: card.isCommander === true,

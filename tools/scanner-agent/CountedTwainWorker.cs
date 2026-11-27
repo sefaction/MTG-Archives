@@ -47,10 +47,10 @@ internal static class CountedTwainWorker
             (Func<object, ReturnCode>)(v => { throw new InvalidOperationException("Vendor SET forbidden"); }));
         GuardedFeedPolicy.RequireObservedInvariant(cap.CanGetCurrent, cap.CanGetCurrent ? cap.GetCurrent() : null);
     }
-    private static void CaptureReadback(DataSource source, int target, int dpi)
+    private static void CaptureReadback(DataSource source, int target, int dpi, bool paired = false)
     {
         Readback(source.Capabilities.CapFeederEnabled, BoolType.True);
-        Readback(source.Capabilities.CapDuplexEnabled, BoolType.False);
+        Readback(source.Capabilities.CapDuplexEnabled, paired ? BoolType.True : BoolType.False);
         Readback(source.Capabilities.CapAutoFeed, BoolType.True);
         Readback(source.Capabilities.CapAutoScan, BoolType.False);
         Readback(source.Capabilities.CapXferCount, target);
@@ -66,6 +66,34 @@ internal static class CountedTwainWorker
             Math.Abs((double)layout.Frame.Right - 2.7) > .001 || Math.Abs((double)layout.Frame.Bottom - 3.6) > .001)
             throw new InvalidOperationException("Capture frame changed");
         ObservedInvariant(source);
+    }
+    private static void RequirePairedMetadata(DataSource source)
+    {
+        Readback(source.Capabilities.ICapExtImageInfo, BoolType.True);
+        var capability = source.Capabilities.ICapSupportedExtImageInfo;
+        if (!capability.CanGet) throw new InvalidOperationException("Duplex sheet metadata is unavailable");
+        var supported = capability.GetValues().ToArray();
+        if (!new[] { ExtendedImageInfo.DocumentNumber, ExtendedImageInfo.PaperCount, ExtendedImageInfo.PageSide }.All(supported.Contains))
+            throw new InvalidOperationException("Duplex sheet metadata is unavailable");
+    }
+    private static Dictionary<string, object> ReadPairedMetadata(DataTransferredEventArgs transfer)
+    {
+        var values = new Dictionary<ExtendedImageInfo, long>();
+        foreach (var item in transfer.GetExtImageInfo(ExtendedImageInfo.DocumentNumber, ExtendedImageInfo.PaperCount, ExtendedImageInfo.PageSide))
+        {
+            try {
+                if (item.ReturnCode != ReturnCode.Success || item.NumItems != 1) throw new InvalidDataException("Sheet metadata unavailable");
+                var raw = item.ReadValues();
+                if (raw.Count != 1) throw new InvalidDataException("Sheet metadata unavailable");
+                values.Add(item.InfoID, Convert.ToInt64(raw[0]));
+            } finally { item.Dispose(); }
+        }
+        if (values.Count != 3 || values[ExtendedImageInfo.DocumentNumber] < 0 || values[ExtendedImageInfo.DocumentNumber] > Int32.MaxValue ||
+            values[ExtendedImageInfo.PaperCount] < 1 || values[ExtendedImageInfo.PaperCount] > Int32.MaxValue ||
+            (values[ExtendedImageInfo.PageSide] != (long)CameraSide.Top && values[ExtendedImageInfo.PageSide] != (long)CameraSide.Bottom))
+            throw new InvalidDataException("Ambiguous duplex sheet identity");
+        return new Dictionary<string,object> { {"side", values[ExtendedImageInfo.PageSide] == (long)CameraSide.Top ? "FRONT" : "BACK"},
+            {"sheet", new {version=1,documentNumber=values[ExtendedImageInfo.DocumentNumber],paperCount=values[ExtendedImageInfo.PaperCount]}} };
     }
     private static void Owners(int parent)
     {
@@ -93,7 +121,7 @@ internal static class CountedTwainWorker
     }
     private static int Main(string[] args)
     {
-        if (args.Length == 1 && args[0] == "selftest") { CountFeedPolicy.SelfTest(); GuardedFeedPolicy.SelfTest(); return 0; }
+        if (args.Length == 1 && args[0] == "selftest") { CountFeedPolicy.SelfTest(); GuardedFeedPolicy.SelfTest(); PairedSheetPolicy.SelfTest(); return 0; }
         if (args.Length == 2 && args[0] == "fixture-channel-v1") return Fixture(args[1]);
         if (args.Length == 1 && args[0] == "setup-profile-v1") return ConfigureSettingsOnly();
         // The helper backend also refuses this route, but a direct companion
@@ -104,7 +132,10 @@ internal static class CountedTwainWorker
             Send(new { kind = "problem", code = "COUNT_CONTROL_SUSPENDED" });
             return 2;
         }
-        if (args.Length != 1 || args[0] != "helper-channel-v2" || IntPtr.Size != 4) return 2;
+        if (args.Length != 1 || (args[0] != "helper-channel-v2" && args[0] != "helper-channel-v3-paired") || IntPtr.Size != 4) return 2;
+        bool paired = args[0] == "helper-channel-v3-paired";
+        int profileVersion = paired ? 3 : ProfileVersion;
+        var pairedSheets = new PairedSheetPolicy();
         TwainSession session = null; OwnedTwainLoop loop = null; DataSource source = null; bool started = false; int result = 1;
         var elapsed = Stopwatch.StartNew();
         try
@@ -114,9 +145,11 @@ internal static class CountedTwainWorker
                 !input.ContainsKey("target") || !(input["target"] is int)) throw new ArgumentException("Invalid command types");
             int parent = (int)input["parent"], target = (int)input["target"];
             if ((string)input["action"] != "prepare" || !input.ContainsKey("profileVersion") ||
-                !(input["profileVersion"] is int) || (int)input["profileVersion"] != ProfileVersion ||
+                !(input["profileVersion"] is int) || (int)input["profileVersion"] != profileVersion ||
                 !input.ContainsKey("requireEmpty") || !(input["requireEmpty"] is bool) ||
                 target < 1 || target > 5000) throw new ArgumentException("Invalid preparation");
+            if (paired && target > 2500) throw new ArgumentException("Duplex batch exceeds image budget");
+            int imageTarget = paired ? checked(target * 2) : target;
             int dpi = ReadDpi(input);
             Owners(parent);
             PlatformInfo.Current.PreferNewDSM = false;
@@ -134,10 +167,10 @@ internal static class CountedTwainWorker
                 throw new InvalidOperationException("Empty preparation requires empty hopper");
             ObservedInvariant(source);
             Exact(source.Capabilities.CapFeederEnabled, BoolType.True);
-            Exact(source.Capabilities.CapDuplexEnabled, BoolType.False);
+            Exact(source.Capabilities.CapDuplexEnabled, paired ? BoolType.True : BoolType.False);
             Exact(source.Capabilities.CapAutoFeed, BoolType.True);
             Exact(source.Capabilities.CapAutoScan, BoolType.False);
-            Exact(source.Capabilities.CapXferCount, target);
+            Exact(source.Capabilities.CapXferCount, imageTarget);
             Exact(source.Capabilities.ICapXferMech, XferMech.Native);
             Exact(source.Capabilities.ICapPixelType, PixelType.RGB);
             Exact(source.Capabilities.ICapBitDepth, 24);
@@ -149,8 +182,9 @@ internal static class CountedTwainWorker
             if (Math.Abs((double)layout.Frame.Left) > .001 || Math.Abs((double)layout.Frame.Top) > .001 ||
                 Math.Abs((double)layout.Frame.Right - 2.7) > .001 || Math.Abs((double)layout.Frame.Bottom - 3.6) > .001)
                 throw new InvalidOperationException("Current driver frame differs from qualified profile");
-            CaptureReadback(source, target, dpi);
-            Send(new { kind = "prepared", profileVersion = ProfileVersion, target, source = source.Name,
+            CaptureReadback(source, imageTarget, dpi, paired);
+            if (paired) RequirePairedMetadata(source);
+            Send(new { kind = "prepared", profileVersion, target, imageTarget, duplex = paired, sheetMetadataVerified = paired, source = source.Name,
                 driver = source.Version.ToString(), protocol = source.ProtocolVersion.ToString(),
                 widthInches = (double)layout.Frame.Right, heightInches = (double)layout.Frame.Bottom, dpi,
                 autoScan = false, blankDiscard = false, captureReadbacksVerified = true, observedInvariantVerified = true,
@@ -174,8 +208,18 @@ internal static class CountedTwainWorker
                             int sequence = Interlocked.Increment(ref images);
                             image.Save(file, ImageFormat.Png);
                             using (var retained = new FileStream(file, FileMode.Open, FileAccess.ReadWrite)) retained.Flush(true);
-                            Send(new { kind = "image", id, sequence, width = image.Width, height = image.Height });
-                            if (sequence > target) { failures++; Send(new { kind = "problem", code = "OVERTRANSFER" }); }
+                            var payload = new Dictionary<string,object> { {"kind","image"}, {"id",id}, {"sequence",sequence}, {"width",image.Width}, {"height",image.Height} };
+                            if (paired) {
+                                try {
+                                    var pairing=ReadPairedMetadata(e);
+                                    foreach (var entry in pairing) payload.Add(entry.Key,entry.Value);
+                                    var sheet=json.Deserialize<Dictionary<string,object>>(json.Serialize(pairing["sheet"]));
+                                    if(!pairedSheets.Receive(Convert.ToInt32(sheet["documentNumber"]),Convert.ToInt32(sheet["paperCount"]),(string)pairing["side"])) failures++;
+                                }
+                                catch { failures++; payload["side"]="UNKNOWN"; Send(new {kind="problem",code="PAIRING_METADATA_UNAVAILABLE"}); }
+                            }
+                            Send(payload);
+                            if (sequence > imageTarget) { failures++; Send(new { kind = "problem", code = "OVERTRANSFER" }); }
                         }
                     }
                     catch { failures++; Send(new { kind = "problem", code = "RETENTION_ERROR" }); }
@@ -188,7 +232,7 @@ internal static class CountedTwainWorker
                 session.TransferCanceled += delegate { failures++; Send(new { kind = "problem", code = "TRANSFER_CANCELLED" }); };
                 session.SourceDisabled += delegate { disabled.Set(); };
                 Owners(parent);
-                CaptureReadback(source, target, dpi);
+                CaptureReadback(source, imageTarget, dpi, paired);
                 if (source.Capabilities.CapFeederLoaded.GetCurrent() != BoolType.True) { empty = true; result = 0; }
                 else
                 {
@@ -198,6 +242,7 @@ internal static class CountedTwainWorker
                     while (!disabled.WaitOne(30000)) Send(new { kind = "waiting", nativeState = session.State });
                     if (source.Capabilities.CapFeederLoaded.CanGetCurrent)
                         empty = source.Capabilities.CapFeederLoaded.GetCurrent() == BoolType.False;
+                    if (paired && !pairedSheets.Complete) failures++;
                     result = failures == 0 ? 0 : 1;
                 }
             }

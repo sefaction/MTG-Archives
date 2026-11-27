@@ -1,3 +1,5 @@
+import {beginPairedPhoto} from "./paired-scan-capture";
+import {scanProfileSchema,isPairedProfile,scanSideSchema,capturedScanSideSchema,type ScanSide} from "./paired-scan-profile";
 import {parseScannerLayoutProfile, freezeScannerLayoutProfile, scannerLayoutTemplateSchema} from "./acquisition-scanner-layout";
 import {nativeSchema} from "./acquisition-recognition-worker";
 import { createHash, randomUUID } from "node:crypto";
@@ -67,6 +69,7 @@ const identity = z
 const createInput = z
   .object({
     requestKey: identity,
+    scanProfile: scanProfileSchema.optional(),
     ownerPlayerId: identity,
     locationId: identity,
     section: z.string().max(100),
@@ -118,6 +121,7 @@ type Stored = Prisma.AcquisitionSessionGetPayload<{ include: typeof include }>;
 export type StoredCapture = {
   defaults: ReturnType<typeof acquisitionDefaultsSchema.parse>;
   defaultsRevision: number;
+  scanProfile: string;
   batchNumber: number;
   revision: number;
   session: CaptureSession;
@@ -260,6 +264,7 @@ function hydrate(row: Stored): StoredCapture {
     })),
   };
   return {
+    scanProfile: row.scanProfile,
     batchNumber: row.batchNumber,
     defaults: acquisitionDefaultsSchema.parse(
       row.reviewDefaults ?? emptyAcquisitionDefaults,
@@ -347,6 +352,7 @@ export async function createAcquisitionSession(
   scannerCapacity?: (tx: Prisma.TransactionClient) => Promise<{ remaining: number | null; pendingSection: number }>,
 ) {
   const input = createInput.parse(value);
+  if (isPairedProfile(input.scanProfile ?? "STANDARD") && input.run.providerId !== SCANNER_CAPTURE_PROVIDER) throw new Error("Paired scan profiles require explicit duplex capture.");
   const requestPayload = JSON.stringify(input);
   return transaction(
     db,
@@ -450,6 +456,7 @@ export async function createAcquisitionSession(
       const row = await tx.acquisitionSession.create({
         data: {
           id: state.id,
+          scanProfile: input.scanProfile ?? "STANDARD",
           createdByUserId: actor.userId,
           ownerPlayerId: owner.id,
           locationId: location.id,
@@ -673,6 +680,8 @@ export async function reviewAcquisitionCandidate(
   candidateRevision: number,
   attributes: ReviewAttributes,
 ) {
+  const header = await transaction(db, tx=>read(tx,actor,sessionId,{}));
+  if (header && isPairedProfile(header.scanProfile)) throw new Error("Use paired confirmation for this batch.");
   z.number().int().nonnegative().parse(revision);
   return mutate(db, actor, sessionId, revision, (s) =>
     reviewCandidate(s, key, candidateRevision, actor.userId, attributes),
@@ -887,10 +896,11 @@ export async function getAcquisitionProgress(
       skip: offset, take: ACQUISITION_REVIEW_PAGE,
       include: {
         photos: {
-          orderBy: { generation: "desc" },
+          orderBy: [{ generation: "desc" },{side:"desc"}],
           take: 2,
           select: {
             id: true,
+            side: true,
             uploadKey: true,
             generation: true,
             ready: true,
@@ -1090,6 +1100,7 @@ export async function beginAcquisitionPhoto(
     uploadKey: string;
     generation: number;
     replacePending?: boolean;
+    side?: ScanSide | "UNKNOWN";
     metadata: AcquisitionPhotoMetadata;
     inputKind?: AcquisitionImageInputKind;
     sourceMetadata?: Prisma.InputJsonObject;
@@ -1112,6 +1123,9 @@ export async function beginAcquisitionPhoto(
     });
     if (!slot || slot.runId !== run.id)
       throw new Error("Capture slot unavailable");
+    if (isPairedProfile(row.scanProfile)) return beginPairedPhoto(tx, row, {...input, metadata, inputKind},
+      (["CAPTURING", "STOPPING"].includes(row.phase) || row.phase === "CANCELLED" && !!row.cancelledAt && run.providerId === SCANNER_CAPTURE_PROVIDER) && destinationCurrent(row));
+    if (input.side && input.side !== "FRONT") throw new Error("Ordinary capture only accepts a front image.");
     const previous = await tx.acquisitionPhoto.findUnique({
       where: { runId_uploadKey: { runId: run.id, uploadKey: input.uploadKey } },
     });
@@ -1202,6 +1216,7 @@ export async function finalizeAcquisitionPhoto(
     // without reopening capture, only through an already reserved photo record.
     const receiving = { ...before, phase: "CAPTURING" as const };
     const scanner = before.run.providerId === SCANNER_CAPTURE_PROVIDER;
+    const paired = isPairedProfile(row.scanProfile);
     const after = receiveAcquisitionEvent(receiving, {
       version: 1,
       providerId: before.run.providerId,
@@ -1214,10 +1229,10 @@ export async function finalizeAcquisitionPhoto(
             id: photo.slotId,
             identityKind: scanner ? "DETECTION" : "EPISODE",
             order: [photo.slot.position, 0],
-            expectedSides: [scanner ? "UNKNOWN" : "FRONT"],
+            expectedSides: paired ? ["FRONT", "BACK"] : [scanner ? "UNKNOWN" : "FRONT"],
             provisional: scanner,
           },
-          observation: { id: photo.id, artifactId: photo.id, side: scanner ? "UNKNOWN" : "FRONT" },
+          observation: { id: photo.id, artifactId: photo.id, side: paired ? capturedScanSideSchema.parse(photo.side) : scanner ? "UNKNOWN" : "FRONT" },
           uncertainty: [],
         },
       ],
@@ -1448,6 +1463,7 @@ export async function saveAcquisitionReview(
     const source = photoId ? await tx.acquisitionPhoto.findUnique({where: {id: photoId}, select: {slotId: true}}) : null;
     const row = await read(tx, actor, sessionId, source ? {slotId: source.slotId, photoId} : {});
     requireVisibleAcquisitionBatch(row);
+    if (isPairedProfile(row.scanProfile) && input.action !== "defaults") throw new Error("Use the paired review to confirm or change both sides of this item.");
     if (input.action === "defaults") {
       if (row.defaultsRevision !== input.revision)
         throw new Error(

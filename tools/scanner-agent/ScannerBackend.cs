@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 namespace Mtg.Scanner;
 
 // The contract contains no scanner library types. Transfer count is NOT card count.
@@ -11,12 +12,14 @@ public record Capabilities(Dictionary<string, Capability> Features, int[]? Dpi,
 public record ScanRequest(Guid RunId, string DeviceId, int Dpi = 300,
     decimal WidthInches = 2.6m, decimal HeightInches = 3.6m, bool Duplex = false,
     int? ImageStopBudget = null, int? SessionPhysicalTarget = null,
-    bool AllowInterruptingStop = false, string HorizontalPlacement = "Center");
+    bool AllowInterruptingStop = false, string HorizontalPlacement = "Center", string ScanProfile = "STANDARD");
 public record ScannerEvent(string Kind, object Evidence);
 public record ScannerDiscoveryIssue(string Source, string Code, int? RetryAfterSeconds);
+public record ScannerSheet(int Version, int DocumentNumber, int PaperCount);
 public record ScannerArtifact(Guid Id, int Sequence, string FileName, string Sha256,
     long Bytes, int Width, int Height, string Side = "UNKNOWN",
-    string PhysicalBoundary = "UNKNOWN", DateTimeOffset? Timestamp = null);
+    string PhysicalBoundary = "UNKNOWN", DateTimeOffset? Timestamp = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ScannerSheet? Sheet = null);
 
 public interface IScannerBackend : IDisposable
 {

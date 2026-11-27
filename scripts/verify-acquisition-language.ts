@@ -19,7 +19,7 @@ export async function verifyAcquisitionLanguage(db:PrismaClient,actor:Acquisitio
   const {ownerPlayerId:chosenOpener}=await db.acquisitionSession.findUniqueOrThrow({where:{id:batch.id},select:{ownerPlayerId:true}});
   const stock=()=>db.inventoryItem.aggregate({_count:{_all:true},_sum:{quantity:true}});
   const before=await stock(),outputs:{id:string;output:Prisma.JsonValue}[]=[];
-  const records:ScryfallCard[]=[card,french].map(row=>({object:"card",id:row.scryfallId,name:row.name,
+  const records:ScryfallCard[]=[card,french].map(row=>({object:"card",id:row.scryfallId!,name:row.name,
     set:row.setCode,set_name:"Fixture",collector_number:row.collectorNumber,lang:row.lang!,digital:false,
     finishes:["nonfoil"],type_line:row.typeLine,rarity:row.rarity,cmc:1,color_identity:[]}));
   async function publish(position:number,kind="unreadable") {

@@ -38,7 +38,8 @@ public sealed class CountedTwainBackend : IScannerBackend
     {
         if (request.RunId == Guid.Empty || request.DeviceId != DeviceId || request.SessionPhysicalTarget is not (>= 1 and <= 5000) ||
             request.Dpi is not (300 or 600) || request.WidthInches != 2.7m || request.HeightInches != 3.6m ||
-            request.HorizontalPlacement != "Center" || request.Duplex || request.ImageStopBudget != null || request.AllowInterruptingStop)
+            request.HorizontalPlacement != "Center" || request.ScanProfile is not ("STANDARD" or "TOKEN" or "ART") ||
+            request.Duplex != (request.ScanProfile is "TOKEN" or "ART") || request.Duplex && request.SessionPhysicalTarget > 2500 || request.ImageStopBudget != null || request.AllowInterruptingStop)
             throw new InvalidOperationException("Unsupported counted profile; no feed authorized");
     }
     private async Task Write(object value)
@@ -59,13 +60,13 @@ public sealed class CountedTwainBackend : IScannerBackend
         Validate(request);
         var start = new ProcessStartInfo(WorkerPath) { UseShellExecute = false, CreateNoWindow = true,
             RedirectStandardInput = true, RedirectStandardOutput = true };
-        start.ArgumentList.Add(fixtureScenario == null ? "helper-channel-v2" : "fixture-channel-v1");
+        start.ArgumentList.Add(fixtureScenario == null ? (request.Duplex ? "helper-channel-v3-paired" : "helper-channel-v2") : "fixture-channel-v1");
         if (fixtureScenario != null) start.ArgumentList.Add(fixtureScenario);
         worker = Process.Start(start) ?? throw new InvalidOperationException("Counted worker unavailable");
-        await Write(new { action = "prepare", profileVersion = ProfileVersion, parent = Environment.ProcessId,
+        await Write(new { action = "prepare", profileVersion = request.Duplex ? 3 : ProfileVersion, parent = Environment.ProcessId,
             target = request.SessionPhysicalTarget, dpi = request.Dpi, requireEmpty });
         var ack = await Read();
-        RequirePrepared(ack, request.SessionPhysicalTarget!.Value, request.Dpi, requireEmpty);
+        RequirePrepared(ack, request.SessionPhysicalTarget!.Value, request.Dpi, requireEmpty, request.Duplex);
         PreparationEvidence = ack;
         prepared = request;
     }
@@ -77,13 +78,14 @@ public sealed class CountedTwainBackend : IScannerBackend
         p.ValueKind == JsonValueKind.Number && p.TryGetDecimal(out var actual) && Math.Abs(actual - expected) < .001m;
     private static bool String(JsonElement value, string name, string expected) => value.TryGetProperty(name, out var p) &&
         p.ValueKind == JsonValueKind.String && p.GetString() == expected;
-    internal static void RequirePrepared(JsonElement ack, int target, int dpi, bool requireEmpty)
+    internal static void RequirePrepared(JsonElement ack, int target, int dpi, bool requireEmpty, bool paired = false)
     {
-        if (!String(ack, "kind", "prepared") || !Number(ack, "target", target) || !Number(ack, "profileVersion", ProfileVersion) ||
+        if (!String(ack, "kind", "prepared") || !Number(ack, "target", target) || !Number(ack, "profileVersion", paired ? 3 : ProfileVersion) ||
             !String(ack, "driver", ProfileDriver) || !String(ack, "protocol", "2.4") ||
             !String(ack, "source", "PaperStream IP fi-7160") || !Number(ack, "dpi", dpi) ||
             !Frame(ack, "widthInches", 2.7m) || !Frame(ack, "heightInches", 3.6m) ||
             !True(ack, "captureReadbacksVerified") || !True(ack, "observedInvariantVerified") ||
+            paired && (!True(ack,"duplex") || !True(ack,"sheetMetadataVerified") || !Number(ack,"imageTarget",target*2)) ||
             !False(ack, "autoScan") || !False(ack, "blankDiscard") || requireEmpty && !False(ack, "feederLoaded"))
             throw new InvalidOperationException("Counted capability negotiation failed; no feed started");
     }
@@ -109,11 +111,18 @@ public sealed class CountedTwainBackend : IScannerBackend
                     var id = message.GetProperty("id").GetGuid();
                     var sequence = message.GetProperty("sequence").GetInt32();
                     if (sequence != retained + 1) throw new InvalidDataException("Counted transfer sequence changed");
+                    ScannerSheet? sheet = null;
+                    string side = "UNKNOWN";
+                    if (prepared!.Duplex) {
+                        if (message.TryGetProperty("sheet",out var sheetJson)) sheet=JsonSerializer.Deserialize<ScannerSheet>(sheetJson.GetRawText(),RunSpool.Json);
+                        if (message.TryGetProperty("side",out var sideJson)) side=sideJson.GetString() ?? "UNKNOWN";
+                        if (sheet is not {Version:1,DocumentNumber:>=0,PaperCount:>0} || side is not ("FRONT" or "BACK")) {sheet=null;side="UNKNOWN";error=true;}
+                    }
                     output.PublishImage(Path.Combine(output.DirectoryPath, $"{id}.pending.png"), id, sequence,
-                        message.GetProperty("width").GetInt32(), message.GetProperty("height").GetInt32());
+                        message.GetProperty("width").GetInt32(), message.GetProperty("height").GetInt32(),side,sheet);
                     retained++;
                     // Retain every overtransfer and make the run unsafe to resume.
-                    if (retained > prepared.SessionPhysicalTarget) error = true;
+                    if (retained > prepared.SessionPhysicalTarget * (prepared.Duplex ? 2 : 1)) error = true;
                 }
                 else if (kind == "problem")
                 {

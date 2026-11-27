@@ -1,3 +1,5 @@
+import {scanProfileSchema} from "./paired-scan-profile";
+import {recognitionSnapshotForProfile} from "./acquisition-recognition-snapshot";
 import {assertScannerLayoutInference,combineScannerLayoutReadings,assertScannerLayoutFooterSource} from "./acquisition-scanner-layout-reading";
 import {scannerLayoutTemplateSchema,scannerLayoutAnchorsObserved,scannerLayoutInferenceSchema,parseScannerLayoutProfile,SCANNER_MARKER_LAYOUT_POLICY} from "./acquisition-scanner-layout";
 import { acquisitionManualAnalysisSchema, acquisitionManualRegionSchema, sameAcquisitionManualRegion } from "./acquisition-manual-region";
@@ -231,7 +233,7 @@ export async function enqueueReadyRecognition(
       .parse(job.input);
     const photo = await db.acquisitionPhoto.findUnique({
       where: { id: input.photoId },
-      include: { slot: true },
+      include: { slot: true, run:{select:{session:{select:{scanProfile:true}}}} },
     });
     if (
       !photo ||
@@ -257,11 +259,12 @@ export async function enqueueReadyRecognition(
           candidateId: job.candidateId,
           candidateRevision: job.candidate.revision,
           stage: RECOGNITION_STAGE,
-          versionKey,
+          versionKey: photo.run.session.scanProfile === "STANDARD" ? versionKey : versionKey + ":" + photo.run.session.scanProfile,
           input: {
             version: 1,
             ...input,
             inputKind: photo.inputKind,
+            scanProfile: photo.run.session.scanProfile,
             manualAnalysis,
             scannerLayoutProfile:photo.scannerLayoutProfile,
             versions: {
@@ -293,11 +296,13 @@ export async function recognizeAcquisitionPhoto(
       photoId: z.string().uuid(),
       digest,
       inputKind: acquisitionImageInputKindSchema.default("PHOTO"),
+      scanProfile: scanProfileSchema.default("STANDARD"),
       versions: z.object({ catalog: digest, model: digest }),
       scannerLayoutProfile:z.string().max(950).nullable().optional(),
       manualAnalysis: acquisitionManualAnalysisSchema.nullable().optional(),
     })
     .parse(job.input);
+  snapshot=recognitionSnapshotForProfile(snapshot,input.scanProfile);
   // Catalog-only changes are handled by reconciliation of saved OCR. The raw
   // job identity depends on its photo/revision/model, not metadata refreshes.
   if (input.versions.model !== model)
@@ -334,7 +339,7 @@ export async function recognizeAcquisitionPhoto(
     native.orientations,
   );
   if(native.scannerLayout?.readingStatus==="COMPLETE")proposals=combineScannerLayoutReadings(snapshot.index,native);
-  if (!input.manualAnalysis?.region && (needsAcquisitionPhotoText(proposals) ||
+  if (!input.manualAnalysis?.region && (input.scanProfile === "ART" || needsAcquisitionPhotoText(proposals) ||
       (input.inputKind === "CARD_SCAN" && native.scannerLayout?.readingStatus !== "COMPLETE" &&
         needsAcquisitionScannerFooter(proposals)))) {
     native.photoText = await readAcquisitionPhotoText(requestNative, bytes, input.inputKind,
@@ -350,10 +355,12 @@ export async function recognizeAcquisitionPhoto(
   signal.throwIfAborted();
   proposals = applyEarlySetSymbol(proposals, native.scannerLayout?.readingStatus==='COMPLETE' ? native.scannerLayout.orientations : native.orientations);
   proposals = applyPreparedInputPolicy(proposals, native);
+  if(input.scanProfile !== "STANDARD") {proposals.automaticAcceptance=false;if(proposals.status==="STRONG_MATCH")proposals.status="REVIEW_REQUIRED";}
   const preparation = prepareRecognitionCard(native, proposals);
   return {
     version: 1,
     photoId: input.photoId,
+    scanProfile: input.scanProfile,
     versions: {
       ...input.versions,
       catalog: snapshot.digest,
