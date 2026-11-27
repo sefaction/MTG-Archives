@@ -210,7 +210,15 @@ export async function readPairedScanBatch(
     };
   });
   const eligible = state.item?.photos.filter((p) => p.ready) ?? [];
-  const evidence = await Promise.all(
+  const evidence: {
+    side: string;
+    status:
+      | Awaited<
+          ReturnType<typeof getAcquisitionCardReview>
+        >["recognitionStatus"]
+      | "USER_CONFIRMED";
+    choices: ReturnType<typeof pairedCatalogChoices>;
+  }[] = await Promise.all(
     eligible.map(async (photo) => {
       const review = await getAcquisitionCardReview(
         db,
