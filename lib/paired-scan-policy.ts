@@ -68,6 +68,14 @@ export type SourceFaceCard = {
   finishes?: unknown;
   artist?: string | null;
   illustrationId?: string | null;
+  colors?: unknown;
+  colorIdentity?: unknown;
+  colorIndicator?: unknown;
+  manaCost?: string | null;
+  oracleText?: string | null;
+  power?: string | null;
+  toughness?: string | null;
+  imageUris?: unknown;
 };
 type FaceData = {
   name: string;
@@ -98,7 +106,12 @@ function catalogFace(card: SourceFaceCard, index: 0 | 1): IdentityFace {
   const face = (faces[index] ?? {
     name: card.name,
     type_line: card.typeLine,
-    image_uris: card.imageUri ? { normal: card.imageUri } : undefined,
+    image_uris: card.imageUris && typeof card.imageUris === "object" ? card.imageUris : card.imageUri ? { normal: card.imageUri } : undefined,
+    ...Object.fromEntries(Object.entries({
+      colors: card.colors, color_identity: card.colorIdentity, color_indicator: card.colorIndicator,
+      mana_cost: card.manaCost, oracle_text: card.oracleText, power: card.power, toughness: card.toughness,
+      artist: card.artist, illustration_id: card.illustrationId,
+    }).filter(([,value]) => value != null)),
   }) as FaceData;
   if (
     !face ||

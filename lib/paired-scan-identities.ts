@@ -50,6 +50,16 @@ export async function resolvePairedCardIdentity(
     throw Error(
       "The selected face printings have no compatible physical finish. Check both matches.",
     );
+  // Color browsing follows the canonical front, like ordinary inventory cards.
+  // Parent color identity is safe only when all of its faces were selected;
+  // an unused sibling face must not contribute characteristics to a new pair.
+  const completeSources = sources.every((source) => {
+    const count = Array.isArray(source.cardFaces) ? Math.max(1, source.cardFaces.length) : 1;
+    return Array.from({ length: count }, (_, face) => face).every((face) =>
+      identity.faces.some((selected) => selected.sourceCardId === source.id && selected.sourceFace === face));
+  });
+  const colorIdentity = completeSources && sources.every(c => Array.isArray(c.colorIdentity))
+    ? [...new Set(sources.flatMap(c => c.colorIdentity as string[]))] : null;
   return tx.card.upsert({
     where: { applicationIdentityKey: identity.key },
     update: {},
@@ -69,6 +79,12 @@ export async function resolvePairedCardIdentity(
         decision.profile === "TOKEN"
           ? identity.faces.map((f) => f.collectorNumber).join(" // ")
           : primary.collectorNumber,
+      colors: json(primary.snapshot.colors ?? []),
+      colorIdentity: colorIdentity ? json(colorIdentity) : Prisma.DbNull,
+      oracleText: decision.profile === "TOKEN" ? identity.faces.map(f => f.snapshot.oracle_text ?? "").join(" // ") : null,
+      manaCost: decision.profile === "TOKEN" ? primary.snapshot.mana_cost ?? null : null,
+      power: decision.profile === "TOKEN" && typeof primary.snapshot.power === "string" ? primary.snapshot.power : null,
+      toughness: decision.profile === "TOKEN" && typeof primary.snapshot.toughness === "string" ? primary.snapshot.toughness : null,
       rarity: primarySource.rarity,
       lang: language,
       digital: false,

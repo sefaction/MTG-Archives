@@ -1,10 +1,11 @@
+import { inventoryCardMatchesPostFilters, parseInventoryFilters } from "../lib/inventory-filters";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import bcrypt from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import {
   createScannerPairing,
   claimScannerPairing,
@@ -166,6 +167,11 @@ async function main() {
           rarity: "common",
           typeLine: layout === "token" ? "Token Creature — " + name : "Card",
           layout,
+          colors: name === "Goblin" ? ["R"] : [],
+          colorIdentity: name === "Goblin" ? ["R"] : [],
+          oracleText: layout === "token" ? "Fixture token rules" : null,
+          power: layout === "token" ? "1" : null,
+          toughness: layout === "token" ? "1" : null,
           lang: "en",
           digital: false,
           finishes: ["nonfoil"],
@@ -409,6 +415,21 @@ async function main() {
     assert.equal(inventory.card.name, "Goblin // Treasure");
     assert.equal(inventory.card.applicationFaces.length, 2);
     assert.equal(inventory.card.prices, null);
+    assert.deepEqual(inventory.card.colors, ["R"]);
+    assert.deepEqual(inventory.card.colorIdentity, ["R"]);
+    assert.equal(inventory.card.power, "1");
+    assert.equal(inventory.card.oracleText, "Fixture token rules // Fixture token rules");
+    assert.equal(inventoryCardMatchesPostFilters(inventory.card, parseInventoryFilters(new URLSearchParams("colors=R&colorIdentity=R"))), true);
+    assert.equal(inventoryCardMatchesPostFilters(inventory.card, parseInventoryFilters(new URLSearchParams("colors=U"))), false);
+    // Choosing one DFT face must not leak the unchosen parent's blue face.
+    const mixedSource = await db.card.create({ data: { name: "Goblin // Fish", setCode: "tst", collectorNumber: "4", rarity: "common", typeLine: "Token Creature", finishes: ["nonfoil"], scryfallId: randomUUID(), layout: "double_faced_token", colors: Prisma.DbNull, colorIdentity: ["R", "U"], cardFaces: [
+      { name: "Goblin", type_line: "Token Creature", colors: ["R"] },
+      { name: "Fish", type_line: "Token Creature", colors: ["U"] },
+    ] } });
+    const mixed = await db.$transaction(tx => resolvePairedCardIdentity(tx, { profile: "TOKEN", front: { cardId: mixedSource.id, face: 0 }, back: tokenDecision.back }));
+    assert.deepEqual(mixed.colors, ["R"]);
+    assert.equal(mixed.colorIdentity, null);
+    assert.equal(inventoryCardMatchesPostFilters(mixed, parseInventoryFilters(new URLSearchParams("colors=U"))), false);
     const [same, different] = await db.$transaction(async (tx) => [
       await resolvePairedCardIdentity(tx, {
         profile: "TOKEN",
