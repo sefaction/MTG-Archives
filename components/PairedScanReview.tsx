@@ -841,10 +841,10 @@ function PairItem({
                 ))}
               </select>
             </label>
-            <label>
+            <label className="min-w-0 max-w-full">
               Original opener
               <select
-                className={input + " block"}
+                className={input + " block max-w-full"}
                 value={draft.openerPlayerId ?? ""}
                 disabled={disabled || stale}
                 onChange={(e) =>
