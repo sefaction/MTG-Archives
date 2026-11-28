@@ -15,6 +15,7 @@ export type RecognitionCard = {
   collectorNumber: string;
   lang?: string | null;
   digital?: boolean | null;
+  layout?: string | null;
 };
 export type RecognitionText = {
   title: string[];

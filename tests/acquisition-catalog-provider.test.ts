@@ -97,8 +97,10 @@ test("query identity normalizes typography but preserves printing suffixes and l
 });
 
 test("name lookups retire old negative cache identities without invalidating explicit printings", () => {
-  const oldKey = (query: unknown) => createHash("sha256")
-    .update(JSON.stringify({ version: 1, query })).digest("hex");
+  const oldKey = (query: unknown) =>
+    createHash("sha256")
+      .update(JSON.stringify({ version: 1, query }))
+      .digest("hex");
   assert.equal(catalogQueryKey(query), oldKey(query));
   const id = { kind: "id" as const, id: card(1).id };
   assert.equal(catalogQueryKey(id), oldKey(id));
@@ -144,15 +146,26 @@ test("a digital named-card result still enumerates all paper printings", async (
         assert.equal(requestedName, name);
         assert.equal(language, "en");
         pages.push(page);
-        return ok({ object: "list", data: [page === 1 ? original : list],
-          has_more: page === 1, total_cards: 2 });
+        return ok({
+          object: "list",
+          data: [page === 1 ? original : list],
+          has_more: page === 1,
+          total_cards: 2,
+        });
       },
     };
-    const result = await fetchAcquisitionCatalogQuery({ kind: "name", name }, signal(), provider);
+    const result = await fetchAcquisitionCatalogQuery(
+      { kind: "name", name },
+      signal(),
+      provider,
+    );
     assert.equal(result.status, "FOUND");
     assert.equal(result.printingCoverage, "CHECKED");
     assert.deepEqual(pages, [1, 2]);
-    assert.deepEqual(result.cards.map(c => c.id), [original.id, list.id]);
+    assert.deepEqual(
+      result.cards.map((c) => c.id),
+      [original.id, list.id],
+    );
     assert.equal(result.requestsMade, 3);
   }
 });
@@ -168,7 +181,8 @@ test("digital-only names stay not found while paper enumeration failures remain 
   assert.equal(missing.requestsMade, 2);
   assert.deepEqual(missing.cards, []);
   const failed = await fetchAcquisitionCatalogQuery(name, signal(), {
-    ...provider, printings: async () => fail("RATE_LIMITED"),
+    ...provider,
+    printings: async () => fail("RATE_LIMITED"),
   });
   assert.equal(failed.status, "PROVIDER_ERROR");
   assert.equal(failed.errorKind, "RATE_LIMITED");
@@ -179,13 +193,23 @@ test("explicit digital identities remain unavailable and digital enumeration can
   const digital = { ...card(1), digital: true };
   const provider: Provider = {
     card: async () => ok(digital),
-    printings: async () => { enumerated = true; return ok({ object: "list", data: [digital], has_more: false }); },
+    printings: async () => {
+      enumerated = true;
+      return ok({ object: "list", data: [digital], has_more: false });
+    },
   };
   for (const identity of [query, { kind: "id" as const, id: digital.id }]) {
-    assert.equal((await fetchAcquisitionCatalogQuery(identity, signal(), provider)).status, "NOT_FOUND");
+    assert.equal(
+      (await fetchAcquisitionCatalogQuery(identity, signal(), provider)).status,
+      "NOT_FOUND",
+    );
   }
   assert.equal(enumerated, false);
-  const result = await fetchAcquisitionCatalogQuery({ kind: "name", name: digital.name }, signal(), provider);
+  const result = await fetchAcquisitionCatalogQuery(
+    { kind: "name", name: digital.name },
+    signal(),
+    provider,
+  );
   assert.equal(result.status, "PROVIDER_ERROR");
   assert.equal(result.printingCoverage, "UNRESOLVED");
   assert.deepEqual(result.cards, []);
@@ -333,5 +357,51 @@ test("advertised totals and original printing membership must agree before cover
     (await fetchAcquisitionCatalogQuery(query, signal(), omittedOriginal))
       .errorKind,
     "INVALID_RESPONSE",
+  );
+});
+
+test("paired name coverage separates art/token layouts and cache identities", async () => {
+  for (const scanProfile of ["TOKEN", "ART"] as const) {
+    const c = {
+      ...card(41),
+      layout: scanProfile === "ART" ? "art_series" : "token",
+    };
+    let seen: string | undefined;
+    const provider: Provider = {
+      card: async () => ok(c),
+      printings: async (_name, _page, _language, _signal, profile) => {
+        seen = profile;
+        return ok({
+          object: "list",
+          data: [c],
+          has_more: false,
+          total_cards: 1,
+        });
+      },
+    };
+    const request = { kind: "name" as const, name: c.name, scanProfile };
+    const result = await fetchAcquisitionCatalogQuery(
+      request,
+      signal(),
+      provider,
+    );
+    assert.equal(result.status, "FOUND");
+    assert.equal(seen, scanProfile);
+    const wrong: Provider = {
+      ...provider,
+      card: async () => ok({ ...c, layout: "normal" }),
+    };
+    assert.equal(
+      (await fetchAcquisitionCatalogQuery(request, signal(), wrong)).errorKind,
+      "INVALID_RESPONSE",
+    );
+    assert.notEqual(
+      catalogQueryKey(request),
+      catalogQueryKey({ kind: "name", name: c.name }),
+    );
+  }
+  assert.notEqual(
+    catalogQueryKey({ kind: "name", name: "Island", scanProfile: "ART" }),
+    catalogQueryKey({ kind: "name", name: "Island", scanProfile: "TOKEN" }),
   );
 });

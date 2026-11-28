@@ -1,3 +1,4 @@
+import type {PrismaClient} from "@prisma/client";
 import crypto from "node:crypto";
 
 import { prisma } from "./prisma";
@@ -198,11 +199,11 @@ export function cardWriteData(cardData: ScryfallCard) {
   };
 }
 
-export async function upsertScryfallCard(cardData: ScryfallCard) {
+export async function upsertScryfallCard(cardData: ScryfallCard, db: PrismaClient = prisma) {
   const data = cardWriteData(cardData) as any;
   const { prices: _prices, ...metadata } = data;
   const scryfallPrices = scryfallPricesForWrite(cardData);
-  return prisma.$transaction(async (tx) => {
+  return db.$transaction(async (tx) => {
     const existing = await tx.card.findUnique({
       where: { scryfallId: cardData.id },
       select: { scryfallFingerprint: true, firstCachedAt: true },
@@ -507,10 +508,12 @@ export async function searchLocalThenScryfallCards(query: string) {
         query: trimmed,
         setCode: normalizeSetCode(trimmed) ?? trimmed,
         limit: 20,
+        externalOnly: true,
       });
-  if (local.length > 0) {
+  const catalogLocal=local.filter((card):card is typeof card & {scryfallId:string} => typeof card.scryfallId === "string");
+  if (catalogLocal.length > 0) {
     return {
-      cards: local.map((card) => ({
+      cards: catalogLocal.map((card) => ({
         id: card.scryfallId,
         oracle_id: card.oracleId ?? undefined,
         name: card.name,

@@ -31,7 +31,7 @@ export async function eligibleScannerOriginals(db: PrismaClient, authorization: 
       return { version: 1 as const, runId: run.id, epoch, eligible: [] as string[] };
     const ids = input.artifacts.map(a => a.artifactId);
     const photos = await tx.acquisitionPhoto.findMany({
-      where: { runId: run.acquisitionRunId, slot: { requestKey: { in: ids } } },
+      where: { runId: run.acquisitionRunId, uploadKey: { in: ids } },
       include: { slot: true },
     });
     const candidates = await tx.acquisitionCandidate.findMany({
@@ -44,7 +44,7 @@ export async function eligibleScannerOriginals(db: PrismaClient, authorization: 
     const eligible = input.artifacts.filter(a => {
       const photo = byPhoto.get(a.photoId);
       const member = photo && bySlot.get(photo.slotId)?.receipt;
-      return photo?.slot.requestKey === a.artifactId && photo.digest === a.digest && photo.ready &&
+      return photo?.uploadKey === a.artifactId && photo.digest === a.digest && photo.ready &&
         photo.purgedAt !== null && photo.purgedAt <= now && (expiredTrash || pressureDeleted ||
           photo.purgeAfter !== null && photo.purgeAfter <= now &&
           member?.commit.runId === run.acquisitionRunId && member.commit.createdAt <= cutoff);

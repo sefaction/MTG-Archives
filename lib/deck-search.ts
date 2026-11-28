@@ -11,7 +11,7 @@ import { searchLocalCardCatalog } from "./local-card-search";
 
 export type DeckCardSearchResult = {
   cardId: string;
-  scryfallId: string;
+  scryfallId: string | null;
   oracleId: string | null;
   name: string;
   manaCost: string | null;

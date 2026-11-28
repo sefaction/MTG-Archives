@@ -55,7 +55,7 @@ export async function verifyAcquisitionManualRegions(db: PrismaClient, actor: Ac
     await assert.rejects(saveAcquisitionReview(db, actor, sessionId, {...request, region: null}), /request changed/);
     await assert.rejects(saveAcquisitionReview(db, actor, sessionId, {...request, requestKey: randomUUID()}), /card changed/);
 
-    await verifyAcquisitionManualPipeline(db,actor,sessionId,photo.id,candidate.id,card,bytes);
+    await verifyAcquisitionManualPipeline(db,actor,sessionId,photo.id,candidate.id,{...card,scryfallId:card.scryfallId!},bytes);
     state = await getAcquisitionCardReview(db,actor,sessionId,photo.id);
 
     const beforeFault = await db.acquisitionCandidate.findUniqueOrThrow({where: {id: candidate.id}});

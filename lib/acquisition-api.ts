@@ -55,6 +55,7 @@ export function acquisitionProgressDto(
   return {
     id: state.session.id,
     providerId: state.session.run.providerId,
+    scanProfile: state.scanProfile,
     runId: state.session.run.runId,
     batchNumber: state.batchNumber,
     revision: state.revision,

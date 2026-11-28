@@ -25,7 +25,7 @@ export type DeckTradeSource = {
   deck: Deck;
   cards: DeckCard[];
   location: InventoryLocation | null;
-  stock: (InventoryItem & { card: { name: string; scryfallId: string } })[];
+  stock: (InventoryItem & { card: { name: string; scryfallId: string | null } })[];
   tagIds: string[];
   ownerPlayerId: string;
   leagueLinked: boolean;

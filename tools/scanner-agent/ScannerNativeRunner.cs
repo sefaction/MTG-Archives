@@ -11,7 +11,7 @@ public record NativeSettings(int Dpi, decimal WidthInches, decimal HeightInches,
     string HorizontalPlacement, bool Duplex, string Color, bool AutoCrop, bool Deskew, bool RemoveBlank);
 public record NativeInstruction(int Version, Guid RunId, Guid Epoch, string SessionId,
     string DeviceId, int? LoadedCount, NativeSettings Settings, int? PhysicalTarget,
-    bool StopRequested, string Status, Guid? ExecutionId, bool Counted = false, int SequenceOffset = 0, int Segment = 0);
+    bool StopRequested, string Status, Guid? ExecutionId, bool Counted = false, int SequenceOffset = 0, int Segment = 0, string ScanProfile = "STANDARD");
 public record NativeBinding(int Version, NativeInstruction Instruction, Guid ExecutionId, HelperIdentity? HelperIdentity = null);
 
 // Generic outbound acquisition transport; the existing backend owns all driver
@@ -51,7 +51,7 @@ public static class ScannerNativeRunner
             Directory.CreateDirectory(Path.Combine(root, "devices"));
             var drive = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(root))!);
             if (drive.AvailableFreeSpace < 2L * 1024 * 1024 * 1024 +
-                (run.Counted ? run.PhysicalTarget ?? 500 : run.LoadedCount ?? 500) * 10L * 1024 * 1024) {
+                (run.Counted ? run.PhysicalTarget ?? 500 : run.LoadedCount ?? 500) * (run.Settings.Duplex ? 2L : 1L) * 10L * 1024 * 1024) {
                 await ReportPreflight(client, token, run, "LOW_DISK_SPACE"); return null;
             }
             var physicalKey = devices.Any(d => d.Id == run.DeviceId && d.Name.Contains("fi-7160", StringComparison.OrdinalIgnoreCase))
@@ -70,8 +70,8 @@ public static class ScannerNativeRunner
             Capabilities? caps = null;
             string? problem = null;
             var request = new ScanRequest(run.RunId, run.DeviceId, run.Settings.Dpi,
-                run.Settings.WidthInches, run.Settings.HeightInches, false, null,
-                run.PhysicalTarget, false, run.Settings.HorizontalPlacement);
+                run.Settings.WidthInches, run.Settings.HeightInches, run.Settings.Duplex, null,
+                run.PhysicalTarget, false, run.Settings.HorizontalPlacement, run.ScanProfile);
             try {
                 backend = (backendFactory ?? (() => run.DeviceId == CountedTwainBackend.DeviceId
                     ? new CountedTwainBackend() : new Naps2Backend(run.DeviceId)))();
@@ -117,14 +117,15 @@ public static class ScannerNativeRunner
             run.Counted != (run.DeviceId == CountedTwainBackend.DeviceId) || run.Counted && run.PhysicalTarget is not (>= 1 and <= 5000) ||
             s.Dpi is not (300 or 600) || s.WidthInches is < 2.5m or > 4 ||
             s.HeightInches is < 3.5m or > 6 || s.HorizontalPlacement is not ("Start" or "Center" or "End") ||
-            s.Duplex || s.Color != "RGB" || s.AutoCrop || s.Deskew || s.RemoveBlank)
+            (s.Duplex != (run.ScanProfile is "TOKEN" or "ART")) ||
+            (run.ScanProfile is not ("STANDARD" or "TOKEN" or "ART")) || s.Duplex && (!run.Counted || run.PhysicalTarget > 2500) || s.Color != "RGB" || s.AutoCrop || s.Deskew || s.RemoveBlank)
             throw new InvalidOperationException("Unsupported scanner instruction; no feed started");
     }
     private static bool SameInstruction(NativeInstruction a, NativeInstruction b) =>
         a.RunId == b.RunId && a.Epoch == b.Epoch && a.SessionId == b.SessionId &&
         a.DeviceId == b.DeviceId && a.LoadedCount == b.LoadedCount &&
         a.Settings == b.Settings && a.PhysicalTarget == b.PhysicalTarget && a.Counted == b.Counted &&
-        a.SequenceOffset == b.SequenceOffset && a.Segment == b.Segment;
+        a.SequenceOffset == b.SequenceOffset && a.Segment == b.Segment && a.ScanProfile == b.ScanProfile;
     public static async Task PollAndRun(HttpClient client, Guid agentId, string token, string root,
         IReadOnlyList<Device> devices, CancellationToken stop, Func<IScannerBackend>? backendFactory = null,
         Func<object>? backendDescription = null, string advertisedVersion = ScannerConnection.Version)
@@ -151,7 +152,9 @@ public static class ScannerNativeRunner
         }
         if (run.Status != "QUEUED" || run.StopRequested || run.ExecutionId != null)
             throw new InvalidOperationException("Started scanner run has no local journal; manual reconciliation required");
-        if (run.Counted && run.Settings.Dpi == 300 && advertisedVersion != ScannerConnection.CountedResolutionVersion)
+        if (run.ScanProfile != "STANDARD" && advertisedVersion != ScannerConnection.PairedVersion)
+            throw new InvalidOperationException("The connected site does not support paired duplex scanning");
+        if (run.Counted && run.Settings.Dpi == 300 && advertisedVersion != ScannerConnection.CountedResolutionVersion && advertisedVersion != ScannerConnection.PairedVersion)
             throw new InvalidOperationException("The connected site does not support counted scanning at 300 DPI");
         var helperIdentity = poll.TryGetProperty("helperIdentityReporting", out var reporting) && reporting.ValueKind == JsonValueKind.True
             ? ScannerHelperIdentity.Current : null;
@@ -234,7 +237,8 @@ public static class ScannerNativeRunner
                 ?? throw new InvalidDataException("Scanner artifact manifest unavailable");
             if (artifact.Id != id || artifact.FileName != $"{id}.png" || artifact.Sequence < 1 ||
                 artifact.Sequence > 5000 || artifact.Bytes <= 0 || artifact.Timestamp == null ||
-                artifact.Side != "UNKNOWN" || artifact.PhysicalBoundary != "UNKNOWN")
+                (artifact.Sheet == null ? artifact.Side != "UNKNOWN" || artifact.PhysicalBoundary != "UNKNOWN" :
+                 artifact.Sheet is not {Version:1,DocumentNumber:>=0,PaperCount:>0} || artifact.Side is not ("FRONT" or "BACK") || artifact.PhysicalBoundary != "SCANNER_SHEET"))
                 throw new InvalidDataException("Scanner manifest requires reconciliation");
             values.Add(artifact);
         }
@@ -255,10 +259,12 @@ public static class ScannerNativeRunner
         using var request = new HttpRequestMessage(HttpMethod.Post, "api/scanner-agent/images") { Content = new ByteArrayContent(bytes) };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Content.Headers.ContentType = new MediaTypeHeaderValue("image/png");
-        request.Headers.Add("x-mtg-scanner", JsonSerializer.Serialize(new { version = 1, runId = run.RunId,
-            epoch = run.Epoch, executionId = binding.ExecutionId, artifactId = artifact.Id,
-            sequence = artifact.Sequence, timestamp = timestamp.ToString("O"),
-            side = artifact.Side, physicalBoundary = artifact.PhysicalBoundary }, RunSpool.Json));
+        var transfer = new Dictionary<string,object> { ["version"] = 1, ["runId"] = run.RunId,
+            ["epoch"] = run.Epoch, ["executionId"] = binding.ExecutionId, ["artifactId"] = artifact.Id,
+            ["sequence"] = artifact.Sequence, ["timestamp"] = timestamp.ToString("O"),
+            ["side"] = artifact.Side, ["physicalBoundary"] = artifact.PhysicalBoundary };
+        if (artifact.Sheet != null) transfer["sheet"] = artifact.Sheet;
+        request.Headers.Add("x-mtg-scanner", JsonSerializer.Serialize(transfer, RunSpool.Json));
         using var response = await client.SendAsync(request);
         if (ScannerConnectionRejected.IsPermanent(response.StatusCode)) throw new ScannerConnectionRejected(response.StatusCode);
         if (!response.IsSuccessStatusCode) throw new InvalidOperationException("Scanner upload rejected; original retained");

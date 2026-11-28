@@ -13,6 +13,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  paired-scans:
+    name: Paired token and art-card integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: paired_scan_fixture
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d paired_scan_fixture"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/paired_scan_fixture?schema=public
+      MTG_PAIRED_SCAN_FIXTURE: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - run: npx tsx scripts/verify-paired-scans.ts --run
   backup-correction-drill:
     name: Backup correction lifecycle and real recovery drill
     # Use a runner that packages the PostgreSQL 16 tools for these archive jobs.

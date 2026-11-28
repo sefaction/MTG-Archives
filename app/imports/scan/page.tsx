@@ -1,6 +1,7 @@
 import { Nav } from "@/components/Nav";
 import { ImportTaskNav } from "@/components/ImportTaskNav";
 import { ScannerConnections } from "@/components/ScannerConnections";
+import { PairedScanReview } from "@/components/PairedScanReview";
 import { AcquisitionCapture } from "@/components/AcquisitionCapture";
 import { requireLogin, getAccessScope } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -35,6 +36,7 @@ export default async function ScanPage({
   const params = await searchParams;
   const photoInput = params.input === "camera" || params.input === "photos" ? params.input : undefined;
   const initialBatch = params.batch ?? "";
+  const pairedBatch = initialBatch ? await prisma.acquisitionSession.findFirst({where:{id:initialBatch,...owner,trashedAt:null,deletedAt:null,scanProfile:{in:["TOKEN","ART"]}},select:{id:true}}) : null;
   const destinations = await getStorageLocations(prisma, locations);
   const storage = !initialBatch && !photoInput ? await scannerCapacityDestinations(prisma, destinations) : destinations;
   let initialSetup: ScannerContinuation | null = null, setupMessage = "";
@@ -58,11 +60,11 @@ export default async function ScanPage({
       {!photoInput && <details open={!initialBatch} className="min-w-0">
         <summary className="cursor-pointer text-sm font-medium">Scanner connection &amp; setup</summary>
         <div className="space-y-3 mt-3">
-          <p role="note" className="text-sm">fi-7160 count control requires helper 0.4.2 or later and the Cards profile with Pre-Pick Off.</p>
+          <p role="note" className="text-sm">Ordinary scanning uses the Cards profile with Pre-Pick Off. Token and art-card duplex profiles require helper 0.5.0 or later.</p>
           <ScannerConnections newBatchHref="/imports/scan?input=scanner#new-scan-batch" />
         </div>
       </details>}
-      <AcquisitionCapture
+      {pairedBatch ? <PairedScanReview batchId={pairedBatch.id} userId={user.id} locations={destinations} openerChoices={openerChoices}/> : <AcquisitionCapture
         key={initialBatch || initialSetup?.continueFrom || photoInput || "new"}
         userId={user.id}
         bulkCleanupEnabled={user.bulkCleanupEnabled}
@@ -74,7 +76,7 @@ export default async function ScanPage({
         initialScanner={params.input === "scanner" || !!initialSetup}
         photoInput={photoInput}
         recent={recent}
-      />
+      />}
     </main>
   );
 }

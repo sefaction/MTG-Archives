@@ -40,7 +40,7 @@ test("commit failure is distinguished from page failure without replacing its ca
 
 test("row hashing failure records completed read counts and preserves error identity",async()=>{
  const error=new Error(secret), face=Object.defineProperty({},"name",{get(){throw error}});
- await assert.rejects(loadAcquisitionRecognitionSnapshot(db(async(work:any)=>work(page(async()=>[{cardFaces:[face]}])))),e=>e===error);
+ await assert.rejects(loadAcquisitionRecognitionSnapshot(db(async(work:any)=>work(page(async()=>[{scryfallId:"owned",cardFaces:[face]}])))),e=>e===error);
  const report=recognitionSnapshotFailure(error)!;assert.equal(report.phase,"HASH_ROWS");assert.equal(report.pagesRead,1);assert.equal(report.rowsRead,1);
  assert.equal(report.transactionCompleted,false);assert.ok(!JSON.stringify(report).includes(secret));
 });

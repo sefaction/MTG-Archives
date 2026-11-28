@@ -1,3 +1,4 @@
+import {isPairedProfile} from "../lib/paired-scan-profile";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {Script} from "node:vm";
@@ -117,12 +118,12 @@ test("scanner image admission is independent of earlier cards and retains replay
     const actor={userId:"owner"};
     const slot={id:"slot",position:1};
     const receive=actual("lib/scanner-runs.ts","receiveScannerImage",{
-      scannerTransferSchema:z.any(),authorizeScannerTransfer:async()=>{},inspectAcquisitionPhoto:async()=>({}),
+      isPairedProfile,scannerTransferSchema:z.any(),authorizeScannerTransfer:async()=>{},inspectAcquisitionPhoto:async()=>({}),
       scannerTransaction:async(db:any,work:any)=>work(db),agentRun:async()=>({run,actor}),
       readAcquisitionRow:async(_tx:any,_actor:any,_id:any,scope:any)=>{
         if(!scope)fullReads+=earlierCards;
         assert.deepEqual(JSON.parse(JSON.stringify(scope)),{});
-        return {id:"batch",phase:"CAPTURING",run:{id:"acquisition",candidates:[]}};
+        return {id:"batch",phase:"CAPTURING",scanProfile:"STANDARD",run:{id:"acquisition",candidates:[]}};
       },hydrateAcquisitionRow:()=>({destinationCurrent:true}),
       beginAcquisitionPhoto:async()=>({id:"photo",digest:"digest",ready:replay}),
       writeAcquisitionPhotoBytes:async()=>{writes++;},finalizeAcquisitionPhoto:async()=>{finalized++;},
@@ -130,7 +131,7 @@ test("scanner image admission is independent of earlier cards and retains replay
     });
     const db={$queryRaw:async()=>[],acquisitionCaptureSlot:{findUnique:async()=>replay?slot:null,create:async()=>slot},
       acquisitionSession:{update:async()=>{}},scannerRun:{updateMany:async()=>{}}};
-    const input={executionId:"execution",artifactId:"artifact",sequence:2};
+    const input={executionId:"execution",artifactId:"artifact",sequence:2,side:"UNKNOWN",physicalBoundary:"UNKNOWN"};
     const result=await receive(db,"auth",input,"epoch",Buffer.from("photo"),"image/png");
     assert.equal(result.ready,true);assert.equal(fullReads,0);assert.equal(writes,replay?0:1);assert.equal(finalized,replay?0:1);
     if(replay)await assert.rejects(receive(db,"auth",{...input,sequence:3},"epoch",Buffer.from("photo"),"image/png"),/sequence identity/);

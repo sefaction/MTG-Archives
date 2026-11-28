@@ -95,6 +95,18 @@ internal static class ScannerCountedSelfTest
                 try { badClose.Close(); } catch (InvalidDataException) { denied = true; }
                 if (!denied) throw new InvalidDataException("Failed preparation restoration was reported as clean closure");
             }
+            foreach(var scenario in new[]{"paired-normal","paired-reversed","paired-missing","paired-duplicate","paired-unknown","paired-gap"}) {
+                var paired=request with {RunId=Guid.NewGuid(),Duplex=true,ScanProfile="TOKEN"};
+                using var backend=new CountedTwainBackend(scenario); await backend.Prepare(paired);
+                using var spool=new RunSpool(root,paired,new {fixture=true,hardware=false}); await backend.Start(spool);
+                var images=ScannerNativeRunner.Artifacts(spool.DirectoryPath);
+                if(images.Count!=(scenario=="paired-missing"?3:4))throw new InvalidDataException("Paired originals were lost");
+                using var stream=new FileStream(Path.Combine(spool.DirectoryPath,"events.jsonl"),FileMode.Open,FileAccess.Read,FileShare.ReadWrite);
+                using var reader=new StreamReader(stream); var journal=reader.ReadToEnd();
+                if((scenario is "paired-normal" or "paired-reversed") == journal.Contains("\"outcome\":\"ERROR\""))throw new InvalidDataException("Paired completion hid uncertainty");
+                if(scenario=="paired-unknown" ? images.Any(i=>i.Side!="UNKNOWN"||i.Sheet!=null) : images.Any(i=>i.Sheet==null))throw new InvalidDataException("Paired source provenance changed");
+            }
+            Console.WriteLine("PASS paired companion fixtures: complete/reversed/missing/duplicate/unknown/gap; every original retained, no hardware");
             foreach (var dpi in new[] { 600, 300 })
             foreach (var scenario in new[] { "normal", "early-empty", "overtransfer", "restore-error", "late-exit-error", "closure-proof-missing" })
             {

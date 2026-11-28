@@ -35,6 +35,8 @@ export async function resolveOfflineAcquisitionCatalogResult(
 ): Promise<OfflineCatalogLookupResult | undefined> {
   const query = catalogQuerySchema.parse(raw);
   signal.throwIfAborted();
+  // Older name manifests do not prove profile-specific printing coverage.
+  if(query.kind==="name"&&query.scanProfile)return undefined;
   if (!completeSnapshotOnly && ((query.kind === "name" && query.fuzzy) ||
       (query.kind === "printing" && query.language !== "en"))) return undefined;
   return db.$transaction(async tx => {

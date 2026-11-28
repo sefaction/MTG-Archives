@@ -10,9 +10,9 @@ export async function verifyRecognitionSnapshot(db:PrismaClient){
   const prefix=`recognition-snapshot-${randomUUID()}-`;
   const id=(n:number)=>prefix+String(n).padStart(4,'0');
   const projection={id:true,scryfallId:true,name:true,printedName:true,cardFaces:true,
-    setCode:true,collectorNumber:true,lang:true,digital:true} as const;
+    setCode:true,collectorNumber:true,lang:true,digital:true,layout:true} as const;
   const legacy=async()=>{
-    const rows=await db.card.findMany({orderBy:{id:'asc'},select:projection});
+    const rows=await db.card.findMany({where:{scryfallId:{not:null}},orderBy:{id:'asc'},select:projection});
     const cards=rows.map(({cardFaces,...card})=>({...card,faceNames:Array.isArray(cardFaces)?cardFaces.flatMap(f=>{
       const face=f as {name?:unknown;printed_name?:unknown};
       return [face?.name,face?.printed_name].filter((v):v is string=>typeof v==='string');

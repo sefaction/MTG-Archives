@@ -45,7 +45,7 @@ export async function verifyAcquisitionCatalog(
     ],
   });
   const cards = [
-    card(existing.scryfallId, "1a"),
+    card(existing.scryfallId!, "1a"),
     {
       ...card(newIds[0], "2"),
       cmc: undefined,
@@ -155,7 +155,7 @@ export async function verifyAcquisitionCatalog(
     assert.equal(reversible.manaValue, null);
     assert.equal(reversible.typeLine, "Creature // Creature");
     const changed = await db.card.findUniqueOrThrow({
-      where: { scryfallId: existing.scryfallId },
+      where: { scryfallId: existing.scryfallId! },
     });
     assert.equal(changed.id, existing.id);
     assert.equal(changed.collectorNumber, "1a");

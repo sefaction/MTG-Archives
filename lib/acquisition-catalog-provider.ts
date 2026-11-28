@@ -63,6 +63,8 @@ export async function fetchAcquisitionCatalogQuery(
     signal.throwIfAborted();
     if (!found.ok) return failure(found.error, true);
     const first = checkedCard(found.data);
+    const allowed=(card:ScryfallCard)=>query.kind!=="name"||!query.scanProfile||(query.scanProfile==="ART"?card.layout==="art_series":["token","double_faced_token"].includes(card.layout??""));
+    if(!allowed(first))throw new Error("Catalog response does not match the scan profile");
     if (
       (query.kind === "id" && first.id !== query.id) ||
       (query.kind === "printing" &&
@@ -96,6 +98,7 @@ export async function fetchAcquisitionCatalogQuery(
         page,
         language,
         signal,
+        query.kind==="name"?query.scanProfile:undefined,
       );
       requestsMade += response.requestsMade;
       signal.throwIfAborted();
@@ -128,7 +131,7 @@ export async function fetchAcquisitionCatalogQuery(
               exactFace.data.some((face) => face.name === first.name)
             )) ||
           card.lang !== language ||
-          card.digital === true
+          card.digital === true || !allowed(card)
         )
           throw new Error("Unexpected printing search result");
         if (enumerated.has(card.id))

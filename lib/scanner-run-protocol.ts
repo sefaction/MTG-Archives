@@ -1,3 +1,5 @@
+import {scanProfileSchema} from "./paired-scan-profile";
+import {pairedSheetSchema} from "./paired-scan-profile";
 import { z } from "zod";
 import { acquisitionDefaultsSchema } from "./acquisition-review";
 
@@ -13,7 +15,7 @@ export const scannerSettingsSchema = z.object({
   widthInches: z.number().min(2.5).max(4),
   heightInches: z.number().min(3.5).max(6),
   horizontalPlacement: z.enum(["Start", "Center", "End"]),
-  duplex: z.literal(false), color: z.literal("RGB"),
+  duplex: z.boolean(), color: z.literal("RGB"),
   autoCrop: z.literal(false), deskew: z.literal(false), removeBlank: z.literal(false),
 }).strict();
 export const scannerBatchSchema = z.object({
@@ -23,11 +25,18 @@ export const scannerBatchSchema = z.object({
   quantity: z.number().int().min(1).max(2147483647).nullable(),
   loadedCount: z.number().int().min(1).max(500).nullable(),
   settings: scannerSettingsSchema,
-  operatorLoadedSimplexFronts: z.literal(true),
+  scanProfile: scanProfileSchema.optional(),
+  operatorLoadedSimplexFronts: z.literal(true).optional(),
+  operatorLoadedBothSides: z.literal(true).optional(),
   defaults: acquisitionDefaultsSchema.optional(),
   continuous: z.literal(true).optional(),
   continueFrom: z.string().uuid().optional(),
-}).strict();
+}).strict().superRefine((value,ctx)=>{
+  const paired=value.scanProfile==='TOKEN'||value.scanProfile==='ART';
+  if(paired ? !value.settings.duplex||!value.operatorLoadedBothSides||value.operatorLoadedSimplexFronts!==undefined : value.settings.duplex||!value.operatorLoadedSimplexFronts||value.operatorLoadedBothSides!==undefined)
+    ctx.addIssue({code:'custom',message:'Confirm the loading and duplex settings for the chosen scan profile.'});
+  if(paired&&(value.continuous||value.continueFrom))ctx.addIssue({code:'custom',message:'Paired profiles use one explicit duplex batch at a time.'});
+});
 const scannerExecutionSchema = z.object({
   version: z.literal(1), runId: z.string().uuid(), epoch: z.string().uuid(),
   executionId: z.string().uuid(),
@@ -63,8 +72,12 @@ export const scannerUploadProblemSchema = z.union([z.object({
 export const scannerTransferSchema = scannerExecutionSchema.extend({
   artifactId: z.string().uuid(), sequence: z.number().int().min(1).max(5000),
   timestamp: z.string().datetime({ offset: true }),
-  side: z.literal("UNKNOWN"), physicalBoundary: z.literal("UNKNOWN"),
-}).strict();
+  side: z.enum(["UNKNOWN","FRONT","BACK"]), physicalBoundary: z.enum(["UNKNOWN","SCANNER_SHEET"]),
+  sheet: pairedSheetSchema.optional(),
+}).strict().superRefine((value,ctx)=>{
+ if(value.physicalBoundary==='SCANNER_SHEET' ? !value.sheet||value.side==='UNKNOWN' : value.sheet!==undefined||value.side!=='UNKNOWN')
+  ctx.addIssue({code:'custom',message:'Scanner side and sheet identity must be reported together.'});
+});
 export const scannerRunOutcomeSchema = z.object({
   outcome: z.enum(["COMPLETED", "SOURCE_EXHAUSTED", "DRAINED_AFTER_UNSUPPORTED_STOP", "ERROR", "INTERRUPTED"]),
   imageCount: z.number().int().min(0).max(5000),
