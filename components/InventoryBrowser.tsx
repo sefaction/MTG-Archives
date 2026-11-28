@@ -3420,6 +3420,11 @@ export function InventoryBrowser({
           {table.getRowModel().rows.map((r) => {
             const row = r.original;
             const ownerStyles = ownerColorStyles(row.currentOwnerColor);
+            const finishBadge = printingHasMixedFinishes(row)
+              ? "Mixed finishes"
+              : row.foilStatus
+                ? row.foilStatus === "NONFOIL" ? null : row.foilStatus
+                : row.foil ? "FOIL" : null;
             return (
               <div key={row.id} className="relative">
                 {selectionAvailable ? (
@@ -3492,9 +3497,9 @@ export function InventoryBrowser({
                     <span className="absolute top-1 right-1 bg-black/80 text-white text-xs px-2 py-0.5 rounded">
                       {row.wishlist ? "Wanted " : "x"}{row.quantity}
                     </span>
-                    {!row.wishlist && (printingHasMixedFinishes(row) || row.foilStatus) ? (
-                      <span className="absolute top-1 left-7 bg-amber-400 text-black text-[10px] px-1 rounded">
-                        {printingHasMixedFinishes(row) ? "Mixed finishes" : row.foilStatus}
+                    {!row.wishlist && finishBadge ? (
+                      <span className="pointer-events-none absolute left-[8%] top-[18%] max-w-[84%] rounded-md border border-amber-100/80 bg-amber-300 px-2 py-1 text-xs font-bold leading-tight text-zinc-950 shadow-md ring-1 ring-black/50">
+                        {finishBadge}
                       </span>
                     ) : null}
                   </div>

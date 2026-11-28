@@ -1,4 +1,16 @@
-## Current - Paired token/art scans - November 27, 2026
+## Current - Approved paired scan and binder merges - November28,2026
+
+Brian explicitly authorized both PR1075 and1076: "go ahead and push both to main", after disclosure of pending physical duplex acceptance. PR1075 merged17ab618e, complete tree equal to software-qualified73bd15e6 with12passingchecks. Physical optical/duplex metadata/order/blank/interruption evidence remains pending in1056/307; no source opened or production action. Helper0.5/software source publication is separate from installed acceptance.
+
+PR1076 is integrating main17ab618e before its approved merge. Only checkpoint prefixes conflicted; both historical snapshots retained below. The binder application file remains byte-identical to qualified3ba9580a, while all other product inputs match merged1075. Original9CI/eight visual-size controls and prior12CI/four paired browser/SQL/native checks remain applicable within their source bindings. Required new-head CI is pending. No runtime mutation, repeated heavy local build or new fixture required for this document-only conflict. Prior13525/13535 reviews and rootWIP preserved; no active local qualifier. Next exact-headCI, approved1076merge, main image publication verification, issue/Foundry/root-checkpoint reconciliation. Production update remains separately authorized; normal future path down -> pull/update -> up.
+
+## History - Binder finish badge implementation snapshot - November27,2026
+
+Brian requested hiding Nonfoil in binder view and making special-finish badges larger over artwork, avoiding card text. Branch feature/binder-finish-badge from maina525eeb1 in .local-data/worktrees/binder-finish-badge-20261127. Shared InventoryBrowser binder hides ordinary NONFOIL, retains FOIL/ETCHED/mixed and legacy foil fallback, enlarges contrast/padding and positions the badge at18% image height/8% inset. No finish grouping/quantity/sort/selection authority or table changes. Existing Wishlist-specific finish presentation remains.
+
+Implementation/local review/one PR authorized, no merge or production authority. Meaningful visual/runtime checks and exact-head CI pending. No new issue required for this small human-requested change; duplicate search found no matching open badge request. Prior Token/Art draftPR1075 remains independently pending physical acceptance; its13525 review/data and root WIP protected. Planned own13535 review/new binder_finish_review DB on existing unchanged peer DB, resource admission still pending. Private .local-data/binder-finish-badge-20261127 will hold exact ownership/build/browser evidence. Next admit one bounded local build, inspect desktop/phone binder at different sizes and preserve card controls.
+
+## History - Paired scan implementation snapshot - November 27, 2026
 
 Brian authorized the complete workflow and chose automatic duplex in one pass. Draft [PR1075](https://github.com/sefaction/MTG-Archives/pull/1075), issue1056 claim7209922246; branch feature/paired-token-art-scans from maina525eeb1, source1055dbc9, isolated .local-data/worktrees/paired-token-art-20261126. Implementation/local review authorized; physical source operation, individual merge and production remain separate. Root WIP, peer reviews and production protected.
 
