@@ -80,7 +80,7 @@ export async function recordScannerPulse(db: PrismaClient, authorization: string
       // explicit diagnostic report replaces them; an empty report clears them.
       discoveryIssues: pulse.discoveryIssues } });
     return { version: 1, agentId: agent.id, nextPollMs: 5000, discoveryReporting: true, discoveryProgressReporting: true,
-      countedResolutionReporting: true, connectionAccount };
+      countedResolutionReporting: true, pairedScanReporting: true, connectionAccount };
   });
 }
 export async function listScannerAgents(db: PrismaClient, userId: string, now = new Date()) {

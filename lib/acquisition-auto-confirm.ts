@@ -41,7 +41,7 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
       AND j."candidateRevision" = c.revision AND c.review IS NULL AND NOT c.excluded AND NOT c.ignored
       AND COALESCE(j.input->'manualAnalysis'->'region','null'::jsonb)='null'::jsonb
       AND j.input->'referenceSource' IS NULL AND j.output->'referenceRefinement' IS NULL
-      AND r."providerId" = 'phone-photo-v1'
+      AND r."providerId" = 'phone-photo-v1' AND s."scanProfile" = 'STANDARD'
       AND s.phase NOT IN ('DRAFT', 'CANCELLED') AND s."cancelledAt" IS NULL AND s."trashedAt" IS NULL AND s."deletedAt" IS NULL
       AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
       AND s."reviewDefaults"->>'finish' IN ('NONFOIL', 'FOIL', 'ETCHED')
@@ -80,7 +80,7 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
         where: { id: job.run.sessionId },
         include: { ownerPlayer: true, createdByUser: true },
       });
-      if (!session) return 0;
+      if (!session || session.scanProfile !== "STANDARD") return 0;
       const candidate = await tx.acquisitionCandidate.findUnique({
         where: { id: job.candidateId },
         include: { receipt: true },

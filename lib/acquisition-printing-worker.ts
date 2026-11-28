@@ -98,7 +98,7 @@ export async function observeAcquisitionPrinting(
   if (sourceInput.photoId !== input.photoId || sourceInput.digest !== input.digest ||
       !sameAcquisitionManualAnalysis(sourceInput.manualAnalysis, input.manualAnalysis))
     throw new Error("Printing source photo changed");
-  const run = await db.acquisitionRun.findUniqueOrThrow({where: {id: job.runId}, select: {session: {select: {ownerPlayerId: true}}}});
+  const run = await db.acquisitionRun.findUniqueOrThrow({where: {id: job.runId}, select: {session: {select: {ownerPlayerId: true,scanProfile:true}}}});
   async function requireCurrentSource() {
     const latest = await db.acquisitionProcessingJob.findFirst({where: {
       stage: CATALOG_RECONCILIATION_STAGE, candidateId: job.candidateId,
@@ -176,7 +176,7 @@ export async function observeAcquisitionPrinting(
   signal.throwIfAborted();
   await requireCurrentSource();
   const proposals = applyAcquisitionPrintingEvidence(observed.proposals as TextProposals, native, byScryfall);
-  if (input.manualAnalysis?.region || input.referenceSource) {
+  if (run.session.scanProfile!=="STANDARD" || input.manualAnalysis?.region || input.referenceSource) {
     proposals.automaticAcceptance = false;
     if (proposals.status === "STRONG_MATCH") proposals.status = "REVIEW_REQUIRED";
   }

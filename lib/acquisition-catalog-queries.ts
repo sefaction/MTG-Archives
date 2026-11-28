@@ -22,6 +22,7 @@ export const catalogQuerySchema = z.discriminatedUnion("kind", [
       kind: z.literal("name"),
       name: z.string().trim().min(3).max(200),
       fuzzy: z.boolean().optional(),
+      scanProfile:z.enum(["TOKEN","ART"]).optional(),
     })
     .strict(),
   z.object({ kind: z.literal("id"), id: z.string().uuid() }).strict(),
@@ -36,6 +37,7 @@ export function catalogQueryKey(raw: CatalogQuery) {
           kind: query.kind,
           name: query.name.normalize("NFKC").toLowerCase(),
           fuzzy: Boolean(query.fuzzy),
+          ...(query.scanProfile?{scanProfile:query.scanProfile}:{}),
         }
       : query.kind === "printing"
         ? {

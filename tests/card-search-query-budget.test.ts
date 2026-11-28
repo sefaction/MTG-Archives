@@ -57,10 +57,10 @@ function fixture(count: number, options: { capacity?: number; failAt?: number } 
         return await fn({ card: {
           findUnique: async () => null,
           upsert: async ({ create }: { create: Card }) => {
-            started.push(create.scryfallId);
+            started.push(create.scryfallId!);
             if (started.length === options.failAt) throw sentinel;
-            completed.push(create.scryfallId);
-            return { ...create, id: create.scryfallId };
+            completed.push(create.scryfallId!);
+            return { ...create, id: create.scryfallId! };
           },
         }});
       } finally { active--; }

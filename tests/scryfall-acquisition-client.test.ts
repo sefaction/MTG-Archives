@@ -113,3 +113,35 @@ test("cancellation interrupts Retry-After backoff", async () => {
   assert.equal(calls, 1);
   assert.ok(Date.now() - started < 1000);
 });
+
+test("paired name lookups include extras and constrain catalog layout before choosing a printing", async () => {
+  setup();
+  let seen: URL | undefined;
+  global.fetch = (async (url: RequestInfo | URL) => {
+    seen = new URL(String(url));
+    return Response.json({ object: "list", data: [{ id: "paired-source" }] });
+  }) as typeof fetch;
+  const result = await getAcquisitionCardResult({
+    kind: "name",
+    name: 'Island " or set:bad',
+    scanProfile: "ART",
+  });
+  assert.equal(result.ok, true);
+  assert.equal(seen?.pathname, "/cards/search");
+  assert.equal(seen?.searchParams.get("include_extras"), "true");
+  assert.equal(
+    seen?.searchParams.get("q"),
+    `!${JSON.stringify('Island " or set:bad')} layout:art_series game:paper`,
+  );
+  await searchAcquisitionPrintingsPageResult(
+    "Goblin",
+    1,
+    "en",
+    undefined,
+    "TOKEN",
+  );
+  assert.match(
+    seen!.searchParams.get("q")!,
+    /layout:token or layout:double_faced_token/,
+  );
+});

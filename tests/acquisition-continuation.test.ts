@@ -1,3 +1,4 @@
+import {isPairedProfile} from "../lib/paired-scan-profile";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
@@ -31,10 +32,10 @@ const compiled = ts.transpileModule(finish.getText(source) + "\nexports.finish=f
   compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022},
 }).outputText;
 function fixture(target: number | null = null) {
-  const row: any = {id: "session", target, phase: "CAPTURING", ownerPlayerId: "owner", locationId: "box", section: "",
+  const row: any = {id: "session", target, phase: "CAPTURING", scanProfile:"STANDARD", ownerPlayerId: "owner", locationId: "box", section: "",
     run: {id: "acquisition"}, cancelledAt: null, trashedAt: null, deletedAt: null};
   const run: any = {id: randomUUID(), epoch: randomUUID(), executionId: randomUUID(), acquisitionRunId: "acquisition",
-    acquisitionRun: {sessionId: row.id}, physicalTarget: 3, sequenceOffset: 5000, segment: 10,
+    acquisitionRun: {sessionId: row.id,session:row}, physicalTarget: 3, sequenceOffset: 5000, segment: 10,
     counted: true, status: "STARTED", outcome: null, reconciliation: null, stopRequestedAt: null,
     agentId: "agent", deviceId: "device", device: {}, settings: countedScannerSettings};
   let session: any = {run: {runId: "source"}, candidates: [0,1,2].map(index => ({
@@ -58,7 +59,7 @@ function fixture(target: number | null = null) {
     scannerAgent: {findUniqueOrThrow: async () => agent},
   };
   const exports: any = {};
-  new Script(compiled).runInNewContext({exports, scannerRunFinishSchema, scannerCanonical, scannerFeedTarget, scannerContinuationRunId,
+  new Script(compiled).runInNewContext({exports, isPairedProfile, scannerRunFinishSchema, scannerCanonical, scannerFeedTarget, scannerContinuationRunId,
     scannerStartMarkerExists: async () => markers.started, scannerStartRetired: async () => markers.retired,
     readScannerStartMarker: async () => markers.started ? {epoch: run.epoch, executionId: markers.executionId} : null,
     scannerTransaction: async (_: unknown, work: any) => work(db),

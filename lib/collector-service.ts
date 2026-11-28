@@ -10,10 +10,19 @@ import {
 async function readCollectorInventory(db: Pick<Prisma.TransactionClient, "inventoryItem">,
   ownerId: string, set: string) {
   if (!ownerId || !/^[a-z0-9]{2,8}$/.test(set)) throw Error("An owner and valid set are required");
-  return db.inventoryItem.findMany({
-    where: {currentOwnerId: ownerId, quantity: {gt: 0}, card: {setCode: set}},
-    select: {currentOwnerId: true, quantity: true, language: true, foilStatus: true,
-      card: {select: {scryfallId: true}}},
+  const items=await db.inventoryItem.findMany({
+    where:{currentOwnerId:ownerId,quantity:{gt:0},OR:[{card:{setCode:set}},{card:{applicationFaces:{some:{sourceCard:{setCode:set}}}}}]},
+    select:{currentOwnerId:true,quantity:true,language:true,foilStatus:true,card:{select:{scryfallId:true,
+      applicationFaces:{select:{sourceFace:true,sourceCard:{select:{scryfallId:true,setCode:true}}}}}}},
+  });
+  return items.map(item=>{
+    const faces=item.card.applicationFaces;
+    const ids=[...new Set(faces.map(face=>face.sourceCard.scryfallId))];
+    // A real art/catalog-pair printing is counted once. Independent token faces
+    // are not invented as ownership of some other complete catalog pairing.
+    const catalogId=item.card.scryfallId ?? (ids.length===1 && ids[0] &&
+      new Set(faces.map(face=>face.sourceFace)).size===2 ? ids[0] : null);
+    return {...item,card:{scryfallId:catalogId}};
   });
 }
 

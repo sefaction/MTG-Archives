@@ -420,6 +420,7 @@ export function AcquisitionCapture({
     history.replaceState(null, "", `/imports/scan?batch=${state.id}`);
     try { clearScannerStart(sessionStorage, userId, intent.requestKey); } catch { /* Same intent can safely recover again. */ }
     pendingStart.current = null; setPendingScanner(null);
+    if(state.scanProfile === "TOKEN" || state.scanProfile === "ART") window.location.assign(`/imports/scan?batch=${state.id}`);
   }, [userId]);
   const recoverScanner = useCallback(async (intent: PendingScannerStart) => {
     const result = await request<{ found: boolean; progress: Progress | null }>(`/api/scanners/runs?request=${intent.requestKey}`);
@@ -592,7 +593,7 @@ export function AcquisitionCapture({
         locationId,
         section,
         quantity: customLimit ? quantity : null,
-        ...(countedScanner && !customLimit && !!section.trim() && (continuousSections || continuingSeries) ? {
+        ...(countedScanner && scannerChoice?.scanProfile !== "TOKEN" && scannerChoice?.scanProfile !== "ART" && !customLimit && !!section.trim() && (continuousSections || continuingSeries) ? {
           continuous: true as const, ...(initialSetup?.continueFrom ? { continueFrom: initialSetup.continueFrom } : {}),
         } : {}),
       };
@@ -857,7 +858,7 @@ export function AcquisitionCapture({
               createKey.current = "";
             }}
           />
-          {countedScanner && !customLimit && (!!section.trim() || continuingSeries) && <div className="my-3 space-y-2">
+          {countedScanner && scannerChoice?.scanProfile !== "TOKEN" && scannerChoice?.scanProfile !== "ART" && !customLimit && (!!section.trim() || continuingSeries) && <div className="my-3 space-y-2">
             <label className="flex gap-2 items-start"><input type="checkbox" checked={continuousSections || continuingSeries}
               disabled={continuingSeries || busy || checkingStart || !!pendingScanner || startStorageError}
               onChange={e=>{setContinuousSections(e.target.checked);createKey.current="";}} />

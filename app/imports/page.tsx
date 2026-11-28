@@ -2537,7 +2537,7 @@ export default async function ImportsPage({
                   value={activeReviewFilter}
                 />
                 <input type="hidden" name="returnQ" value={reviewSearch} />
-                <input type="hidden" name="scryfallId" value={card.id} />
+                <input type="hidden" name="scryfallId" value={card.id ?? ""} />
                 {cardImage({
                   imageUris:
                     card.image_uris ?? card.card_faces?.[0]?.image_uris ?? {},

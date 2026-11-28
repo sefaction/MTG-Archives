@@ -53,6 +53,7 @@ public static class ScannerNativeSelfTest
     public static async Task Run(string fixtureRoot)
     {
         await ScannerCountedSelfTest.Run(fixtureRoot);
+        await PairedScannerTransportSelfTest.Run(fixtureRoot);
         await ScannerPreflightSelfTest.Run(fixtureRoot);
         await ScannerAuthorizationSelfTest.Run(fixtureRoot);
         var root = Path.Combine(Path.GetFullPath(fixtureRoot),Guid.NewGuid().ToString());

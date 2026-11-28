@@ -41,12 +41,12 @@ async function main() {
     const before = await cardHuntSnapshot(db);
     await db.$transaction(async tx => {
       const f = await seedCardHuntFixture(tx, `collector-${randomUUID()}`);
-      const catalog: CollectorCard[] = f.cards.map(c => ({id: c.scryfallId, oracle_id: c.oracleId!, name: c.name,
+      const catalog: CollectorCard[] = f.cards.map(c => ({id: c.scryfallId!, oracle_id: c.oracleId!, name: c.name,
         set: "tst", lang: "en", digital: false, games: ["paper"], layout: "normal", type_line: "Artifact", oversized: false, finishes: ["foil", "nonfoil"]}));
       const deckOnly = await tx.card.create({data: {scryfallId: randomUUID(), oracleId: randomUUID(), name: "Deck only", setCode: "tst", collectorNumber: "5", typeLine: "Creature", rarity: "common"}});
       const token = await tx.card.create({data: {scryfallId: randomUUID(), name: "Token", setCode: "tst", collectorNumber: "6", typeLine: "Token Creature", rarity: "common"}});
-      catalog.push({...catalog[0], id: deckOnly.scryfallId, oracle_id: deckOnly.oracleId!, name: "Deck only"},
-        {...catalog[0], id: token.scryfallId, name: "Token", layout: "token"});
+      catalog.push({...catalog[0], id: deckOnly.scryfallId!, oracle_id: deckOnly.oracleId!, name: "Deck only"},
+        {...catalog[0], id: token.scryfallId!, name: "Token", layout: "token"});
       await tx.inventoryItem.createMany({data: [
         {currentOwnerId: f.user.playerId!, cardId: deckOnly.id, quantity: 1, condition: "NM", language: "EN", foilStatus: "NONFOIL", locationId: f.locations[4].id},
         {currentOwnerId: f.user.playerId!, cardId: token.id, quantity: 150000, condition: "NM", language: "EN", foilStatus: "NONFOIL"},
@@ -75,7 +75,7 @@ async function main() {
       console.log(JSON.stringify({case: "collector-postgres", tables: Object.keys(baseline).length, progress, peer, deckOwnership: "pass", tokenConservation: "pass", privacy: "pass"}));
       const owner = {userId: f.user.id, playerId: f.user.playerId!};
       const peerOwner = {userId: f.peerUser.id, playerId: f.peerUser.playerId!};
-      const single = {scope: "one", targetId: `${deckOnly.scryfallId}:foil`} as const;
+      const single = {scope: "one", targetId: `${deckOnly.scryfallId!}:foil`} as const;
       await tx.wishlistItem.create({data: {ownerUserId: owner.userId, cardId: deckOnly.id, quantity: 7}});
       const wishesBaseline = await cardHuntSnapshot(tx);
       assert.deepEqual(await saveCollectorWishes(tx, owner, "tst", catalog, "variants", single),
@@ -94,7 +94,7 @@ async function main() {
       assert.deepEqual(await saveCollectorWishes(tx, peerOwner, "tst", catalog, "variants", single),
         {valid: true, added: 0, alreadySaved: 0}, "A now-owned target is skipped for the signed-in owner");
       assert.deepEqual(await saveCollectorWishes(tx, owner, "tst", catalog, "variants",
-        {scope: "one", targetId: `${token.scryfallId}:foil`}), {valid: false});
+        {scope: "one", targetId: `${token.scryfallId!}:foil`}), {valid: false});
 
       const extra = Array.from({length: 55}, (_, index) => ({
         ...catalog[0], id: `external-${index}`, oracle_id: `external-${index}`, name: `External ${index}`,

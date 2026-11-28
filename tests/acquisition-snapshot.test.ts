@@ -23,7 +23,7 @@ function fixture(): StoredCapture {
   session = transitionCapture(session, "COMPLETE");
   // Two observations exercise nested unordered relations too.
   session.candidates[0].observations.push({ id: "o-extra", artifactId: "a2", side: "BACK" });
-  return { session, defaults: { condition: "NM", finish: "NONFOIL" }, defaultsRevision: 1,
+  return { scanProfile:"STANDARD", session, defaults: { condition: "NM", finish: "NONFOIL" }, defaultsRevision: 1,
     revision: 4, batchNumber: 13, destinationCurrent: true };
 }
 

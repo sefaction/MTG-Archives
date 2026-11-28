@@ -16,7 +16,8 @@ public static class ScannerConnection
 {
     public const string Version = "0.3.0-native";
     internal const string CountedResolutionVersion = "0.4.0-native";
-    public const string HelperVersion = "0.4.6";
+    internal const string PairedVersion = "0.5.0-native";
+    public const string HelperVersion = "0.5.0";
     private static string Root => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MTGArchives", "ScannerAgent");
     public static Uri Site(string value, bool allowLocal)
     {
@@ -487,7 +488,7 @@ public static class ScannerConnection
                         }
                         discoveryReporting = acknowledgement.TryGetProperty("discoveryReporting", out var reporting) && reporting.ValueKind == JsonValueKind.True;
                         discoveryProgressReporting = acknowledgement.TryGetProperty("discoveryProgressReporting", out var progressReporting) && progressReporting.ValueKind == JsonValueKind.True;
-                        var negotiatedVersion = acknowledgement.TryGetProperty("countedResolutionReporting", out var resolutionReporting) &&
+                        var negotiatedVersion = acknowledgement.TryGetProperty("pairedScanReporting", out var pairedReporting) && pairedReporting.ValueKind == JsonValueKind.True ? PairedVersion : acknowledgement.TryGetProperty("countedResolutionReporting", out var resolutionReporting) &&
                             resolutionReporting.ValueKind == JsonValueKind.True ? CountedResolutionVersion : Version;
                         if (negotiatedVersion != advertisedVersion || args[0] == "report" && discoveryReporting && !pulse.ContainsKey("discoveryIssues")) {
                             // Publish the negotiated version before polling a queued Start. A fresh connection can have a 300 DPI run waiting.

@@ -36,7 +36,7 @@ export type DeckImportStatus =
 
 export type DeckImportCardSummary = {
   cardId: string;
-  scryfallId: string;
+  scryfallId: string | null;
   name: string;
   setCode: string;
   setName: string | null;

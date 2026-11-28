@@ -7,8 +7,8 @@ import { createScannerBatch, getScannerBatch, findScannerBatchCreation, retireSc
 import { scannerBatchSchema, scannerReconcileSchema, scannerRefillSchema } from "@/lib/scanner-run-protocol";
 import { z } from "zod";
 const schema = z.discriminatedUnion("action", [
-  scannerBatchSchema.extend({ action: z.literal("create") }).strict(),
-  scannerBatchSchema.extend({ action: z.literal("retire") }).strict(),
+  scannerBatchSchema.innerType().extend({ action: z.literal("create") }).strict(),
+  scannerBatchSchema.innerType().extend({ action: z.literal("retire") }).strict(),
   z.object({ action: z.literal("stop"), runId: z.string().uuid() }).strict(),
   scannerReconcileSchema.extend({ action: z.literal("reconcile") }).strict(),
   scannerRefillSchema.extend({ action: z.literal("refill") }).strict(),

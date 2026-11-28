@@ -1,3 +1,4 @@
+import {recognitionSnapshotForProfile} from "./acquisition-recognition-snapshot";
 import {combineScannerLayoutReadings} from "./acquisition-scanner-layout-reading";
 import { REFERENCE_REFINEMENT_STAGE } from "./acquisition-reference-lineage";
 import { acquisitionReferenceSourceSchema, readAcquisitionReferenceSource } from "./acquisition-reference-source";
@@ -225,7 +226,7 @@ export function createCatalogReconciliationHandler(
       : null;
     const photo = await db.acquisitionPhoto.findUniqueOrThrow({
       where: { id: input.photoId },
-      include: { slot: true },
+      include: { slot: true, run:{select:{session:{select:{scanProfile:true}}}} },
     });
     if (
       !photo.ready ||
@@ -262,6 +263,7 @@ export function createCatalogReconciliationHandler(
     const completed: Exclude<CachedCatalogResult, { status: "PENDING" }>[] = [];
     const attempted = new Set<string>();
     async function run(query: CatalogQuery) {
+      if(query.kind==="name"&&(photo.run.session.scanProfile==="ART"||photo.run.session.scanProfile==="TOKEN"))query={...query,scanProfile:photo.run.session.scanProfile};
       const key = catalogQueryKey(query);
       if (attempted.has(key)) return;
       attempted.add(key);
@@ -336,13 +338,14 @@ export function createCatalogReconciliationHandler(
       snapshot = await loadAcquisitionRecognitionSnapshot(db,snapshot);
       snapshotAt = Date.now();
     }
+    const scopedSnapshot=recognitionSnapshotForProfile(snapshot!,photo.run.session.scanProfile);
     // Coverage belongs to enumerated printing identities. An English snapshot
     // cannot authorize a foreign projection or a newer locally cached printing
     // that was never a member of a checked lookup result.
     const checkedLocalPrintings = new Set(completed.flatMap(result =>
       result.status === "FOUND" && result.printingCoverage === "CHECKED"
         ? result.cards.flatMap(card => {
-          const local = snapshot!.byScryfallId.get(card.id);
+          const local = scopedSnapshot.byScryfallId.get(card.id);
           if (!local || (result.sourceCoverage &&
               (card.lang !== result.sourceCoverage.language || local.lang !== result.sourceCoverage.language))) return [];
           return [local.id];
@@ -355,23 +358,23 @@ export function createCatalogReconciliationHandler(
       : found ? "RESOLVED" : attempted.size ? "NOT_FOUND" : "UNREADABLE";
     const resolve = (confirmedBatchLanguage?:string) => {
     let proposals = proposeOrientedAcquisitionPrintings(
-      snapshot!.index,
+      scopedSnapshot.index,
       observed.native.orientations,
       12,
       confirmedBatchLanguage,
     );
-    proposals = combineAcquisitionPhotoText(snapshot!.index, proposals, observed.native.photoText,
-      visual ? acquisitionVisualCandidates(visual.visual).map(c => snapshot!.byScryfallId.get(c.scryfallId)?.id)
+    proposals = combineAcquisitionPhotoText(scopedSnapshot.index, proposals, observed.native.photoText,
+      visual ? acquisitionVisualCandidates(visual.visual).map(c => scopedSnapshot.byScryfallId.get(c.scryfallId)?.id)
         .filter((id): id is string => Boolean(id)) : []);
-    if(observed.native.scannerLayout?.readingStatus==="COMPLETE")proposals=combineScannerLayoutReadings(snapshot!.index,observed.native);
-    if(reference)proposals=combineAcquisitionReferenceReadings(snapshot!.index,reference.native,observed.native);
+    if(observed.native.scannerLayout?.readingStatus==="COMPLETE")proposals=combineScannerLayoutReadings(scopedSnapshot.index,observed.native);
+    if(reference)proposals=combineAcquisitionReferenceReadings(scopedSnapshot.index,reference.native,observed.native);
     proposals = applyEarlySetSymbol(proposals, observed.native.scannerLayout?.readingStatus==='COMPLETE'
       ? observed.native.scannerLayout.orientations : observed.native.orientations);
     if (visual)
       proposals = combineAcquisitionCandidates(
         proposals,
         visual.visual,
-        snapshot!.byScryfallId,
+        scopedSnapshot.byScryfallId,
       );
     // A generic image/name match is not proof that the lower-left stamp is
     // absent. An unresolved same-name stamped family requires review.
@@ -389,7 +392,7 @@ export function createCatalogReconciliationHandler(
     );
     const printingUnverified = proposals.proposals.some(proposal =>
       proposal.reasons.includes("STRONG_EXACT_PRINTING") && !checkedLocalPrintings.has(proposal.card.id));
-    if (status !== "RESOLVED" || printingUnverified || stampUnverified || input.manualAnalysis?.region || reference) {
+    if (photo.run.session.scanProfile!=="STANDARD" || status !== "RESOLVED" || printingUnverified || stampUnverified || input.manualAnalysis?.region || reference) {
       if (proposals.status === "STRONG_MATCH")
         proposals.status = "REVIEW_REQUIRED";
       proposals.automaticAcceptance = false;
@@ -415,7 +418,7 @@ export function createCatalogReconciliationHandler(
       ? preparedSource : undefined;
     // Separate conditional interpretations never replace saved machine text or
     // its proposals. Only a later, locked explicit default can authorize one.
-    const languageOptions=acquisitionBatchLanguageCandidates(snapshot!.index,observed.native.orientations)
+    const languageOptions=acquisitionBatchLanguageCandidates(scopedSnapshot.index,observed.native.orientations)
       .flatMap(language=>{
         const projected=resolve(language);
         return projected.automaticAcceptance ? [{language,proposals:projected}] : [];
@@ -436,7 +439,7 @@ export function createCatalogReconciliationHandler(
       ...(preparation ? {preparation} : {}),
       versions: {
         ...observed.versions,
-        catalog: snapshot!.digest,
+        catalog: scopedSnapshot.digest,
         resolver: CATALOG_RESOLVER_VERSION,
         footerParser: ACQUISITION_FOOTER_PARSER_VERSION,
         textResolver: ACQUISITION_TEXT_RESOLVER_VERSION,

@@ -27,7 +27,7 @@ export type DeckSnapshotFace = {
 
 export type DeckSnapshotCardPrinting = {
   id: string;
-  scryfallId: string;
+  scryfallId: string | null;
   name: string;
   manaCost: string | null;
   manaValue: number | null;
